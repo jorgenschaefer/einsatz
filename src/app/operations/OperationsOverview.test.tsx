@@ -27,6 +27,20 @@ describe("OperationsOverview", () => {
     );
   });
 
+  it("links admins to the Nutzerverwaltung", () => {
+    render(<OperationsOverview operations={[]} createAction={noop} isAdmin />);
+    expect(
+      screen.getByRole("link", { name: /Nutzerverwaltung/ }),
+    ).toHaveAttribute("href", "/admin/users");
+  });
+
+  it("hides the Nutzerverwaltung link from non-admins", () => {
+    render(<OperationsOverview operations={[]} createAction={noop} />);
+    expect(
+      screen.queryByRole("link", { name: /Nutzerverwaltung/ }),
+    ).not.toBeInTheDocument();
+  });
+
   it("logs out from the header", async () => {
     const onLogout = vi.fn(async () => {});
     render(

@@ -32,6 +32,7 @@ export function OperationsOverview({
   onReopenOperation = noop,
   onDeleteOperation = noop,
   onLogout = noop,
+  isAdmin = false,
 }: {
   operations: OperationSummary[];
   createAction: OperationFormAction;
@@ -39,6 +40,7 @@ export function OperationsOverview({
   onReopenOperation?: (operationId: string) => void | Promise<void>;
   onDeleteOperation?: (operationId: string) => void | Promise<void>;
   onLogout?: () => void | Promise<void>;
+  isAdmin?: boolean;
 }) {
   const [opened, { open, close }] = useDisclosure(false);
 
@@ -47,6 +49,11 @@ export function OperationsOverview({
       <Group justify="space-between">
         <Title order={1}>Einsätze</Title>
         <Group gap="sm">
+          {isAdmin && (
+            <Anchor component={Link} href="/admin/users" size="sm">
+              Nutzerverwaltung
+            </Anchor>
+          )}
           <Anchor component={Link} href="/account" size="sm">
             Konto
           </Anchor>

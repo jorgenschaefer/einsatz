@@ -15,7 +15,7 @@ import {
 } from "./OperationsOverview";
 
 export default async function OperationsPage() {
-  await requireUser();
+  const user = await requireUser();
   const operations = await listOperations(getDb());
   const summaries: OperationSummary[] = operations.map((operation) => ({
     id: operation.id,
@@ -33,6 +33,7 @@ export default async function OperationsPage() {
         onReopenOperation={reopenOperationAction}
         onDeleteOperation={deleteOperationAction}
         onLogout={logoutAction}
+        isAdmin={user.role === "admin"}
       />
     </Container>
   );
