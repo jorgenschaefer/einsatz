@@ -1,7 +1,11 @@
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { act, render, routerRefresh, screen, waitFor } from "@/test/render";
-import type { CreateMapOptions, MapAdapterFactory } from "./adapter";
+import type {
+  CreateMapOptions,
+  MapAdapterFactory,
+  MarkerSpec,
+} from "./adapter";
 import { ViewLinkView, type ViewLinkViewProps } from "./ViewLinkView";
 
 function fakeFactory() {
@@ -116,6 +120,40 @@ describe("ViewLinkView", () => {
       lng: 9.9,
       zoom: 16,
     });
+  });
+
+  it("grays a device symbol that goes stale while the view stays open", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const justNow = new Date(Date.now() - 10 * 1000); // frisch gemeldet
+      const { adapter } = renderView({
+        eventsHook: () => ({ connected: true }),
+        symbols: [
+          {
+            ...aSymbol,
+            positionSource: "device",
+            reportedAt: justNow,
+          },
+        ],
+      });
+      await vi.waitFor(() =>
+        expect(adapter.setMarker).toHaveBeenCalledWith("s1", expect.anything()),
+      );
+      const fresh = adapter.setMarker.mock.calls
+        .filter((c) => c[0] === "s1")
+        .at(-1)![1] as MarkerSpec;
+      expect(fresh.opacity ?? 1).toBe(1);
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(4 * 60 * 1000); // > 3 min ohne Meldung
+      });
+      const stale = adapter.setMarker.mock.calls
+        .filter((c) => c[0] === "s1")
+        .at(-1)![1] as MarkerSpec;
+      expect(stale.opacity).toBeLessThan(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("shows a connection-lost hint when the live stream is disconnected", () => {
