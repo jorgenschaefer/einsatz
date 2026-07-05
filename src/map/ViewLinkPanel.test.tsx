@@ -30,6 +30,19 @@ describe("ViewLinkPanel", () => {
     expect(screen.getByLabelText(/Bezeichnung/i)).toHaveValue("");
   });
 
+  it("disables the create button while a creation is in flight", async () => {
+    let resolve: () => void = () => {};
+    const onCreate = vi.fn(() => new Promise<void>((r) => (resolve = r)));
+    setup({ onCreate });
+    await userEvent.type(screen.getByLabelText(/Bezeichnung/i), "Leitstelle");
+    const button = screen.getByRole("button", {
+      name: /Ansichtslink erzeugen/i,
+    });
+    await userEvent.click(button);
+    expect(button).toBeDisabled();
+    resolve();
+  });
+
   it("lists links with their label and shows a fallback for a blank one", () => {
     setup({
       links: [

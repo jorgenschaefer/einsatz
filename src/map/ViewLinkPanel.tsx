@@ -27,10 +27,16 @@ export function ViewLinkPanel({
   onDelete,
 }: ViewLinkPanelProps) {
   const [label, setLabel] = useState("");
+  const [creating, setCreating] = useState(false);
 
   const create = async () => {
-    await onCreate(label.trim());
-    setLabel("");
+    setCreating(true);
+    try {
+      await onCreate(label.trim());
+      setLabel("");
+    } finally {
+      setCreating(false);
+    }
   };
 
   return (
@@ -43,7 +49,9 @@ export function ViewLinkPanel({
           onChange={(e) => setLabel(e.currentTarget.value)}
           style={{ flex: 1 }}
         />
-        <Button onClick={create}>Ansichtslink erzeugen</Button>
+        <Button onClick={create} loading={creating}>
+          Ansichtslink erzeugen
+        </Button>
       </Group>
 
       {links.length === 0 ? (
