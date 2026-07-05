@@ -2,16 +2,26 @@
 
 import { Anchor, AppShell, Badge, Box, Group, Title } from "@mantine/core";
 import type { ReactNode } from "react";
+import type { ViewLinkItem } from "@/map/ViewLinkPanel";
+import { ViewLinkShareButton } from "./ViewLinkShareButton";
 
 const HEADER_HEIGHT = 56;
+
+const noop = async () => {};
 
 export function LageansichtShell({
   operationName,
   status,
+  viewLinks = [],
+  onCreateViewLink = noop,
+  onDeleteViewLink = noop,
   children,
 }: {
   operationName: string;
   status: "active" | "closed";
+  viewLinks?: ViewLinkItem[];
+  onCreateViewLink?: (label: string) => void | Promise<void>;
+  onDeleteViewLink?: (id: string) => void | Promise<void>;
   children: ReactNode;
 }) {
   return (
@@ -24,9 +34,16 @@ export function LageansichtShell({
             </Anchor>
             <Title order={4}>{operationName}</Title>
           </Group>
-          <Badge color={status === "active" ? "green" : "gray"}>
-            {status === "active" ? "aktiv" : "abgeschlossen"}
-          </Badge>
+          <Group gap="sm" wrap="nowrap">
+            <ViewLinkShareButton
+              links={viewLinks}
+              onCreate={onCreateViewLink}
+              onDelete={onDeleteViewLink}
+            />
+            <Badge color={status === "active" ? "green" : "gray"}>
+              {status === "active" ? "aktiv" : "abgeschlossen"}
+            </Badge>
+          </Group>
         </Group>
       </AppShell.Header>
       <AppShell.Main>

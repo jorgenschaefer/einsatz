@@ -1,3 +1,4 @@
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { render, screen } from "@/test/render";
 import { LageansichtShell } from "./LageansichtShell";
@@ -31,5 +32,19 @@ describe("LageansichtShell", () => {
     expect(
       screen.queryByRole("button", { name: /Einsatz löschen/ }),
     ).toBeNull();
+  });
+
+  it("offers a Teilen control that opens the given view links", async () => {
+    render(
+      <LageansichtShell
+        operationName="Hochwasser"
+        status="active"
+        viewLinks={[{ id: "1", label: "Leitstelle", token: "tok-a" }]}
+      >
+        <div>Karte</div>
+      </LageansichtShell>,
+    );
+    await userEvent.click(screen.getByRole("button", { name: /Teilen/i }));
+    expect(await screen.findByText("Leitstelle")).toBeInTheDocument();
   });
 });

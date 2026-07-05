@@ -17,6 +17,7 @@ import { type JournalEntry, listEntries } from "@/server/journal/journal";
 import { listKmlOverlays } from "@/server/kml/kml-overlays";
 import { listMapSymbols } from "@/server/mapsymbols/map-symbols";
 import { getOperation } from "@/server/operations/operations";
+import { listViewLinks } from "@/server/viewlinks/view-links";
 import { setDefaultViewAction } from "./actions";
 import {
   createAreaAction,
@@ -53,6 +54,10 @@ import {
   placeMapSymbolAction,
   updateMapSymbolCompositionAction,
 } from "./map-symbol-actions";
+import {
+  createViewLinkAction,
+  deleteViewLinkAction,
+} from "./view-link-actions";
 
 const toView = (entry: JournalEntry): JournalEntryView => ({
   id: entry.id,
@@ -121,10 +126,21 @@ export default async function LageansichtPage({
     aspect: o.widthPx / o.heightPx,
     visible: o.visible,
   }));
+  const viewLinks = (await listViewLinks(db, operation.id)).map((l) => ({
+    id: l.id,
+    label: l.label,
+    token: l.token,
+  }));
   const { tileUrl, attribution } = mapTileConfig();
 
   return (
-    <LageansichtShell operationName={operation.name} status={operation.status}>
+    <LageansichtShell
+      operationName={operation.name}
+      status={operation.status}
+      viewLinks={viewLinks}
+      onCreateViewLink={createViewLinkAction.bind(null, operation.id)}
+      onDeleteViewLink={deleteViewLinkAction.bind(null, operation.id)}
+    >
       <SituationWorkspace
         operationId={operation.id}
         operationDefaultView={operation.defaultView}
