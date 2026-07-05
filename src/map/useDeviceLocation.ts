@@ -1,0 +1,93 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { type LastReport, shouldSendPosition } from "./device-location";
+
+export type LocationStatus = "active" | "paused";
+
+export interface DeviceLocation {
+  status: LocationStatus;
+  /** Zuletzt gemessene eigene Position; null, solange kein Fix vorliegt. */
+  position: { lat: number; lng: number } | null;
+}
+
+/**
+ * Sendet – solange die Seite offen ist – periodisch den Standort an die
+ * token-gebundene Route (Drosselung über {@link shouldSendPosition}), fragt die
+ * Berechtigung an und hält per Wake Lock den Bildschirm aktiv. Bei „kein Zugang"
+ * (403) stoppt es die Ortung und ruft `onAccessLost`. Liefert Status und letzte
+ * Position (für „auf meinen Standort"). Dünne Grenze zu
+ * Geolocation/Wake-Lock/Fetch.
+ */
+export function useDeviceLocation(
+  token: string,
+  onAccessLost: () => void,
+): DeviceLocation {
+  const [status, setStatus] = useState<LocationStatus>("paused");
+  const [position, setPosition] = useState<DeviceLocation["position"]>(null);
+  const onAccessLostRef = useRef(onAccessLost);
+  onAccessLostRef.current = onAccessLost;
+
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) return;
+    let last: LastReport | null = null;
+    let stopped = false;
+    let wakeLock: { release: () => Promise<void> } | null = null;
+
+    const wakeLockApi = (
+      navigator as {
+        wakeLock?: {
+          request: (t: string) => Promise<{ release: () => Promise<void> }>;
+        };
+      }
+    ).wakeLock;
+    void wakeLockApi
+      ?.request("screen")
+      .then((wl) => {
+        if (stopped) void wl.release().catch(() => {});
+        else wakeLock = wl;
+      })
+      .catch(() => {});
+
+    const stop = () => {
+      if (stopped) return;
+      stopped = true;
+      navigator.geolocation.clearWatch(watchId);
+      void wakeLock?.release().catch(() => {});
+    };
+
+    const send = async (lat: number, lng: number): Promise<boolean> => {
+      const res = await fetch(`/device/${token}/position`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lat, lng }),
+      });
+      if (res.status === 403) {
+        stop();
+        onAccessLostRef.current();
+        return false;
+      }
+      return res.ok;
+    };
+
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        if (stopped) return;
+        setStatus("active");
+        const { latitude: lat, longitude: lng } = pos.coords;
+        setPosition({ lat, lng });
+        const now = Date.now();
+        if (!shouldSendPosition(last, { lat, lng }, now)) return;
+        void send(lat, lng).then((ok) => {
+          if (ok && !stopped) last = { lat, lng, at: now };
+        });
+      },
+      () => setStatus("paused"),
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 30_000 },
+    );
+
+    return stop;
+  }, [token]);
+
+  return { status, position };
+}

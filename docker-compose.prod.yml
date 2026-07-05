@@ -1,0 +1,25 @@
+services:
+  app:
+    image: registry.drk-barmbek.de/einsatz/app:latest
+    restart: always
+    build: .
+    environment:
+      - DATABASE_URL=$DATABASE_URL
+      - ADMIN_USERNAME=$ADMIN_USERNAME
+      - ADMIN_PASSWORD=$ADMIN_PASSWORD
+      - MAPTILER_API_KEY=$MAPTILER_API_KEY
+      # Pflicht: sonst schreibt uploadsDir() nach /app/data/uploads am Volume vorbei.
+      - UPLOADS_DIR=/data/uploads
+    ports:
+      - "127.0.0.1:3008:3000"
+    networks:
+      - database_network
+    volumes:
+      - uploads:/data/uploads
+
+networks:
+  database_network:
+    external: true
+
+volumes:
+  uploads:

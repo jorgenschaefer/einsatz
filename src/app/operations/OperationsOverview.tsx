@@ -1,0 +1,105 @@
+"use client";
+
+import {
+  Anchor,
+  Badge,
+  Button,
+  Card,
+  Group,
+  Modal,
+  Stack,
+  Text,
+  Title,
+} from "@mantine/core";
+import { useDisclosure } from "@mantine/hooks";
+import Link from "next/link";
+import { OperationLifecycleActions } from "./[id]/OperationLifecycleActions";
+import { NewOperationForm, type OperationFormAction } from "./NewOperationForm";
+
+export interface OperationSummary {
+  id: string;
+  name: string;
+  description: string | null;
+  status: "active" | "closed";
+}
+
+const noop = async () => {};
+
+export function OperationsOverview({
+  operations,
+  createAction,
+  onCloseOperation = noop,
+  onReopenOperation = noop,
+  onDeleteOperation = noop,
+  onLogout = noop,
+}: {
+  operations: OperationSummary[];
+  createAction: OperationFormAction;
+  onCloseOperation?: (operationId: string) => void | Promise<void>;
+  onReopenOperation?: (operationId: string) => void | Promise<void>;
+  onDeleteOperation?: (operationId: string) => void | Promise<void>;
+  onLogout?: () => void | Promise<void>;
+}) {
+  const [opened, { open, close }] = useDisclosure(false);
+
+  return (
+    <Stack>
+      <Group justify="space-between">
+        <Title order={1}>Einsätze</Title>
+        <Group gap="sm">
+          <Anchor component={Link} href="/account" size="sm">
+            Konto
+          </Anchor>
+          <Button variant="subtle" size="sm" onClick={() => onLogout()}>
+            Abmelden
+          </Button>
+          <Button onClick={open}>Neuer Einsatz</Button>
+        </Group>
+      </Group>
+
+      {operations.length === 0 ? (
+        <Text c="dimmed">Noch kein Einsatz. Eröffne den ersten.</Text>
+      ) : (
+        <Stack>
+          {operations.map((operation) => (
+            <Card key={operation.id} withBorder padding="md">
+              <Group justify="space-between" wrap="nowrap" align="flex-start">
+                <Anchor
+                  component={Link}
+                  href={`/operations/${operation.id}`}
+                  underline="never"
+                  c="inherit"
+                  style={{ flex: 1, minWidth: 0 }}
+                >
+                  <Text fw={600}>{operation.name}</Text>
+                  {operation.description && (
+                    <Text c="dimmed" size="sm" mt={2}>
+                      {operation.description}
+                    </Text>
+                  )}
+                </Anchor>
+                <Group gap="xs" wrap="nowrap">
+                  <Badge
+                    color={operation.status === "active" ? "green" : "gray"}
+                  >
+                    {operation.status === "active" ? "aktiv" : "abgeschlossen"}
+                  </Badge>
+                  <OperationLifecycleActions
+                    status={operation.status}
+                    onClose={() => onCloseOperation(operation.id)}
+                    onReopen={() => onReopenOperation(operation.id)}
+                    onDelete={() => onDeleteOperation(operation.id)}
+                  />
+                </Group>
+              </Group>
+            </Card>
+          ))}
+        </Stack>
+      )}
+
+      <Modal opened={opened} onClose={close} title="Neuen Einsatz eröffnen">
+        <NewOperationForm action={createAction} />
+      </Modal>
+    </Stack>
+  );
+}

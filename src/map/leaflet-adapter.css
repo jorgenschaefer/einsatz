@@ -1,0 +1,56 @@
+/*
+ * Beschriftung eines Kartenzeichens: kein weißer Kasten, sondern reiner Text mit
+ * weißem Halo, damit er über der Karte gut lesbar bleibt, ohne viel Fläche zu
+ * verdecken. Etwas größere, fette Schrift. Gilt nur für Marker-Labels
+ * (className "kartenzeichen-label"), nicht für Bereichs-Tooltips.
+ */
+.leaflet-tooltip.kartenzeichen-label {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  color: #1a1a1a;
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  /* Weißer Rand um die Schrift (Halo) für Kontrast auf beliebigem Kartengrund. */
+  text-shadow:
+    -1px -1px 0 #fff,
+    1px -1px 0 #fff,
+    -1px 1px 0 #fff,
+    1px 1px 0 #fff,
+    0 0 3px #fff;
+}
+
+/* Das Tooltip-Pfeilchen entfällt ohne Kasten. */
+.leaflet-tooltip-right.kartenzeichen-label::before,
+.leaflet-tooltip-left.kartenzeichen-label::before {
+  display: none;
+}
+
+/*
+ * Griffe zum Bearbeiten eines Bild-Overlays: weiße, umrandete Punkte, gut
+ * sichtbar über dem Bild. Eckgriffe skalieren, der Dreh-Griff dreht.
+ */
+.overlay-handle {
+  background: #fff;
+  border: 2px solid #1a73e8;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  box-sizing: border-box;
+}
+
+.overlay-handle--corner {
+  border-radius: 2px;
+  cursor: nwse-resize;
+}
+
+.overlay-handle--rotate {
+  border-radius: 50%;
+  border-color: #e2001a;
+  cursor: grab;
+}
+
+.overlay-handle--move {
+  border-radius: 50%;
+  cursor: move;
+}

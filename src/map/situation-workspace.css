@@ -1,0 +1,7 @@
+/* Listenzeile in der Seitenleiste (Kartenzeichen, Bereich): dezentes Highlight beim Überfahren. */
+.sidebar-row {
+  border-radius: var(--mantine-radius-sm);
+}
+.sidebar-row:hover {
+  background-color: var(--mantine-color-default-hover);
+}
