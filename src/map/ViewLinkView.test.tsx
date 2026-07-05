@@ -1,0 +1,138 @@
+import userEvent from "@testing-library/user-event";
+import { describe, expect, it, vi } from "vitest";
+import { act, render, routerRefresh, screen, waitFor } from "@/test/render";
+import type { CreateMapOptions, MapAdapterFactory } from "./adapter";
+import { ViewLinkView, type ViewLinkViewProps } from "./ViewLinkView";
+
+function fakeFactory() {
+  const captured: { options?: CreateMapOptions } = {};
+  const adapter = {
+    getView: () => ({ lat: 0, lng: 0, zoom: 1 }),
+    setView: vi.fn(),
+    setMarker: vi.fn(),
+    removeMarker: vi.fn(),
+    setArea: vi.fn(),
+    removeArea: vi.fn(),
+    setKmlOverlay: vi.fn(),
+    removeKmlOverlay: vi.fn(),
+    setImageOverlay: vi.fn(),
+    removeImageOverlay: vi.fn(),
+    startImageOverlayEdit: vi.fn(),
+    stopImageOverlayEdit: vi.fn(),
+    startDrawing: vi.fn(),
+    cancelDrawing: vi.fn(),
+    destroy: vi.fn(),
+  };
+  const factory: MapAdapterFactory = {
+    create(_c, options) {
+      captured.options = options;
+      return adapter;
+    },
+  };
+  return { factory, captured, adapter };
+}
+
+function renderView(over: Partial<ViewLinkViewProps> = {}) {
+  const fake = fakeFactory();
+  const props: ViewLinkViewProps = {
+    token: "tok",
+    operationId: "op-x",
+    operationDefaultView: { lat: 5, lng: 6, zoom: 12 },
+    tileUrl: "t",
+    attribution: "© OpenStreetMap",
+    symbols: [],
+    areas: [],
+    kmlOverlays: [],
+    imageOverlays: [],
+    geocoderAttribution: "Adresssuche © OpenStreetMap",
+    onGeocode: vi.fn(async () => []),
+    factory: fake.factory,
+    ...over,
+  };
+  render(<ViewLinkView {...props} />);
+  return fake;
+}
+
+const aSymbol = {
+  id: "s1",
+  lat: 53.5,
+  lng: 9.9,
+  composition: {
+    grundzeichen: "ortsfeste-stelle" as const,
+    organisation: "hilfsorganisation" as const,
+    text: "Rotkreuz 83/1",
+  },
+};
+
+describe("ViewLinkView", () => {
+  it("renders the operation symbols read-only", async () => {
+    const { adapter } = renderView({ symbols: [aSymbol] });
+    await waitFor(() =>
+      expect(adapter.setMarker).toHaveBeenCalledWith(
+        "s1",
+        expect.objectContaining({ lat: 53.5, lng: 9.9 }),
+      ),
+    );
+  });
+
+  it("omits location, wipe-lock and locate controls (no device)", () => {
+    renderView();
+    expect(screen.queryByText(/Standort/i)).toBeNull();
+    expect(screen.queryByRole("button", { name: /Sperren/ })).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: /meinen Standort/i }),
+    ).toBeNull();
+  });
+
+  it("centers on a tapped symbol instead of opening a map app", async () => {
+    const open = vi.spyOn(window, "open").mockImplementation(() => null);
+    const { adapter } = renderView({ symbols: [aSymbol] });
+    await waitFor(() =>
+      expect(adapter.setMarker).toHaveBeenCalledWith("s1", expect.anything()),
+    );
+    const spec = adapter.setMarker.mock.calls
+      .filter((c) => c[0] === "s1")
+      .at(-1)![1] as { onClick?: () => void };
+    await act(async () => spec.onClick!());
+    expect(open).not.toHaveBeenCalled();
+    await waitFor(() =>
+      expect(adapter.setView).toHaveBeenCalledWith({
+        lat: 53.5,
+        lng: 9.9,
+        zoom: 16,
+      }),
+    );
+    open.mockRestore();
+  });
+
+  it("searches placed objects and jumps to a chosen Kartenzeichen", async () => {
+    const { adapter } = renderView({ symbols: [aSymbol] });
+    await userEvent.type(screen.getByLabelText("Suche"), "rotkreuz");
+    await userEvent.click(
+      await screen.findByRole("button", { name: /Rotkreuz 83\/1/ }),
+    );
+    expect(adapter.setView).toHaveBeenCalledWith({
+      lat: 53.5,
+      lng: 9.9,
+      zoom: 16,
+    });
+  });
+
+  it("shows a connection-lost hint when the live stream is disconnected", () => {
+    renderView({ eventsHook: () => ({ connected: false }) });
+    expect(screen.getByText(/Verbindung getrennt/i)).toBeInTheDocument();
+  });
+
+  it("reloads the full state when a live event arrives", () => {
+    routerRefresh.mockClear();
+    let fire: () => void = () => {};
+    renderView({
+      eventsHook: (_url, onChanged) => {
+        fire = onChanged;
+        return { connected: true };
+      },
+    });
+    fire();
+    expect(routerRefresh).toHaveBeenCalled();
+  });
+});
