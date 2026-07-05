@@ -1,6 +1,6 @@
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@/test/render";
+import { render, screen, waitFor } from "@/test/render";
 import { ViewLinkPanel, type ViewLinkPanelProps } from "./ViewLinkPanel";
 
 function setup(over: Partial<ViewLinkPanelProps> = {}) {
@@ -40,7 +40,10 @@ describe("ViewLinkPanel", () => {
     });
     await userEvent.click(button);
     expect(button).toBeDisabled();
+    // Die Erzeugung abschließen und das folgende State-Update (Feld leeren,
+    // Ladezustand beenden) abwarten, damit es innerhalb act() flusht.
     resolve();
+    await waitFor(() => expect(button).toBeEnabled());
   });
 
   it("lists links with their label and shows a fallback for a blank one", () => {

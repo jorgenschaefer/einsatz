@@ -1,6 +1,6 @@
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@/test/render";
+import { act, render, screen } from "@/test/render";
 import {
   ImageOverlayEditor,
   type ImageOverlayEditorProps,
@@ -32,7 +32,7 @@ describe("ImageOverlayEditor", () => {
     const onOpacityChange = vi.fn();
     setup({ opacity: 0.8, onOpacityChange });
     const slider = screen.getByRole("slider", { name: "Deckkraft" });
-    slider.focus();
+    act(() => slider.focus());
     await userEvent.keyboard("{ArrowRight}");
     expect(onOpacityChange).toHaveBeenCalled();
     expect(onOpacityChange.mock.calls.at(-1)![0]).toBeGreaterThan(0.8);

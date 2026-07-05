@@ -124,7 +124,9 @@ describe("SituationWorkspace", () => {
     await openTab("Kartenzeichen");
     await userEvent.click(screen.getByRole("button", { name: /KTW/ }));
     await waitFor(() => expect(captured.options?.onMapClick).toBeDefined());
-    captured.options!.onMapClick!({ lat: 50, lng: 8 });
+    await act(async () => {
+      captured.options!.onMapClick!({ lat: 50, lng: 8 });
+    });
 
     const ktw = QUICK_SELECT.find((i) => i.label === "KTW")!;
     expect(onPlace).toHaveBeenCalledWith(ktw.composition, 50, 8);
@@ -162,7 +164,9 @@ describe("SituationWorkspace", () => {
       await screen.findByRole("button", { name: "Platzieren" }),
     );
     await waitFor(() => expect(captured.options?.onMapClick).toBeDefined());
-    captured.options!.onMapClick!({ lat: 51, lng: 7 });
+    await act(async () => {
+      captured.options!.onMapClick!({ lat: 51, lng: 7 });
+    });
 
     expect(onPlace).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -820,7 +824,7 @@ describe("SituationWorkspace", () => {
       await screen.findByRole("button", { name: "Bearbeiten" }),
     );
     const slider = await screen.findByRole("slider", { name: "Deckkraft" });
-    slider.focus();
+    act(() => slider.focus());
     await userEvent.keyboard("{ArrowRight}");
     await waitFor(() => expect(onUpdateImagePlacement).toHaveBeenCalled());
     const [, placement] = onUpdateImagePlacement.mock.calls.at(-1)!;
