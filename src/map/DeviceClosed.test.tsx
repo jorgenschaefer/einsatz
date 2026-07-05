@@ -9,4 +9,9 @@ describe("DeviceClosed", () => {
     // grundunabhängig: nennt keinen konkreten Wegfall-Grund
     expect(screen.queryByText(/abgeschlossen|gelöscht|generiert/i)).toBeNull();
   });
+
+  it("does not mention location transfer, so it fits view links too", () => {
+    render(<DeviceClosed />);
+    expect(screen.queryByText(/Standort/i)).toBeNull();
+  });
 });

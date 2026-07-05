@@ -1,8 +1,9 @@
 import { Center, Stack, Text, Title } from "@mantine/core";
 
 /**
- * Neutrale Abschluss-Seite: für alle Wegfall-Gründe identisch und ohne Nennung
- * des Grundes, damit ein geleakter Link nichts über den Einsatz verrät.
+ * Neutrale Abschluss-Seite für Geräte- und Ansichtslinks: für alle
+ * Wegfall-Gründe identisch und ohne Nennung des Grundes, damit ein geleakter
+ * Link nichts über den Einsatz verrät.
  */
 export function DeviceClosed() {
   return (
@@ -12,8 +13,7 @@ export function DeviceClosed() {
           Zugang beendet
         </Title>
         <Text ta="center" c="dimmed">
-          Dieser Zugang ist nicht mehr aktiv. Die Standortübermittlung wurde
-          beendet.
+          Dieser Zugang ist nicht mehr aktiv.
         </Text>
       </Stack>
     </Center>
