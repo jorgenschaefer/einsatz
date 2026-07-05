@@ -194,6 +194,13 @@ export default function DatenschutzPage() {
             Zukunft widerrufen werden, indem die Ansicht geschlossen oder die
             Standortfreigabe im Browser entzogen wird.
           </Text>
+          <Text>
+            Daneben kann ein Einsatz rein lesende Ansichtslinks bereitstellen,
+            über die die Lagekarte ohne Anmeldung nur betrachtet wird. Über
+            einen Ansichtslink wird kein Standort abgefragt oder übertragen; er
+            begründet gegenüber der oben beschriebenen Kartendarstellung und
+            Ortssuche keine weitergehende Verarbeitung personenbezogener Daten.
+          </Text>
         </Stack>
 
         <Stack gap="xs">
