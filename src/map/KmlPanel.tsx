@@ -11,8 +11,8 @@ import {
   TextInput,
 } from "@mantine/core";
 import { useState } from "react";
+import { extractKml } from "@/kml/kmz";
 import type { KmlSourceType } from "@/server/kml/kml-overlays";
-import { extractKml } from "@/server/kml/kmz";
 import { ValidationError } from "@/server/validation";
 
 export type { KmlSourceType };
