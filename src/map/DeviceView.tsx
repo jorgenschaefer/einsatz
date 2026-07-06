@@ -18,6 +18,7 @@ import {
   SituationMap,
 } from "./SituationMap";
 import { type DeviceLocation, useDeviceLocation } from "./useDeviceLocation";
+import { useMapFocus } from "./useMapFocus";
 import { useMapSearch } from "./useMapSearch";
 import { type LiveConnection, useOperationEvents } from "./useOperationEvents";
 import { useStalenessClock } from "./useStalenessClock";
@@ -73,7 +74,8 @@ export function DeviceView({
   );
 
   const now = useStalenessClock();
-  const [focusTarget, setFocusTarget] = useState<MapView | null>(null);
+  const { focusTarget, jumpTo, returnToDefaultView } =
+    useMapFocus(operationDefaultView);
 
   // Adresssuche ohne Login über die token-gebundene Route; für Tests injizierbar.
   const geocode = useCallback(
@@ -97,15 +99,6 @@ export function DeviceView({
     () => toPlacedSymbols(symbols, now),
     [symbols, now],
   );
-
-  const jumpTo = (lat: number, lng: number) =>
-    setFocusTarget({ lat, lng, zoom: 16 });
-
-  // Immer ein frisches Objekt setzen, damit der Ausschnitt auch bei
-  // wiederholtem Klick erneut auf den Standard springt.
-  const returnToDefaultView = () => {
-    if (operationDefaultView) setFocusTarget({ ...operationDefaultView });
-  };
 
   // Tap auf ein Objekt übergibt die Navigation an die Karten-App des Geräts.
   const navigateTo = (id: string) => {

@@ -3,7 +3,7 @@
 import { ActionIcon, Badge, Box } from "@mantine/core";
 import { IconHome } from "@tabler/icons-react";
 import { useRouter } from "next/navigation";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
 import type { GeoHit } from "@/server/geocoder/geocoder";
 import type { MapAdapterFactory } from "./adapter";
 import { type StatefulSymbol, toPlacedSymbols } from "./placed-symbols";
@@ -15,6 +15,7 @@ import {
   type RenderedKmlOverlay,
   SituationMap,
 } from "./SituationMap";
+import { useMapFocus } from "./useMapFocus";
 import { useMapSearch } from "./useMapSearch";
 import { type LiveConnection, useOperationEvents } from "./useOperationEvents";
 import { useStalenessClock } from "./useStalenessClock";
@@ -60,7 +61,8 @@ export function ViewLinkView({
   );
 
   const now = useStalenessClock();
-  const [focusTarget, setFocusTarget] = useState<MapView | null>(null);
+  const { focusTarget, jumpTo, returnToDefaultView } =
+    useMapFocus(operationDefaultView);
 
   // Adresssuche ohne Login über die token-gebundene Route; für Tests injizierbar.
   const geocode = useCallback(
@@ -84,15 +86,6 @@ export function ViewLinkView({
     () => toPlacedSymbols(symbols, now),
     [symbols, now],
   );
-
-  const jumpTo = (lat: number, lng: number) =>
-    setFocusTarget({ lat, lng, zoom: 16 });
-
-  // Immer ein frisches Objekt setzen, damit der Ausschnitt auch bei
-  // wiederholtem Klick erneut auf den Standard springt.
-  const returnToDefaultView = () => {
-    if (operationDefaultView) setFocusTarget({ ...operationDefaultView });
-  };
 
   // Nur-Lesen: Tap auf ein Zeichen zentriert die Karte, keine Navigation.
   const centerOn = (id: string) => {

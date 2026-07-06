@@ -66,6 +66,7 @@ import {
   SituationMap,
 } from "./SituationMap";
 import { renderSymbolDataUrl } from "./tactical-symbol";
+import { useMapFocus } from "./useMapFocus";
 import { useMapMode } from "./useMapMode";
 import { useMapSearch } from "./useMapSearch";
 import { type LiveConnection, useOperationEvents } from "./useOperationEvents";
@@ -243,21 +244,13 @@ export function SituationWorkspace({
     objectResults,
     addressResults,
   } = useMapSearch(symbols, onGeocode);
-  const [focusTarget, setFocusTarget] = useState<MapView | null>(null);
+  const { focusTarget, jumpTo, returnToDefaultView } =
+    useMapFocus(operationDefaultView);
   const [selectedAreaId, setSelectedAreaId] = useState<string | null>(null);
   const [areaError, setAreaError] = useState<string | null>(null);
   const [areaBusy, setAreaBusy] = useState(false);
   const selected = symbols.find((s) => s.id === selectedId) ?? null;
   const selectedArea = areas.find((a) => a.id === selectedAreaId) ?? null;
-
-  const jumpTo = (lat: number, lng: number) =>
-    setFocusTarget({ lat, lng, zoom: 16 });
-
-  // Immer ein frisches Objekt setzen, damit der Ausschnitt auch bei
-  // wiederholtem Klick erneut auf den Standard springt.
-  const returnToDefaultView = () => {
-    if (operationDefaultView) setFocusTarget({ ...operationDefaultView });
-  };
 
   const closeDetail = () => {
     setSelectedId(null);
