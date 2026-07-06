@@ -8,9 +8,10 @@ vi.mock("next/navigation", () => ({
 }));
 
 describe("isFullscreenMapPath", () => {
-  it("erkennt Lageansicht und Geräteansicht", () => {
+  it("erkennt Lageansicht, Geräteansicht und Ansichtslink", () => {
     expect(isFullscreenMapPath("/operations/abc")).toBe(true);
     expect(isFullscreenMapPath("/device/tok123")).toBe(true);
+    expect(isFullscreenMapPath("/view/tok123")).toBe(true);
   });
 
   it("lässt Nicht-Kartenseiten unberührt", () => {

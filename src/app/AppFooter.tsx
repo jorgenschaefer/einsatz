@@ -4,14 +4,17 @@ import { Anchor, Group } from "@mantine/core";
 import { usePathname } from "next/navigation";
 
 // Die Vollbild-Kartenseiten (Lageansicht /operations/<id>, Geräteansicht
-// /device/<token>) füllen die volle Höhe; ein Footer darunter würde die Seite
-// unnötig verlängern. Dort erscheinen Impressum und Datenschutz stattdessen in
-// der Karten-Attribution (siehe leaflet-adapter). Auf allen übrigen Seiten
-// (Login, Einsatzübersicht, Konto …) bleibt der Footer sichtbar.
+// /device/<token>, Ansichtslink /view/<token>) füllen die volle Höhe; ein
+// Footer darunter würde die Seite unnötig verlängern. Dort erscheinen Impressum
+// und Datenschutz stattdessen in der Karten-Attribution (siehe leaflet-adapter).
+// Auf allen übrigen Seiten (Login, Einsatzübersicht, Konto …) bleibt der Footer
+// sichtbar.
 export function isFullscreenMapPath(pathname: string | null): boolean {
   if (!pathname) return false;
   return (
-    /^\/operations\/[^/]+$/.test(pathname) || /^\/device\/[^/]+/.test(pathname)
+    /^\/operations\/[^/]+$/.test(pathname) ||
+    /^\/device\/[^/]+/.test(pathname) ||
+    /^\/view\/[^/]+/.test(pathname)
   );
 }
 
