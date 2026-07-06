@@ -12,8 +12,13 @@ export { MAX_KML_BYTES };
 
 const FETCH_TIMEOUT_MS = 15_000;
 const MAX_REDIRECTS = 5;
-const MAX_NETWORK_LINK_DEPTH = 3;
+export const MAX_NETWORK_LINK_DEPTH = 3;
 const USER_AGENT = "einsatz-lagefuehrung (DRK Katastrophenschutz)";
+
+// Der HTTP-Holer; per Default das globale fetch (die dünne, ungetestete
+// IO-Kante). Für Tests injizierbar, damit Redirect-/NetworkLink-Logik ohne Netz
+// prüfbar ist.
+type FetchFn = typeof fetch;
 
 const GOOGLE_HOSTS = new Set(["www.google.com", "google.com"]);
 // Pfade der „Meine Karten“-Oberfläche, optional mit Kontoscope (/u/0/…).
@@ -159,12 +164,15 @@ export function assertFetchableKmlUrl(url: string): URL {
  * (`redirect: "follow"`) würde die Ziel-Prüfung umgehen, `redirect: "error"`
  * bräche den Download ab.
  */
-async function fetchFollowingRedirects(start: URL): Promise<Response> {
+async function fetchFollowingRedirects(
+  start: URL,
+  doFetch: FetchFn,
+): Promise<Response> {
   let target = start;
   for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
     assertFetchableKmlUrl(target.href);
     await assertResolvedHostAllowed(target.hostname);
-    const response = await fetch(target, {
+    const response = await doFetch(target, {
       headers: { "User-Agent": USER_AGENT },
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
       redirect: "manual",
@@ -190,13 +198,14 @@ async function fetchFollowingRedirects(start: URL): Promise<Response> {
 export async function resolveKmlNetworkLinks(
   kml: string,
   depth = 0,
+  doFetch: FetchFn = fetch,
 ): Promise<string> {
   const hrefs = networkLinkHrefs(kml);
   if (hrefs.length === 0 || depth >= MAX_NETWORK_LINK_DEPTH) return kml;
   const docs: string[] = [];
   for (const href of hrefs) {
     try {
-      docs.push(await fetchKmlFromUrl(href, depth + 1));
+      docs.push(await fetchKmlFromUrl(href, depth + 1, doFetch));
     } catch {
       // Einzelner toter Verweis: überspringen, restliche Links weiter auflösen.
     }
@@ -210,9 +219,13 @@ export async function resolveKmlNetworkLinks(
  * HTTP-Grenze; Validierung, Deckel, KMZ-Entpackung und Link-Erkennung sind
  * getestet.
  */
-export async function fetchKmlFromUrl(url: string, depth = 0): Promise<string> {
+export async function fetchKmlFromUrl(
+  url: string,
+  depth = 0,
+  doFetch: FetchFn = fetch,
+): Promise<string> {
   const target = assertFetchableKmlUrl(normalizeKmlSourceUrl(url));
-  const response = await fetchFollowingRedirects(target);
+  const response = await fetchFollowingRedirects(target, doFetch);
   if (!response.ok)
     throw new ValidationError(
       `KML konnte nicht geladen werden (${response.status}).`,
@@ -220,7 +233,11 @@ export async function fetchKmlFromUrl(url: string, depth = 0): Promise<string> {
   enforceContentLength(response.headers.get("content-length"));
   const bytes = new Uint8Array(await response.arrayBuffer());
   enforceKmlSizeLimit(bytes); // deckelt den (ggf. komprimierten) Download
-  const content = await resolveKmlNetworkLinks(extractKml(bytes), depth);
+  const content = await resolveKmlNetworkLinks(
+    extractKml(bytes),
+    depth,
+    doFetch,
+  );
   enforceKmlSizeLimit(content); // deckelt das entpackte/aufgelöste KML
   return content;
 }
