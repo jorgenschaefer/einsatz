@@ -154,6 +154,26 @@ export function kmlIconOptions(
 }
 
 /**
+ * Übersetzt die von togeojson gelieferten Style-Properties eines KML-Features in
+ * Leaflet-Pfadoptionen (Linien/Polygone). Nur vorhandene Werte werden gesetzt,
+ * damit ungestylte Features den Leaflet-Standardstil behalten statt auf
+ * `undefined` überschrieben zu werden. togeojson liefert Farben bereits als
+ * `#rrggbb` und die Opazität als 0..1.
+ */
+export function kmlPathStyle(props: Record<string, unknown>): L.PathOptions {
+  const style: L.PathOptions = {};
+  if (typeof props.stroke === "string") style.color = props.stroke;
+  if (typeof props["stroke-width"] === "number")
+    style.weight = props["stroke-width"];
+  if (typeof props["stroke-opacity"] === "number")
+    style.opacity = props["stroke-opacity"];
+  if (typeof props.fill === "string") style.fillColor = props.fill;
+  if (typeof props["fill-opacity"] === "number")
+    style.fillOpacity = props["fill-opacity"];
+  return style;
+}
+
+/**
  * Baut aus den von togeojson gelieferten Properties den Popup-Inhalt eines KML-
  * Placemarks: `name` als Titel, `description` als Absatz darunter. `null`, wenn
  * beides fehlt (dann bleibt das Feature ohne Popup). Der Inhalt wird über
@@ -194,6 +214,7 @@ export function parseKml(content: string): L.GeoJSON | null {
     const doc = new DOMParser().parseFromString(content, "text/xml");
     if (doc.querySelector("parsererror")) return null;
     return L.geoJSON(kmlToGeoJson(doc), {
+      style: (feature) => kmlPathStyle(feature?.properties ?? {}),
       pointToLayer: (feature, latlng) => {
         const opts = kmlIconOptions(feature.properties ?? {});
         return opts

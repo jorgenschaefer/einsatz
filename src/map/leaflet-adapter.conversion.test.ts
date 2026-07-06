@@ -95,6 +95,40 @@ describe("parseKml", () => {
     expect(feature.getPopup()).toBeUndefined();
   });
 
+  it("applies LineStyle and PolyStyle colors to the path", () => {
+    const kml = `<?xml version="1.0"?>
+      <kml xmlns="http://www.opengis.net/kml/2.2"><Document>
+        <Style id="s">
+          <LineStyle><color>ff0000ff</color><width>4</width></LineStyle>
+          <PolyStyle><color>7f00ff00</color></PolyStyle>
+        </Style>
+        <Placemark><styleUrl>#s</styleUrl>
+          <Polygon><outerBoundaryIs><LinearRing><coordinates>
+            9,53 9,54 10,54 9,53
+          </coordinates></LinearRing></outerBoundaryIs></Polygon>
+        </Placemark>
+      </Document></kml>`;
+    const path = parseKml(kml)?.getLayers()[0] as L.Polygon;
+    expect(path.options.color).toBe("#ff0000");
+    expect(path.options.weight).toBe(4);
+    expect(path.options.fillColor).toBe("#00ff00");
+    expect(path.options.fillOpacity).toBeCloseTo(0.498, 2);
+  });
+
+  it("leaves the Leaflet default style for an unstyled path", () => {
+    const kml = `<?xml version="1.0"?>
+      <kml xmlns="http://www.opengis.net/kml/2.2"><Document>
+        <Placemark>
+          <Polygon><outerBoundaryIs><LinearRing><coordinates>
+            9,53 9,54 10,54 9,53
+          </coordinates></LinearRing></outerBoundaryIs></Polygon>
+        </Placemark>
+      </Document></kml>`;
+    const path = parseKml(kml)?.getLayers()[0] as L.Polygon;
+    // Leaflet-Standardfarbe bleibt, kein erzwungenes undefined-Override.
+    expect(path.options.color).toBe("#3388ff");
+  });
+
   it("renders a point's IconStyle icon href onto the marker", () => {
     const kml = `<?xml version="1.0"?>
       <kml xmlns="http://www.opengis.net/kml/2.2"><Document>
