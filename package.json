@@ -19,6 +19,7 @@
     "@mantine/core": "9.4.1",
     "@mantine/hooks": "9.4.1",
     "@mantine/notifications": "9.4.1",
+    "@tabler/icons-react": "^3.44.0",
     "@tmcw/togeojson": "7.1.2",
     "bcryptjs": "3.0.3",
     "fflate": "0.8.3",

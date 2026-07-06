@@ -1,6 +1,7 @@
 "use client";
 
 import { Anchor, AppShell, Badge, Box, Group, Title } from "@mantine/core";
+import { IconArrowLeft } from "@tabler/icons-react";
 import type { ReactNode } from "react";
 import type { ViewLinkItem } from "@/map/ViewLinkPanel";
 import { ViewLinkShareButton } from "./ViewLinkShareButton";
@@ -29,8 +30,13 @@ export function LageansichtShell({
       <AppShell.Header>
         <Group h="100%" px="md" justify="space-between" wrap="nowrap">
           <Group gap="sm" wrap="nowrap">
-            <Anchor href="/operations" size="sm">
-              ← Einsätze
+            <Anchor
+              href="/operations"
+              size="sm"
+              style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
+            >
+              <IconArrowLeft size={16} />
+              Einsätze
             </Anchor>
             <Title order={4}>{operationName}</Title>
           </Group>

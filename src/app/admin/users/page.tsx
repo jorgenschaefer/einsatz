@@ -1,4 +1,5 @@
 import { Anchor, Container, Stack, Title } from "@mantine/core";
+import { IconArrowLeft } from "@tabler/icons-react";
 import { requireAdmin } from "@/server/auth/current-user";
 import { listUsers } from "@/server/auth/users";
 import { getDb } from "@/server/db/pg";
@@ -21,8 +22,13 @@ export default async function UsersAdminPage() {
   return (
     <Container size="sm" py="lg">
       <Stack>
-        <Anchor href="/operations" size="sm">
-          ← Einsätze
+        <Anchor
+          href="/operations"
+          size="sm"
+          style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
+        >
+          <IconArrowLeft size={16} />
+          Einsätze
         </Anchor>
         <Title order={2}>Nutzerverwaltung</Title>
         <UserAdminPanel

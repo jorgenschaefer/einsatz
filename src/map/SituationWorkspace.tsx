@@ -16,6 +16,11 @@ import {
   UnstyledButton,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
+import {
+  IconChevronLeft,
+  IconChevronRight,
+  IconPencil,
+} from "@tabler/icons-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import {
@@ -499,7 +504,11 @@ export function SituationWorkspace({
             onClick={sidebar.toggle}
             style={{ zIndex: 1100, transform: "translateY(-50%)" }}
           >
-            {sidebarOpen ? "›" : "‹"}
+            {sidebarOpen ? (
+              <IconChevronRight size={18} />
+            ) : (
+              <IconChevronLeft size={18} />
+            )}
           </ActionIcon>
           <ActionIcon
             variant="default"
@@ -613,7 +622,7 @@ export function SituationWorkspace({
                             aria-label={`${row.name} bearbeiten`}
                             onClick={() => setSelectedId(row.id)}
                           >
-                            ✎
+                            <IconPencil size={18} />
                           </ActionIcon>
                         </Group>
                       ))}
@@ -691,7 +700,7 @@ export function SituationWorkspace({
                             aria-label={`${area.label || "Bereich"} bearbeiten`}
                             onClick={() => setSelectedAreaId(area.id)}
                           >
-                            ✎
+                            <IconPencil size={18} />
                           </ActionIcon>
                         </Group>
                       ))}
