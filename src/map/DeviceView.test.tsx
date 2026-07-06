@@ -80,9 +80,7 @@ describe("DeviceView", () => {
         expect.objectContaining({ lat: 53.5, lng: 9.9 }),
       ),
     );
-    expect(
-      screen.queryByRole("button", { name: /Standard-Ausschnitt/ }),
-    ).toBeNull();
+    expect(screen.queryByRole("button", { name: /bearbeiten/ })).toBeNull();
   });
 
   it("shows the location status indicator", () => {
@@ -264,5 +262,28 @@ describe("DeviceView", () => {
       target: { value: "100" },
     });
     expect(screen.queryByTestId("wipe-lock-overlay")).toBeNull();
+  });
+
+  it("returns the map to the operation's default view", async () => {
+    const { adapter } = renderDevice({
+      operationDefaultView: { lat: 52.5, lng: 13.4, zoom: 12 },
+    });
+    await userEvent.click(
+      screen.getByRole("button", { name: "Zum Standard-Ausschnitt zurück" }),
+    );
+    await waitFor(() =>
+      expect(adapter.setView).toHaveBeenCalledWith({
+        lat: 52.5,
+        lng: 13.4,
+        zoom: 12,
+      }),
+    );
+  });
+
+  it("disables the return-to-default button when no default view is set", () => {
+    renderDevice({ operationDefaultView: null });
+    expect(
+      screen.getByRole("button", { name: "Zum Standard-Ausschnitt zurück" }),
+    ).toBeDisabled();
   });
 });

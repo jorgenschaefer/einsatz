@@ -1,7 +1,7 @@
 "use client";
 
 import { ActionIcon, Badge, Box, Button } from "@mantine/core";
-import { IconCurrentLocation } from "@tabler/icons-react";
+import { IconCurrentLocation, IconHome } from "@tabler/icons-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
 import type { GeoHit } from "@/server/geocoder/geocoder";
@@ -101,6 +101,12 @@ export function DeviceView({
   const jumpTo = (lat: number, lng: number) =>
     setFocusTarget({ lat, lng, zoom: 16 });
 
+  // Immer ein frisches Objekt setzen, damit der Ausschnitt auch bei
+  // wiederholtem Klick erneut auf den Standard springt.
+  const returnToDefaultView = () => {
+    if (operationDefaultView) setFocusTarget({ ...operationDefaultView });
+  };
+
   // Tap auf ein Objekt übergibt die Navigation an die Karten-App des Geräts.
   const navigateTo = (id: string) => {
     const target = placed.find((p) => p.id === id);
@@ -159,6 +165,20 @@ export function DeviceView({
           Verbindung getrennt
         </Badge>
       )}
+      <ActionIcon
+        pos="absolute"
+        bottom={136}
+        right={16}
+        size="xl"
+        radius="xl"
+        variant="default"
+        aria-label="Zum Standard-Ausschnitt zurück"
+        disabled={!operationDefaultView}
+        style={{ zIndex: 500, boxShadow: "var(--mantine-shadow-md)" }}
+        onClick={returnToDefaultView}
+      >
+        <IconHome size={22} />
+      </ActionIcon>
       <ActionIcon
         pos="absolute"
         bottom={76}

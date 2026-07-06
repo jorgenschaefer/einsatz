@@ -1,6 +1,7 @@
 "use client";
 
-import { Badge, Box } from "@mantine/core";
+import { ActionIcon, Badge, Box } from "@mantine/core";
+import { IconHome } from "@tabler/icons-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
 import type { GeoHit } from "@/server/geocoder/geocoder";
@@ -87,6 +88,12 @@ export function ViewLinkView({
   const jumpTo = (lat: number, lng: number) =>
     setFocusTarget({ lat, lng, zoom: 16 });
 
+  // Immer ein frisches Objekt setzen, damit der Ausschnitt auch bei
+  // wiederholtem Klick erneut auf den Standard springt.
+  const returnToDefaultView = () => {
+    if (operationDefaultView) setFocusTarget({ ...operationDefaultView });
+  };
+
   // Nur-Lesen: Tap auf ein Zeichen zentriert die Karte, keine Navigation.
   const centerOn = (id: string) => {
     const target = placed.find((p) => p.id === id);
@@ -131,6 +138,20 @@ export function ViewLinkView({
           Verbindung getrennt
         </Badge>
       )}
+      <ActionIcon
+        pos="absolute"
+        bottom={16}
+        right={16}
+        size="xl"
+        radius="xl"
+        variant="default"
+        aria-label="Zum Standard-Ausschnitt zurück"
+        disabled={!operationDefaultView}
+        style={{ zIndex: 500, boxShadow: "var(--mantine-shadow-md)" }}
+        onClick={returnToDefaultView}
+      >
+        <IconHome size={22} />
+      </ActionIcon>
     </Box>
   );
 }

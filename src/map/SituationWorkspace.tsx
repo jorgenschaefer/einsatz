@@ -19,6 +19,7 @@ import { useDisclosure } from "@mantine/hooks";
 import {
   IconChevronLeft,
   IconChevronRight,
+  IconHome,
   IconPencil,
 } from "@tabler/icons-react";
 import { useRouter } from "next/navigation";
@@ -521,7 +522,7 @@ export function SituationWorkspace({
             onClick={returnToDefaultView}
             style={{ zIndex: 1100, boxShadow: "var(--mantine-shadow-md)" }}
           >
-            ⌖
+            <IconHome size={18} />
           </ActionIcon>
         </Box>
 

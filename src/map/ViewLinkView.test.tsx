@@ -173,4 +173,27 @@ describe("ViewLinkView", () => {
     fire();
     expect(routerRefresh).toHaveBeenCalled();
   });
+
+  it("returns the map to the operation's default view", async () => {
+    const { adapter } = renderView({
+      operationDefaultView: { lat: 52.5, lng: 13.4, zoom: 12 },
+    });
+    await userEvent.click(
+      screen.getByRole("button", { name: "Zum Standard-Ausschnitt zurück" }),
+    );
+    await waitFor(() =>
+      expect(adapter.setView).toHaveBeenCalledWith({
+        lat: 52.5,
+        lng: 13.4,
+        zoom: 12,
+      }),
+    );
+  });
+
+  it("disables the return-to-default button when no default view is set", () => {
+    renderView({ operationDefaultView: null });
+    expect(
+      screen.getByRole("button", { name: "Zum Standard-Ausschnitt zurück" }),
+    ).toBeDisabled();
+  });
 });
