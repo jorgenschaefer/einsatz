@@ -6,6 +6,7 @@ import {
   extractKml,
   inlineKmzAssets,
   looksLikeZip,
+  MAX_KML_BYTES,
   mergeKmlDocuments,
   networkLinkHrefs,
 } from "./kmz";
@@ -55,6 +56,16 @@ describe("extractKml", () => {
     // ZIP-Signatur, aber danach Müll.
     const corrupt = new Uint8Array([0x50, 0x4b, 0x03, 0x04, 0, 0, 0, 0]);
     expect(() => extractKml(corrupt)).toThrow(ValidationError);
+  });
+
+  it("rejects a KMZ whose decompressed size exceeds the cap (zip bomb)", () => {
+    const kmz = zipSync({ "doc.kml": strToU8("x".repeat(100)) });
+    expect(() => extractKml(kmz, 10)).toThrow(ValidationError);
+  });
+
+  it("extracts a KMZ that stays within the cap", () => {
+    const kmz = zipSync({ "doc.kml": strToU8(KML) });
+    expect(extractKml(kmz, MAX_KML_BYTES)).toBe(KML);
   });
 
   it("inlines a bundled image referenced by relative href", () => {

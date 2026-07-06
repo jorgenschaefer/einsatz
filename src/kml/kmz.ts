@@ -84,12 +84,28 @@ export function inlineKmzAssets(
  * eingebettet; alles andere wird als UTF-8-Text gelesen. So speichert und
  * rendert der Rest der App einheitlich rohes, in sich geschlossenes KML.
  */
-export function extractKml(bytes: Uint8Array): string {
+export function extractKml(
+  bytes: Uint8Array,
+  maxBytes = MAX_KML_BYTES,
+): string {
   if (!looksLikeZip(bytes)) return utf8.decode(bytes);
   let entries: Record<string, Uint8Array>;
   try {
-    entries = unzipSync(bytes);
-  } catch {
+    // Entpackte Gesamtgröße vor der Dekompression deckeln (Zip-Bombe): der
+    // filter läuft je Eintrag, bevor dieser entpackt wird. Zu klein deklarierte
+    // Einträge fängt fflate selbst beim Puffer-Überlauf ab (untenstehender catch).
+    let total = 0;
+    entries = unzipSync(bytes, {
+      filter: ({ originalSize }) => {
+        total += originalSize;
+        if (total > maxBytes) {
+          throw new ValidationError("Das entpackte KMZ-Archiv ist zu groß.");
+        }
+        return true;
+      },
+    });
+  } catch (err) {
+    if (err instanceof ValidationError) throw err;
     throw new ValidationError("Das KMZ-Archiv konnte nicht entpackt werden.");
   }
   const entry = pickKmlEntry(entries);
