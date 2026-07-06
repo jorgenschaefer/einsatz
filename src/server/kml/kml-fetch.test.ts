@@ -6,6 +6,7 @@ import {
   enforceKmlSizeLimit,
   isBlockedIp,
   MAX_KML_BYTES,
+  normalizeKmlSourceUrl,
 } from "./kml-fetch";
 
 describe("enforceKmlSizeLimit", () => {
@@ -75,6 +76,51 @@ describe("assertFetchableKmlUrl", () => {
     expect(() =>
       assertFetchableKmlUrl("https://fc-bayern.de/x.kml"),
     ).not.toThrow();
+  });
+});
+
+describe("normalizeKmlSourceUrl", () => {
+  const expectExport = (input: string, mid: string) => {
+    const out = new URL(normalizeKmlSourceUrl(input));
+    expect(out.pathname).toBe("/maps/d/kml");
+    expect(out.searchParams.get("mid")).toBe(mid);
+    expect(out.searchParams.get("forcekml")).toBe("1");
+  };
+
+  it("rewrites a My-Maps viewer link to the kml export endpoint", () => {
+    expectExport(
+      "https://www.google.com/maps/d/viewer?mid=1AbCdEf&ll=53.5,10.0&z=12",
+      "1AbCdEf",
+    );
+  });
+
+  it("rewrites a My-Maps edit link", () => {
+    expectExport("https://www.google.com/maps/d/edit?mid=1AbCdEf", "1AbCdEf");
+  });
+
+  it("rewrites a multi-account (u/N) My-Maps link", () => {
+    expectExport(
+      "https://www.google.com/maps/d/u/0/viewer?mid=1AbCdEf",
+      "1AbCdEf",
+    );
+  });
+
+  it("adds forcekml to an existing kml export link", () => {
+    expectExport("https://www.google.com/maps/d/kml?mid=1AbCdEf", "1AbCdEf");
+  });
+
+  it("leaves a plain .kmz download URL untouched", () => {
+    const url = "https://example.com/files/WTH26%20all%20courses.kmz";
+    expect(normalizeKmlSourceUrl(url)).toBe(url);
+  });
+
+  it("leaves a My-Maps link without mid untouched", () => {
+    const url = "https://www.google.com/maps/d/viewer";
+    expect(normalizeKmlSourceUrl(url)).toBe(url);
+  });
+
+  it("returns non-URL input unchanged for the caller to reject", () => {
+    expect(normalizeKmlSourceUrl("not a url")).toBe("not a url");
   });
 });
 

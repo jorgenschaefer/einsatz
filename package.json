@@ -21,6 +21,7 @@
     "@mantine/notifications": "9.4.1",
     "@tmcw/togeojson": "7.1.2",
     "bcryptjs": "3.0.3",
+    "fflate": "0.8.3",
     "leaflet": "1.9.4",
     "leaflet-imageoverlay-rotated": "^0.2.1",
     "next": "16.2.10",

@@ -4,7 +4,11 @@ import { revalidatePath } from "next/cache";
 import { requireUser } from "@/server/auth/current-user";
 import { getDb } from "@/server/db/pg";
 import { publishOperationChanged } from "@/server/events/operation-events";
-import { enforceKmlSizeLimit, fetchKmlFromUrl } from "@/server/kml/kml-fetch";
+import {
+  enforceKmlSizeLimit,
+  fetchKmlFromUrl,
+  resolveKmlNetworkLinks,
+} from "@/server/kml/kml-fetch";
 import {
   createKmlOverlay,
   deleteKmlOverlay,
@@ -36,12 +40,16 @@ export async function addKmlFileAction(
   await requireUser();
   try {
     enforceKmlSizeLimit(content);
+    // KMZ-Dateien aus Google „Meine Karten“ enthalten oft nur einen
+    // NetworkLink; dessen Ziel serverseitig auflösen, damit Geometrie erscheint.
+    const resolved = await resolveKmlNetworkLinks(content);
+    enforceKmlSizeLimit(resolved);
     await createKmlOverlay(getDb(), {
       operationId,
       sourceType: "file",
       sourceUrl: null,
       name: name.trim() || "KML-Datei",
-      content,
+      content: resolved,
     });
     revalidate(operationId);
     return {};

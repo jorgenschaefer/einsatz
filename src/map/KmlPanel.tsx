@@ -12,6 +12,8 @@ import {
 } from "@mantine/core";
 import { useState } from "react";
 import type { KmlSourceType } from "@/server/kml/kml-overlays";
+import { extractKml } from "@/server/kml/kmz";
+import { ValidationError } from "@/server/validation";
 
 export type { KmlSourceType };
 
@@ -74,7 +76,19 @@ export function KmlPanel({
 
   const addFile = async (file: File | null) => {
     if (!file) return;
-    await run(onAddFile(file.name, await file.text()));
+    let content: string;
+    try {
+      // KMZ ist ein ZIP-Archiv – als Bytes lesen und (falls nötig) entpacken.
+      content = extractKml(new Uint8Array(await file.arrayBuffer()));
+    } catch (err) {
+      setError(
+        err instanceof ValidationError
+          ? err.message
+          : "Die Datei konnte nicht gelesen werden.",
+      );
+      return;
+    }
+    await run(onAddFile(file.name, content));
   };
 
   return (
@@ -87,8 +101,8 @@ export function KmlPanel({
 
       <input
         type="file"
-        accept=".kml,application/vnd.google-earth.kml+xml,application/xml,text/xml"
-        aria-label="KML-Datei einbinden"
+        accept=".kml,.kmz,application/vnd.google-earth.kml+xml,application/vnd.google-earth.kmz,application/xml,text/xml"
+        aria-label="KML-/KMZ-Datei einbinden"
         onChange={(e) => {
           const input = e.currentTarget;
           void addFile(input.files?.[0] ?? null).finally(() => {
@@ -104,7 +118,7 @@ export function KmlPanel({
           onChange={(e) => setName(e.currentTarget.value)}
         />
         <TextInput
-          label="KML-URL"
+          label="KML-/KMZ-URL"
           value={url}
           onChange={(e) => setUrl(e.currentTarget.value)}
           style={{ flex: 1 }}

@@ -1,4 +1,5 @@
 import userEvent from "@testing-library/user-event";
+import { strToU8, zipSync } from "fflate";
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@/test/render";
 import { type KmlOverlayView, KmlPanel, type KmlPanelProps } from "./KmlPanel";
@@ -41,7 +42,7 @@ describe("KmlPanel", () => {
     renderPanel({ onAddUrl });
     await userEvent.type(screen.getByLabelText("Name"), "Laufstrecke");
     await userEvent.type(
-      screen.getByLabelText("KML-URL"),
+      screen.getByLabelText("KML-/KMZ-URL"),
       "https://maps.example/x.kml",
     );
     await userEvent.click(
@@ -59,12 +60,26 @@ describe("KmlPanel", () => {
     const file = new File(["<kml><name>Zonen</name></kml>"], "zonen.kml", {
       type: "application/vnd.google-earth.kml+xml",
     });
-    await userEvent.upload(screen.getByLabelText(/KML-Datei/), file);
+    await userEvent.upload(screen.getByLabelText(/Datei einbinden/), file);
     await waitFor(() =>
       expect(onAddFile).toHaveBeenCalledWith(
         "zonen.kml",
         "<kml><name>Zonen</name></kml>",
       ),
+    );
+  });
+
+  it("unpacks a KMZ file client-side before adding it", async () => {
+    const onAddFile = vi.fn(async () => ({}));
+    renderPanel({ onAddFile });
+    const kml = "<kml><name>Strecken</name></kml>";
+    const kmz = zipSync({ "doc.kml": strToU8(kml) });
+    const file = new File([kmz], "WTH26 all courses.kmz", {
+      type: "application/vnd.google-earth.kmz",
+    });
+    await userEvent.upload(screen.getByLabelText(/Datei einbinden/), file);
+    await waitFor(() =>
+      expect(onAddFile).toHaveBeenCalledWith("WTH26 all courses.kmz", kml),
     );
   });
 
@@ -106,7 +121,7 @@ describe("KmlPanel", () => {
     renderPanel({ onAddUrl });
     await userEvent.type(screen.getByLabelText("Name"), "X");
     await userEvent.type(
-      screen.getByLabelText("KML-URL"),
+      screen.getByLabelText("KML-/KMZ-URL"),
       "https://maps.example/missing.kml",
     );
     await userEvent.click(

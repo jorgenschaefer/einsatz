@@ -1,13 +1,52 @@
 import { lookup } from "node:dns/promises";
 import { ValidationError } from "@/server/validation";
+import { extractKml, mergeKmlDocuments, networkLinkHrefs } from "./kmz";
 
 export const MAX_KML_BYTES = 20 * 1024 * 1024; // 20 MB
 const FETCH_TIMEOUT_MS = 15_000;
+const MAX_REDIRECTS = 5;
+const MAX_NETWORK_LINK_DEPTH = 3;
 const USER_AGENT = "einsatz-lagefuehrung (DRK Katastrophenschutz)";
 
-/** Deckelt KML-Inhalte (Datei oder serverseitig geholt) bei 20 MB. */
-export function enforceKmlSizeLimit(content: string): void {
-  if (Buffer.byteLength(content, "utf8") > MAX_KML_BYTES) {
+const GOOGLE_HOSTS = new Set(["www.google.com", "google.com"]);
+// Pfade der „Meine Karten“-Oberfläche, optional mit Kontoscope (/u/0/…).
+const MY_MAPS_PATH = /^\/maps\/d\/(?:u\/\d+\/)?(?:viewer|edit|kml)$/;
+
+/**
+ * Übersetzt eine Google-„Meine Karten“-Ansichts-/Bearbeiten-URL in die
+ * KML-Export-URL (`/maps/d/kml?mid=…&forcekml=1`). `forcekml=1` liefert rohes
+ * KML mit eingebetteten Platzmarken statt eines KMZ mit NetworkLinks. Andere
+ * URLs (direkte .kml/.kmz-Downloads, Nicht-URLs) bleiben unverändert; die
+ * eigentliche Prüfung übernimmt {@link assertFetchableKmlUrl}.
+ */
+export function normalizeKmlSourceUrl(input: string): string {
+  let parsed: URL;
+  try {
+    parsed = new URL(input);
+  } catch {
+    return input;
+  }
+  const mid = parsed.searchParams.get("mid");
+  if (
+    !GOOGLE_HOSTS.has(parsed.hostname.toLowerCase()) ||
+    !MY_MAPS_PATH.test(parsed.pathname) ||
+    !mid
+  ) {
+    return input;
+  }
+  const out = new URL("https://www.google.com/maps/d/kml");
+  out.searchParams.set("mid", mid);
+  out.searchParams.set("forcekml", "1");
+  return out.toString();
+}
+
+/** Deckelt KML-Inhalte (Text oder rohe Bytes) bei 20 MB. */
+export function enforceKmlSizeLimit(content: string | Uint8Array): void {
+  const size =
+    typeof content === "string"
+      ? Buffer.byteLength(content, "utf8")
+      : content.byteLength;
+  if (size > MAX_KML_BYTES) {
     throw new ValidationError("Die KML-Datei ist größer als 20 MB.");
   }
 }
@@ -107,23 +146,74 @@ export function assertFetchableKmlUrl(url: string): URL {
 }
 
 /**
- * Holt KML-Inhalt serverseitig (umgeht CORS) und deckelt bei 20 MB.
- * Die dünne, ungetestete HTTP-Grenze; Validierung/Deckel sind getestet.
+ * Folgt Weiterleitungen von Hand und prüft jeden Sprung erneut gegen die
+ * SSRF-Sperren. Nötig, weil Google-Downloads (z. B. „Meine Karten“) über eine
+ * 302 auf `googleusercontent.com` ausgeliefert werden – automatisches Folgen
+ * (`redirect: "follow"`) würde die Ziel-Prüfung umgehen, `redirect: "error"`
+ * bräche den Download ab.
  */
-export async function fetchKmlFromUrl(url: string): Promise<string> {
-  const target = assertFetchableKmlUrl(url);
-  await assertResolvedHostAllowed(target.hostname);
-  const response = await fetch(target, {
-    headers: { "User-Agent": USER_AGENT },
-    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-    redirect: "error",
-  });
+async function fetchFollowingRedirects(start: URL): Promise<Response> {
+  let target = start;
+  for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+    assertFetchableKmlUrl(target.href);
+    await assertResolvedHostAllowed(target.hostname);
+    const response = await fetch(target, {
+      headers: { "User-Agent": USER_AGENT },
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      redirect: "manual",
+    });
+    const location = response.headers.get("location");
+    if (response.status >= 300 && response.status < 400 && location) {
+      target = new URL(location, target); // relative Location auflösen
+      continue;
+    }
+    return response;
+  }
+  throw new ValidationError("Zu viele Weiterleitungen beim Laden der KML.");
+}
+
+/**
+ * Ersetzt `<NetworkLink>`-Verweise durch ihren tatsächlichen Inhalt: jeder
+ * Ziel-Link wird serverseitig geholt (rekursiv, mit Tiefenlimit) und die
+ * Dokumente werden zusammengeführt. Ohne Verweise bleibt das KML unverändert.
+ * Nötig für Google-„Meine Karten“-Exporte, die nur einen NetworkLink enthalten;
+ * togeojson selbst folgt diesen nicht, sonst bliebe das Overlay leer.
+ * Lässt sich ein Verweis nicht laden, bleibt das ursprüngliche KML erhalten.
+ */
+export async function resolveKmlNetworkLinks(
+  kml: string,
+  depth = 0,
+): Promise<string> {
+  const hrefs = networkLinkHrefs(kml);
+  if (hrefs.length === 0 || depth >= MAX_NETWORK_LINK_DEPTH) return kml;
+  const docs: string[] = [];
+  for (const href of hrefs) {
+    try {
+      docs.push(await fetchKmlFromUrl(href, depth + 1));
+    } catch {
+      // Einzelner toter Verweis: überspringen, restliche Links weiter auflösen.
+    }
+  }
+  return docs.length > 0 ? mergeKmlDocuments(docs) : kml;
+}
+
+/**
+ * Holt KML- oder KMZ-Inhalt serverseitig (umgeht CORS), entpackt KMZ zu KML,
+ * löst NetworkLinks auf und deckelt bei 20 MB. Die dünne, ungetestete
+ * HTTP-Grenze; Validierung, Deckel, KMZ-Entpackung und Link-Erkennung sind
+ * getestet.
+ */
+export async function fetchKmlFromUrl(url: string, depth = 0): Promise<string> {
+  const target = assertFetchableKmlUrl(normalizeKmlSourceUrl(url));
+  const response = await fetchFollowingRedirects(target);
   if (!response.ok)
     throw new ValidationError(
       `KML konnte nicht geladen werden (${response.status}).`,
     );
   enforceContentLength(response.headers.get("content-length"));
-  const content = await response.text();
-  enforceKmlSizeLimit(content);
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  enforceKmlSizeLimit(bytes); // deckelt den (ggf. komprimierten) Download
+  const content = await resolveKmlNetworkLinks(extractKml(bytes), depth);
+  enforceKmlSizeLimit(content); // deckelt das entpackte/aufgelöste KML
   return content;
 }
