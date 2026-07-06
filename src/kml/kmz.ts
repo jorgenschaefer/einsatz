@@ -92,8 +92,12 @@ export function extractKml(
   let entries: Record<string, Uint8Array>;
   try {
     // Entpackte Gesamtgröße vor der Dekompression deckeln (Zip-Bombe): der
-    // filter läuft je Eintrag, bevor dieser entpackt wird. Zu klein deklarierte
-    // Einträge fängt fflate selbst beim Puffer-Überlauf ab (untenstehender catch).
+    // filter summiert die im ZIP-Verzeichnis deklarierte Größe je Eintrag und
+    // bricht ab, bevor ein ehrlich groß deklariertes Archiv entpackt wird. Eine
+    // zu klein deklarierte Größe unterläuft das nicht: fflate entpackt in einen
+    // fest auf diese Größe dimensionierten Puffer und verwirft Überlauf (Inhalt
+    // wird abgeschnitten, kein Fehler) – der Speicher bleibt so in jedem Fall
+    // begrenzt. Der catch unten deckt nur echte, kaputte DEFLATE-Ströme ab.
     let total = 0;
     entries = unzipSync(bytes, {
       filter: ({ originalSize }) => {
