@@ -91,6 +91,43 @@ export function KmlPanel({
     await run(onAddFile(file.name, content));
   };
 
+  const overlayRow = (overlay: KmlOverlayView) => (
+    <Paper key={overlay.id} data-testid={`kml-${overlay.id}`} withBorder p="sm">
+      <Group justify="space-between" wrap="nowrap">
+        <Switch
+          label={overlay.name}
+          checked={overlay.visible}
+          onChange={(e) =>
+            run(onToggleVisibility(overlay.id, e.currentTarget.checked))
+          }
+        />
+        <Group gap="xs" wrap="nowrap">
+          {overlay.sourceType === "url" && (
+            <Button
+              size="xs"
+              variant="light"
+              loading={busy}
+              onClick={() => run(onReload(overlay.id))}
+            >
+              Neu laden
+            </Button>
+          )}
+          <Button
+            size="xs"
+            variant="light"
+            color="red"
+            onClick={() => run(onRemove(overlay.id))}
+          >
+            Entfernen
+          </Button>
+        </Group>
+      </Group>
+    </Paper>
+  );
+
+  const fileOverlays = overlays.filter((o) => o.sourceType === "file");
+  const urlOverlays = overlays.filter((o) => o.sourceType === "url");
+
   return (
     <Stack>
       {error && (
@@ -99,81 +136,58 @@ export function KmlPanel({
         </Alert>
       )}
 
-      <input
-        type="file"
-        accept=".kml,.kmz,application/vnd.google-earth.kml+xml,application/vnd.google-earth.kmz,application/xml,text/xml"
-        aria-label="KML-/KMZ-Datei einbinden"
-        onChange={(e) => {
-          const input = e.currentTarget;
-          void addFile(input.files?.[0] ?? null).finally(() => {
-            input.value = ""; // gleiche Datei erneut auswählbar machen
-          });
-        }}
-      />
-
-      <Group align="flex-end" gap="xs">
-        <TextInput
-          label="Name"
-          value={name}
-          onChange={(e) => setName(e.currentTarget.value)}
-        />
-        <TextInput
-          label="KML-/KMZ-URL"
-          value={url}
-          onChange={(e) => setUrl(e.currentTarget.value)}
-          style={{ flex: 1 }}
-        />
-        <Button onClick={addUrl} loading={busy} disabled={!url.trim()}>
-          Per URL einbinden
-        </Button>
-      </Group>
-
-      {overlays.length === 0 ? (
-        <Text c="dimmed">
-          Keine KML-Overlays. Binde eine Datei oder URL ein.
+      <Stack component="section" aria-labelledby="kml-file-heading" gap="xs">
+        <Text id="kml-file-heading" fw={600} size="sm">
+          KML-Datei
         </Text>
-      ) : (
-        <Stack gap="xs">
-          {overlays.map((overlay) => (
-            <Paper
-              key={overlay.id}
-              data-testid={`kml-${overlay.id}`}
-              withBorder
-              p="sm"
-            >
-              <Group justify="space-between" wrap="nowrap">
-                <Switch
-                  label={overlay.name}
-                  checked={overlay.visible}
-                  onChange={(e) =>
-                    run(onToggleVisibility(overlay.id, e.currentTarget.checked))
-                  }
-                />
-                <Group gap="xs" wrap="nowrap">
-                  {overlay.sourceType === "url" && (
-                    <Button
-                      size="xs"
-                      variant="light"
-                      loading={busy}
-                      onClick={() => run(onReload(overlay.id))}
-                    >
-                      Neu laden
-                    </Button>
-                  )}
-                  <Button
-                    size="xs"
-                    variant="light"
-                    color="red"
-                    onClick={() => run(onRemove(overlay.id))}
-                  >
-                    Entfernen
-                  </Button>
-                </Group>
-              </Group>
-            </Paper>
-          ))}
-        </Stack>
-      )}
+        <input
+          type="file"
+          accept=".kml,.kmz,application/vnd.google-earth.kml+xml,application/vnd.google-earth.kmz,application/xml,text/xml"
+          aria-label="KML-/KMZ-Datei einbinden"
+          onChange={(e) => {
+            const input = e.currentTarget;
+            void addFile(input.files?.[0] ?? null).finally(() => {
+              input.value = ""; // gleiche Datei erneut auswählbar machen
+            });
+          }}
+        />
+        {fileOverlays.length === 0 ? (
+          <Text c="dimmed" size="sm">
+            Noch keine KML-Datei eingebunden.
+          </Text>
+        ) : (
+          fileOverlays.map(overlayRow)
+        )}
+      </Stack>
+
+      <Stack component="section" aria-labelledby="kml-url-heading" gap="xs">
+        <Text id="kml-url-heading" fw={600} size="sm">
+          KML-URL
+        </Text>
+        <Group align="flex-end" gap="xs">
+          <TextInput
+            label="Name"
+            value={name}
+            onChange={(e) => setName(e.currentTarget.value)}
+          />
+          <TextInput
+            label="KML-/KMZ-URL"
+            value={url}
+            onChange={(e) => setUrl(e.currentTarget.value)}
+            style={{ flex: 1 }}
+          />
+          <Button onClick={addUrl} loading={busy} disabled={!url.trim()}>
+            Per URL einbinden
+          </Button>
+        </Group>
+        {urlOverlays.length === 0 ? (
+          <Text c="dimmed" size="sm">
+            Noch keine KML-URL eingebunden.
+          </Text>
+        ) : (
+          urlOverlays.map(overlayRow)
+        )}
+      </Stack>
     </Stack>
   );
 }

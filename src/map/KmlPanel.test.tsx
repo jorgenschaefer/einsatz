@@ -32,9 +32,30 @@ const fileOverlay: KmlOverlayView = {
 };
 
 describe("KmlPanel", () => {
-  it("shows an empty hint when there are no overlays", () => {
+  it("groups the panel into a KML-Datei and a KML-URL section", () => {
     renderPanel();
-    expect(screen.getByText(/Keine KML-Overlays/)).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: "KML-Datei" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "KML-URL" })).toBeInTheDocument();
+  });
+
+  it("shows a per-section empty hint when a section has no overlays", () => {
+    renderPanel();
+    expect(screen.getByText(/Noch keine KML-Datei/)).toBeInTheDocument();
+    expect(screen.getByText(/Noch keine KML-URL/)).toBeInTheDocument();
+  });
+
+  it("lists each overlay under the section matching its source", () => {
+    renderPanel({ overlays: [urlOverlay, fileOverlay] });
+    const fileSection = within(
+      screen.getByRole("region", { name: "KML-Datei" }),
+    );
+    expect(fileSection.getByTestId("kml-k2")).toBeInTheDocument();
+    expect(fileSection.queryByTestId("kml-k1")).toBeNull();
+    const urlSection = within(screen.getByRole("region", { name: "KML-URL" }));
+    expect(urlSection.getByTestId("kml-k1")).toBeInTheDocument();
+    expect(urlSection.queryByTestId("kml-k2")).toBeNull();
   });
 
   it("adds a KML by URL", async () => {

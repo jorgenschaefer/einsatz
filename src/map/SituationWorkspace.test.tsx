@@ -651,6 +651,20 @@ describe("SituationWorkspace", () => {
     expect(onToggleKmlVisibility).toHaveBeenCalledWith("k1", false);
   });
 
+  it("splits the layers tab into KML-Datei, KML-URL and Bild-Overlays sections in order", async () => {
+    renderWorkspace();
+    await openTab("Ebenen");
+    const file = screen.getByRole("region", { name: "KML-Datei" });
+    const url = screen.getByRole("region", { name: "KML-URL" });
+    const image = screen.getByRole("region", { name: "Bild-Overlays" });
+    expect(
+      file.compareDocumentPosition(url) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      url.compareDocumentPosition(image) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
   const anImageOverlay = {
     id: "i1",
     name: "Lageplan",

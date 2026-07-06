@@ -720,26 +720,35 @@ export function SituationWorkspace({
                     onReload={onReloadKml}
                     onRemove={onRemoveKml}
                   />
-                  <ImageOverlayPanel
-                    overlays={imageItems}
-                    editingId={editingImageId}
-                    onAdd={onAddImage}
-                    onToggleVisibility={onToggleImageVisibility}
-                    onEdit={startEditImage}
-                    renderEditor={() =>
-                      editingImage && (
-                        <ImageOverlayEditor
-                          opacity={editingImage.placement.opacity}
-                          onOpacityChange={changeImageOpacity}
-                          onReplace={replaceImage}
-                          onDelete={deleteImage}
-                          onDone={stopEditImage}
-                          busy={imageBusy}
-                          error={imageError}
-                        />
-                      )
-                    }
-                  />
+                  <Stack
+                    component="section"
+                    aria-labelledby="image-overlay-heading"
+                    gap="xs"
+                  >
+                    <Text id="image-overlay-heading" fw={600} size="sm">
+                      Bild-Overlays
+                    </Text>
+                    <ImageOverlayPanel
+                      overlays={imageItems}
+                      editingId={editingImageId}
+                      onAdd={onAddImage}
+                      onToggleVisibility={onToggleImageVisibility}
+                      onEdit={startEditImage}
+                      renderEditor={() =>
+                        editingImage && (
+                          <ImageOverlayEditor
+                            opacity={editingImage.placement.opacity}
+                            onOpacityChange={changeImageOpacity}
+                            onReplace={replaceImage}
+                            onDelete={deleteImage}
+                            onDone={stopEditImage}
+                            busy={imageBusy}
+                            error={imageError}
+                          />
+                        )
+                      }
+                    />
+                  </Stack>
                 </Stack>
               </Tabs.Panel>
             </Tabs>
