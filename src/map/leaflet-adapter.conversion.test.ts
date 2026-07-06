@@ -170,6 +170,13 @@ describe("kmlPopupContent", () => {
     expect(el?.querySelector("img")).toBeNull();
     expect(el?.textContent).toContain("<img src=x onerror=alert(1)>");
   });
+
+  it("treats HTML in the description as text, not markup (no XSS)", () => {
+    // KML-Beschreibungen tragen in der Praxis oft HTML/CDATA – muss Klartext bleiben.
+    const el = kmlPopupContent({ description: "<img src=x onerror=alert(1)>" });
+    expect(el?.querySelector("img")).toBeNull();
+    expect(el?.textContent).toContain("<img src=x onerror=alert(1)>");
+  });
 });
 
 describe("kmlIconOptions", () => {
