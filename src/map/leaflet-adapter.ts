@@ -154,6 +154,36 @@ export function kmlIconOptions(
 }
 
 /**
+ * Baut aus den von togeojson gelieferten Properties den Popup-Inhalt eines KML-
+ * Placemarks: `name` als Titel, `description` als Absatz darunter. `null`, wenn
+ * beides fehlt (dann bleibt das Feature ohne Popup). Der Inhalt wird über
+ * `textContent` gesetzt statt als HTML-String – `name`/`description` sind
+ * Fremddaten, ein HTML-String würde von Leaflet als `innerHTML` interpretiert
+ * (XSS). HTML in der Beschreibung erscheint dadurch bewusst als Klartext.
+ */
+export function kmlPopupContent(
+  props: Record<string, unknown>,
+): HTMLElement | null {
+  const name = typeof props.name === "string" ? props.name : "";
+  const description =
+    typeof props.description === "string" ? props.description : "";
+  if (!name && !description) return null;
+
+  const container = document.createElement("div");
+  if (name) {
+    const title = document.createElement("strong");
+    title.textContent = name;
+    container.appendChild(title);
+  }
+  if (description) {
+    const body = document.createElement("p");
+    body.textContent = description;
+    container.appendChild(body);
+  }
+  return container;
+}
+
+/**
  * Wandelt KML-Text in eine Leaflet-GeoJSON-Ebene. Punkte mit `<IconStyle>`
  * erhalten ihr Symbol (sonst der Standardmarker). Fehlerhaftes XML (DOMParser
  * liefert dann ein <parsererror>, statt zu werfen) und Parse-Ausnahmen ergeben
@@ -169,6 +199,10 @@ export function parseKml(content: string): L.GeoJSON | null {
         return opts
           ? L.marker(latlng, { icon: L.icon(opts) })
           : L.marker(latlng);
+      },
+      onEachFeature: (feature, layer) => {
+        const popup = kmlPopupContent(feature.properties ?? {});
+        if (popup) layer.bindPopup(popup);
       },
     });
   } catch {

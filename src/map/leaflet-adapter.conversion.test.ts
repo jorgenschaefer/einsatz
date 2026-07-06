@@ -1,6 +1,11 @@
 import L from "leaflet";
 import { describe, expect, it } from "vitest";
-import { extractGeometry, kmlIconOptions, parseKml } from "./leaflet-adapter";
+import {
+  extractGeometry,
+  kmlIconOptions,
+  kmlPopupContent,
+  parseKml,
+} from "./leaflet-adapter";
 
 describe("extractGeometry", () => {
   it("reads a circle's center and radius", () => {
@@ -66,6 +71,30 @@ describe("parseKml", () => {
     expect(parseKml("<kml><unclosed>")).toBeNull();
   });
 
+  it("binds a popup carrying the placemark name", () => {
+    const kml = `<?xml version="1.0"?>
+      <kml xmlns="http://www.opengis.net/kml/2.2"><Document>
+        <Placemark><name>Sammelplatz</name>
+          <Point><coordinates>9.99,53.55,0</coordinates></Point>
+        </Placemark>
+      </Document></kml>`;
+    const feature = parseKml(kml)?.getLayers()[0] as L.Marker;
+    const popup = feature.getPopup();
+    expect(popup).toBeDefined();
+    expect((popup?.getContent() as HTMLElement).textContent).toContain(
+      "Sammelplatz",
+    );
+  });
+
+  it("binds no popup when the placemark has neither name nor description", () => {
+    const kml = `<?xml version="1.0"?>
+      <kml xmlns="http://www.opengis.net/kml/2.2"><Document>
+        <Placemark><Point><coordinates>9.99,53.55,0</coordinates></Point></Placemark>
+      </Document></kml>`;
+    const feature = parseKml(kml)?.getLayers()[0] as L.Marker;
+    expect(feature.getPopup()).toBeUndefined();
+  });
+
   it("renders a point's IconStyle icon href onto the marker", () => {
     const kml = `<?xml version="1.0"?>
       <kml xmlns="http://www.opengis.net/kml/2.2"><Document>
@@ -80,6 +109,32 @@ describe("parseKml", () => {
     expect(marker.options.icon?.options.iconUrl).toBe(
       "https://example.com/pin.png",
     );
+  });
+});
+
+describe("kmlPopupContent", () => {
+  it("returns null when neither name nor description is present", () => {
+    expect(kmlPopupContent({})).toBeNull();
+  });
+
+  it("shows the name in the popup element", () => {
+    const el = kmlPopupContent({ name: "Sammelplatz" });
+    expect(el?.textContent).toContain("Sammelplatz");
+  });
+
+  it("shows both name and description", () => {
+    const el = kmlPopupContent({
+      name: "Sammelplatz",
+      description: "Am Nordtor",
+    });
+    expect(el?.textContent).toContain("Sammelplatz");
+    expect(el?.textContent).toContain("Am Nordtor");
+  });
+
+  it("treats HTML in the name as text, not markup (no XSS)", () => {
+    const el = kmlPopupContent({ name: "<img src=x onerror=alert(1)>" });
+    expect(el?.querySelector("img")).toBeNull();
+    expect(el?.textContent).toContain("<img src=x onerror=alert(1)>");
   });
 });
 
