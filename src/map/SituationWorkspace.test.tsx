@@ -89,6 +89,14 @@ const openTab = (name: RegExp | string) =>
   userEvent.click(screen.getByRole("tab", { name }));
 
 describe("SituationWorkspace", () => {
+  it("lays the four sidebar tabs out in a 2x2 grid", () => {
+    renderWorkspace();
+    expect(screen.getByRole("tablist")).toHaveStyle({
+      display: "grid",
+      gridTemplateColumns: "repeat(2, 1fr)",
+    });
+  });
+
   it("opens the Einsatztagebuch tab by default and adds an entry", async () => {
     const onAddJournalEntry = vi.fn(async () => {});
     renderWorkspace({

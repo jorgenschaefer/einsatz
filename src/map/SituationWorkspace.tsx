@@ -546,7 +546,12 @@ export function SituationWorkspace({
                 height: "100%",
               }}
             >
-              <Tabs.List grow>
+              <Tabs.List
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(2, 1fr)",
+                }}
+              >
                 <Tabs.Tab value="etb">Einsatztagebuch</Tabs.Tab>
                 <Tabs.Tab value="symbols">Kartenzeichen</Tabs.Tab>
                 <Tabs.Tab value="areas">Bereiche</Tabs.Tab>
