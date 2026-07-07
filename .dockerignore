@@ -1,0 +1,26 @@
+# Große Verzeichnisse, die im Image ohnehin frisch erzeugt werden.
+# node_modules kommt per `npm ci`, .next per `npm run build` – der lokale
+# Stand (Host = glibc) darf NICHT ins Alpine-Image (musl) kopiert werden.
+node_modules
+.next
+
+# Versionsverwaltung und lokale Build-Artefakte
+.git
+.gitignore
+tsconfig.tsbuildinfo
+
+# Secrets und lokale Umgebung – dürfen nicht ins Image gelangen
+.env
+.env.*
+!.env.example
+
+# Dev-/Doku-Dateien, die zum Bauen und Betreiben nicht gebraucht werden
+docs
+*.md
+biome.json
+vitest.config.ts
+
+# Editor-/OS-Kram
+.vscode
+.idea
+.DS_Store
