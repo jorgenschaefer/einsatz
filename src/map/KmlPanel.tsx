@@ -15,8 +15,6 @@ import { extractKml } from "@/kml/kmz";
 import type { KmlSourceType } from "@/server/kml/kml-overlays";
 import { ValidationError } from "@/server/validation";
 
-export type { KmlSourceType };
-
 export interface KmlOverlayView {
   id: string;
   name: string;

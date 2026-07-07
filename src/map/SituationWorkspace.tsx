@@ -29,6 +29,7 @@ import {
   JournalPanel,
 } from "@/app/operations/[id]/JournalPanel";
 import type { GeoHit } from "@/server/geocoder/geocoder";
+import type { KmlSourceType } from "@/server/kml/kml-overlays";
 import type { PositionSource } from "@/server/mapsymbols/map-symbols";
 import { AdvancedSymbolForm } from "./AdvancedSymbolForm";
 import { AreaEditor } from "./AreaEditor";
@@ -52,7 +53,6 @@ import {
   type KmlActionResult,
   type KmlOverlayView,
   KmlPanel,
-  type KmlSourceType,
 } from "./KmlPanel";
 import { toPlacedSymbols } from "./placed-symbols";
 import { QuickSelectToolbar } from "./QuickSelectToolbar";

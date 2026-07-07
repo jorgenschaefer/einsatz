@@ -6,7 +6,7 @@ export interface SearchableSymbol {
 }
 
 /** Ab wann eine Adresssuche sinnvoll ist (zu kurze Anfragen werden unterdrückt). */
-export const MIN_GEOCODE_QUERY_LENGTH = 3;
+const MIN_GEOCODE_QUERY_LENGTH = 3;
 
 export function shouldGeocode(query: string): boolean {
   return query.trim().length >= MIN_GEOCODE_QUERY_LENGTH;

@@ -22,7 +22,7 @@ export interface AccountSummary {
   role: "admin" | "user";
 }
 
-export interface ActionResult {
+interface ActionResult {
   error?: string;
 }
 

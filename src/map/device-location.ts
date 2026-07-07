@@ -1,7 +1,7 @@
 /** Ab dieser Bewegung seit der letzten Meldung wird eine neue gesendet. */
-export const MIN_MOVE_M = 10;
+const MIN_MOVE_M = 10;
 /** Spätestens nach dieser Zeit wird auch ohne Bewegung neu gesendet. */
-export const MIN_INTERVAL_MS = 30_000;
+const MIN_INTERVAL_MS = 30_000;
 
 export interface LatLng {
   lat: number;

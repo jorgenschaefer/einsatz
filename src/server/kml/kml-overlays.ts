@@ -74,7 +74,7 @@ export async function listKmlOverlays(
   return rows.map(toOverlay);
 }
 
-export async function getKmlOverlay(
+async function getKmlOverlay(
   db: Queryable,
   id: string,
 ): Promise<KmlOverlay | null> {

@@ -15,7 +15,7 @@ import { useState } from "react";
 
 const SAVE_ERROR = "Speichern fehlgeschlagen. Bitte erneut versuchen.";
 
-export interface JournalRevisionView {
+interface JournalRevisionView {
   text: string;
   author: string | null;
   createdAt: string;

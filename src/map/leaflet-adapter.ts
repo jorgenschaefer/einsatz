@@ -160,7 +160,7 @@ export function kmlIconOptions(
  * `undefined` überschrieben zu werden. togeojson liefert Farben bereits als
  * `#rrggbb` und die Opazität als 0..1.
  */
-export function kmlPathStyle(props: Record<string, unknown>): L.PathOptions {
+function kmlPathStyle(props: Record<string, unknown>): L.PathOptions {
   const style: L.PathOptions = {};
   if (typeof props.stroke === "string") style.color = props.stroke;
   if (typeof props["stroke-width"] === "number")

@@ -2,8 +2,6 @@ import { randomUUID } from "node:crypto";
 import type { MapView } from "@/map/view";
 import type { Queryable } from "@/server/db/db";
 
-export type { MapView };
-
 export type OperationStatus = "active" | "closed";
 
 export interface Operation {
