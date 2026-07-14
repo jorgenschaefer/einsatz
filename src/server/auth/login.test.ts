@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { freshDb } from "@/test/db";
 import { authenticate, createSession, SESSION_TTL_MS } from "./login";
 import { hashPassword } from "./password";
-import { findUserBySessionToken } from "./sessions";
+import { findUserBySessionToken, insertSession } from "./sessions";
 import { insertUser } from "./users";
 
 async function seedAnna(db: Awaited<ReturnType<typeof freshDb>>) {
@@ -67,5 +67,40 @@ describe("createSession", () => {
     const b = await createSession(db, user.id);
     expect(a.token).not.toBe(b.token);
     await db.close();
+  });
+
+  it("purges expired sessions when a new one is created (purge-on-write)", async () => {
+    const db = await freshDb();
+    const user = await seedAnna(db);
+    await insertSession(db, {
+      token: "stale",
+      userId: user.id,
+      expiresAt: new Date(Date.now() - 1000),
+    });
+
+    await createSession(db, user.id);
+
+    const { rows } = await db.query<{ count: string }>(
+      "SELECT count(*)::text AS count FROM sessions WHERE token = 'stale'",
+    );
+    expect(rows[0].count).toBe("0");
+    await db.close();
+  });
+
+  it("still logs in when the best-effort purge fails", async () => {
+    // A db whose INSERT succeeds but whose purge DELETE rejects.
+    const inserted: string[] = [];
+    const db = {
+      query: async (text: string, params?: readonly unknown[]) => {
+        if (text.startsWith("DELETE")) throw new Error("purge boom");
+        if (text.startsWith("INSERT"))
+          inserted.push(String(params?.[0] ?? ""));
+        return { rows: [] };
+      },
+    } as unknown as Parameters<typeof createSession>[0];
+
+    const { token } = await createSession(db, "user-1");
+    expect(token).toBeTruthy();
+    expect(inserted).toHaveLength(1); // the session was written despite the purge failure
   });
 });

@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto";
 import type { Db, Queryable } from "@/server/db/db";
 import { DUMMY_PASSWORD_HASH, verifyPassword } from "./password";
 import type { LoginRateLimiter } from "./rate-limit";
-import { insertSession } from "./sessions";
+import { deleteExpiredSessions, insertSession } from "./sessions";
 import type { User } from "./users";
 import { findUserByUsername } from "./users";
 
@@ -62,5 +62,12 @@ export async function createSession(
   const token = randomBytes(32).toString("base64url");
   const expiresAt = new Date(now + SESSION_TTL_MS);
   await insertSession(db, { token, userId, expiresAt });
+  // Best-effort-Aufräumen abgelaufener Sessions (Purge-on-write). Ein Fehler
+  // hier darf die Anmeldung nie blockieren.
+  try {
+    await deleteExpiredSessions(db, new Date(now));
+  } catch (err) {
+    console.error("Aufräumen abgelaufener Sessions fehlgeschlagen:", err);
+  }
   return { token, expiresAt };
 }

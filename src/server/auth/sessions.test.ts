@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { freshDb } from "@/test/db";
 import {
+  deleteExpiredSessions,
   deleteSession,
   deleteSessionsForUser,
   findUserBySessionToken,
@@ -13,6 +14,34 @@ const soon = () => new Date(Date.now() + 1000);
 async function seedUser(db: Awaited<ReturnType<typeof freshDb>>) {
   return insertUser(db, { username: "anna", passwordHash: "h", role: "user" });
 }
+
+describe("deleteExpiredSessions", () => {
+  it("removes only the expired sessions, keeping the valid ones", async () => {
+    const db = await freshDb();
+    const user = await seedUser(db);
+    const now = new Date();
+    await insertSession(db, {
+      token: "expired",
+      userId: user.id,
+      expiresAt: new Date(now.getTime() - 1000),
+    });
+    await insertSession(db, {
+      token: "valid",
+      userId: user.id,
+      expiresAt: new Date(now.getTime() + 60_000),
+    });
+
+    await deleteExpiredSessions(db, now);
+
+    // The valid session still resolves; the expired row is gone.
+    expect(await findUserBySessionToken(db, "valid", now)).not.toBeNull();
+    const { rows } = await db.query<{ token: string }>(
+      "SELECT token FROM sessions ORDER BY token",
+    );
+    expect(rows.map((r) => r.token)).toEqual(["valid"]);
+    await db.close();
+  });
+});
 
 describe("sessions repository", () => {
   it("resolves a valid token to its user", async () => {

@@ -19,6 +19,16 @@ export async function deleteSession(
   await db.query("DELETE FROM sessions WHERE token = $1", [token]);
 }
 
+/** Räumt abgelaufene Sessions weg (Purge-on-write, kein Scheduler nötig). */
+export async function deleteExpiredSessions(
+  db: Queryable,
+  now: Date = new Date(),
+): Promise<void> {
+  await db.query("DELETE FROM sessions WHERE expires_at <= $1", [
+    now.toISOString(),
+  ]);
+}
+
 /** Widerruft alle Sessions eines Nutzers (z. B. nach Passwortänderung). */
 export async function deleteSessionsForUser(
   db: Queryable,
