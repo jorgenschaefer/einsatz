@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  deleteOperation,
+  deleteOperationRow,
   insertOperation,
 } from "@/server/operations/operations";
 import { ValidationError } from "@/server/validation";
@@ -246,7 +246,7 @@ describe("image overlays repository", () => {
       heightPx: 100,
       placement: A_PLACEMENT,
     });
-    await deleteOperation(db, op.id);
+    await deleteOperationRow(db, op.id);
     expect(await listImageOverlays(db, op.id)).toHaveLength(0);
     await db.close();
   });

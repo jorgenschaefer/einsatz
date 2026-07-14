@@ -5,13 +5,11 @@ import { redirect } from "next/navigation";
 import { requireUser } from "@/server/auth/current-user";
 import { getDb } from "@/server/db/pg";
 import { publishOperationChanged } from "@/server/events/operation-events";
-import { listImageOverlays } from "@/server/image-overlays/image-overlays";
-import { deleteOverlayFiles } from "@/server/image-overlays/image-storage";
+import { deleteOperation } from "@/server/operations/delete-operation";
 import {
   closeOperation,
   reopenOperation,
 } from "@/server/operations/operation-lifecycle";
-import { deleteOperation } from "@/server/operations/operations";
 import { revalidateOperation } from "./operation-action";
 
 // Bespoke – nicht über `operationAction`: close/reopen revalidieren zusätzlich
@@ -39,12 +37,9 @@ export async function deleteOperationAction(
   operationId: string,
 ): Promise<void> {
   await requireUser();
-  const db = getDb();
-  const files = (await listImageOverlays(db, operationId)).map(
-    (o) => o.filePath,
-  );
-  await deleteOperation(db, operationId); // Kartenobjekte/ETB kaskadieren in der DB
-  await deleteOverlayFiles(files); // die zugehörigen Bilddateien aus dem Volume entfernen
+  // Eine Domänenfunktion kapselt DB-Löschung + Datei-Aufräumen (keine
+  // Orchestrierung mehr in der Action).
+  await deleteOperation(getDb(), operationId);
   publishOperationChanged(operationId); // andere Clients laden neu → Zugang/Ansicht endet
   redirect("/operations");
 }

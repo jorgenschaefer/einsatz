@@ -4,7 +4,7 @@ import {
   reopenOperation,
 } from "@/server/operations/operation-lifecycle";
 import {
-  deleteOperation,
+  deleteOperationRow,
   insertOperation,
 } from "@/server/operations/operations";
 import { freshDb } from "@/test/db";
@@ -122,7 +122,7 @@ describe("view links repository", () => {
     const op = await anOperation(db);
     const link = await createViewLink(db, { operationId: op.id, label: "a" });
 
-    await deleteOperation(db, op.id);
+    await deleteOperationRow(db, op.id);
 
     expect(await resolveViewAccess(db, link.token)).toBeNull();
     await db.close();

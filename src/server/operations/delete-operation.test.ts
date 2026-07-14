@@ -1,4 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const deleteOverlayFiles = vi.fn(async (_paths: string[]) => {});
+vi.mock("@/server/image-overlays/image-storage", () => ({
+  deleteOverlayFiles: (paths: string[]) => deleteOverlayFiles(paths),
+}));
+
+import { createImageOverlay } from "@/server/image-overlays/image-overlays";
 import { appendEntry, listEntries } from "@/server/journal/journal";
 import {
   createMapSymbol,
@@ -6,9 +13,22 @@ import {
 } from "@/server/mapsymbols/map-symbols";
 import { freshDb } from "@/test/db";
 import { createOperation } from "./create-operation";
-import { deleteOperation, getOperation } from "./operations";
+import { deleteOperation } from "./delete-operation";
+import { getOperation } from "./operations";
 
-describe("deleteOperation", () => {
+const A_PLACEMENT = {
+  centerLat: 53.55,
+  centerLng: 9.99,
+  scaleM: 500,
+  rotationDeg: 0,
+  opacity: 1,
+};
+
+beforeEach(() => {
+  deleteOverlayFiles.mockClear();
+});
+
+describe("deleteOperation (domain)", () => {
   it("deletes the operation and cascades its journal entries and map symbols", async () => {
     const db = await freshDb();
     const op = await createOperation(db, { name: "Hochwasser" }); // has an automatic entry
@@ -30,6 +50,36 @@ describe("deleteOperation", () => {
     expect(await getOperation(db, op.id)).toBeNull();
     expect(await listEntries(db, op.id)).toHaveLength(0);
     expect(await listMapSymbols(db, op.id)).toHaveLength(0);
+    await db.close();
+  });
+
+  it("removes the operation's overlay files along with the row", async () => {
+    const db = await freshDb();
+    const op = await createOperation(db, { name: "Hochwasser" });
+    await createImageOverlay(db, {
+      operationId: op.id,
+      filePath: "op/x/plan.webp",
+      name: "Plan",
+      widthPx: 100,
+      heightPx: 100,
+      placement: A_PLACEMENT,
+    });
+
+    await deleteOperation(db, op.id);
+
+    expect(await getOperation(db, op.id)).toBeNull();
+    expect(deleteOverlayFiles).toHaveBeenCalledWith(["op/x/plan.webp"]);
+    await db.close();
+  });
+
+  it("deletes an operation without overlays without touching files", async () => {
+    const db = await freshDb();
+    const op = await createOperation(db, { name: "Ruhig" });
+
+    await deleteOperation(db, op.id);
+
+    expect(await getOperation(db, op.id)).toBeNull();
+    expect(deleteOverlayFiles).toHaveBeenCalledWith([]); // no file paths
     await db.close();
   });
 });

@@ -113,8 +113,12 @@ export async function setOperationStatus(
   ]);
 }
 
-/** Löscht einen Einsatz; zugehörige Kartenobjekte und ETB-Einträge kaskadieren. */
-export async function deleteOperation(
+/**
+ * Löscht die Einsatz-Zeile; zugehörige Kartenobjekte und ETB-Einträge
+ * kaskadieren in der DB. Reine Datenzugriffsfunktion – Dateien im Uploads-Volume
+ * räumt die Domänenfunktion {@link deleteOperation} (in `delete-operation.ts`) auf.
+ */
+export async function deleteOperationRow(
   db: Queryable,
   id: string,
 ): Promise<void> {
