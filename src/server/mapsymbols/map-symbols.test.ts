@@ -64,6 +64,68 @@ describe("map symbols repository", () => {
     await db.close();
   });
 
+  it("rejects a malformed composition and persists nothing", async () => {
+    const db = await freshDb();
+    const op = await anOperation(db);
+    const create = (c: unknown) =>
+      createMapSymbol(db, {
+        operationId: op.id,
+        composition: c as SymbolComposition,
+        lat: 53.55,
+        lng: 9.99,
+      });
+
+    await expect(create("not-an-object")).rejects.toBeInstanceOf(
+      ValidationError,
+    );
+    await expect(create(null)).rejects.toBeInstanceOf(ValidationError);
+    await expect(create({ unbekannt: "x" })).rejects.toBeInstanceOf(
+      ValidationError,
+    );
+    await expect(create({ text: 42 })).rejects.toBeInstanceOf(ValidationError);
+
+    expect(await listMapSymbols(db, op.id)).toHaveLength(0);
+    await db.close();
+  });
+
+  it("accepts a composition with free text/symbol values (no value-enum check)", async () => {
+    const db = await freshDb();
+    const op = await anOperation(db);
+    const free: SymbolComposition = {
+      text: "Rotkreuz Musterstadt 83/1",
+      symbol: "irgendein-frei-gewählter-wert",
+    };
+    const created = await createMapSymbol(db, {
+      operationId: op.id,
+      composition: free,
+      lat: 53.55,
+      lng: 9.99,
+    });
+    const [loaded] = await listMapSymbols(db, op.id);
+    expect(loaded.composition).toEqual(free);
+    expect(loaded.id).toBe(created.id);
+    await db.close();
+  });
+
+  it("updateMapSymbolComposition rejects a malformed composition and keeps the old value", async () => {
+    const db = await freshDb();
+    const op = await anOperation(db);
+    const symbol = await createMapSymbol(db, {
+      operationId: op.id,
+      composition,
+      lat: 53.55,
+      lng: 9.99,
+    });
+    await expect(
+      updateMapSymbolComposition(db, symbol.id, {
+        böse: "x",
+      } as unknown as SymbolComposition),
+    ).rejects.toBeInstanceOf(ValidationError);
+    const [loaded] = await listMapSymbols(db, op.id);
+    expect(loaded.composition).toEqual(composition);
+    await db.close();
+  });
+
   it("resets the position source to manual when the symbol is moved by hand", async () => {
     const db = await freshDb();
     const op = await anOperation(db);

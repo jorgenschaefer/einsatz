@@ -1,9 +1,53 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import type { SymbolComposition } from "@/map/composition";
 import type { Queryable } from "@/server/db/db";
-import { assertLatLng } from "@/server/validation";
+import { assertLatLng, ValidationError } from "@/server/validation";
 
 export type { SymbolComposition };
+
+/** Die bekannten Achsen einer {@link SymbolComposition}. */
+const COMPOSITION_KEYS: ReadonlySet<string> = new Set([
+  "grundzeichen",
+  "organisation",
+  "fachaufgabe",
+  "einheit",
+  "verwaltungsstufe",
+  "funktion",
+  "symbol",
+  "text",
+]);
+
+/** Großzügige Obergrenze je Freitextfeld – nur gegen Missbrauch, nicht fachlich. */
+const MAX_COMPOSITION_FIELD_LENGTH = 200;
+
+/**
+ * Prüft an der Action-Grenze **nur die Form** einer Zeichen-Komposition: ein
+ * Objekt mit ausschließlich bekannten Schlüsseln und String-Werten (mit
+ * Längenobergrenze). Bewusst **keine** Prüfung gegen die erlaubten Werte von
+ * `taktische-zeichen-core` – `text`/`symbol` sind frei, und künftige Symbolwerte
+ * sollen nicht fälschlich abgelehnt werden.
+ */
+export function assertComposition(composition: SymbolComposition): void {
+  if (
+    typeof composition !== "object" ||
+    composition === null ||
+    Array.isArray(composition)
+  ) {
+    throw new ValidationError("Ungültige Zeichen-Komposition.");
+  }
+  for (const [key, value] of Object.entries(composition)) {
+    if (!COMPOSITION_KEYS.has(key)) {
+      throw new ValidationError("Ungültige Zeichen-Komposition.");
+    }
+    if (value === undefined) continue; // optionales Feld, nicht gesetzt
+    if (
+      typeof value !== "string" ||
+      value.length > MAX_COMPOSITION_FIELD_LENGTH
+    ) {
+      throw new ValidationError("Ungültige Zeichen-Komposition.");
+    }
+  }
+}
 
 export type PositionSource = "manual" | "device";
 
@@ -53,6 +97,7 @@ export async function createMapSymbol(
   },
 ): Promise<MapSymbol> {
   assertLatLng(input.lat, input.lng);
+  assertComposition(input.composition);
   const { rows } = await db.query<MapSymbolRow>(
     `INSERT INTO map_symbols (id, operation_id, composition, lat, lng)
      VALUES ($1, $2, $3, $4, $5)
@@ -99,6 +144,7 @@ export async function updateMapSymbolComposition(
   id: string,
   composition: SymbolComposition,
 ): Promise<void> {
+  assertComposition(composition);
   await db.query("UPDATE map_symbols SET composition = $2 WHERE id = $1", [
     id,
     JSON.stringify(composition),

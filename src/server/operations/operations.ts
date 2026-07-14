@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
-import type { MapView } from "@/map/view";
+import { type MapView, MAX_TILE_ZOOM } from "@/map/view";
 import type { Queryable } from "@/server/db/db";
+import { assertLatLng, ValidationError } from "@/server/validation";
 
 export type OperationStatus = "active" | "closed";
 
@@ -62,12 +63,29 @@ export async function listOperations(db: Queryable): Promise<Operation[]> {
   return rows.map(toOperation);
 }
 
+/**
+ * Prüft an der Action-Grenze einen Kartenausschnitt: gültige Koordinaten und
+ * eine endliche Zoomstufe im Bereich `0..MAX_TILE_ZOOM` (an das `maxZoom` des
+ * Tile-Layers gebunden).
+ */
+export function assertMapView(view: MapView): void {
+  assertLatLng(view.lat, view.lng);
+  if (
+    !Number.isFinite(view.zoom) ||
+    view.zoom < 0 ||
+    view.zoom > MAX_TILE_ZOOM
+  ) {
+    throw new ValidationError("Ungültige Zoomstufe.");
+  }
+}
+
 /** Setzt den serverseitigen Standard-Kartenausschnitt eines Einsatzes. */
 export async function setDefaultView(
   db: Queryable,
   id: string,
   view: MapView,
 ): Promise<void> {
+  assertMapView(view);
   await db.query("UPDATE operations SET default_view = $2 WHERE id = $1", [
     id,
     JSON.stringify(view),

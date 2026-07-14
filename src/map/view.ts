@@ -5,6 +5,13 @@ export interface MapView {
   zoom: number;
 }
 
+/**
+ * Maximale Zoomstufe des Tile-Layers. Eine gemeinsame Konstante, damit der
+ * Leaflet-Tile-Layer (`leaflet-adapter.ts`) und die serverseitige Validierung
+ * der Standardansicht (`assertMapView`) nicht auseinanderlaufen.
+ */
+export const MAX_TILE_ZOOM = 19;
+
 /** Fallback, wenn weder ein lokaler noch ein Einsatz-Standardausschnitt existiert: Mitte Deutschlands. */
 export const FALLBACK_VIEW: MapView = { lat: 51.1633, lng: 10.4477, zoom: 6 };
 

@@ -27,7 +27,7 @@ import {
   kmlSignature,
   markerVisualSignature,
 } from "./layer-signature";
-import type { MapView } from "./view";
+import { type MapView, MAX_TILE_ZOOM } from "./view";
 
 /** Vom Plugin ergänzt: platziert ein (dreh-/scherbares) Bild über drei Ecken. */
 type RotatedImageOverlayFactory = (
@@ -253,7 +253,7 @@ export const leafletMapAdapterFactory: MapAdapterFactory = {
 
     L.tileLayer(options.tileUrl, {
       attribution: options.attribution,
-      maxZoom: 19,
+      maxZoom: MAX_TILE_ZOOM,
     }).addTo(map);
 
     // Leaflet vermisst den Container nur bei window-resize neu. Ändert sich die

@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import type { MapView } from "@/map/view";
+import { ValidationError } from "@/server/validation";
 import { freshDb } from "@/test/db";
 import {
   getOperation,
@@ -45,6 +47,43 @@ describe("operations repository", () => {
 
     const reloaded = await getOperation(db, op.id);
     expect(reloaded?.defaultView).toEqual({ lat: 53.55, lng: 9.99, zoom: 13 });
+    await db.close();
+  });
+
+  it("rejects a default view with invalid coordinates or zoom, writing nothing", async () => {
+    const db = await freshDb();
+    const op = await insertOperation(db, {
+      name: "Hochwasser",
+      description: null,
+    });
+    const set = (view: MapView) => setDefaultView(db, op.id, view);
+
+    await expect(
+      set({ lat: Number.NaN, lng: 9.99, zoom: 13 }),
+    ).rejects.toBeInstanceOf(ValidationError);
+    await expect(
+      set({ lat: 53.55, lng: 9.99, zoom: 20 }),
+    ).rejects.toBeInstanceOf(ValidationError);
+    await expect(
+      set({ lat: 53.55, lng: 9.99, zoom: -1 }),
+    ).rejects.toBeInstanceOf(ValidationError);
+
+    expect((await getOperation(db, op.id))?.defaultView).toBeNull();
+    await db.close();
+  });
+
+  it("accepts a default view at the tile-layer max zoom (19)", async () => {
+    const db = await freshDb();
+    const op = await insertOperation(db, {
+      name: "Hochwasser",
+      description: null,
+    });
+    await setDefaultView(db, op.id, { lat: 53.55, lng: 9.99, zoom: 19 });
+    expect((await getOperation(db, op.id))?.defaultView).toEqual({
+      lat: 53.55,
+      lng: 9.99,
+      zoom: 19,
+    });
     await db.close();
   });
 
