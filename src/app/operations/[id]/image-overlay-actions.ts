@@ -35,6 +35,13 @@ import {
 // Bild-Overlay-Actions haben ein eigenes Catch-all (PDF→PNG-Renderer,
 // Datei-IO) plus Datei-Aufräumen, passen daher nicht in den `operationAction`-
 // Helfer; sie nutzen aber dessen `revalidateOperation`/`toFormError`.
+//
+// Zugehörigkeit (flaches Trust-Modell): Diese Kind-Objekt-Actions mutieren über
+// die vom Client gelieferte Objekt-`id`, ohne zu prüfen, dass das Objekt zu
+// `operationId` gehört (`operationId` dient hier nur Revalidate/Live-Event). Das
+// ist bewusst unkritisch, solange jeder angemeldete Nutzer jeden Einsatz
+// bearbeiten darf; es ist zugleich der Ansatzpunkt für eine künftige
+// Per-Einsatz-Autorisierung: dann hier vor der Mutation die Zugehörigkeit prüfen.
 function toError(err: unknown): ActionResult {
   // Unerwartete Fehler (z. B. aus dem PDF→PNG-Renderer) serverseitig sichtbar
   // machen – der Nutzer bekommt nur die generische Meldung.

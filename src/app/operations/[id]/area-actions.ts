@@ -9,11 +9,12 @@ import {
 } from "@/server/areas/areas";
 import { type ActionResult, operationAction } from "./operation-action";
 
-// Kind-Objekt-Aktionen (auch Journal, Kartenzeichen, Overlays) wirken allein auf
-// die Objekt-`id`; `operationId` dient hier nur dem revalidatePath und dem
-// Live-Event. Unter der aktuellen flachen Berechtigung unkritisch – würde aber
-// zu IDOR, sobald eine pro-Einsatz-Autorisierung eingeführt wird (dann die
-// Zugehörigkeit des Objekts zum Einsatz vor der Mutation prüfen).
+// Zugehörigkeit (flaches Trust-Modell): Diese Kind-Objekt-Actions mutieren über
+// die vom Client gelieferte Objekt-`id`, ohne zu prüfen, dass das Objekt zu
+// `operationId` gehört (`operationId` dient hier nur Revalidate/Live-Event). Das
+// ist bewusst unkritisch, solange jeder angemeldete Nutzer jeden Einsatz
+// bearbeiten darf; es ist zugleich der Ansatzpunkt für eine künftige
+// Per-Einsatz-Autorisierung: dann hier vor der Mutation die Zugehörigkeit prüfen.
 const DEFAULT_AREA_STYLE: AreaStyle = {
   color: "#e2001a",
   opacity: 0.4,
