@@ -15,6 +15,7 @@ import {
   type RenderedKmlOverlay,
   SituationMap,
 } from "./SituationMap";
+import { tokenGeocode } from "./token-geocode";
 import { useMapFocus } from "./useMapFocus";
 import { useMapSearch } from "./useMapSearch";
 import { type LiveConnection, useOperationEvents } from "./useOperationEvents";
@@ -66,13 +67,7 @@ export function ViewLinkView({
 
   // Adresssuche ohne Login über die token-gebundene Route; für Tests injizierbar.
   const geocode = useCallback(
-    async (q: string) => {
-      if (onGeocode) return onGeocode(q);
-      const res = await fetch(
-        `/view/${token}/geocode?q=${encodeURIComponent(q)}`,
-      );
-      return res.ok ? ((await res.json()) as GeoHit[]) : [];
-    },
+    (q: string) => (onGeocode ? onGeocode(q) : tokenGeocode("/view", token, q)),
     [onGeocode, token],
   );
   const {

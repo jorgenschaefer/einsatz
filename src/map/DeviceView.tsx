@@ -17,6 +17,7 @@ import {
   type RenderedKmlOverlay,
   SituationMap,
 } from "./SituationMap";
+import { tokenGeocode } from "./token-geocode";
 import { type DeviceLocation, useDeviceLocation } from "./useDeviceLocation";
 import { useMapFocus } from "./useMapFocus";
 import { useMapSearch } from "./useMapSearch";
@@ -79,13 +80,8 @@ export function DeviceView({
 
   // Adresssuche ohne Login über die token-gebundene Route; für Tests injizierbar.
   const geocode = useCallback(
-    async (q: string) => {
-      if (onGeocode) return onGeocode(q);
-      const res = await fetch(
-        `/device/${token}/geocode?q=${encodeURIComponent(q)}`,
-      );
-      return res.ok ? ((await res.json()) as GeoHit[]) : [];
-    },
+    (q: string) =>
+      onGeocode ? onGeocode(q) : tokenGeocode("/device", token, q),
     [onGeocode, token],
   );
   const {
