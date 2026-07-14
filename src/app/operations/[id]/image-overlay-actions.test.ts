@@ -21,7 +21,10 @@ vi.mock("next/headers", () => ({
   }),
 }));
 
-import { replaceImageOverlayFileAction } from "@/app/operations/[id]/image-overlay-actions";
+import {
+  deleteImageOverlayAction,
+  replaceImageOverlayFileAction,
+} from "@/app/operations/[id]/image-overlay-actions";
 import { hashPassword } from "@/server/auth/password";
 import { insertSession } from "@/server/auth/sessions";
 import { insertUser } from "@/server/auth/users";
@@ -30,6 +33,7 @@ import {
   createImageOverlay,
   getImageOverlay,
 } from "@/server/image-overlays/image-overlays";
+import * as storage from "@/server/image-overlays/image-storage";
 import { storeOverlayImage } from "@/server/image-overlays/image-storage";
 import { insertOperation } from "@/server/operations/operations";
 import { freshDb } from "@/test/db";
@@ -179,5 +183,40 @@ describe("replaceImageOverlayFileAction", () => {
     // Nur die alte Datei bleibt übrig – die neu geschriebene wurde aufgeräumt.
     const files = await readdir(join(dir, op.id));
     expect(files).toEqual([oldPath.split(/[/\\]/)[1]]);
+  });
+});
+
+describe("deleteImageOverlayAction", () => {
+  it("deletes the overlay and returns {} on success", async () => {
+    await login();
+    const op = await insertOperation(state.db as Db, {
+      name: "Lage",
+      description: null,
+    });
+    const { overlay } = await anOverlayWithStoredFile(op.id);
+
+    const result = await deleteImageOverlayAction(op.id, overlay.id);
+
+    expect(result).toEqual({});
+    expect(await getImageOverlay(state.db as Db, overlay.id)).toBeNull();
+  });
+
+  it("returns a friendly {error} when the file cleanup fails, like its siblings", async () => {
+    await login();
+    const op = await insertOperation(state.db as Db, {
+      name: "Lage",
+      description: null,
+    });
+    const { overlay } = await anOverlayWithStoredFile(op.id);
+    vi.spyOn(storage, "deleteOverlayFiles").mockRejectedValueOnce(
+      new Error("volume unavailable"),
+    );
+
+    // The row is already gone; the cleanup failure must surface as a form error,
+    // not throw an unhandled server error.
+    await expect(deleteImageOverlayAction(op.id, overlay.id)).resolves.toEqual({
+      error: "Das Bild-Overlay konnte nicht gelöscht werden.",
+    });
+    expect(await getImageOverlay(state.db as Db, overlay.id)).toBeNull();
   });
 });

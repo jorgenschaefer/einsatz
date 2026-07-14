@@ -42,14 +42,17 @@ import {
 // ist bewusst unkritisch, solange jeder angemeldete Nutzer jeden Einsatz
 // bearbeiten darf; es ist zugleich der Ansatzpunkt für eine künftige
 // Per-Einsatz-Autorisierung: dann hier vor der Mutation die Zugehörigkeit prüfen.
-function toError(err: unknown): ActionResult {
-  // Unerwartete Fehler (z. B. aus dem PDF→PNG-Renderer) serverseitig sichtbar
-  // machen – der Nutzer bekommt nur die generische Meldung.
+function toError(err: unknown, fallback: string): ActionResult {
+  // Unerwartete Fehler (z. B. aus dem PDF→PNG-Renderer oder dem Datei-IO)
+  // serverseitig sichtbar machen – der Nutzer bekommt nur `fallback`.
   if (!(err instanceof ValidationError)) {
     console.error("Bild-Overlay-Verarbeitung fehlgeschlagen:", err);
   }
-  return toFormError(err, "Das Bild konnte nicht eingebunden werden.");
+  return toFormError(err, fallback);
 }
+
+const EMBED_FAILED = "Das Bild konnte nicht eingebunden werden.";
+const DELETE_FAILED = "Das Bild-Overlay konnte nicht gelöscht werden.";
 
 export async function addImageOverlayAction(
   operationId: string,
@@ -85,7 +88,7 @@ export async function addImageOverlayAction(
     revalidateOperation(operationId);
     return {};
   } catch (err) {
-    return toError(err);
+    return toError(err, EMBED_FAILED);
   }
 }
 
@@ -121,7 +124,7 @@ export async function replaceImageOverlayFileAction(
     revalidateOperation(operationId);
     return {};
   } catch (err) {
-    return toError(err);
+    return toError(err, EMBED_FAILED);
   }
 }
 
@@ -151,10 +154,18 @@ export async function deleteImageOverlayAction(
   operationId: string,
   id: string,
 ): Promise<ActionResult> {
-  return operationAction(async (db) => {
+  // Nicht über `operationAction`: das Datei-Aufräumen (Datei-IO) kann scheitern,
+  // nachdem die Zeile schon gelöscht ist – der Fehler soll wie bei add/replace
+  // als Formularfehler erscheinen, nicht als unbehandelter Serverfehler.
+  await requireUser();
+  try {
+    const db = getDb();
     const overlay = await getImageOverlay(db, id);
     await deleteImageOverlay(db, id);
     if (overlay) await deleteOverlayFiles([overlay.filePath]);
-    return operationId;
-  });
+    revalidateOperation(operationId);
+    return {};
+  } catch (err) {
+    return toError(err, DELETE_FAILED);
+  }
 }
