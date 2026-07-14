@@ -93,8 +93,7 @@ describe("createSession", () => {
     const db = {
       query: async (text: string, params?: readonly unknown[]) => {
         if (text.startsWith("DELETE")) throw new Error("purge boom");
-        if (text.startsWith("INSERT"))
-          inserted.push(String(params?.[0] ?? ""));
+        if (text.startsWith("INSERT")) inserted.push(String(params?.[0] ?? ""));
         return { rows: [] };
       },
     } as unknown as Parameters<typeof createSession>[0];

@@ -101,14 +101,7 @@ export async function appendEntry(
     `INSERT INTO journal_entries (id, operation_id, number, text, type, author)
      VALUES ($1, $2, $3, $4, $5, $6)
      RETURNING ${COLUMNS}`,
-    [
-      randomUUID(),
-      input.operationId,
-      number,
-      text,
-      input.type,
-      input.author,
-    ],
+    [randomUUID(), input.operationId, number, text, input.type, input.author],
   );
   return toEntry(rows[0]);
 }

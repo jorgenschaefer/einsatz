@@ -187,9 +187,9 @@ describe("map symbols repository", () => {
     expect(await reportPosition(db, token, 50, 8, new Date())).toEqual({
       result: "denied",
     });
-    expect(
-      await reportPosition(db, "never-issued", 50, 8, new Date()),
-    ).toEqual({ result: "denied" });
+    expect(await reportPosition(db, "never-issued", 50, 8, new Date())).toEqual(
+      { result: "denied" },
+    );
     await db.close();
   });
 

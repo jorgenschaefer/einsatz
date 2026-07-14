@@ -14,7 +14,12 @@ describe("journal", () => {
     const db = await freshDb();
     const op = await anOperation(db);
     const append = (text: string) =>
-      appendEntry(db, { operationId: op.id, text, type: "manuell", author: "a" });
+      appendEntry(db, {
+        operationId: op.id,
+        text,
+        type: "manuell",
+        author: "a",
+      });
 
     await expect(append("")).rejects.toBeInstanceOf(ValidationError);
     await expect(append("   ")).rejects.toBeInstanceOf(ValidationError);
