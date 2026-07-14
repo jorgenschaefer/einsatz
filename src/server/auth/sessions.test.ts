@@ -26,6 +26,8 @@ describe("sessions repository", () => {
 
     const found = await findUserBySessionToken(db, "tok");
     expect(found).toMatchObject({ id: user.id, username: "anna" });
+    // Der breit gereichte Identitätstyp trägt keinen Passwort-Hash.
+    expect(found).not.toHaveProperty("passwordHash");
     await db.close();
   });
 

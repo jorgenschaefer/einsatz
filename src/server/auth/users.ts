@@ -3,11 +3,23 @@ import type { Queryable } from "@/server/db/db";
 
 export type Role = "admin" | "user";
 
-export interface User {
+/**
+ * Der breit durch die App gereichte Identitätstyp – **ohne** Passwort-Hash.
+ * Was `getCurrentUser`/`requireUser`/`requireAdmin`/`listUsers` liefern.
+ */
+export interface AuthenticatedUser {
   id: string;
   username: string;
-  passwordHash: string;
   role: Role;
+}
+
+/**
+ * Nur auth-intern: der Identitätstyp **mit** Passwort-Hash. Ausschließlich für
+ * die Passwortprüfung ({@link findUserByUsername}/{@link findUserById}); nie an
+ * Aufrufer außerhalb der Auth-Schicht weiterreichen.
+ */
+export interface User extends AuthenticatedUser {
+  passwordHash: string;
 }
 
 interface UserRow {
@@ -21,6 +33,16 @@ const toUser = (row: UserRow): User => ({
   id: row.id,
   username: row.username,
   passwordHash: row.password_hash,
+  role: row.role,
+});
+
+const toAuthenticatedUser = (row: {
+  id: string;
+  username: string;
+  role: Role;
+}): AuthenticatedUser => ({
+  id: row.id,
+  username: row.username,
   role: row.role,
 });
 
@@ -59,12 +81,12 @@ export async function findUserById(
   return rows[0] ? toUser(rows[0]) : null;
 }
 
-/** Alle Konten, alphabetisch nach Nutzername. */
-export async function listUsers(db: Queryable): Promise<User[]> {
-  const { rows } = await db.query<UserRow>(
-    `SELECT id, username, password_hash, role FROM users ORDER BY username ASC`,
+/** Alle Konten, alphabetisch nach Nutzername – ohne Passwort-Hash. */
+export async function listUsers(db: Queryable): Promise<AuthenticatedUser[]> {
+  const { rows } = await db.query<{ id: string; username: string; role: Role }>(
+    `SELECT id, username, role FROM users ORDER BY username ASC`,
   );
-  return rows.map(toUser);
+  return rows.map(toAuthenticatedUser);
 }
 
 export async function updateUserRole(

@@ -1,5 +1,5 @@
 import type { Queryable } from "@/server/db/db";
-import type { Role, User } from "./users";
+import type { AuthenticatedUser, Role } from "./users";
 
 export async function insertSession(
   db: Queryable,
@@ -30,30 +30,26 @@ export async function deleteSessionsForUser(
 interface JoinedRow {
   id: string;
   username: string;
-  password_hash: string;
   role: Role;
 }
 
-/** Liefert den Nutzer zu einem gültigen (nicht abgelaufenen) Session-Token. */
+/**
+ * Liefert den (hash-freien) Nutzer zu einem gültigen (nicht abgelaufenen)
+ * Session-Token. Der Passwort-Hash bleibt bewusst außen vor – die Session-
+ * Auflösung braucht ihn nicht und er soll nicht breit weitergereicht werden.
+ */
 export async function findUserBySessionToken(
   db: Queryable,
   token: string,
   now: Date = new Date(),
-): Promise<User | null> {
+): Promise<AuthenticatedUser | null> {
   const { rows } = await db.query<JoinedRow>(
-    `SELECT u.id, u.username, u.password_hash, u.role
+    `SELECT u.id, u.username, u.role
        FROM sessions s
        JOIN users u ON u.id = s.user_id
       WHERE s.token = $1 AND s.expires_at > $2`,
     [token, now.toISOString()],
   );
   const row = rows[0];
-  return row
-    ? {
-        id: row.id,
-        username: row.username,
-        passwordHash: row.password_hash,
-        role: row.role,
-      }
-    : null;
+  return row ? { id: row.id, username: row.username, role: row.role } : null;
 }

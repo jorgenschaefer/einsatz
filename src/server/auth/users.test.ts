@@ -66,10 +66,10 @@ describe("users repository", () => {
       passwordHash: "h",
       role: "admin",
     });
-    expect((await listUsers(db)).map((u) => u.username)).toEqual([
-      "anna",
-      "bob",
-    ]);
+    const listed = await listUsers(db);
+    expect(listed.map((u) => u.username)).toEqual(["anna", "bob"]);
+    // listUsers liefert den hash-freien Identitätstyp.
+    expect(listed[0]).not.toHaveProperty("passwordHash");
     expect(await findUserById(db, anna.id)).toMatchObject({ username: "anna" });
     expect(
       await findUserById(db, "00000000-0000-0000-0000-000000000000"),
