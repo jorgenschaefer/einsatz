@@ -37,19 +37,19 @@ export type LoginAttempt =
 export async function attemptLogin(
   db: Queryable,
   limiter: LoginRateLimiter,
-  key: string,
+  ip: string,
   username: string,
   password: string,
 ): Promise<LoginAttempt> {
-  if (limiter.isBlocked(key)) return { status: "rate-limited" };
+  if (limiter.isBlocked(ip, username)) return { status: "rate-limited" };
 
   const user = await authenticate(db, username, password);
   if (!user) {
-    limiter.recordFailure(key);
+    limiter.recordFailure(ip, username);
     return { status: "invalid" };
   }
 
-  limiter.reset(key);
+  limiter.resetPair(ip, username);
   return { status: "ok", user };
 }
 

@@ -17,13 +17,12 @@ export async function loginAction(
   const password = String(formData.get("password") ?? "");
 
   const ip = clientIpFromForwardedFor((await headers()).get("x-forwarded-for"));
-  const key = `${ip}:${username.toLowerCase()}`;
 
   const db = getDb();
   const result = await attemptLogin(
     db,
     loginRateLimiter,
-    key,
+    ip,
     username,
     password,
   );

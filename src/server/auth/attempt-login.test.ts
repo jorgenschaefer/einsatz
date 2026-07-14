@@ -14,13 +14,15 @@ async function seedAnna(db: Awaited<ReturnType<typeof freshDb>>) {
 }
 
 describe("attemptLogin", () => {
+  const IP = "10.0.0.1";
+
   it("returns ok with the user for correct credentials", async () => {
     const db = await freshDb();
     const user = await seedAnna(db);
     const result = await attemptLogin(
       db,
       new LoginRateLimiter(),
-      "k",
+      IP,
       "anna",
       "a-good-password",
     );
@@ -31,30 +33,30 @@ describe("attemptLogin", () => {
   it("returns invalid and records a failure for wrong credentials", async () => {
     const db = await freshDb();
     await seedAnna(db);
-    const limiter = new LoginRateLimiter(3, 1000);
+    const limiter = new LoginRateLimiter(3, 1000, 1000);
     const result = await attemptLogin(
       db,
       limiter,
-      "k",
+      IP,
       "anna",
       "wrong-password!",
     );
     expect(result).toEqual({ status: "invalid" });
-    expect(limiter.isBlocked("k", 0)).toBe(false); // one failure, not yet blocked
+    expect(limiter.isBlocked(IP, "anna", 0)).toBe(false); // one failure, not yet blocked
     await db.close();
   });
 
-  it("blocks once the failure threshold is reached and short-circuits before authenticating", async () => {
+  it("blocks once the pair threshold is reached and short-circuits before authenticating", async () => {
     const db = await freshDb();
     await seedAnna(db);
-    const limiter = new LoginRateLimiter(2, 60_000);
-    await attemptLogin(db, limiter, "k", "anna", "wrong-1!!!!!!");
-    await attemptLogin(db, limiter, "k", "anna", "wrong-2!!!!!!");
+    const limiter = new LoginRateLimiter(2, 1000, 60_000);
+    await attemptLogin(db, limiter, IP, "anna", "wrong-1!!!!!!");
+    await attemptLogin(db, limiter, IP, "anna", "wrong-2!!!!!!");
     // Even the correct password is now rejected as rate-limited.
     const result = await attemptLogin(
       db,
       limiter,
-      "k",
+      IP,
       "anna",
       "a-good-password",
     );
@@ -62,17 +64,17 @@ describe("attemptLogin", () => {
     await db.close();
   });
 
-  it("resets the failure count on a successful login", async () => {
+  it("resets the pair failure count on a successful login", async () => {
     const db = await freshDb();
     await seedAnna(db);
-    const limiter = new LoginRateLimiter(2, 60_000);
-    await attemptLogin(db, limiter, "k", "anna", "wrong!!!!!!!");
-    await attemptLogin(db, limiter, "k", "anna", "a-good-password"); // success resets
-    await attemptLogin(db, limiter, "k", "anna", "wrong!!!!!!!"); // one failure again
+    const limiter = new LoginRateLimiter(2, 1000, 60_000);
+    await attemptLogin(db, limiter, IP, "anna", "wrong!!!!!!!");
+    await attemptLogin(db, limiter, IP, "anna", "a-good-password"); // success resets pair
+    await attemptLogin(db, limiter, IP, "anna", "wrong!!!!!!!"); // one failure again
     const result = await attemptLogin(
       db,
       limiter,
-      "k",
+      IP,
       "anna",
       "a-good-password",
     );
