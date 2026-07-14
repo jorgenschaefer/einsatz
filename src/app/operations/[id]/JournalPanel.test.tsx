@@ -132,6 +132,28 @@ describe("JournalPanel", () => {
     expect(screen.getByText(/–\s*anna/)).toBeInTheDocument();
   });
 
+  it("gives revisions with an identical timestamp distinct, collision-free keys", () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const sameTs = "2026-07-03T08:00:00.000Z";
+    setup({
+      entries: [
+        entry({
+          text: "Fassung 3",
+          revisions: [
+            { text: "Fassung 1", author: "anna", createdAt: sameTs },
+            { text: "Fassung 2", author: "bernd", createdAt: sameTs },
+          ],
+        }),
+      ],
+    });
+    expect(screen.getByText("Fassung 1")).toBeInTheDocument();
+    expect(screen.getByText("Fassung 2")).toBeInTheDocument();
+    expect(
+      errorSpy.mock.calls.some((call) => String(call[0]).includes("same key")),
+    ).toBe(false);
+    errorSpy.mockRestore();
+  });
+
   it("renders an annulled entry struck through while keeping its number", () => {
     setup({
       entries: [entry({ number: 4, state: "annulliert", text: "Fehleintrag" })],

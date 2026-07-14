@@ -168,13 +168,13 @@ export function JournalPanel({
                 )}
               </Group>
 
-              {entry.revisions.map((rev) => (
-                <Text
-                  key={`${entry.id}-${rev.createdAt}`}
-                  size="sm"
-                  c="dimmed"
-                  mt={4}
-                >
+              {entry.revisions.map((rev, index) => (
+                // Revisionen tragen weder id noch seq und werden nur angehängt
+                // (nie umsortiert/entfernt); der Index innerhalb des Eintrags ist
+                // daher ein stabiler, kollisionsfreier Key – anders als der
+                // Zeitstempel, den zwei Fassungen teilen können.
+                // biome-ignore lint/suspicious/noArrayIndexKey: append-only, stable index
+                <Text key={`${entry.id}-${index}`} size="sm" c="dimmed" mt={4}>
                   <del>{rev.text}</del>
                   {rev.author &&
                     ` – ${rev.author}, ${berlinTime(rev.createdAt)}`}
