@@ -50,22 +50,22 @@ function renderWorkspace(over: Partial<SituationWorkspaceProps> = {}) {
     attribution: "© OpenStreetMap",
     symbols: [],
     journalEntries: [],
-    onAddJournalEntry: vi.fn(async () => {}),
-    onCorrectJournalEntry: vi.fn(async () => {}),
-    onAnnulJournalEntry: vi.fn(async () => {}),
-    onSetDefault: vi.fn(),
-    onPlace: vi.fn(),
-    onMove: vi.fn(),
-    onUpdate: vi.fn(),
-    onDelete: vi.fn(),
-    onGenerateDeviceLink: vi.fn(async () => {}),
+    onAddJournalEntry: vi.fn(async () => ({})),
+    onCorrectJournalEntry: vi.fn(async () => ({})),
+    onAnnulJournalEntry: vi.fn(async () => ({})),
+    onSetDefault: vi.fn(async () => ({})),
+    onPlace: vi.fn(async () => ({})),
+    onMove: vi.fn(async () => ({})),
+    onUpdate: vi.fn(async () => ({})),
+    onDelete: vi.fn(async () => ({})),
+    onGenerateDeviceLink: vi.fn(async () => ({})),
     onGeocode: vi.fn(async () => []),
     geocoderAttribution: "© OpenStreetMap",
     areas: [],
-    onCreateArea: vi.fn(),
-    onUpdateAreaStyle: vi.fn(),
-    onUpdateAreaGeometry: vi.fn(),
-    onDeleteArea: vi.fn(),
+    onCreateArea: vi.fn(async () => ({})),
+    onUpdateAreaStyle: vi.fn(async () => ({})),
+    onUpdateAreaGeometry: vi.fn(async () => ({})),
+    onDeleteArea: vi.fn(async () => ({})),
     kmlOverlays: [],
     onAddKmlFile: vi.fn(async () => ({})),
     onAddKmlUrl: vi.fn(async () => ({})),
@@ -98,7 +98,7 @@ describe("SituationWorkspace", () => {
   });
 
   it("opens the Einsatztagebuch tab by default and adds an entry", async () => {
-    const onAddJournalEntry = vi.fn(async () => {});
+    const onAddJournalEntry = vi.fn(async () => ({}));
     renderWorkspace({
       onAddJournalEntry,
       journalEntries: [
@@ -146,8 +146,8 @@ describe("SituationWorkspace", () => {
     let resolvePlace: () => void = () => {};
     const onPlace = vi.fn(
       () =>
-        new Promise<void>((r) => {
-          resolvePlace = r;
+        new Promise<{ error?: string }>((r) => {
+          resolvePlace = () => r({});
         }),
     );
     const { captured } = renderWorkspace({ onPlace });
@@ -442,6 +442,36 @@ describe("SituationWorkspace", () => {
       label: "Zone",
     });
     expect(await screen.findByRole("alert")).toBeInTheDocument();
+  });
+
+  it("surfaces a returned {error} from an area action in the panel", async () => {
+    const onUpdateAreaStyle = vi
+      .fn<SituationWorkspaceProps["onUpdateAreaStyle"]>()
+      .mockResolvedValueOnce({
+        error: "Die Deckkraft muss zwischen 0 und 1 liegen.",
+      });
+    const area = {
+      id: "a1",
+      geometry: {
+        shape: "circle" as const,
+        center: { lat: 1, lng: 2 },
+        radius: 100,
+      },
+      color: "#e2001a",
+      opacity: 0.4,
+      label: "Zone",
+    };
+    renderWorkspace({ areas: [area], onUpdateAreaStyle });
+    await openTab("Bereiche");
+    await userEvent.click(
+      await screen.findByRole("button", { name: /Zone bearbeiten/ }),
+    );
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Speichern" }),
+    );
+    expect(
+      await screen.findByText("Die Deckkraft muss zwischen 0 und 1 liegen."),
+    ).toBeInTheDocument();
   });
 
   it("replaces an area geometry when redrawing", async () => {
@@ -933,7 +963,7 @@ describe("SituationWorkspace", () => {
   });
 
   it("generates a device link from the Kartenzeichen detail", async () => {
-    const onGenerateDeviceLink = vi.fn(async () => {});
+    const onGenerateDeviceLink = vi.fn(async () => ({}));
     const { adapter } = renderWorkspace({
       symbols: [
         {

@@ -110,6 +110,10 @@ export interface WorkspaceImageOverlay {
   visible: boolean;
 }
 
+/** Rückgabe der mutierenden Einsatz-Actions (siehe `operationAction`): leer bei
+ *  Erfolg, sonst mit `error`-Meldung fürs Panel. */
+type ActionResult = { error?: string };
+
 export interface SituationWorkspaceProps {
   operationId: string;
   operationDefaultView: MapView | null;
@@ -117,32 +121,32 @@ export interface SituationWorkspaceProps {
   attribution: string;
   symbols: WorkspaceSymbol[];
   journalEntries: JournalEntryView[];
-  onAddJournalEntry: (text: string) => void | Promise<void>;
-  onCorrectJournalEntry: (id: string, text: string) => void | Promise<void>;
-  onAnnulJournalEntry: (id: string) => void | Promise<void>;
-  onSetDefault: (view: MapView) => void | Promise<void>;
+  onAddJournalEntry: (text: string) => Promise<ActionResult>;
+  onCorrectJournalEntry: (id: string, text: string) => Promise<ActionResult>;
+  onAnnulJournalEntry: (id: string) => Promise<ActionResult>;
+  onSetDefault: (view: MapView) => Promise<ActionResult>;
   onPlace: (
     composition: SymbolComposition,
     lat: number,
     lng: number,
-  ) => void | Promise<void>;
-  onMove: (id: string, lat: number, lng: number) => void | Promise<void>;
+  ) => Promise<ActionResult>;
+  onMove: (id: string, lat: number, lng: number) => Promise<ActionResult>;
   onUpdate: (
     id: string,
     composition: SymbolComposition,
-  ) => void | Promise<void>;
-  onDelete: (id: string) => void | Promise<void>;
-  onGenerateDeviceLink: (id: string) => void | Promise<void>;
+  ) => Promise<ActionResult>;
+  onDelete: (id: string) => Promise<ActionResult>;
+  onGenerateDeviceLink: (id: string) => Promise<ActionResult>;
   onGeocode: (query: string) => Promise<GeoHit[]>;
   geocoderAttribution: string;
   areas: RenderedArea[];
-  onCreateArea: (geometry: AreaGeometry) => void | Promise<void>;
-  onUpdateAreaStyle: (id: string, style: AreaStyle) => void | Promise<void>;
+  onCreateArea: (geometry: AreaGeometry) => Promise<ActionResult>;
+  onUpdateAreaStyle: (id: string, style: AreaStyle) => Promise<ActionResult>;
   onUpdateAreaGeometry: (
     id: string,
     geometry: AreaGeometry,
-  ) => void | Promise<void>;
-  onDeleteArea: (id: string) => void | Promise<void>;
+  ) => Promise<ActionResult>;
+  onDeleteArea: (id: string) => Promise<ActionResult>;
   kmlOverlays: WorkspaceKmlOverlay[];
   onAddKmlFile: (name: string, content: string) => Promise<KmlActionResult>;
   onAddKmlUrl: (name: string, url: string) => Promise<KmlActionResult>;
@@ -257,10 +261,14 @@ export function SituationWorkspace({
     setDetailError(null);
   };
 
-  const runDetail = async (op: () => Promise<void> | void) => {
+  const runDetail = async (op: () => Promise<ActionResult>) => {
     setDetailBusy(true);
     try {
-      await op();
+      const { error } = await op();
+      if (error) {
+        setDetailError(error);
+        return;
+      }
       closeDetail();
     } catch {
       setDetailError("Speichern fehlgeschlagen. Bitte erneut versuchen.");
@@ -362,10 +370,14 @@ export function SituationWorkspace({
     }
     resetMode();
   };
-  const runArea = async (op: () => Promise<void> | void) => {
+  const runArea = async (op: () => Promise<ActionResult>) => {
     setAreaBusy(true);
     try {
-      await op();
+      const { error } = await op();
+      if (error) {
+        setAreaError(error);
+        return;
+      }
       setSelectedAreaId(null);
       setAreaError(null);
     } catch {

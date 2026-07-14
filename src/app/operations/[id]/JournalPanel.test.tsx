@@ -25,9 +25,9 @@ function entry(over: Partial<JournalEntryView> = {}): JournalEntryView {
 function setup(over: Partial<JournalPanelProps> = {}) {
   const props: JournalPanelProps = {
     entries: [entry()],
-    onAdd: vi.fn(),
-    onCorrect: vi.fn(),
-    onAnnul: vi.fn(),
+    onAdd: vi.fn(async () => ({})),
+    onCorrect: vi.fn(async () => ({})),
+    onAnnul: vi.fn(async () => ({})),
     ...over,
   };
   render(<JournalPanel {...props} />);
@@ -179,6 +179,25 @@ describe("JournalPanel", () => {
     await userEvent.type(field, "Neuer Text");
     await userEvent.click(screen.getByRole("button", { name: /Speichern/ }));
     expect(await screen.findByRole("alert")).toBeInTheDocument();
+  });
+
+  it("surfaces a returned {error} from a correction (business ValidationError)", async () => {
+    const onCorrect = vi
+      .fn<JournalPanelProps["onCorrect"]>()
+      .mockResolvedValue({
+        error: "Annullierte Einträge können nicht geändert werden.",
+      });
+    setup({ onCorrect });
+    await userEvent.click(screen.getByRole("button", { name: /Korrigieren/ }));
+    const field = screen.getByLabelText(/Korrektur/);
+    await userEvent.clear(field);
+    await userEvent.type(field, "Neuer Text");
+    await userEvent.click(screen.getByRole("button", { name: /Speichern/ }));
+    expect(
+      await screen.findByText(
+        "Annullierte Einträge können nicht geändert werden.",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("surfaces a save error when annulling fails", async () => {

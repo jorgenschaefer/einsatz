@@ -9,7 +9,7 @@ export interface DeviceLinkPanelProps {
   token: string | null;
   positionSource: PositionSource;
   reportedAt: Date | null;
-  onGenerate: () => void | Promise<void>;
+  onGenerate: () => void;
   busy?: boolean;
 }
 

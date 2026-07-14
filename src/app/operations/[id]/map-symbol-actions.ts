@@ -1,10 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import type { SymbolComposition } from "@/map/composition";
-import { requireUser } from "@/server/auth/current-user";
-import { getDb } from "@/server/db/pg";
-import { publishOperationChanged } from "@/server/events/operation-events";
 import {
   createMapSymbol,
   deleteMapSymbol,
@@ -12,21 +8,23 @@ import {
   moveMapSymbol,
   updateMapSymbolComposition,
 } from "@/server/mapsymbols/map-symbols";
+import { type ActionResult, operationAction } from "./operation-action";
 
-const revalidate = (operationId: string) => {
-  revalidatePath(`/operations/${operationId}`);
-  publishOperationChanged(operationId);
-};
-
+// Kind-Objekt-Aktionen (auch Journal, Bereiche, Overlays) wirken allein auf
+// die Objekt-`id`; `operationId` dient hier nur dem revalidatePath und dem
+// Live-Event. Unter der aktuellen flachen Berechtigung unkritisch – würde aber
+// zu IDOR, sobald eine pro-Einsatz-Autorisierung eingeführt wird (dann die
+// Zugehörigkeit des Objekts zum Einsatz vor der Mutation prüfen).
 export async function placeMapSymbolAction(
   operationId: string,
   composition: SymbolComposition,
   lat: number,
   lng: number,
-): Promise<void> {
-  await requireUser();
-  await createMapSymbol(getDb(), { operationId, composition, lat, lng });
-  revalidate(operationId);
+): Promise<ActionResult> {
+  return operationAction(async (db) => {
+    await createMapSymbol(db, { operationId, composition, lat, lng });
+    return operationId;
+  });
 }
 
 export async function moveMapSymbolAction(
@@ -34,36 +32,40 @@ export async function moveMapSymbolAction(
   id: string,
   lat: number,
   lng: number,
-): Promise<void> {
-  await requireUser();
-  await moveMapSymbol(getDb(), id, lat, lng);
-  revalidate(operationId);
+): Promise<ActionResult> {
+  return operationAction(async (db) => {
+    await moveMapSymbol(db, id, lat, lng);
+    return operationId;
+  });
 }
 
 export async function updateMapSymbolCompositionAction(
   operationId: string,
   id: string,
   composition: SymbolComposition,
-): Promise<void> {
-  await requireUser();
-  await updateMapSymbolComposition(getDb(), id, composition);
-  revalidate(operationId);
+): Promise<ActionResult> {
+  return operationAction(async (db) => {
+    await updateMapSymbolComposition(db, id, composition);
+    return operationId;
+  });
 }
 
 export async function deleteMapSymbolAction(
   operationId: string,
   id: string,
-): Promise<void> {
-  await requireUser();
-  await deleteMapSymbol(getDb(), id);
-  revalidate(operationId);
+): Promise<ActionResult> {
+  return operationAction(async (db) => {
+    await deleteMapSymbol(db, id);
+    return operationId;
+  });
 }
 
 export async function generateDeviceLinkAction(
   operationId: string,
   id: string,
-): Promise<void> {
-  await requireUser();
-  await generateDeviceLink(getDb(), id);
-  revalidate(operationId);
+): Promise<ActionResult> {
+  return operationAction(async (db) => {
+    await generateDeviceLink(db, id);
+    return operationId;
+  });
 }

@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import type { AreaGeometry, AreaStyle } from "@/map/area";
 import {
   createArea,
@@ -8,9 +7,7 @@ import {
   updateAreaGeometry,
   updateAreaStyle,
 } from "@/server/areas/areas";
-import { requireUser } from "@/server/auth/current-user";
-import { getDb } from "@/server/db/pg";
-import { publishOperationChanged } from "@/server/events/operation-events";
+import { type ActionResult, operationAction } from "./operation-action";
 
 // Kind-Objekt-Aktionen (auch Journal, Kartenzeichen, Overlays) wirken allein auf
 // die Objekt-`id`; `operationId` dient hier nur dem revalidatePath und dem
@@ -22,45 +19,45 @@ const DEFAULT_AREA_STYLE: AreaStyle = {
   opacity: 0.4,
   label: "",
 };
-const revalidate = (operationId: string) => {
-  revalidatePath(`/operations/${operationId}`);
-  publishOperationChanged(operationId);
-};
 
 export async function createAreaAction(
   operationId: string,
   geometry: AreaGeometry,
-): Promise<void> {
-  await requireUser();
-  await createArea(getDb(), { operationId, geometry, ...DEFAULT_AREA_STYLE });
-  revalidate(operationId);
+): Promise<ActionResult> {
+  return operationAction(async (db) => {
+    await createArea(db, { operationId, geometry, ...DEFAULT_AREA_STYLE });
+    return operationId;
+  });
 }
 
 export async function updateAreaStyleAction(
   operationId: string,
   id: string,
   style: AreaStyle,
-): Promise<void> {
-  await requireUser();
-  await updateAreaStyle(getDb(), id, style);
-  revalidate(operationId);
+): Promise<ActionResult> {
+  return operationAction(async (db) => {
+    await updateAreaStyle(db, id, style);
+    return operationId;
+  });
 }
 
 export async function updateAreaGeometryAction(
   operationId: string,
   id: string,
   geometry: AreaGeometry,
-): Promise<void> {
-  await requireUser();
-  await updateAreaGeometry(getDb(), id, geometry);
-  revalidate(operationId);
+): Promise<ActionResult> {
+  return operationAction(async (db) => {
+    await updateAreaGeometry(db, id, geometry);
+    return operationId;
+  });
 }
 
 export async function deleteAreaAction(
   operationId: string,
   id: string,
-): Promise<void> {
-  await requireUser();
-  await deleteArea(getDb(), id);
-  revalidate(operationId);
+): Promise<ActionResult> {
+  return operationAction(async (db) => {
+    await deleteArea(db, id);
+    return operationId;
+  });
 }

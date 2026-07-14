@@ -51,7 +51,7 @@ export interface SituationMapProps {
   operationDefaultView: MapView | null;
   tileUrl: string;
   attribution: string;
-  onSetDefault?: (view: MapView) => void | Promise<void>;
+  onSetDefault?: (view: MapView) => void;
   /** Read-only (mobile Geräteansicht): keine Werkzeuge/Bearbeitung, kein Standard-Ausschnitt-Knopf. */
   readOnly?: boolean;
   symbols?: PlacedSymbol[];

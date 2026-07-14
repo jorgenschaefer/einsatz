@@ -12,17 +12,19 @@ import {
   reopenOperation,
 } from "@/server/operations/operation-lifecycle";
 import { deleteOperation } from "@/server/operations/operations";
+import { revalidateOperation } from "./operation-action";
 
-const revalidate = (operationId: string) => {
-  revalidatePath(`/operations/${operationId}`);
+// Bespoke – nicht über `operationAction`: close/reopen revalidieren zusätzlich
+// die Übersicht, delete leitet um statt zu revalidieren (siehe unten).
+function revalidateStatusChange(operationId: string): void {
+  revalidateOperation(operationId);
   revalidatePath("/operations"); // Statuswechsel auch in der Übersicht sichtbar machen
-  publishOperationChanged(operationId);
-};
+}
 
 export async function closeOperationAction(operationId: string): Promise<void> {
   await requireUser();
   await closeOperation(getDb(), operationId);
-  revalidate(operationId);
+  revalidateStatusChange(operationId);
 }
 
 export async function reopenOperationAction(
@@ -30,7 +32,7 @@ export async function reopenOperationAction(
 ): Promise<void> {
   await requireUser();
   await reopenOperation(getDb(), operationId);
-  revalidate(operationId);
+  revalidateStatusChange(operationId);
 }
 
 export async function deleteOperationAction(

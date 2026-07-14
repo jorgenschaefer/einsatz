@@ -33,11 +33,14 @@ export interface JournalEntryView {
   revisions: JournalRevisionView[];
 }
 
+/** Rückgabe der ETB-Actions: leer bei Erfolg, sonst mit `error`-Meldung. */
+type ActionResult = { error?: string };
+
 export interface JournalPanelProps {
   entries: JournalEntryView[];
-  onAdd: (text: string) => void | Promise<void>;
-  onCorrect: (id: string, text: string) => void | Promise<void>;
-  onAnnul: (id: string) => void | Promise<void>;
+  onAdd: (text: string) => Promise<ActionResult>;
+  onCorrect: (id: string, text: string) => Promise<ActionResult>;
+  onAnnul: (id: string) => Promise<ActionResult>;
 }
 
 const berlinTime = (iso: string) =>
@@ -67,7 +70,11 @@ export function JournalPanel({
     const text = draft.trim();
     if (!text) return;
     try {
-      await onAdd(text);
+      const { error: err } = await onAdd(text);
+      if (err) {
+        setError(err);
+        return;
+      }
       setDraft("");
       setError(null);
     } catch {
@@ -79,7 +86,11 @@ export function JournalPanel({
     const text = editText.trim();
     if (!text || editingId === null) return;
     try {
-      await onCorrect(editingId, text);
+      const { error: err } = await onCorrect(editingId, text);
+      if (err) {
+        setError(err);
+        return;
+      }
       setEditingId(null);
       setError(null);
     } catch {
@@ -103,7 +114,11 @@ export function JournalPanel({
 
   const annul = async (id: string) => {
     try {
-      await onAnnul(id);
+      const { error: err } = await onAnnul(id);
+      if (err) {
+        setError(err);
+        return;
+      }
       setError(null);
     } catch {
       setError(SAVE_ERROR);

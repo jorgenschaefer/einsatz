@@ -27,7 +27,7 @@ import {
   kmlSignature,
   markerVisualSignature,
 } from "./layer-signature";
-import { type MapView, MAX_TILE_ZOOM } from "./view";
+import { MAX_TILE_ZOOM, type MapView } from "./view";
 
 /** Vom Plugin ergänzt: platziert ein (dreh-/scherbares) Bild über drei Ecken. */
 type RotatedImageOverlayFactory = (

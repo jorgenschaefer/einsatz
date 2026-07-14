@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { type MapView, MAX_TILE_ZOOM } from "@/map/view";
+import { MAX_TILE_ZOOM, type MapView } from "@/map/view";
 import type { Queryable } from "@/server/db/db";
 import { assertLatLng, ValidationError } from "@/server/validation";
 

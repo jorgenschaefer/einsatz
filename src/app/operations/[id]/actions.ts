@@ -1,14 +1,15 @@
 "use server";
 
 import type { MapView } from "@/map/view";
-import { requireUser } from "@/server/auth/current-user";
-import { getDb } from "@/server/db/pg";
 import { setDefaultView } from "@/server/operations/operations";
+import { type ActionResult, operationAction } from "./operation-action";
 
 export async function setDefaultViewAction(
   operationId: string,
   view: MapView,
-): Promise<void> {
-  await requireUser();
-  await setDefaultView(getDb(), operationId, view);
+): Promise<ActionResult> {
+  return operationAction(async (db) => {
+    await setDefaultView(db, operationId, view);
+    return operationId;
+  });
 }

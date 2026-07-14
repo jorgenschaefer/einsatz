@@ -1,13 +1,11 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import {
   defaultImagePlacement,
   type ImagePlacement,
 } from "@/map/image-overlay";
 import { requireUser } from "@/server/auth/current-user";
 import { getDb } from "@/server/db/pg";
-import { publishOperationChanged } from "@/server/events/operation-events";
 import {
   createImageOverlay,
   deleteImageOverlay,
@@ -27,28 +25,29 @@ import {
 } from "@/server/image-overlays/image-upload";
 import { getOperation } from "@/server/operations/operations";
 import { ValidationError } from "@/server/validation";
+import {
+  type ActionResult,
+  operationAction,
+  revalidateOperation,
+  toFormError,
+} from "./operation-action";
 
-interface Result {
-  error?: string;
-}
-
-const revalidate = (operationId: string) => {
-  revalidatePath(`/operations/${operationId}`);
-  publishOperationChanged(operationId);
-};
-
-function toError(err: unknown): Result {
-  if (err instanceof ValidationError) return { error: err.message };
+// Bild-Overlay-Actions haben ein eigenes Catch-all (PDF→PNG-Renderer,
+// Datei-IO) plus Datei-Aufräumen, passen daher nicht in den `operationAction`-
+// Helfer; sie nutzen aber dessen `revalidateOperation`/`toFormError`.
+function toError(err: unknown): ActionResult {
   // Unerwartete Fehler (z. B. aus dem PDF→PNG-Renderer) serverseitig sichtbar
   // machen – der Nutzer bekommt nur die generische Meldung.
-  console.error("Bild-Overlay-Verarbeitung fehlgeschlagen:", err);
-  return { error: "Das Bild konnte nicht eingebunden werden." };
+  if (!(err instanceof ValidationError)) {
+    console.error("Bild-Overlay-Verarbeitung fehlgeschlagen:", err);
+  }
+  return toFormError(err, "Das Bild konnte nicht eingebunden werden.");
 }
 
 export async function addImageOverlayAction(
   operationId: string,
   file: File,
-): Promise<Result> {
+): Promise<ActionResult> {
   await requireUser();
   if (!(file instanceof File)) return { error: "Keine Datei ausgewählt." };
   try {
@@ -76,7 +75,7 @@ export async function addImageOverlayAction(
       await deleteOverlayFiles([filePath]); // keine verwaisten Dateien im Volume
       throw err;
     }
-    revalidate(operationId);
+    revalidateOperation(operationId);
     return {};
   } catch (err) {
     return toError(err);
@@ -87,7 +86,7 @@ export async function replaceImageOverlayFileAction(
   operationId: string,
   id: string,
   file: File,
-): Promise<Result> {
+): Promise<ActionResult> {
   await requireUser();
   if (!(file instanceof File)) return { error: "Keine Datei ausgewählt." };
   try {
@@ -112,7 +111,7 @@ export async function replaceImageOverlayFileAction(
       throw err;
     }
     await deleteOverlayFiles([existing.filePath]); // alte Version entfernen
-    revalidate(operationId);
+    revalidateOperation(operationId);
     return {};
   } catch (err) {
     return toError(err);
@@ -123,33 +122,32 @@ export async function updateImageOverlayPlacementAction(
   operationId: string,
   id: string,
   placement: ImagePlacement,
-): Promise<Result> {
-  await requireUser();
-  await updateImagePlacement(getDb(), id, placement);
-  revalidate(operationId);
-  return {};
+): Promise<ActionResult> {
+  return operationAction(async (db) => {
+    await updateImagePlacement(db, id, placement);
+    return operationId;
+  });
 }
 
 export async function toggleImageOverlayVisibilityAction(
   operationId: string,
   id: string,
   visible: boolean,
-): Promise<Result> {
-  await requireUser();
-  await setImageOverlayVisibility(getDb(), id, visible);
-  revalidate(operationId);
-  return {};
+): Promise<ActionResult> {
+  return operationAction(async (db) => {
+    await setImageOverlayVisibility(db, id, visible);
+    return operationId;
+  });
 }
 
 export async function deleteImageOverlayAction(
   operationId: string,
   id: string,
-): Promise<Result> {
-  await requireUser();
-  const db = getDb();
-  const overlay = await getImageOverlay(db, id);
-  await deleteImageOverlay(db, id);
-  if (overlay) await deleteOverlayFiles([overlay.filePath]);
-  revalidate(operationId);
-  return {};
+): Promise<ActionResult> {
+  return operationAction(async (db) => {
+    const overlay = await getImageOverlay(db, id);
+    await deleteImageOverlay(db, id);
+    if (overlay) await deleteOverlayFiles([overlay.filePath]);
+    return operationId;
+  });
 }

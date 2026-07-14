@@ -1,9 +1,7 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { requireUser } from "@/server/auth/current-user";
 import { getDb } from "@/server/db/pg";
-import { publishOperationChanged } from "@/server/events/operation-events";
 import {
   enforceKmlSizeLimit,
   fetchKmlFromUrl,
@@ -15,28 +13,20 @@ import {
   reloadKmlOverlay,
   setKmlVisibility,
 } from "@/server/kml/kml-overlays";
-import { ValidationError } from "@/server/validation";
+import {
+  type ActionResult,
+  revalidateOperation,
+  toFormError,
+} from "./operation-action";
 
-interface Result {
-  error?: string;
-}
-
-const revalidate = (operationId: string) => {
-  revalidatePath(`/operations/${operationId}`);
-  publishOperationChanged(operationId);
-};
-
-/** Übersetzt einen Fehler in eine nutzerlesbare Meldung fürs Panel. */
-function toError(err: unknown): Result {
-  if (err instanceof ValidationError) return { error: err.message };
-  return { error: "KML konnte nicht geladen werden." };
-}
-
+// KML-Actions haben ein eigenes Catch-all (Netzwerk-/Parse-Fehler → freundliche
+// Meldung), passen daher nicht in den `operationAction`-Helfer; sie nutzen aber
+// dessen `revalidateOperation`/`toFormError` und teilen `requireUser`.
 export async function addKmlFileAction(
   operationId: string,
   name: string,
   content: string,
-): Promise<Result> {
+): Promise<ActionResult> {
   await requireUser();
   try {
     enforceKmlSizeLimit(content);
@@ -51,10 +41,10 @@ export async function addKmlFileAction(
       name: name.trim() || "KML-Datei",
       content: resolved,
     });
-    revalidate(operationId);
+    revalidateOperation(operationId);
     return {};
   } catch (err) {
-    return toError(err);
+    return toFormError(err, "KML konnte nicht geladen werden.");
   }
 }
 
@@ -62,7 +52,7 @@ export async function addKmlUrlAction(
   operationId: string,
   name: string,
   url: string,
-): Promise<Result> {
+): Promise<ActionResult> {
   await requireUser();
   const source = url.trim();
   if (!source) return { error: "Bitte eine KML-URL angeben." };
@@ -75,10 +65,10 @@ export async function addKmlUrlAction(
       name: name.trim() || source,
       content,
     });
-    revalidate(operationId);
+    revalidateOperation(operationId);
     return {};
   } catch (err) {
-    return toError(err);
+    return toFormError(err, "KML konnte nicht geladen werden.");
   }
 }
 
@@ -86,33 +76,33 @@ export async function toggleKmlVisibilityAction(
   operationId: string,
   id: string,
   visible: boolean,
-): Promise<Result> {
+): Promise<ActionResult> {
   await requireUser();
   await setKmlVisibility(getDb(), id, visible);
-  revalidate(operationId);
+  revalidateOperation(operationId);
   return {};
 }
 
 export async function reloadKmlAction(
   operationId: string,
   id: string,
-): Promise<Result> {
+): Promise<ActionResult> {
   await requireUser();
   try {
     await reloadKmlOverlay(getDb(), id, fetchKmlFromUrl);
-    revalidate(operationId);
+    revalidateOperation(operationId);
     return {};
   } catch (err) {
-    return toError(err);
+    return toFormError(err, "KML konnte nicht geladen werden.");
   }
 }
 
 export async function removeKmlAction(
   operationId: string,
   id: string,
-): Promise<Result> {
+): Promise<ActionResult> {
   await requireUser();
   await deleteKmlOverlay(getDb(), id);
-  revalidate(operationId);
+  revalidateOperation(operationId);
   return {};
 }
