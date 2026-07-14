@@ -197,6 +197,9 @@ describe("image overlays repository", () => {
       updateImagePlacement(db, overlay.id, { ...A_PLACEMENT, scaleM: 0 }),
     ).rejects.toBeInstanceOf(ValidationError);
     await expect(
+      updateImagePlacement(db, overlay.id, { ...A_PLACEMENT, opacity: 1.5 }),
+    ).rejects.toBeInstanceOf(ValidationError);
+    await expect(
       updateImagePlacement(db, overlay.id, {
         ...A_PLACEMENT,
         rotationDeg: Number.NaN,

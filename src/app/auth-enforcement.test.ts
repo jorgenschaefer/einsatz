@@ -270,10 +270,12 @@ const adminGuardedActions: Invocation[] = [
   { name: "deleteAccountAction", run: () => deleteAccountAction("id") },
 ];
 
-// Bewusste Ausnahme: logoutAction ruft kein requireUser – sie löscht nur das
-// eigene Cookie des Aufrufers und ist daher anonym erlaubt; deshalb nicht in der
-// Tabelle. (Sie endet mit redirect("/login") als regulärer Abmelde-Ablauf, nicht
-// als Auth-Guard.)
+// Bewusste Ausnahmen (kein requireUser, daher nicht in der Tabelle):
+// - logoutAction löscht nur das eigene Cookie des Aufrufers und ist anonym
+//   erlaubt (endet mit redirect("/login") als regulärer Abmelde-Ablauf, nicht
+//   als Auth-Guard);
+// - loginAction ist der Anmelde-Einstieg selbst – sie erzeugt die Session und
+//   ist naturgemäß unauthentifiziert erreichbar (durch das Rate-Limit geschützt).
 
 beforeEach(async () => {
   state.db = await freshDb();
