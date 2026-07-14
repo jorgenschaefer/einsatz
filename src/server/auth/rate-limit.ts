@@ -12,6 +12,8 @@
  */
 export class LoginRateLimiter {
   private readonly failures = new Map<string, number[]>();
+  // Zeitpunkt des letzten Sweeps; steuert die Aufräum-Kadenz (siehe recordFailure).
+  private lastSweep = Number.NEGATIVE_INFINITY;
 
   constructor(
     private readonly maxPairFailures = 5,
@@ -25,6 +27,11 @@ export class LoginRateLimiter {
 
   private ipKey(ip: string): string {
     return `ip:${ip}`;
+  }
+
+  /** Anzahl aktuell verfolgter Schlüssel – Beobachtungspunkt für die Speichergröße. */
+  get trackedKeyCount(): number {
+    return this.failures.size;
   }
 
   private recent(key: string, now: number): number[] {
@@ -44,8 +51,25 @@ export class LoginRateLimiter {
   }
 
   recordFailure(ip: string, username: string, now: number = Date.now()): void {
+    // Höchstens einmal je Zeitfenster fällig, damit ein Ansturm (Spraying) nicht
+    // je Fehlversuch einen O(n)-Sweep auslöst.
+    if (now - this.lastSweep >= this.windowMs) this.sweep(now);
     this.recent(this.pairKey(ip, username), now).push(now);
     this.recent(this.ipKey(ip), now).push(now);
+  }
+
+  /**
+   * Verwirft vollständig veraltete Schlüssel (kein Zeitstempel mehr im Fenster).
+   * Ohne diesen Sweep würden Schlüssel, die nie wieder abgefragt werden (z. B.
+   * rotierende IPs beim Spraying), unbegrenzt in der Map verbleiben; `recent`
+   * bereinigt nur den gerade berührten Schlüssel.
+   */
+  private sweep(now: number): void {
+    const cutoff = now - this.windowMs;
+    for (const [key, times] of this.failures) {
+      if (times.every((t) => t <= cutoff)) this.failures.delete(key);
+    }
+    this.lastSweep = now;
   }
 
   /**

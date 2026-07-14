@@ -77,3 +77,28 @@ describe("LoginRateLimiter – IP counter (spraying)", () => {
     expect(limiter.isBlocked("ip-a", "fresh", 60_001)).toBe(false);
   });
 });
+
+describe("LoginRateLimiter – memory eviction", () => {
+  it("evicts fully-stale buckets so the map cannot grow unbounded", () => {
+    const limiter = new LoginRateLimiter(5, 20, 1000);
+    // 50 distinct IPs each fail once at t=0 → 50 IP buckets + 50 pair buckets.
+    for (let i = 0; i < 50; i++) limiter.recordFailure(`ip-${i}`, "u", 0);
+    expect(limiter.trackedKeyCount).toBeGreaterThanOrEqual(100);
+
+    // A single failure past the window sweeps the now-stale t=0 buckets, leaving
+    // only the fresh IP's own pair+IP buckets.
+    limiter.recordFailure("ip-new", "u", 5000);
+    expect(limiter.trackedKeyCount).toBe(2);
+  });
+
+  it("keeps in-window buckets when it sweeps (a live block survives)", () => {
+    const limiter = new LoginRateLimiter(2, 20, 1000);
+    limiter.recordFailure("stale", "x", 0); // first call sets the sweep clock (t=0)
+    limiter.recordFailure("ip-a", "anna", 800); // in-window failure #1
+    limiter.recordFailure("ip-a", "anna", 900); // in-window failure #2 → at budget
+    // A failure past the window triggers a sweep (cutoff t=1): 'stale' (t=0) is
+    // dropped, but ip-a's t=800/900 failures survive and keep the block.
+    limiter.recordFailure("ip-b", "z", 1001);
+    expect(limiter.isBlocked("ip-a", "anna", 1001)).toBe(true);
+  });
+});
