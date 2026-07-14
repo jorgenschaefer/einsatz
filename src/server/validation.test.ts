@@ -3,6 +3,7 @@ import {
   assertLatLng,
   assertOpacity,
   assertRadius,
+  assertScale,
   isValidLatLng,
   ValidationError,
 } from "./validation";
@@ -64,5 +65,28 @@ describe("assertRadius", () => {
     expect(() => assertRadius(Number.POSITIVE_INFINITY)).toThrow(
       ValidationError,
     );
+  });
+});
+
+describe("assertScale", () => {
+  it("accepts a positive scale", () => {
+    expect(() => assertScale(1000)).not.toThrow();
+  });
+
+  it("rejects zero, negative or non-finite scale", () => {
+    expect(() => assertScale(0)).toThrow(ValidationError);
+    expect(() => assertScale(-5)).toThrow(ValidationError);
+    expect(() => assertScale(Number.NaN)).toThrow(ValidationError);
+  });
+
+  it("uses a scale-specific message, not the radius message", () => {
+    let message = "";
+    try {
+      assertScale(0);
+    } catch (err) {
+      message = (err as ValidationError).message;
+    }
+    expect(message).not.toMatch(/Radius/);
+    expect(message).toMatch(/Skalierung|Skala|Breite/);
   });
 });

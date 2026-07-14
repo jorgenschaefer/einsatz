@@ -1,6 +1,12 @@
 import { randomUUID } from "node:crypto";
 import type { ImagePlacement } from "@/map/image-overlay";
 import type { Queryable } from "@/server/db/db";
+import {
+  assertLatLng,
+  assertOpacity,
+  assertScale,
+  ValidationError,
+} from "@/server/validation";
 
 export interface ImageOverlay {
   id: string;
@@ -48,6 +54,20 @@ const toOverlay = (row: ImageRow): ImageOverlay => ({
 const COLUMNS =
   "id, operation_id, file_path, name, width_px, height_px, center_lat, center_lng, scale_m, rotation_deg, opacity, visible";
 
+/**
+ * Prüft eine Overlay-Platzierung wie ihre Geschwister (createArea/createMapSymbol):
+ * gültige Koordinaten, Deckkraft 0–1, positive Skalierung, endliche Drehung.
+ * `rotationDeg` wird nicht normalisiert – endliche Werte außerhalb 0–360 sind erlaubt.
+ */
+function assertPlacement(placement: ImagePlacement): void {
+  assertLatLng(placement.centerLat, placement.centerLng);
+  assertOpacity(placement.opacity);
+  assertScale(placement.scaleM);
+  if (!Number.isFinite(placement.rotationDeg)) {
+    throw new ValidationError("Die Drehung muss eine endliche Zahl sein.");
+  }
+}
+
 export async function createImageOverlay(
   db: Queryable,
   input: {
@@ -60,6 +80,7 @@ export async function createImageOverlay(
   },
 ): Promise<ImageOverlay> {
   const p = input.placement;
+  assertPlacement(p);
   const { rows } = await db.query<ImageRow>(
     `INSERT INTO image_overlays
        (id, operation_id, file_path, name, width_px, height_px, center_lat, center_lng, scale_m, rotation_deg, opacity)
@@ -109,6 +130,7 @@ export async function updateImagePlacement(
   id: string,
   placement: ImagePlacement,
 ): Promise<void> {
+  assertPlacement(placement);
   await db.query(
     "UPDATE image_overlays SET center_lat = $2, center_lng = $3, scale_m = $4, rotation_deg = $5, opacity = $6 WHERE id = $1",
     [

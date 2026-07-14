@@ -3,6 +3,7 @@ import {
   deleteOperation,
   insertOperation,
 } from "@/server/operations/operations";
+import { ValidationError } from "@/server/validation";
 import { freshDb } from "@/test/db";
 import {
   createImageOverlay,
@@ -114,6 +115,120 @@ describe("image overlays repository", () => {
       placement: A_PLACEMENT,
       visible: false,
     });
+    await db.close();
+  });
+
+  it("rejects invalid placements and writes nothing", async () => {
+    const db = await freshDb();
+    const op = await anOperation(db);
+    const base = {
+      operationId: op.id,
+      filePath: "op/x/plan.png",
+      name: "Plan",
+      widthPx: 100,
+      heightPx: 100,
+    };
+    const create = (placement: typeof A_PLACEMENT) =>
+      createImageOverlay(db, { ...base, placement });
+
+    await expect(
+      create({ ...A_PLACEMENT, centerLat: Number.NaN }),
+    ).rejects.toBeInstanceOf(ValidationError);
+    await expect(
+      create({ ...A_PLACEMENT, centerLat: 91 }),
+    ).rejects.toBeInstanceOf(ValidationError);
+    await expect(
+      create({ ...A_PLACEMENT, centerLng: 181 }),
+    ).rejects.toBeInstanceOf(ValidationError);
+    await expect(
+      create({ ...A_PLACEMENT, opacity: 1.5 }),
+    ).rejects.toBeInstanceOf(ValidationError);
+    await expect(create({ ...A_PLACEMENT, scaleM: 0 })).rejects.toBeInstanceOf(
+      ValidationError,
+    );
+    await expect(
+      create({ ...A_PLACEMENT, rotationDeg: Number.POSITIVE_INFINITY }),
+    ).rejects.toBeInstanceOf(ValidationError);
+
+    expect(await listImageOverlays(db, op.id)).toHaveLength(0);
+    await db.close();
+  });
+
+  it("scaleM<=0 is rejected with the scale message, not the radius message", async () => {
+    const db = await freshDb();
+    const op = await anOperation(db);
+    let message = "";
+    try {
+      await createImageOverlay(db, {
+        operationId: op.id,
+        filePath: "op/x/plan.png",
+        name: "Plan",
+        widthPx: 100,
+        heightPx: 100,
+        placement: { ...A_PLACEMENT, scaleM: -1 },
+      });
+    } catch (err) {
+      message = (err as ValidationError).message;
+    }
+    expect(message).not.toMatch(/Radius/);
+    expect(message).toMatch(/Skalierung/);
+    await db.close();
+  });
+
+  it("updateImagePlacement rejects invalid values and leaves the row unchanged", async () => {
+    const db = await freshDb();
+    const op = await anOperation(db);
+    const overlay = await createImageOverlay(db, {
+      operationId: op.id,
+      filePath: "op/x/plan.png",
+      name: "Plan",
+      widthPx: 100,
+      heightPx: 100,
+      placement: A_PLACEMENT,
+    });
+
+    await expect(
+      updateImagePlacement(db, overlay.id, {
+        ...A_PLACEMENT,
+        centerLat: Number.NaN,
+      }),
+    ).rejects.toBeInstanceOf(ValidationError);
+    await expect(
+      updateImagePlacement(db, overlay.id, { ...A_PLACEMENT, scaleM: 0 }),
+    ).rejects.toBeInstanceOf(ValidationError);
+    await expect(
+      updateImagePlacement(db, overlay.id, {
+        ...A_PLACEMENT,
+        rotationDeg: Number.NaN,
+      }),
+    ).rejects.toBeInstanceOf(ValidationError);
+
+    expect((await getImageOverlay(db, overlay.id))?.placement).toEqual(
+      A_PLACEMENT,
+    );
+    await db.close();
+  });
+
+  it("accepts a finite rotation outside 0–360 without normalizing it", async () => {
+    const db = await freshDb();
+    const op = await anOperation(db);
+    const overlay = await createImageOverlay(db, {
+      operationId: op.id,
+      filePath: "op/x/plan.png",
+      name: "Plan",
+      widthPx: 100,
+      heightPx: 100,
+      placement: { ...A_PLACEMENT, rotationDeg: 720 },
+    });
+    expect(overlay.placement.rotationDeg).toBe(720);
+
+    await updateImagePlacement(db, overlay.id, {
+      ...A_PLACEMENT,
+      rotationDeg: -30,
+    });
+    expect((await getImageOverlay(db, overlay.id))?.placement.rotationDeg).toBe(
+      -30,
+    );
     await db.close();
   });
 

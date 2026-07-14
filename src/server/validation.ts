@@ -41,3 +41,10 @@ export function assertRadius(radius: number): void {
     throw new ValidationError("Der Radius muss größer als 0 sein.");
   }
 }
+
+/** Erzwingt eine positive, endliche Skalierung (Bildbreite in Metern). */
+export function assertScale(scale: number): void {
+  if (!Number.isFinite(scale) || scale <= 0) {
+    throw new ValidationError("Die Skalierung muss größer als 0 sein.");
+  }
+}
