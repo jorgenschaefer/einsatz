@@ -167,7 +167,7 @@ export default async function LageansichtPage({
         kmlOverlays={kmlOverlays}
         onAddKmlFile={addKmlFileAction.bind(null, operation.id)}
         onAddKmlUrl={addKmlUrlAction.bind(null, operation.id)}
-        onToggleKmlVisibility={setKmlVisibilityAction.bind(null, operation.id)}
+        onSetKmlVisibility={setKmlVisibilityAction.bind(null, operation.id)}
         onReloadKml={reloadKmlAction.bind(null, operation.id)}
         onRemoveKml={removeKmlAction.bind(null, operation.id)}
         imageOverlays={imageOverlays}
@@ -177,7 +177,7 @@ export default async function LageansichtPage({
           operation.id,
         )}
         onReplaceImage={replaceImageOverlayFileAction.bind(null, operation.id)}
-        onToggleImageVisibility={setImageOverlayVisibilityAction.bind(
+        onSetImageVisibility={setImageOverlayVisibilityAction.bind(
           null,
           operation.id,
         )}

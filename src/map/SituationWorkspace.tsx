@@ -150,7 +150,7 @@ export interface SituationWorkspaceProps {
   kmlOverlays: WorkspaceKmlOverlay[];
   onAddKmlFile: (name: string, content: string) => Promise<KmlActionResult>;
   onAddKmlUrl: (name: string, url: string) => Promise<KmlActionResult>;
-  onToggleKmlVisibility: (
+  onSetKmlVisibility: (
     id: string,
     visible: boolean,
   ) => Promise<KmlActionResult>;
@@ -163,7 +163,7 @@ export interface SituationWorkspaceProps {
     placement: ImagePlacement,
   ) => Promise<ImageActionResult>;
   onReplaceImage: (id: string, file: File) => Promise<ImageActionResult>;
-  onToggleImageVisibility: (
+  onSetImageVisibility: (
     id: string,
     visible: boolean,
   ) => Promise<ImageActionResult>;
@@ -204,14 +204,14 @@ export function SituationWorkspace({
   kmlOverlays,
   onAddKmlFile,
   onAddKmlUrl,
-  onToggleKmlVisibility,
+  onSetKmlVisibility,
   onReloadKml,
   onRemoveKml,
   imageOverlays,
   onAddImage,
   onUpdateImagePlacement,
   onReplaceImage,
-  onToggleImageVisibility,
+  onSetImageVisibility,
   onDeleteImage,
   factory,
   eventsHook = useOperationEvents,
@@ -744,7 +744,7 @@ export function SituationWorkspace({
                     overlays={kmlViews}
                     onAddFile={onAddKmlFile}
                     onAddUrl={onAddKmlUrl}
-                    onToggleVisibility={onToggleKmlVisibility}
+                    onToggleVisibility={onSetKmlVisibility}
                     onReload={onReloadKml}
                     onRemove={onRemoveKml}
                   />
@@ -760,7 +760,7 @@ export function SituationWorkspace({
                       overlays={imageItems}
                       editingId={editingImageId}
                       onAdd={onAddImage}
-                      onToggleVisibility={onToggleImageVisibility}
+                      onToggleVisibility={onSetImageVisibility}
                       onEdit={startEditImage}
                       renderEditor={() =>
                         editingImage && (

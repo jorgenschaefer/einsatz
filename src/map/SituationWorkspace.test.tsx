@@ -69,14 +69,14 @@ function renderWorkspace(over: Partial<SituationWorkspaceProps> = {}) {
     kmlOverlays: [],
     onAddKmlFile: vi.fn(async () => ({})),
     onAddKmlUrl: vi.fn(async () => ({})),
-    onToggleKmlVisibility: vi.fn(async () => ({})),
+    onSetKmlVisibility: vi.fn(async () => ({})),
     onReloadKml: vi.fn(async () => ({})),
     onRemoveKml: vi.fn(async () => ({})),
     imageOverlays: [],
     onAddImage: vi.fn(async () => ({})),
     onUpdateImagePlacement: vi.fn(async () => ({})),
     onReplaceImage: vi.fn(async () => ({})),
-    onToggleImageVisibility: vi.fn(async () => ({})),
+    onSetImageVisibility: vi.fn(async () => ({})),
     onDeleteImage: vi.fn(async () => ({})),
     factory: fake.factory,
     ...over,
@@ -698,7 +698,7 @@ describe("SituationWorkspace", () => {
   });
 
   it("opens the layers tab and toggles overlay visibility", async () => {
-    const onToggleKmlVisibility = vi.fn(async () => ({}));
+    const onSetKmlVisibility = vi.fn(async () => ({}));
     renderWorkspace({
       kmlOverlays: [
         {
@@ -709,13 +709,13 @@ describe("SituationWorkspace", () => {
           content: "<kml/>",
         },
       ],
-      onToggleKmlVisibility,
+      onSetKmlVisibility,
     });
     await openTab("Ebenen");
     await userEvent.click(
       await screen.findByRole("switch", { name: /Laufstrecke/ }),
     );
-    expect(onToggleKmlVisibility).toHaveBeenCalledWith("k1", false);
+    expect(onSetKmlVisibility).toHaveBeenCalledWith("k1", false);
   });
 
   it("splits the layers tab into KML-Datei, KML-URL and Bild-Overlays sections in order", async () => {
@@ -842,16 +842,16 @@ describe("SituationWorkspace", () => {
   });
 
   it("opens the layers tab and toggles image overlay visibility", async () => {
-    const onToggleImageVisibility = vi.fn(async () => ({}));
+    const onSetImageVisibility = vi.fn(async () => ({}));
     renderWorkspace({
       imageOverlays: [anImageOverlay],
-      onToggleImageVisibility,
+      onSetImageVisibility,
     });
     await openTab("Ebenen");
     await userEvent.click(
       await screen.findByRole("switch", { name: /Lageplan/ }),
     );
-    expect(onToggleImageVisibility).toHaveBeenCalledWith("i1", false);
+    expect(onSetImageVisibility).toHaveBeenCalledWith("i1", false);
   });
 
   it("edits an image overlay: shows handles on the map and the inline controls", async () => {
