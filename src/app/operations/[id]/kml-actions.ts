@@ -72,7 +72,7 @@ export async function addKmlUrlAction(
   }
 }
 
-export async function toggleKmlVisibilityAction(
+export async function setKmlVisibilityAction(
   operationId: string,
   id: string,
   visible: boolean,

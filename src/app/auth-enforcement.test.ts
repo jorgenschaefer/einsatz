@@ -56,7 +56,7 @@ import {
   addImageOverlayAction,
   deleteImageOverlayAction,
   replaceImageOverlayFileAction,
-  toggleImageOverlayVisibilityAction,
+  setImageOverlayVisibilityAction,
   updateImageOverlayPlacementAction,
 } from "@/app/operations/[id]/image-overlay-actions";
 import {
@@ -69,7 +69,7 @@ import {
   addKmlUrlAction,
   reloadKmlAction,
   removeKmlAction,
-  toggleKmlVisibilityAction,
+  setKmlVisibilityAction,
 } from "@/app/operations/[id]/kml-actions";
 import {
   closeOperationAction,
@@ -190,8 +190,8 @@ const userGuardedActions: Invocation[] = [
     run: () => addKmlUrlAction("op-1", "n", "https://e.example/x.kml"),
   },
   {
-    name: "toggleKmlVisibilityAction",
-    run: () => toggleKmlVisibilityAction("op-1", "k-1", false),
+    name: "setKmlVisibilityAction",
+    run: () => setKmlVisibilityAction("op-1", "k-1", false),
   },
   { name: "reloadKmlAction", run: () => reloadKmlAction("op-1", "k-1") },
   { name: "removeKmlAction", run: () => removeKmlAction("op-1", "k-1") },
@@ -208,8 +208,8 @@ const userGuardedActions: Invocation[] = [
     run: () => updateImageOverlayPlacementAction("op-1", "i-1", placement),
   },
   {
-    name: "toggleImageOverlayVisibilityAction",
-    run: () => toggleImageOverlayVisibilityAction("op-1", "i-1", false),
+    name: "setImageOverlayVisibilityAction",
+    run: () => setImageOverlayVisibilityAction("op-1", "i-1", false),
   },
   {
     name: "deleteImageOverlayAction",

@@ -30,7 +30,7 @@ import {
   addImageOverlayAction,
   deleteImageOverlayAction,
   replaceImageOverlayFileAction,
-  toggleImageOverlayVisibilityAction,
+  setImageOverlayVisibilityAction,
   updateImageOverlayPlacementAction,
 } from "./image-overlay-actions";
 import type { JournalEntryView } from "./JournalPanel";
@@ -44,7 +44,7 @@ import {
   addKmlUrlAction,
   reloadKmlAction,
   removeKmlAction,
-  toggleKmlVisibilityAction,
+  setKmlVisibilityAction,
 } from "./kml-actions";
 import { LageansichtShell } from "./LageansichtShell";
 import {
@@ -167,7 +167,7 @@ export default async function LageansichtPage({
         kmlOverlays={kmlOverlays}
         onAddKmlFile={addKmlFileAction.bind(null, operation.id)}
         onAddKmlUrl={addKmlUrlAction.bind(null, operation.id)}
-        onToggleKmlVisibility={toggleKmlVisibilityAction.bind(
+        onToggleKmlVisibility={setKmlVisibilityAction.bind(
           null,
           operation.id,
         )}
@@ -180,7 +180,7 @@ export default async function LageansichtPage({
           operation.id,
         )}
         onReplaceImage={replaceImageOverlayFileAction.bind(null, operation.id)}
-        onToggleImageVisibility={toggleImageOverlayVisibilityAction.bind(
+        onToggleImageVisibility={setImageOverlayVisibilityAction.bind(
           null,
           operation.id,
         )}

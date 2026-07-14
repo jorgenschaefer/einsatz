@@ -129,7 +129,7 @@ export async function updateImageOverlayPlacementAction(
   });
 }
 
-export async function toggleImageOverlayVisibilityAction(
+export async function setImageOverlayVisibilityAction(
   operationId: string,
   id: string,
   visible: boolean,
