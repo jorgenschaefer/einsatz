@@ -261,6 +261,13 @@ export function SituationWorkspace({
     setDetailError(null);
   };
 
+  // Fehler-Politik der Action-Ergebnisse: Panel-Bearbeitungen (Kartenzeichen-
+  // Detail, Bereich, ETB) reichen ihren `{error}` über runDetail/runArea bzw.
+  // JournalPanel sichtbar durch. Die direkten Karten-Interaktionen (onPlace,
+  // onMove, onSetDefault, onGenerateDeviceLink, Zeichnen) sind bewusst
+  // fire-and-forget: ihre Eingaben (Klick-Koordinaten, Schnellauswahl-
+  // Komposition, aktueller Ausschnitt) sind strukturell gültig, sodass die
+  // Server-Validatoren hier keinen Formularfehler erzeugen können.
   const runDetail = async (op: () => Promise<ActionResult>) => {
     setDetailBusy(true);
     try {

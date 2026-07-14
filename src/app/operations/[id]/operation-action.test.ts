@@ -16,7 +16,7 @@ vi.mock("@/server/events/operation-events", () => ({
 }));
 
 import { ValidationError } from "@/server/validation";
-import { operationAction } from "./operation-action";
+import { operationAction, toFormError } from "./operation-action";
 
 const A_USER = { id: "u1", username: "anna", role: "user" as const };
 
@@ -53,5 +53,16 @@ describe("operationAction", () => {
         throw new Error("boom");
       }),
     ).rejects.toThrow("boom");
+  });
+});
+
+describe("toFormError", () => {
+  it("uses the ValidationError message and the fallback for anything else", () => {
+    expect(toFormError(new ValidationError("zu groß"), "Fallback")).toEqual({
+      error: "zu groß",
+    });
+    expect(toFormError(new Error("boom"), "Fallback")).toEqual({
+      error: "Fallback",
+    });
   });
 });
