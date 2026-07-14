@@ -1,16 +1,35 @@
+import bcrypt from "bcryptjs";
 import { describe, expect, it } from "vitest";
 import {
   assertPasswordPolicy,
+  DUMMY_PASSWORD_HASH,
   hashPassword,
   MIN_PASSWORD_LENGTH,
   verifyPassword,
 } from "./password";
+
+const costOf = (hash: string) => Number(hash.split("$")[2]);
 
 describe("password hashing", () => {
   it("verifies a password against its own hash", async () => {
     const hash = await hashPassword("correct horse battery");
     expect(hash).not.toBe("correct horse battery");
     expect(await verifyPassword("correct horse battery", hash)).toBe(true);
+  });
+
+  it("hashes with cost factor 12", async () => {
+    const hash = await hashPassword("correct horse battery");
+    expect(costOf(hash)).toBe(12);
+  });
+
+  it("uses the same cost factor for the dummy timing-equalizer hash", () => {
+    expect(costOf(DUMMY_PASSWORD_HASH)).toBe(12);
+  });
+
+  it("still verifies a legacy cost-10 hash (bcrypt is cost-agnostic)", async () => {
+    const legacy = bcrypt.hashSync("correct horse battery", 10);
+    expect(costOf(legacy)).toBe(10);
+    expect(await verifyPassword("correct horse battery", legacy)).toBe(true);
   });
 
   it("rejects a wrong password", async () => {
