@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { insertOperation } from "@/server/operations/operations";
+import { ValidationError } from "@/server/validation";
 import { freshDb } from "@/test/db";
 import { appendEntry, listEntries } from "./journal";
 
@@ -8,6 +9,30 @@ async function anOperation(db: Awaited<ReturnType<typeof freshDb>>) {
 }
 
 describe("journal", () => {
+  it("rejects an empty or whitespace-only entry text in the domain", async () => {
+    const db = await freshDb();
+    const op = await anOperation(db);
+    const append = (text: string) =>
+      appendEntry(db, { operationId: op.id, text, type: "manuell", author: "a" });
+
+    await expect(append("")).rejects.toBeInstanceOf(ValidationError);
+    await expect(append("   ")).rejects.toBeInstanceOf(ValidationError);
+    expect(await listEntries(db, op.id)).toHaveLength(0);
+    await db.close();
+  });
+
+  it("stores the trimmed entry text", async () => {
+    const db = await freshDb();
+    const op = await anOperation(db);
+    const entry = await appendEntry(db, {
+      operationId: op.id,
+      text: "  Deich hält  ",
+      type: "manuell",
+      author: "a",
+    });
+    expect(entry.text).toBe("Deich hält");
+    await db.close();
+  });
   it("assigns gapless per-operation numbers starting at 1", async () => {
     const db = await freshDb();
     const op = await anOperation(db);

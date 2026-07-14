@@ -62,6 +62,13 @@ const toEntry = (
 const COLUMNS =
   "id, operation_id, number, created_at, text, type, state, author, edited_at";
 
+/** Die eine Stelle für „ETB-Text darf nicht leer sein": trimmt und erzwingt. */
+function requireEntryText(raw: string): string {
+  const text = raw.trim();
+  if (!text) throw new ValidationError("Der Text darf nicht leer sein.");
+  return text;
+}
+
 /**
  * Hängt einen Eintrag mit der nächsten lückenlosen Nummer an das ETB des
  * Einsatzes an. Muss innerhalb einer Transaktion laufen; sperrt die
@@ -76,6 +83,7 @@ export async function appendEntry(
     author: string | null;
   },
 ): Promise<JournalEntry> {
+  const text = requireEntryText(input.text);
   await lockOperation(tx, input.operationId);
   const { rows: numberRows } = await tx.query<{ next: number }>(
     "SELECT COALESCE(MAX(number), 0) + 1 AS next FROM journal_entries WHERE operation_id = $1",
@@ -91,7 +99,7 @@ export async function appendEntry(
       randomUUID(),
       input.operationId,
       number,
-      input.text,
+      text,
       input.type,
       input.author,
     ],
@@ -189,8 +197,7 @@ export async function correctEntry(
   newText: string,
   author: string,
 ): Promise<JournalEntry> {
-  const text = newText.trim();
-  if (!text) throw new ValidationError("Der Text darf nicht leer sein.");
+  const text = requireEntryText(newText);
 
   return db.transaction(async (tx) => {
     const entry = await loadEntry(tx, entryId, true);

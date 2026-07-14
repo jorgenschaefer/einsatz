@@ -5,7 +5,6 @@ import {
   appendEntry,
   correctEntry,
 } from "@/server/journal/journal";
-import { ValidationError } from "@/server/validation";
 import { type ActionResult, operationAction } from "./operation-action";
 
 export async function addJournalEntryAction(
@@ -13,12 +12,11 @@ export async function addJournalEntryAction(
   text: string,
 ): Promise<ActionResult> {
   return operationAction(async (db, user) => {
-    const trimmed = text.trim();
-    if (!trimmed) throw new ValidationError("Der Text darf nicht leer sein.");
+    // Die Leer-Prüfung liegt in der Domäne (appendEntry), nicht hier.
     await db.transaction((tx) =>
       appendEntry(tx, {
         operationId,
-        text: trimmed,
+        text,
         type: "manuell",
         author: user.username,
       }),
