@@ -1,5 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { AreaGeometry, AreaStyle } from "@/map/area";
+import type { SymbolComposition } from "@/map/composition";
+import type { ImagePlacement } from "@/map/image-overlay";
+import type { MapView } from "@/map/view";
 import type { Db } from "@/server/db/db";
 
 // Shared, mutable harness state. Read lazily by the mocks below, set per test.
@@ -13,6 +17,7 @@ const state = vi.hoisted(() => ({
 vi.mock("@/server/db/pg", () => ({ getDb: () => state.db }));
 vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
 vi.mock("next/headers", () => ({
+  headers: async () => new Headers(),
   cookies: async () => ({
     get: () => (state.token ? { value: state.token } : undefined),
     set: () => {},
@@ -29,13 +34,60 @@ vi.mock("next/navigation", () => ({
 }));
 
 import { changePasswordAction } from "@/app/account/actions";
-import { createAccountAction } from "@/app/admin/users/actions";
+import {
+  createAccountAction,
+  deleteAccountAction,
+  resetPasswordAction,
+  setRoleAction,
+} from "@/app/admin/users/actions";
 import { GET as deviceEventsGET } from "@/app/device/[token]/events/route";
 import { GET as deviceGeocodeGET } from "@/app/device/[token]/geocode/route";
 import { POST as devicePositionPOST } from "@/app/device/[token]/position/route";
+import { setDefaultViewAction } from "@/app/operations/[id]/actions";
+import {
+  createAreaAction,
+  deleteAreaAction,
+  updateAreaGeometryAction,
+  updateAreaStyleAction,
+} from "@/app/operations/[id]/area-actions";
 import { GET as operationEventsGET } from "@/app/operations/[id]/events/route";
-import { addJournalEntryAction } from "@/app/operations/[id]/journal-actions";
+import { geocodeAddressAction } from "@/app/operations/[id]/geocode-actions";
+import {
+  addImageOverlayAction,
+  deleteImageOverlayAction,
+  replaceImageOverlayFileAction,
+  toggleImageOverlayVisibilityAction,
+  updateImageOverlayPlacementAction,
+} from "@/app/operations/[id]/image-overlay-actions";
+import {
+  addJournalEntryAction,
+  annulEntryAction,
+  correctEntryAction,
+} from "@/app/operations/[id]/journal-actions";
+import {
+  addKmlFileAction,
+  addKmlUrlAction,
+  reloadKmlAction,
+  removeKmlAction,
+  toggleKmlVisibilityAction,
+} from "@/app/operations/[id]/kml-actions";
+import {
+  closeOperationAction,
+  deleteOperationAction,
+  reopenOperationAction,
+} from "@/app/operations/[id]/lifecycle-actions";
+import {
+  deleteMapSymbolAction,
+  generateDeviceLinkAction,
+  moveMapSymbolAction,
+  placeMapSymbolAction,
+  updateMapSymbolCompositionAction,
+} from "@/app/operations/[id]/map-symbol-actions";
 import { GET as operationOverlayGET } from "@/app/operations/[id]/overlays/[overlayId]/route";
+import {
+  createViewLinkAction,
+  deleteViewLinkAction,
+} from "@/app/operations/[id]/view-link-actions";
 import { createOperationAction } from "@/app/operations/actions";
 import { hashPassword } from "@/server/auth/password";
 import { insertSession } from "@/server/auth/sessions";
@@ -64,43 +116,195 @@ const expectRedirect = (fn: () => Promise<unknown>, to: string) =>
 const params = <T>(value: T) => ({ params: Promise.resolve(value) });
 const req = (url = "http://localhost/") => new Request(url);
 
+// Repräsentative Argumente; der Auth-Guard wirft, bevor sie ausgewertet werden.
+const geometry: AreaGeometry = {
+  shape: "circle",
+  center: { lat: 53.55, lng: 9.99 },
+  radius: 100,
+};
+const style: AreaStyle = { color: "#e2001a", opacity: 0.4, label: "" };
+const view: MapView = { lat: 53.55, lng: 9.99, zoom: 12 };
+const placement: ImagePlacement = {
+  centerLat: 53.55,
+  centerLng: 9.99,
+  scaleM: 1000,
+  rotationDeg: 0,
+  opacity: 1,
+};
+const composition: SymbolComposition = {};
+const file = () => new File([], "plan.png", { type: "image/png" });
+
+interface Invocation {
+  name: string;
+  run: () => Promise<unknown>;
+}
+
+// PFLICHT: Jede neue mutierende Server-Action MUSS hier eingetragen werden – die
+// Liste ist die bewusst manuell gepflegte, vollständige Bestandsaufnahme aller
+// requireUser-geschützten Actions. Ohne Eintrag prüft kein Test ihren Guard.
+const userGuardedActions: Invocation[] = [
+  {
+    name: "createOperationAction",
+    run: () => createOperationAction({}, new FormData()),
+  },
+  {
+    name: "setDefaultViewAction",
+    run: () => setDefaultViewAction("op-1", view),
+  },
+  { name: "createAreaAction", run: () => createAreaAction("op-1", geometry) },
+  {
+    name: "updateAreaStyleAction",
+    run: () => updateAreaStyleAction("op-1", "a-1", style),
+  },
+  {
+    name: "updateAreaGeometryAction",
+    run: () => updateAreaGeometryAction("op-1", "a-1", geometry),
+  },
+  { name: "deleteAreaAction", run: () => deleteAreaAction("op-1", "a-1") },
+  {
+    name: "placeMapSymbolAction",
+    run: () => placeMapSymbolAction("op-1", composition, 53.55, 9.99),
+  },
+  {
+    name: "moveMapSymbolAction",
+    run: () => moveMapSymbolAction("op-1", "s-1", 53.55, 9.99),
+  },
+  {
+    name: "updateMapSymbolCompositionAction",
+    run: () => updateMapSymbolCompositionAction("op-1", "s-1", composition),
+  },
+  {
+    name: "deleteMapSymbolAction",
+    run: () => deleteMapSymbolAction("op-1", "s-1"),
+  },
+  {
+    name: "generateDeviceLinkAction",
+    run: () => generateDeviceLinkAction("op-1", "s-1"),
+  },
+  {
+    name: "addKmlFileAction",
+    run: () => addKmlFileAction("op-1", "n", "<kml/>"),
+  },
+  {
+    name: "addKmlUrlAction",
+    run: () => addKmlUrlAction("op-1", "n", "https://e.example/x.kml"),
+  },
+  {
+    name: "toggleKmlVisibilityAction",
+    run: () => toggleKmlVisibilityAction("op-1", "k-1", false),
+  },
+  { name: "reloadKmlAction", run: () => reloadKmlAction("op-1", "k-1") },
+  { name: "removeKmlAction", run: () => removeKmlAction("op-1", "k-1") },
+  {
+    name: "addImageOverlayAction",
+    run: () => addImageOverlayAction("op-1", file()),
+  },
+  {
+    name: "replaceImageOverlayFileAction",
+    run: () => replaceImageOverlayFileAction("op-1", "i-1", file()),
+  },
+  {
+    name: "updateImageOverlayPlacementAction",
+    run: () => updateImageOverlayPlacementAction("op-1", "i-1", placement),
+  },
+  {
+    name: "toggleImageOverlayVisibilityAction",
+    run: () => toggleImageOverlayVisibilityAction("op-1", "i-1", false),
+  },
+  {
+    name: "deleteImageOverlayAction",
+    run: () => deleteImageOverlayAction("op-1", "i-1"),
+  },
+  {
+    name: "createViewLinkAction",
+    run: () => createViewLinkAction("op-1", "Leitstelle"),
+  },
+  {
+    name: "deleteViewLinkAction",
+    run: () => deleteViewLinkAction("op-1", "v-1"),
+  },
+  {
+    name: "addJournalEntryAction",
+    run: () => addJournalEntryAction("op-1", "Lage"),
+  },
+  {
+    name: "correctEntryAction",
+    run: () => correctEntryAction("e-1", "Korrektur"),
+  },
+  { name: "annulEntryAction", run: () => annulEntryAction("e-1") },
+  { name: "closeOperationAction", run: () => closeOperationAction("op-1") },
+  { name: "reopenOperationAction", run: () => reopenOperationAction("op-1") },
+  { name: "deleteOperationAction", run: () => deleteOperationAction("op-1") },
+  { name: "geocodeAddressAction", run: () => geocodeAddressAction("Hamburg") },
+  {
+    name: "changePasswordAction",
+    run: () => changePasswordAction({}, new FormData()),
+  },
+];
+
+// requireUser-geschützte Route-Handler (keine Token-Routen). Token-Routen
+// (device/*) sind unten über ihren 403-Pfad abgedeckt.
+const userGuardedRoutes: Invocation[] = [
+  {
+    name: "operation events GET",
+    run: () => operationEventsGET(req(), params({ id: "op-1" })),
+  },
+  {
+    name: "operation overlay GET",
+    run: () =>
+      operationOverlayGET(req(), params({ id: "op-1", overlayId: "ov-1" })),
+  },
+];
+
+// Nutzerverwaltung: requireAdmin. Anonym → /login, angemeldet ohne Admin → /operations.
+const adminGuardedActions: Invocation[] = [
+  {
+    name: "createAccountAction",
+    run: () => createAccountAction("neu", "a-very-good-password", false),
+  },
+  { name: "setRoleAction", run: () => setRoleAction("id", "user") },
+  {
+    name: "resetPasswordAction",
+    run: () => resetPasswordAction("id", "a-very-good-password"),
+  },
+  { name: "deleteAccountAction", run: () => deleteAccountAction("id") },
+];
+
+// Bewusste Ausnahme: logoutAction ruft kein requireUser – sie löscht nur das
+// eigene Cookie des Aufrufers und ist daher anonym erlaubt; deshalb nicht in der
+// Tabelle. (Sie endet mit redirect("/login") als regulärer Abmelde-Ablauf, nicht
+// als Auth-Guard.)
+
 beforeEach(async () => {
   state.db = await freshDb();
   state.token = undefined;
 });
 
-describe("server action auth enforcement", () => {
-  it("createOperationAction redirects to /login when unauthenticated", async () => {
-    await expectRedirect(
-      () => createOperationAction({}, new FormData()),
-      "/login",
-    );
+describe("server action auth enforcement (requireUser)", () => {
+  describe.each(userGuardedActions)("$name", ({ run }) => {
+    it("redirects to /login when unauthenticated", async () => {
+      await expectRedirect(run, "/login");
+    });
   });
+});
 
-  it("addJournalEntryAction redirects to /login when unauthenticated", async () => {
-    await expectRedirect(() => addJournalEntryAction("op-1", "Lage"), "/login");
+describe("route handler auth enforcement (requireUser)", () => {
+  describe.each(userGuardedRoutes)("$name", ({ run }) => {
+    it("redirects to /login when unauthenticated", async () => {
+      await expectRedirect(run, "/login");
+    });
   });
+});
 
-  it("changePasswordAction redirects to /login when unauthenticated", async () => {
-    await expectRedirect(
-      () => changePasswordAction({}, new FormData()),
-      "/login",
-    );
-  });
-
-  it("createAccountAction redirects an anonymous caller to /login", async () => {
-    await expectRedirect(
-      () => createAccountAction("neu", "a-very-good-password", false),
-      "/login",
-    );
-  });
-
-  it("createAccountAction redirects a non-admin to /operations", async () => {
-    state.token = await login("user");
-    await expectRedirect(
-      () => createAccountAction("neu", "a-very-good-password", false),
-      "/operations",
-    );
+describe("admin action auth enforcement (requireAdmin)", () => {
+  describe.each(adminGuardedActions)("$name", ({ run }) => {
+    it("redirects an anonymous caller to /login", async () => {
+      await expectRedirect(run, "/login");
+    });
+    it("redirects a non-admin to /operations", async () => {
+      state.token = await login("user");
+      await expectRedirect(run, "/operations");
+    });
   });
 
   it("createAccountAction succeeds for an admin", async () => {
@@ -111,22 +315,7 @@ describe("server action auth enforcement", () => {
   });
 });
 
-describe("route handler auth enforcement", () => {
-  it("operation events route redirects to /login when unauthenticated", async () => {
-    await expectRedirect(
-      () => operationEventsGET(req(), params({ id: "op-1" })),
-      "/login",
-    );
-  });
-
-  it("operation overlay route redirects to /login when unauthenticated", async () => {
-    await expectRedirect(
-      () =>
-        operationOverlayGET(req(), params({ id: "op-1", overlayId: "ov-1" })),
-      "/login",
-    );
-  });
-
+describe("token route auth enforcement (403, not session)", () => {
   it("device events route returns 403 without a valid token", async () => {
     const res = await deviceEventsGET(req(), params({ token: "bad" }));
     expect(res.status).toBe(403);
