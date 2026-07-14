@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { insertOperation } from "@/server/operations/operations";
 import { ValidationError } from "@/server/validation";
@@ -52,6 +53,23 @@ describe("journal", () => {
 
     expect(first.number).toBe(1);
     expect(second.number).toBe(2);
+    await db.close();
+  });
+
+  it("rejects a duplicate (operation_id, number) via the UNIQUE constraint", async () => {
+    // Backstop hinter der Lock-basierten Nummerierung: selbst wenn zwei parallele
+    // Anhänge dieselbe Nummer berechnen würden, weist die DB den zweiten ab.
+    const db = await freshDb();
+    const op = await anOperation(db);
+    const insertRaw = (number: number) =>
+      db.query(
+        `INSERT INTO journal_entries (id, operation_id, number, text, type)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [randomUUID(), op.id, number, "X", "manuell"],
+      );
+
+    await insertRaw(1);
+    await expect(insertRaw(1)).rejects.toThrow();
     await db.close();
   });
 
