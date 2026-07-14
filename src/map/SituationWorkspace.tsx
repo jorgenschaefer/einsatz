@@ -311,12 +311,16 @@ export function SituationWorkspace({
     QUICK_SELECT.find((i) => i.id === armedQuickId)?.composition ??
     null;
 
-  const kmlViews: KmlOverlayView[] = kmlOverlays.map((o) => ({
-    id: o.id,
-    name: o.name,
-    sourceType: o.sourceType,
-    visible: o.visible,
-  }));
+  const kmlViews = useMemo<KmlOverlayView[]>(
+    () =>
+      kmlOverlays.map((o) => ({
+        id: o.id,
+        name: o.name,
+        sourceType: o.sourceType,
+        visible: o.visible,
+      })),
+    [kmlOverlays],
+  );
   const renderedKml = useMemo<RenderedKmlOverlay[]>(
     () =>
       kmlOverlays.map((o) => ({
@@ -326,11 +330,15 @@ export function SituationWorkspace({
       })),
     [kmlOverlays],
   );
-  const imageItems: ImageOverlayItem[] = imageOverlays.map((o) => ({
-    id: o.id,
-    name: o.name,
-    visible: o.visible,
-  }));
+  const imageItems = useMemo<ImageOverlayItem[]>(
+    () =>
+      imageOverlays.map((o) => ({
+        id: o.id,
+        name: o.name,
+        visible: o.visible,
+      })),
+    [imageOverlays],
+  );
   const renderedImages = useMemo<RenderedImageOverlay[]>(
     () =>
       imageOverlays.map((o) => ({

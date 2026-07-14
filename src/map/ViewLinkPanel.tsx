@@ -1,7 +1,7 @@
 "use client";
 
 import { Box, Button, Group, Stack, Text, TextInput } from "@mantine/core";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import QRCode from "react-qr-code";
 
 export interface ViewLinkItem {
@@ -79,8 +79,15 @@ function ViewLinkRow({
 }) {
   const [qrOpen, setQrOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [copied, setCopied] = useState(false);
   const name = link.label.trim() || "Ansichtslink";
   const url = viewUrl(link.token);
+
+  useEffect(() => {
+    if (!copied) return;
+    const timer = setTimeout(() => setCopied(false), 2000);
+    return () => clearTimeout(timer);
+  }, [copied]);
 
   return (
     <Box
@@ -99,9 +106,12 @@ function ViewLinkRow({
             size="compact-xs"
             variant="subtle"
             aria-label={`${name} kopieren`}
-            onClick={() => navigator.clipboard?.writeText(url)}
+            onClick={async () => {
+              await navigator.clipboard?.writeText(url);
+              setCopied(true);
+            }}
           >
-            kopieren
+            {copied ? "kopiert" : "kopieren"}
           </Button>
           <Button
             size="compact-xs"

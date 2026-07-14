@@ -201,6 +201,10 @@ export function SituationMap({
       });
     }
     knownIds.current = next;
+    // `readOnly` ist pro Mount konstant (Workspace immer editierbar, Device-/
+    // ViewLink-Ansicht immer nur-lesend) und steht nur der Vollständigkeit halber
+    // in den Deps; der Adapter aktualisiert `draggable` an bestehenden Markern
+    // ohnehin nicht neu.
   }, [ready, symbols, readOnly]);
 
   // Auf ein Suchergebnis springen (Ausschnitt setzen), wenn sich das Ziel ändert.

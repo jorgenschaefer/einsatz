@@ -76,6 +76,23 @@ describe("ViewLinkPanel", () => {
     }
   });
 
+  it("shows a 'kopiert' confirmation after copying, like the device link panel", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+    try {
+      setup({ links: [{ id: "1", label: "Leitstelle", token: "tok-a" }] });
+      await userEvent.click(
+        screen.getByRole("button", { name: /Leitstelle kopieren/i }),
+      );
+      expect(await screen.findByText("kopiert")).toBeInTheDocument();
+    } finally {
+      delete (navigator as { clipboard?: unknown }).clipboard;
+    }
+  });
+
   it("reveals a QR code on demand", async () => {
     setup({ links: [{ id: "1", label: "Leitstelle", token: "tok-a" }] });
     expect(document.querySelector("svg")).toBeNull();
