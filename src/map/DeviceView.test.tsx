@@ -253,6 +253,24 @@ describe("DeviceView", () => {
     ).toBeDisabled();
   });
 
+  it("keeps the location watch running while the wipe lock is active", async () => {
+    const locationHook = vi.fn(() => ({
+      status: "active" as const,
+      position: null,
+    }));
+    renderDevice({ locationHook });
+    expect(locationHook).toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole("button", { name: /Sperren/ }));
+    expect(screen.getByTestId("wipe-lock-overlay")).toBeInTheDocument();
+
+    // Die Ortung läuft unter der Sperre unverändert weiter: der Standort-Hook
+    // bleibt montiert und die „Standort wird gesendet"-Anzeige besteht fort
+    // (nur vom Overlay verdeckt), nicht abgeschaltet.
+    expect(locationHook).toHaveBeenCalled();
+    expect(screen.getByText(/Standort wird gesendet/)).toBeInTheDocument();
+  });
+
   it("activates and releases the wipe lock", async () => {
     renderDevice();
     expect(screen.queryByTestId("wipe-lock-overlay")).toBeNull();
