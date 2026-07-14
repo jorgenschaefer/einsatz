@@ -157,7 +157,10 @@ describe("map symbols repository", () => {
 
     await moveMapSymbol(db, symbol.id, 10, 20); // Verbindung riss ab, manuell verschoben
     const at = new Date("2026-07-03T12:00:00Z");
-    expect(await reportPosition(db, token, 53.5, 9.9, at)).toBe("ok");
+    expect(await reportPosition(db, token, 53.5, 9.9, at)).toEqual({
+      result: "ok",
+      operationId: op.id,
+    });
 
     const [loaded] = await listMapSymbols(db, op.id);
     expect(loaded).toMatchObject({
@@ -181,10 +184,12 @@ describe("map symbols repository", () => {
     const token = await generateDeviceLink(db, symbol.id);
     await generateDeviceLink(db, symbol.id); // Token neu generiert → alter ungültig
 
-    expect(await reportPosition(db, token, 50, 8, new Date())).toBe("denied");
-    expect(await reportPosition(db, "never-issued", 50, 8, new Date())).toBe(
-      "denied",
-    );
+    expect(await reportPosition(db, token, 50, 8, new Date())).toEqual({
+      result: "denied",
+    });
+    expect(
+      await reportPosition(db, "never-issued", 50, 8, new Date()),
+    ).toEqual({ result: "denied" });
     await db.close();
   });
 
@@ -200,10 +205,15 @@ describe("map symbols repository", () => {
     const token = await generateDeviceLink(db, symbol.id);
 
     await closeOperation(db, op.id);
-    expect(await reportPosition(db, token, 50, 8, new Date())).toBe("denied");
+    expect(await reportPosition(db, token, 50, 8, new Date())).toEqual({
+      result: "denied",
+    });
 
     await reopenOperation(db, op.id);
-    expect(await reportPosition(db, token, 51, 7, new Date())).toBe("ok");
+    expect(await reportPosition(db, token, 51, 7, new Date())).toEqual({
+      result: "ok",
+      operationId: op.id,
+    });
     await db.close();
   });
 

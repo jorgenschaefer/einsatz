@@ -193,10 +193,19 @@ export async function resolveDeviceAccess(
 
 export type ReportResult = "ok" | "denied";
 
+/** Ergebnis einer Standortmeldung inkl. Einsatz-Zugehörigkeit bei Erfolg. */
+export interface ReportOutcome {
+  result: ReportResult;
+  /** Nur bei `result === "ok"` gesetzt – die Zeile wird ohnehin gelesen. */
+  operationId?: string;
+}
+
 /**
  * Meldet eine Live-Position über den Gerätelink-Token. Nur zulässig, wenn der
  * Token gültig ist und der Einsatz `aktiv` ist; die Meldung überschreibt die
- * manuelle Position (Positionsquelle wird `device`).
+ * manuelle Position (Positionsquelle wird `device`). Liefert bei Erfolg die
+ * `operationId` mit, damit der Aufrufer das SSE-Publish ohne zweite Abfrage
+ * auslösen kann.
  */
 export async function reportPosition(
   db: Queryable,
@@ -204,14 +213,16 @@ export async function reportPosition(
   lat: number,
   lng: number,
   now: Date = new Date(),
-): Promise<ReportResult> {
-  const { rows } = await db.query<{ id: string }>(
+): Promise<ReportOutcome> {
+  const { rows } = await db.query<{ operation_id: string }>(
     `UPDATE map_symbols AS ms
         SET lat = $2, lng = $3, position_source = 'device', reported_at = $4
        FROM operations AS o
       WHERE ms.device_link_token = $1 AND ms.operation_id = o.id AND o.status = 'active'
-      RETURNING ms.id`,
+      RETURNING ms.operation_id`,
     [token, lat, lng, now.toISOString()],
   );
-  return rows.length > 0 ? "ok" : "denied";
+  return rows[0]
+    ? { result: "ok", operationId: rows[0].operation_id }
+    : { result: "denied" };
 }

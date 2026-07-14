@@ -1,10 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/server/db/pg";
 import { publishOperationChanged } from "@/server/events/operation-events";
-import {
-  reportPosition,
-  resolveDeviceAccess,
-} from "@/server/mapsymbols/map-symbols";
+import { reportPosition } from "@/server/mapsymbols/map-symbols";
 import { isValidLatLng } from "@/server/validation";
 
 /**
@@ -28,10 +25,15 @@ export async function POST(
   }
   const db = getDb();
   // isValidLatLng hat lat/lng als endliche Zahlen in Grenzen bestätigt.
-  const result = await reportPosition(db, token, lat as number, lng as number);
-  if (result === "ok") {
-    const access = await resolveDeviceAccess(db, token);
-    if (access) publishOperationChanged(access.operationId); // StandortGemeldet an alle Clients
+  const { result, operationId } = await reportPosition(
+    db,
+    token,
+    lat as number,
+    lng as number,
+  );
+  // operationId kommt direkt aus reportPosition – keine zweite Abfrage nötig.
+  if (result === "ok" && operationId) {
+    publishOperationChanged(operationId); // StandortGemeldet an alle Clients
   }
   return new NextResponse(null, { status: result === "ok" ? 204 : 403 });
 }
