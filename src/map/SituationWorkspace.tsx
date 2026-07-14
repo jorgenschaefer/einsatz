@@ -363,6 +363,9 @@ export function SituationWorkspace({
   };
 
   const handleDrawComplete = async (geometry: AreaGeometry) => {
+    // Ein etwaiger {error} wird hier bewusst nicht angezeigt: die gezeichnete
+    // Geometrie ist immer wohlgeformt, es gibt kein Panel für diesen Fluss, und
+    // der Modus muss in jedem Fall enden.
     if (redrawAreaId) {
       await onUpdateAreaGeometry(redrawAreaId, geometry);
     } else {

@@ -619,6 +619,35 @@ describe("SituationWorkspace", () => {
     expect(await screen.findByRole("alert")).toBeInTheDocument();
   });
 
+  it("surfaces a returned {error} from a symbol update in the detail panel", async () => {
+    const onUpdate = vi
+      .fn<SituationWorkspaceProps["onUpdate"]>()
+      .mockResolvedValueOnce({ error: "Ungültige Zeichen-Komposition." });
+    const { adapter } = renderWorkspace({
+      symbols: [
+        {
+          id: "s1",
+          lat: 1,
+          lng: 2,
+          composition: {
+            grundzeichen: "ortsfeste-stelle",
+            organisation: "hilfsorganisation",
+          },
+        },
+      ],
+      onUpdate,
+    });
+    await waitFor(() => expect(adapter.setMarker).toHaveBeenCalled());
+    const spec = adapter.setMarker.mock.calls.at(-1)![1] as MarkerSpec;
+    act(() => spec.onClick!());
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Speichern" }),
+    );
+    expect(
+      await screen.findByText("Ungültige Zeichen-Komposition."),
+    ).toBeInTheDocument();
+  });
+
   it("shows a connection-lost hint when the live stream is disconnected", () => {
     renderWorkspace({ eventsHook: () => ({ connected: false }) });
     expect(screen.getByText(/Verbindung getrennt/i)).toBeInTheDocument();
