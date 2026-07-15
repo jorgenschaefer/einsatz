@@ -53,6 +53,12 @@ describe("setKmlVisibilityAction", () => {
     expect(result).toEqual({ error: "Das Overlay existiert nicht mehr." });
     expect(revalidatePath).not.toHaveBeenCalled();
   });
+
+  it("enforces the login before mutating", async () => {
+    requireUser.mockRejectedValueOnce(new Error("nicht angemeldet"));
+    await expect(setKmlVisibilityAction("op-1", "k1", false)).rejects.toThrow();
+    expect(setKmlVisibility).not.toHaveBeenCalled();
+  });
 });
 
 describe("removeKmlAction", () => {
@@ -73,5 +79,11 @@ describe("removeKmlAction", () => {
     const result = await removeKmlAction("op-1", "k1");
     expect(result).toEqual({ error: "Das Overlay existiert nicht mehr." });
     expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it("enforces the login before mutating", async () => {
+    requireUser.mockRejectedValueOnce(new Error("nicht angemeldet"));
+    await expect(removeKmlAction("op-1", "k1")).rejects.toThrow();
+    expect(deleteKmlOverlay).not.toHaveBeenCalled();
   });
 });
