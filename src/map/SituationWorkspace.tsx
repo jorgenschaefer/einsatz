@@ -382,14 +382,14 @@ export function SituationWorkspace({
   };
 
   const handleDrawComplete = async (geometry: AreaGeometry) => {
-    // Ein etwaiger {error} wird hier bewusst nicht angezeigt: die gezeichnete
-    // Geometrie ist immer wohlgeformt, es gibt kein Panel für diesen Fluss, und
-    // der Modus muss in jedem Fall enden.
-    if (redrawAreaId) {
-      await onUpdateAreaGeometry(redrawAreaId, geometry);
-    } else {
-      await onCreateArea(geometry);
-    }
+    // Kein Panel für diesen Fluss, und der Modus muss in jedem Fall enden. Ein
+    // etwaiger {error} – etwa eine entartete Geometrie (Kreis mit Radius 0 aus
+    // einem Tap ohne Ziehen) – wird über den mapError-Kanal gezeigt.
+    setMapError(null);
+    const { error } = redrawAreaId
+      ? await onUpdateAreaGeometry(redrawAreaId, geometry)
+      : await onCreateArea(geometry);
+    if (error) setMapError(error);
     resetMode();
   };
   const runArea = async (op: () => Promise<ActionResult>) => {

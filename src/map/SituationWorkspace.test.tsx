@@ -333,7 +333,7 @@ describe("SituationWorkspace", () => {
   });
 
   it("draws a Bereich: arming a shape then completing creates the area", async () => {
-    const onCreateArea = vi.fn();
+    const onCreateArea = vi.fn(async () => ({}));
     const { adapter } = renderWorkspace({ onCreateArea });
     await openTab("Bereiche");
     await userEvent.click(screen.getByRole("button", { name: "Polygon" }));
@@ -356,6 +356,30 @@ describe("SituationWorkspace", () => {
     };
     onComplete(geometry);
     await waitFor(() => expect(onCreateArea).toHaveBeenCalledWith(geometry));
+  });
+
+  it("surfaces a returned {error} from completing a draw", async () => {
+    const onCreateArea = vi.fn(async () => ({
+      error: "Der Radius muss größer als 0 sein.",
+    }));
+    const { adapter } = renderWorkspace({ onCreateArea });
+    await openTab("Bereiche");
+    await userEvent.click(screen.getByRole("button", { name: "Polygon" }));
+    await waitFor(() => expect(adapter.startDrawing).toHaveBeenCalled());
+    const onComplete = adapter.startDrawing.mock.calls.at(-1)![1] as (
+      g: unknown,
+    ) => void;
+    await act(async () => {
+      onComplete({ shape: "polygon", points: [{ lat: 1, lng: 2 }] });
+    });
+    expect(
+      await screen.findByText("Der Radius muss größer als 0 sein."),
+    ).toBeInTheDocument();
+    // Der Zeichenmodus endet trotzdem: erneutes Scharfstellen ist möglich.
+    await userEvent.click(screen.getByRole("button", { name: "Polygon" }));
+    await waitFor(() =>
+      expect(adapter.startDrawing).toHaveBeenCalledTimes(2),
+    );
   });
 
   it("lists Bereiche and opens the area editor via the row edit button", async () => {
@@ -491,7 +515,7 @@ describe("SituationWorkspace", () => {
   });
 
   it("replaces an area geometry when redrawing", async () => {
-    const onUpdateAreaGeometry = vi.fn();
+    const onUpdateAreaGeometry = vi.fn(async () => ({}));
     const { adapter } = renderWorkspace({
       areas: [
         {
