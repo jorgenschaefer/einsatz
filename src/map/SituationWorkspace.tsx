@@ -24,11 +24,11 @@ import {
 } from "@tabler/icons-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
+import type { ActionResult } from "@/app/operations/[id]/action-result";
 import {
   type JournalEntryView,
   JournalPanel,
 } from "@/app/operations/[id]/JournalPanel";
-import type { ActionResult } from "@/app/operations/[id]/action-result";
 import type { GeoHit } from "@/server/geocoder/geocoder";
 import type { KmlSourceType } from "@/server/kml/kml-overlays";
 import type { PositionSource } from "@/server/mapsymbols/map-symbols";
@@ -110,7 +110,6 @@ export interface WorkspaceImageOverlay {
   aspect: number;
   visible: boolean;
 }
-
 
 export interface SituationWorkspaceProps {
   operationId: string;
