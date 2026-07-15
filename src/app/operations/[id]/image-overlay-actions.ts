@@ -169,7 +169,11 @@ export async function deleteImageOverlayAction(
       try {
         await deleteOverlayFiles([overlay.filePath]);
       } catch (err) {
-        console.error("Overlay-Datei konnte nicht aufgeräumt werden:", err);
+        // Pfad mitloggen, damit die verwaiste Datei im Volume auffindbar bleibt.
+        console.error(
+          `Overlay-Datei konnte nicht aufgeräumt werden (${overlay.filePath}):`,
+          err,
+        );
       }
     }
     return {};

@@ -247,5 +247,7 @@ describe("deleteImageOverlayAction", () => {
       error: "Das Bild-Overlay konnte nicht gelöscht werden.",
     });
     expect(state.revalidatePath).not.toHaveBeenCalled();
+    // Prämisse: die Löschung ist wirklich gescheitert, die Zeile lebt noch.
+    expect(await getImageOverlay(state.db as Db, overlay.id)).not.toBeNull();
   });
 });
