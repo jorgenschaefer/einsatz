@@ -88,6 +88,18 @@ describe("LoginRateLimiter – memory eviction", () => {
     expect(limiter.trackedKeyCount).toBe(0);
   });
 
+  it("neither resurrects nor grows a stale key when only isBlocked touches it", () => {
+    const limiter = new LoginRateLimiter(1, 20, 1000);
+    limiter.recordFailure("ip-a", "anna", 0); // legt pair+ip-Bucket bei t=0 an
+    expect(limiter.isBlocked("ip-a", "anna", 0)).toBe(true);
+    expect(limiter.trackedKeyCount).toBe(2);
+    // Nach dem Fenster: reine isBlocked-Prüfungen beleben den Block nicht wieder
+    // und legen keine weiteren Buckets an.
+    for (let i = 0; i < 10; i++) limiter.isBlocked("ip-a", "anna", 5000);
+    expect(limiter.isBlocked("ip-a", "anna", 5000)).toBe(false);
+    expect(limiter.trackedKeyCount).toBe(2);
+  });
+
   it("evicts fully-stale buckets so the map cannot grow unbounded", () => {
     const limiter = new LoginRateLimiter(5, 20, 1000);
     // 50 distinct IPs each fail once at t=0 → 50 IP buckets + 50 pair buckets.
