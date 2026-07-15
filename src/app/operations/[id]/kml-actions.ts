@@ -15,13 +15,16 @@ import {
 } from "@/server/kml/kml-overlays";
 import {
   type ActionResult,
+  operationAction,
   revalidateOperation,
   toFormError,
 } from "./operation-action";
 
-// KML-Actions haben ein eigenes Catch-all (Netzwerk-/Parse-Fehler → freundliche
-// Meldung), passen daher nicht in den `operationAction`-Helfer; sie nutzen aber
-// dessen `revalidateOperation`/`toFormError` und teilen `requireUser`.
+// Die KML-Actions mit eigenem Catch-all (Netzwerk-/Parse-Fehler → freundliche
+// Meldung) – addKmlFile/addKmlUrl/reloadKml – passen nicht in den
+// `operationAction`-Helfer, nutzen aber dessen `revalidateOperation`/`toFormError`
+// und teilen `requireUser`. Die reinen Mutationen (setKmlVisibility, removeKml)
+// laufen dagegen über `operationAction` wie alle anderen Einsatz-Mutationen.
 //
 // Zugehörigkeit (flaches Trust-Modell): Diese Kind-Objekt-Actions mutieren über
 // die vom Client gelieferte Objekt-`id`, ohne zu prüfen, dass das Objekt zu
@@ -84,10 +87,10 @@ export async function setKmlVisibilityAction(
   id: string,
   visible: boolean,
 ): Promise<ActionResult> {
-  await requireUser();
-  await setKmlVisibility(getDb(), id, visible);
-  revalidateOperation(operationId);
-  return {};
+  return operationAction(async (db) => {
+    await setKmlVisibility(db, id, visible);
+    return operationId;
+  });
 }
 
 export async function reloadKmlAction(
@@ -108,8 +111,8 @@ export async function removeKmlAction(
   operationId: string,
   id: string,
 ): Promise<ActionResult> {
-  await requireUser();
-  await deleteKmlOverlay(getDb(), id);
-  revalidateOperation(operationId);
-  return {};
+  return operationAction(async (db) => {
+    await deleteKmlOverlay(db, id);
+    return operationId;
+  });
 }
