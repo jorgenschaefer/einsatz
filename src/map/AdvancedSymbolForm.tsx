@@ -11,7 +11,10 @@ import {
   symbole,
   verwaltungsstufen,
 } from "taktische-zeichen-core";
-import type { SymbolComposition } from "./composition";
+import {
+  MAX_COMPOSITION_FIELD_LENGTH,
+  type SymbolComposition,
+} from "./composition";
 import { renderSymbolDataUrl } from "./tactical-symbol";
 
 export interface AdvancedSymbolFormProps {
@@ -58,6 +61,7 @@ export function AdvancedSymbolForm({
       </Group>
       <TextInput
         label="Bezeichnung"
+        maxLength={MAX_COMPOSITION_FIELD_LENGTH}
         value={composition.text ?? ""}
         onChange={(e) => {
           const value = e.currentTarget.value;

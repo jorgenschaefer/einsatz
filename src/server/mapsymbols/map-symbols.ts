@@ -1,5 +1,8 @@
 import { randomBytes, randomUUID } from "node:crypto";
-import type { SymbolComposition } from "@/map/composition";
+import {
+  MAX_COMPOSITION_FIELD_LENGTH,
+  type SymbolComposition,
+} from "@/map/composition";
 import type { Queryable } from "@/server/db/db";
 import { assertLatLng, ValidationError } from "@/server/validation";
 
@@ -16,9 +19,6 @@ const COMPOSITION_KEYS: ReadonlySet<string> = new Set([
   "symbol",
   "text",
 ]);
-
-/** Großzügige Obergrenze je Freitextfeld – nur gegen Missbrauch, nicht fachlich. */
-const MAX_COMPOSITION_FIELD_LENGTH = 200;
 
 /**
  * Prüft an der Action-Grenze **nur die Form** einer Zeichen-Komposition: ein

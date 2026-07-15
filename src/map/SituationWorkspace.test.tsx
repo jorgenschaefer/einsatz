@@ -127,7 +127,7 @@ describe("SituationWorkspace", () => {
   });
 
   it("places the armed Schnellauswahl composition where the map is clicked", async () => {
-    const onPlace = vi.fn();
+    const onPlace = vi.fn(async () => ({}));
     const { captured } = renderWorkspace({ onPlace });
     await openTab("Kartenzeichen");
     await userEvent.click(screen.getByRole("button", { name: /KTW/ }));
@@ -138,6 +138,22 @@ describe("SituationWorkspace", () => {
 
     const ktw = QUICK_SELECT.find((i) => i.label === "KTW")!;
     expect(onPlace).toHaveBeenCalledWith(ktw.composition, 50, 8);
+  });
+
+  it("surfaces a returned {error} from placing a Kartenzeichen", async () => {
+    const onPlace = vi.fn(async () => ({
+      error: "Ungültige Zeichen-Komposition.",
+    }));
+    const { captured } = renderWorkspace({ onPlace });
+    await openTab("Kartenzeichen");
+    await userEvent.click(screen.getByRole("button", { name: /KTW/ }));
+    await waitFor(() => expect(captured.options?.onMapClick).toBeDefined());
+    await act(async () => {
+      captured.options!.onMapClick!({ lat: 50, lng: 8 });
+    });
+    expect(
+      await screen.findByText("Ungültige Zeichen-Komposition."),
+    ).toBeInTheDocument();
   });
 
   it("ends the placing mode after one Kartenzeichen, even while onPlace is still in flight", async () => {
@@ -164,7 +180,7 @@ describe("SituationWorkspace", () => {
   });
 
   it("places a composition built in the Erweitert form where the map is clicked", async () => {
-    const onPlace = vi.fn();
+    const onPlace = vi.fn(async () => ({}));
     const { captured } = renderWorkspace({ onPlace });
     await openTab("Kartenzeichen");
     await userEvent.click(screen.getByRole("button", { name: /Erweitert/ }));
@@ -943,7 +959,7 @@ describe("SituationWorkspace", () => {
   });
 
   it("does not place a Kartenzeichen when the map is clicked while editing an overlay", async () => {
-    const onPlace = vi.fn();
+    const onPlace = vi.fn(async () => ({}));
     const { captured } = renderWorkspace({
       imageOverlays: [anImageOverlay],
       onPlace,

@@ -2,6 +2,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@/test/render";
 import { AdvancedSymbolForm } from "./AdvancedSymbolForm";
+import { MAX_COMPOSITION_FIELD_LENGTH } from "./composition";
 
 describe("AdvancedSymbolForm", () => {
   it("submits sensible defaults (Hilfsorganisation, Taktische Formation)", async () => {
@@ -84,6 +85,13 @@ describe("AdvancedSymbolForm", () => {
       <AdvancedSymbolForm submitLabel="Speichern" busy onSubmit={vi.fn()} />,
     );
     expect(screen.getByRole("button", { name: "Speichern" })).toBeDisabled();
+  });
+
+  it("caps the Bezeichnung at the composition field length limit", () => {
+    render(<AdvancedSymbolForm submitLabel="Platzieren" onSubmit={vi.fn()} />);
+    expect(
+      screen.getByRole("textbox", { name: "Bezeichnung" }),
+    ).toHaveAttribute("maxlength", String(MAX_COMPOSITION_FIELD_LENGTH));
   });
 
   it("shows a live preview of the composed symbol", () => {

@@ -236,6 +236,9 @@ export function SituationWorkspace({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [detailBusy, setDetailBusy] = useState(false);
+  // Fehlerkanal für die Karten-Interaktionen ohne eigenes Panel (Platzieren,
+  // Zeichnen); wird als Alert über der Karte gezeigt.
+  const [mapError, setMapError] = useState<string | null>(null);
   const [imageError, setImageError] = useState<string | null>(null);
   const [imageBusy, setImageBusy] = useState(false);
   const now = useStalenessClock();
@@ -260,11 +263,13 @@ export function SituationWorkspace({
 
   // Fehler-Politik der Action-Ergebnisse: Panel-Bearbeitungen (Kartenzeichen-
   // Detail, Bereich, ETB) reichen ihren `{error}` über runDetail/runArea bzw.
-  // JournalPanel sichtbar durch. Die direkten Karten-Interaktionen (onPlace,
-  // onMove, onSetDefault, onGenerateDeviceLink, Zeichnen) sind bewusst
-  // fire-and-forget: ihre Eingaben (Klick-Koordinaten, Schnellauswahl-
-  // Komposition, aktueller Ausschnitt) sind strukturell gültig, sodass die
-  // Server-Validatoren hier keinen Formularfehler erzeugen können.
+  // JournalPanel sichtbar durch. Platzieren und Zeichnen haben kein Panel,
+  // können aber sehr wohl scheitern (eine überlange Bezeichnung aus dem
+  // Erweitert-Formular, eine entartete Geometrie), daher zeigen sie ihren
+  // `{error}` über den `mapError`-Kanal. Nur die strukturell stets gültigen
+  // Interaktionen bleiben bewusst fire-and-forget: onMove (Drag auf gültige
+  // Koordinaten), onSetDefault (aktueller Ausschnitt) und onGenerateDeviceLink
+  // (nur eine Objekt-id).
   const runDetail = async (op: () => Promise<ActionResult>) => {
     setDetailBusy(true);
     try {
@@ -365,13 +370,15 @@ export function SituationWorkspace({
   // jeder weitere Kartenklick unaufhörlich weiter (kein Abbruch möglich). Der
   // Reset läuft vor dem (evtl. langsamen) Server-Roundtrip, damit ein zweiter
   // Tap währenddessen kein zweites Zeichen platziert.
-  const placeSymbolAt = (
+  const placeSymbolAt = async (
     composition: SymbolComposition,
     lat: number,
     lng: number,
   ) => {
     resetMode();
-    return onPlace(composition, lat, lng);
+    setMapError(null);
+    const { error } = await onPlace(composition, lat, lng);
+    if (error) setMapError(error);
   };
 
   const handleDrawComplete = async (geometry: AreaGeometry) => {
@@ -457,6 +464,18 @@ export function SituationWorkspace({
       {!connected && (
         <Alert color="orange" radius={0} py="xs" role="status">
           Verbindung getrennt – wird automatisch wiederhergestellt.
+        </Alert>
+      )}
+      {mapError && (
+        <Alert
+          color="red"
+          radius={0}
+          py="xs"
+          role="alert"
+          withCloseButton
+          onClose={() => setMapError(null)}
+        >
+          {mapError}
         </Alert>
       )}
 
