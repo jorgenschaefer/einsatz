@@ -17,8 +17,12 @@ export function useClipboardCopy(): {
 } {
   const [status, setStatus] = useState<CopyStatus>("idle");
 
+  // Nur die flüchtige Erfolgsbestätigung ("copied") läuft nach 2s aus. Der
+  // "failed"-Zustand bleibt stehen, bis der nächste Kopierversuch ihn ablöst –
+  // er trägt den Fallback (die manuell zu kopierende URL), den der Nutzer nicht
+  // unter den Fingern verlieren darf.
   useEffect(() => {
-    if (status === "idle") return;
+    if (status !== "copied") return;
     const timer = setTimeout(() => setStatus("idle"), 2000);
     return () => clearTimeout(timer);
   }, [status]);

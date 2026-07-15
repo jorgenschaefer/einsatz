@@ -1,6 +1,6 @@
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@/test/render";
+import { act, render, screen, waitFor } from "@/test/render";
 import { ViewLinkPanel, type ViewLinkPanelProps } from "./ViewLinkPanel";
 
 function setup(over: Partial<ViewLinkPanelProps> = {}) {
@@ -124,6 +124,26 @@ describe("ViewLinkPanel", () => {
       );
     } finally {
       delete (navigator as { clipboard?: unknown }).clipboard;
+    }
+  });
+
+  it("keeps the failure fallback visible instead of auto-hiding it", async () => {
+    // Der Fehlerhinweis zeigt die einzige Stelle mit der rohen URL zum manuellen
+    // Kopieren – anders als „kopiert" darf er nicht nach 2s verschwinden.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      delete (navigator as { clipboard?: unknown }).clipboard;
+      setup({ links: [{ id: "1", label: "Leitstelle", token: "tok-a" }] });
+      await userEvent.click(
+        screen.getByRole("button", { name: /Leitstelle kopieren/i }),
+      );
+      expect(await screen.findByRole("alert")).toBeInTheDocument();
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(2500);
+      });
+      expect(screen.getByRole("alert")).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
     }
   });
 
