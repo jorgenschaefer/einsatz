@@ -6,10 +6,9 @@ import type { Db } from "@/server/db/db";
 import { getDb } from "@/server/db/pg";
 import { publishOperationChanged } from "@/server/events/operation-events";
 import { ValidationError } from "@/server/validation";
+import type { ActionResult } from "./action-result";
 
-export interface ActionResult {
-  error?: string;
-}
+export type { ActionResult };
 
 /**
  * Der eine Ort für „dieser Einsatz hat sich geändert": revalidiert die

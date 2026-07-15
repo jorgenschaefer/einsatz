@@ -28,6 +28,7 @@ import {
   type JournalEntryView,
   JournalPanel,
 } from "@/app/operations/[id]/JournalPanel";
+import type { ActionResult } from "@/app/operations/[id]/action-result";
 import type { GeoHit } from "@/server/geocoder/geocoder";
 import type { KmlSourceType } from "@/server/kml/kml-overlays";
 import type { PositionSource } from "@/server/mapsymbols/map-symbols";
@@ -110,9 +111,6 @@ export interface WorkspaceImageOverlay {
   visible: boolean;
 }
 
-/** Rückgabe der mutierenden Einsatz-Actions (siehe `operationAction`): leer bei
- *  Erfolg, sonst mit `error`-Meldung fürs Panel. */
-type ActionResult = { error?: string };
 
 export interface SituationWorkspaceProps {
   operationId: string;

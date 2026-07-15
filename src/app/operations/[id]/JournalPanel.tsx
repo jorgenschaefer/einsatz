@@ -12,6 +12,7 @@ import {
   Textarea,
 } from "@mantine/core";
 import { useState } from "react";
+import type { ActionResult } from "./action-result";
 
 const SAVE_ERROR = "Speichern fehlgeschlagen. Bitte erneut versuchen.";
 
@@ -32,9 +33,6 @@ export interface JournalEntryView {
   editedAt: string | null;
   revisions: JournalRevisionView[];
 }
-
-/** Rückgabe der ETB-Actions: leer bei Erfolg, sonst mit `error`-Meldung. */
-type ActionResult = { error?: string };
 
 export interface JournalPanelProps {
   entries: JournalEntryView[];
