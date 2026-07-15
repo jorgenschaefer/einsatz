@@ -39,7 +39,9 @@ export class LoginRateLimiter {
   // `isBlocked`-Prüfung einen (ggf. leeren) Bucket an und die Map wüchse bei
   // fehlerfreier Last unbegrenzt (Aufräumen passiert nur in `recordFailure`).
   private recent(key: string, now: number): number[] {
-    return (this.failures.get(key) ?? []).filter((t) => t > now - this.windowMs);
+    return (this.failures.get(key) ?? []).filter(
+      (t) => t > now - this.windowMs,
+    );
   }
 
   isBlocked(ip: string, username: string, now: number = Date.now()): boolean {
