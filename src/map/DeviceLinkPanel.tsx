@@ -1,9 +1,9 @@
 "use client";
 
 import { Button, Group, Stack, Text, TextInput } from "@mantine/core";
-import { useEffect, useState } from "react";
 import QRCode from "react-qr-code";
 import type { PositionSource } from "@/server/mapsymbols/map-symbols";
+import { useClipboardCopy } from "./useClipboardCopy";
 
 export interface DeviceLinkPanelProps {
   token: string | null;
@@ -25,14 +25,8 @@ export function DeviceLinkPanel({
   onGenerate,
   busy = false,
 }: DeviceLinkPanelProps) {
-  const [copied, setCopied] = useState(false);
+  const { status: copyStatus, copy } = useClipboardCopy();
   const url = token ? deviceUrl(token) : "";
-
-  useEffect(() => {
-    if (!copied) return;
-    const timer = setTimeout(() => setCopied(false), 2000);
-    return () => clearTimeout(timer);
-  }, [copied]);
 
   return (
     <Stack gap="xs">
@@ -56,15 +50,17 @@ export function DeviceLinkPanel({
               <Button
                 size="compact-xs"
                 variant="subtle"
-                onClick={async () => {
-                  await navigator.clipboard?.writeText(url);
-                  setCopied(true);
-                }}
+                onClick={() => copy(url)}
               >
-                {copied ? "kopiert" : "kopieren"}
+                {copyStatus === "copied" ? "kopiert" : "kopieren"}
               </Button>
             }
           />
+          {copyStatus === "failed" && (
+            <Text size="xs" c="red" role="alert">
+              Kopieren nicht möglich – Link oben manuell auswählen.
+            </Text>
+          )}
           <Group justify="center">
             <QRCode value={url} size={160} />
           </Group>

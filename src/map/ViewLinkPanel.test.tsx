@@ -93,6 +93,40 @@ describe("ViewLinkPanel", () => {
     }
   });
 
+  it("does not confirm 'kopiert' and hints instead when the clipboard API is unavailable", async () => {
+    // Unsicherer Kontext / In-App-Webview: navigator.clipboard fehlt ganz.
+    delete (navigator as { clipboard?: unknown }).clipboard;
+    setup({ links: [{ id: "1", label: "Leitstelle", token: "tok-a" }] });
+    await userEvent.click(
+      screen.getByRole("button", { name: /Leitstelle kopieren/i }),
+    );
+    expect(screen.queryByText("kopiert")).toBeNull();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      /nicht möglich/i,
+    );
+  });
+
+  it("does not confirm 'kopiert' when writing to the clipboard is rejected", async () => {
+    const writeText = vi.fn().mockRejectedValue(new Error("denied"));
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+    try {
+      setup({ links: [{ id: "1", label: "Leitstelle", token: "tok-a" }] });
+      await userEvent.click(
+        screen.getByRole("button", { name: /Leitstelle kopieren/i }),
+      );
+      expect(writeText).toHaveBeenCalled();
+      expect(screen.queryByText("kopiert")).toBeNull();
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        /nicht möglich/i,
+      );
+    } finally {
+      delete (navigator as { clipboard?: unknown }).clipboard;
+    }
+  });
+
   it("reveals a QR code on demand", async () => {
     setup({ links: [{ id: "1", label: "Leitstelle", token: "tok-a" }] });
     expect(document.querySelector("svg")).toBeNull();

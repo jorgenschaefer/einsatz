@@ -64,6 +64,17 @@ describe("DeviceLinkPanel", () => {
     }
   });
 
+  it("does not confirm 'kopiert' and hints instead when the clipboard API is unavailable", async () => {
+    // Unsicherer Kontext / In-App-Webview: navigator.clipboard fehlt ganz.
+    delete (navigator as { clipboard?: unknown }).clipboard;
+    setup({ token: "secret-token-123" });
+    await userEvent.click(screen.getByRole("button", { name: "kopieren" }));
+    expect(screen.queryByRole("button", { name: "kopiert" })).toBeNull();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      /nicht möglich/i,
+    );
+  });
+
   it("shows the live position source and the last report", () => {
     setup({
       token: "t",

@@ -1,8 +1,9 @@
 "use client";
 
 import { Box, Button, Group, Stack, Text, TextInput } from "@mantine/core";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import QRCode from "react-qr-code";
+import { useClipboardCopy } from "./useClipboardCopy";
 
 export interface ViewLinkItem {
   id: string;
@@ -79,15 +80,9 @@ function ViewLinkRow({
 }) {
   const [qrOpen, setQrOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const { status: copyStatus, copy } = useClipboardCopy();
   const name = link.label.trim() || "Ansichtslink";
   const url = viewUrl(link.token);
-
-  useEffect(() => {
-    if (!copied) return;
-    const timer = setTimeout(() => setCopied(false), 2000);
-    return () => clearTimeout(timer);
-  }, [copied]);
 
   return (
     <Box
@@ -106,12 +101,9 @@ function ViewLinkRow({
             size="compact-xs"
             variant="subtle"
             aria-label={`${name} kopieren`}
-            onClick={async () => {
-              await navigator.clipboard?.writeText(url);
-              setCopied(true);
-            }}
+            onClick={() => copy(url)}
           >
-            {copied ? "kopiert" : "kopieren"}
+            {copyStatus === "copied" ? "kopiert" : "kopieren"}
           </Button>
           <Button
             size="compact-xs"
@@ -132,6 +124,18 @@ function ViewLinkRow({
           </Button>
         </Group>
       </Group>
+
+      {copyStatus === "failed" && (
+        <Text
+          size="xs"
+          c="red"
+          role="alert"
+          mt="xs"
+          style={{ userSelect: "all" }}
+        >
+          Kopieren nicht möglich – Link manuell kopieren: {url}
+        </Text>
+      )}
 
       {qrOpen && (
         <Group justify="center" mt="xs">
