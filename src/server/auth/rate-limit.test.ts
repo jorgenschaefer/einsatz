@@ -79,6 +79,15 @@ describe("LoginRateLimiter – IP counter (spraying)", () => {
 });
 
 describe("LoginRateLimiter – memory eviction", () => {
+  it("does not seed buckets while merely checking isBlocked (failure-free load)", () => {
+    const limiter = new LoginRateLimiter(5, 20, 1000);
+    // Ein fehlerfreier Ansturm: viele distinct IPs prüfen nur ihren Status, ohne
+    // je einen Fehlversuch zu erzeugen. isBlocked darf dabei keine Buckets anlegen,
+    // sonst wächst die Map unbegrenzt (der Sweep läuft nur in recordFailure).
+    for (let i = 0; i < 50; i++) limiter.isBlocked(`ip-${i}`, "u", 0);
+    expect(limiter.trackedKeyCount).toBe(0);
+  });
+
   it("evicts fully-stale buckets so the map cannot grow unbounded", () => {
     const limiter = new LoginRateLimiter(5, 20, 1000);
     // 50 distinct IPs each fail once at t=0 → 50 IP buckets + 50 pair buckets.
