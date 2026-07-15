@@ -10,9 +10,16 @@ import type { Db } from "@/server/db/db";
 const state = vi.hoisted(() => ({
   db: undefined as unknown,
   token: undefined as string | undefined,
+  revalidatePath: vi.fn(),
+  publishOperationChanged: vi.fn(),
 }));
 vi.mock("@/server/db/pg", () => ({ getDb: () => state.db }));
-vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
+vi.mock("next/cache", () => ({
+  revalidatePath: (p: string) => state.revalidatePath(p),
+}));
+vi.mock("@/server/events/operation-events", () => ({
+  publishOperationChanged: (id: string) => state.publishOperationChanged(id),
+}));
 vi.mock("next/headers", () => ({
   cookies: async () => ({
     get: () => (state.token ? { value: state.token } : undefined),
@@ -96,6 +103,8 @@ const originalUploadsDir = process.env.UPLOADS_DIR;
 beforeEach(async () => {
   state.db = await freshDb();
   state.token = undefined;
+  state.revalidatePath.mockReset();
+  state.publishOperationChanged.mockReset();
   dir = await mkdtemp(join(tmpdir(), "einsatz-replace-"));
   process.env.UPLOADS_DIR = dir;
 });
@@ -201,7 +210,7 @@ describe("deleteImageOverlayAction", () => {
     expect(await getImageOverlay(state.db as Db, overlay.id)).toBeNull();
   });
 
-  it("returns a friendly {error} when the file cleanup fails, like its siblings", async () => {
+  it("still revalidates and reports success when only the file cleanup fails", async () => {
     await login();
     const op = await insertOperation(state.db as Db, {
       name: "Lage",
@@ -212,11 +221,31 @@ describe("deleteImageOverlayAction", () => {
       new Error("volume unavailable"),
     );
 
-    // The row is already gone; the cleanup failure must surface as a form error,
-    // not throw an unhandled server error.
+    // Die Zeile ist weg – die Löschung ist vollzogen. Ein reiner Aufräum-Fehler
+    // (verwaiste Datei) darf weder einen irreführenden Nutzerfehler zeigen noch
+    // die Live-Aktualisierung verhindern, sonst rendert das gelöschte Overlay weiter.
+    await expect(deleteImageOverlayAction(op.id, overlay.id)).resolves.toEqual(
+      {},
+    );
+    expect(await getImageOverlay(state.db as Db, overlay.id)).toBeNull();
+    expect(state.revalidatePath).toHaveBeenCalledWith(`/operations/${op.id}`);
+    expect(state.publishOperationChanged).toHaveBeenCalledWith(op.id);
+  });
+
+  it("returns a friendly {error} when the deletion itself fails", async () => {
+    await login();
+    const op = await insertOperation(state.db as Db, {
+      name: "Lage",
+      description: null,
+    });
+    const { overlay } = await anOverlayWithStoredFile(op.id);
+    vi.spyOn(repo, "deleteImageOverlay").mockRejectedValueOnce(
+      new Error("db down"),
+    );
+
     await expect(deleteImageOverlayAction(op.id, overlay.id)).resolves.toEqual({
       error: "Das Bild-Overlay konnte nicht gelöscht werden.",
     });
-    expect(await getImageOverlay(state.db as Db, overlay.id)).toBeNull();
+    expect(state.revalidatePath).not.toHaveBeenCalled();
   });
 });

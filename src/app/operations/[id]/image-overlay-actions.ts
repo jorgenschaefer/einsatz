@@ -155,15 +155,23 @@ export async function deleteImageOverlayAction(
   id: string,
 ): Promise<ActionResult> {
   // Nicht über `operationAction`: das Datei-Aufräumen (Datei-IO) kann scheitern,
-  // nachdem die Zeile schon gelöscht ist – der Fehler soll wie bei add/replace
-  // als Formularfehler erscheinen, nicht als unbehandelter Serverfehler.
+  // nachdem die Zeile schon gelöscht ist. Sobald die Zeile weg ist, ist die
+  // Löschung vollzogen – ab da wird immer revalidiert (sonst rendert das
+  // gelöschte Overlay bei allen Clients weiter), und ein reiner Aufräum-Fehler
+  // (verwaiste Datei im Volume) ist Server-Hygiene, kein Nutzerfehler.
   await requireUser();
   try {
     const db = getDb();
     const overlay = await getImageOverlay(db, id);
     await deleteImageOverlay(db, id);
-    if (overlay) await deleteOverlayFiles([overlay.filePath]);
     revalidateOperation(operationId);
+    if (overlay) {
+      try {
+        await deleteOverlayFiles([overlay.filePath]);
+      } catch (err) {
+        console.error("Overlay-Datei konnte nicht aufgeräumt werden:", err);
+      }
+    }
     return {};
   } catch (err) {
     return toError(err, DELETE_FAILED);
