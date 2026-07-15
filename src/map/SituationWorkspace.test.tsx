@@ -377,9 +377,7 @@ describe("SituationWorkspace", () => {
     ).toBeInTheDocument();
     // Der Zeichenmodus endet trotzdem: erneutes Scharfstellen ist möglich.
     await userEvent.click(screen.getByRole("button", { name: "Polygon" }));
-    await waitFor(() =>
-      expect(adapter.startDrawing).toHaveBeenCalledTimes(2),
-    );
+    await waitFor(() => expect(adapter.startDrawing).toHaveBeenCalledTimes(2));
   });
 
   it("lists Bereiche and opens the area editor via the row edit button", async () => {
