@@ -366,6 +366,21 @@ export function SituationWorkspace({
     armCustom(composition);
     advanced.close();
   };
+  // Karten-Interaktionen ohne Panel (Platzieren, Zeichnen) über einen
+  // gemeinsamen Fehlerkanal: ein zurückgegebener {error} landet im mapError-
+  // Alert, eine geworfene Ausnahme (kein ValidationError – z. B. DB-/Netzfehler,
+  // die operationAction weiterwirft) im gleichen Kanal mit Fallback-Text.
+  // Analog zu runDetail/runArea, nur ohne eigenes Panel.
+  const runMapAction = async (op: () => Promise<ActionResult>) => {
+    setMapError(null);
+    try {
+      const { error } = await op();
+      if (error) setMapError(error);
+    } catch {
+      setMapError("Aktion fehlgeschlagen. Bitte erneut versuchen.");
+    }
+  };
+
   // Wie bei Bild: nach einer Platzierung den Modus beenden, sonst platziert
   // jeder weitere Kartenklick unaufhörlich weiter (kein Abbruch möglich). Der
   // Reset läuft vor dem (evtl. langsamen) Server-Roundtrip, damit ein zweiter
@@ -376,21 +391,22 @@ export function SituationWorkspace({
     lng: number,
   ) => {
     resetMode();
-    setMapError(null);
-    const { error } = await onPlace(composition, lat, lng);
-    if (error) setMapError(error);
+    await runMapAction(() => onPlace(composition, lat, lng));
   };
 
   const handleDrawComplete = async (geometry: AreaGeometry) => {
     // Kein Panel für diesen Fluss, und der Modus muss in jedem Fall enden. Ein
     // etwaiger {error} – etwa eine entartete Geometrie (Kreis mit Radius 0 aus
-    // einem Tap ohne Ziehen) – wird über den mapError-Kanal gezeigt.
-    setMapError(null);
-    const { error } = redrawAreaId
-      ? await onUpdateAreaGeometry(redrawAreaId, geometry)
-      : await onCreateArea(geometry);
-    if (error) setMapError(error);
+    // einem Tap ohne Ziehen) – wird über den mapError-Kanal gezeigt. resetMode
+    // läuft (wie beim Platzieren) vor dem Roundtrip; die Branch-Entscheidung
+    // hält die id vorher fest, weil resetMode redrawAreaId leert.
+    const redrawId = redrawAreaId;
     resetMode();
+    await runMapAction(() =>
+      redrawId
+        ? onUpdateAreaGeometry(redrawId, geometry)
+        : onCreateArea(geometry),
+    );
   };
   const runArea = async (op: () => Promise<ActionResult>) => {
     setAreaBusy(true);

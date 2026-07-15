@@ -156,6 +156,44 @@ describe("SituationWorkspace", () => {
     ).toBeInTheDocument();
   });
 
+  it("surfaces a fallback when placing throws instead of returning an {error}", async () => {
+    const onPlace = vi.fn(async () => {
+      throw new Error("boom");
+    });
+    const { captured } = renderWorkspace({ onPlace });
+    await openTab("Kartenzeichen");
+    await userEvent.click(screen.getByRole("button", { name: /KTW/ }));
+    await waitFor(() => expect(captured.options?.onMapClick).toBeDefined());
+    await act(async () => {
+      captured.options!.onMapClick!({ lat: 50, lng: 8 });
+    });
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      /fehlgeschlagen/i,
+    );
+  });
+
+  it("clears a placement error on the next successful placement", async () => {
+    const onPlace = vi
+      .fn<SituationWorkspaceProps["onPlace"]>()
+      .mockResolvedValueOnce({ error: "Ungültige Zeichen-Komposition." })
+      .mockResolvedValueOnce({});
+    const { captured } = renderWorkspace({ onPlace });
+    await openTab("Kartenzeichen");
+    await userEvent.click(screen.getByRole("button", { name: /KTW/ }));
+    await waitFor(() => expect(captured.options?.onMapClick).toBeDefined());
+    await act(async () => {
+      captured.options!.onMapClick!({ lat: 50, lng: 8 });
+    });
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    // Erneut scharfstellen und platzieren – der alte Fehler verschwindet.
+    await userEvent.click(screen.getByRole("button", { name: /KTW/ }));
+    await waitFor(() => expect(captured.options?.onMapClick).toBeDefined());
+    await act(async () => {
+      captured.options!.onMapClick!({ lat: 51, lng: 9 });
+    });
+    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+  });
+
   it("ends the placing mode after one Kartenzeichen, even while onPlace is still in flight", async () => {
     // onPlace bleibt hängen (Server-Roundtrip): der Modus muss trotzdem sofort
     // enden, sonst platziert ein zweiter Tap während des Roundtrips ein zweites Zeichen.
@@ -378,6 +416,60 @@ describe("SituationWorkspace", () => {
     // Der Zeichenmodus endet trotzdem: erneutes Scharfstellen ist möglich.
     await userEvent.click(screen.getByRole("button", { name: "Polygon" }));
     await waitFor(() => expect(adapter.startDrawing).toHaveBeenCalledTimes(2));
+  });
+
+  it("surfaces a fallback when completing a draw throws", async () => {
+    const onCreateArea = vi.fn(async () => {
+      throw new Error("boom");
+    });
+    const { adapter } = renderWorkspace({ onCreateArea });
+    await openTab("Bereiche");
+    await userEvent.click(screen.getByRole("button", { name: "Polygon" }));
+    await waitFor(() => expect(adapter.startDrawing).toHaveBeenCalled());
+    const onComplete = adapter.startDrawing.mock.calls.at(-1)![1] as (
+      g: unknown,
+    ) => void;
+    await act(async () => {
+      onComplete({ shape: "polygon", points: [{ lat: 1, lng: 2 }] });
+    });
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      /fehlgeschlagen/i,
+    );
+  });
+
+  it("surfaces a returned {error} when redrawing an area geometry", async () => {
+    const onUpdateAreaGeometry = vi.fn(async () => ({
+      error: "Der Radius muss größer als 0 sein.",
+    }));
+    const { adapter } = renderWorkspace({
+      areas: [
+        {
+          id: "a1",
+          geometry: { shape: "polygon", points: [{ lat: 1, lng: 2 }] },
+          color: "#000",
+          opacity: 0.4,
+          label: "Z",
+        },
+      ],
+      onUpdateAreaGeometry,
+    });
+    await openTab("Bereiche");
+    await userEvent.click(
+      await screen.findByRole("button", { name: /Z bearbeiten/ }),
+    );
+    await userEvent.click(
+      await screen.findByRole("button", { name: /Form neu zeichnen/ }),
+    );
+    await waitFor(() => expect(adapter.startDrawing).toHaveBeenCalled());
+    await act(async () => {
+      (adapter.startDrawing.mock.calls.at(-1)![1] as (g: unknown) => void)({
+        shape: "polygon",
+        points: [{ lat: 9, lng: 9 }],
+      });
+    });
+    expect(
+      await screen.findByText("Der Radius muss größer als 0 sein."),
+    ).toBeInTheDocument();
   });
 
   it("lists Bereiche and opens the area editor via the row edit button", async () => {

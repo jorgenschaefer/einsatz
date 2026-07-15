@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { MAX_COMPOSITION_FIELD_LENGTH } from "@/map/composition";
 import {
   closeOperation,
   reopenOperation,
@@ -83,6 +84,10 @@ describe("map symbols repository", () => {
       ValidationError,
     );
     await expect(create({ text: 42 })).rejects.toBeInstanceOf(ValidationError);
+    // Der Server bleibt autoritativ über die Feldlänge (nicht nur das Formular).
+    await expect(
+      create({ text: "x".repeat(MAX_COMPOSITION_FIELD_LENGTH + 1) }),
+    ).rejects.toBeInstanceOf(ValidationError);
 
     expect(await listMapSymbols(db, op.id)).toHaveLength(0);
     await db.close();
