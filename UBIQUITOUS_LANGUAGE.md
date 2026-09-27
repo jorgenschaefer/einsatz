@@ -4,6 +4,7 @@ Die Domänensprache ist Deutsch. Code-Bezeichner bleiben Englisch; bei nicht-eng
 
 ## Terminology
 
+- **Annullieren** (`annul`) – erklärt einen gültigen manuellen **ETB-Eintrag** für ungültig; er behält seine Nummer, sein Text bleibt durchgestrichen erhalten. Endgültig, nicht rückgängig zu machen. Automatische Einträge können nicht annulliert werden.
 - **Ansichtslink** (`ViewLink`) – ein löschbarer, geheimer Link (mit QR-Code) pro **Einsatz** (nicht pro **Kartenzeichen**), über den die **Lagekarte** ohne Login nur gelesen wird; meldet keinen Standort und ist an kein Kartenzeichen gebunden. Beliebig viele je Einsatz, jeder mit **Bezeichnung** und einzeln löschbar (widerrufbar); Zugang gebunden an einen gültigen Token und einen aktiven Einsatz. Im Gegensatz zum **Gerätelink** device- und ortungsfrei.
 - **Bereich** (`Area`) – eine farbig markierte Geometrie mit Deckkraft und Beschriftung auf der Lagekarte in einer von drei Formen: **Polygon** (Fläche, z. B. Einsatzabschnitt oder Gefahrenzone), **Linie** (Linienzug, z. B. Absperrung oder Route) oder **Kreis** (Mittelpunkt + Radius, z. B. Gefahrenradius). Kein taktisches Zeichen, sondern ein eigenständiges Kartenobjekt.
 - **Bild-Overlay** (`ImageOverlay`) – ein als Kartenebene eingepasstes Bild (aus PDF oder PNG), typischerweise ein Lageplan. Wird interaktiv per Auge über Verschieben, Skalieren und Drehen platziert (nicht geo-exakt referenziert).
@@ -16,6 +17,7 @@ Die Domänensprache ist Deutsch. Code-Bezeichner bleiben Englisch; bei nicht-eng
 - **Gerätelink** (`DeviceLink`) – ein geheimer Link (mit QR-Code) pro **Kartenzeichen**, über den ein mobiles Endgerät ohne Login den Standort meldet und die **Lagekarte** ansieht. Neu generierbar, wodurch ein alter Link ungültig wird. Im Gegensatz zum **Ansichtslink** zeichengebunden und meldend (Kräfteortung), nicht löschbar.
 - **Kartenobjekt** – Oberbegriff für alles, was auf der **Lagekarte** liegt: **Kartenzeichen**, **Bereiche**, **KML-** und **Bild-Overlays**.
 - **Kartenzeichen** (`MapSymbol`) – ein auf der **Lagekarte** platziertes **Taktisches Zeichen**: eine DV-102-Komposition (siehe dort) plus Position, optionaler **Bezeichnung** und optionalem **Gerätelink**. Vereint die früher getrennten Begriffe „Einheit" und „taktisches Zeichen (Objekt)" zu einem einzigen Objekttyp. Ohne Gerätelink immer manuell verortet; mit meldendem Gerätelink live verortet.
+- **Korrigieren** (`correct`) – ersetzt den Text eines gültigen manuellen **ETB-Eintrags** durch eine neue Fassung; die bisherige Fassung bleibt mit ihrem **Urheber** und Zeitstempel durchgestrichen sichtbar. Automatische und annullierte Einträge können nicht korrigiert werden.
 - **Kräfteortung** – das Melden und Anzeigen der Live-Standorte von Kräften über deren mobile Endgeräte (Gerätelink).
 - **Lage** – die Gesamtheit der Situation, die ein **Einsatz** abbildet. Im Sprachgebrauch oft gleichbedeutend mit dem sichtbaren Zustand der **Lagekarte**.
 - **Lagekarte** (`SituationMap`) – die Karte eines **Einsatzes** mit allen Kartenobjekten (**Kartenzeichen**, **Bereiche**, Overlays).

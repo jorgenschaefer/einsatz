@@ -1,3 +1,5 @@
+import { MantineProvider } from "@mantine/core";
+import { render as rtlRender } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@/test/render";
@@ -34,6 +36,13 @@ function setup(over: Partial<JournalPanelProps> = {}) {
   return props;
 }
 
+async function chooseAction(number: number, name: string) {
+  await userEvent.click(
+    screen.getByRole("button", { name: `Aktionen für Eintrag #${number}` }),
+  );
+  await userEvent.click(await screen.findByRole("menuitem", { name }));
+}
+
 describe("JournalPanel", () => {
   it("shows each entry with its number, text and author", () => {
     setup();
@@ -59,10 +68,7 @@ describe("JournalPanel", () => {
       .closest("[data-entry]") as HTMLElement;
     expect(within(item).getByText(/automatisch/i)).toBeInTheDocument();
     expect(
-      within(item).queryByRole("button", { name: /Korrigieren/ }),
-    ).toBeNull();
-    expect(
-      within(item).queryByRole("button", { name: /Annullieren/ }),
+      within(item).queryByRole("button", { name: /Aktionen für Eintrag/ }),
     ).toBeNull();
   });
 
@@ -97,15 +103,136 @@ describe("JournalPanel", () => {
     expect(props.onAdd).not.toHaveBeenCalled();
   });
 
-  it("annuls a manual entry", async () => {
+  it("asks for confirmation before annulling and annuls only once confirmed", async () => {
     const props = setup();
-    await userEvent.click(screen.getByRole("button", { name: /Annullieren/ }));
+    await chooseAction(1, "Annullieren …");
+    expect(props.onAnnul).not.toHaveBeenCalled();
+    const dialog = await screen.findByRole("dialog", {
+      name: "Eintrag #1 annullieren",
+    });
+    expect(within(dialog).getByText(/nicht rückgängig/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Annullieren" }));
     expect(props.onAnnul).toHaveBeenCalledWith("e1");
+  });
+
+  it("shows no correct/annul buttons on an entry until its menu is opened", () => {
+    setup();
+    expect(screen.queryByRole("button", { name: /Korrigieren/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Annullieren/ })).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Aktionen für Eintrag #1" }),
+    ).toBeInTheDocument();
+  });
+
+  it("offers correcting from the entry's action menu without correcting yet", async () => {
+    const props = setup();
+    await chooseAction(1, "Korrigieren");
+    expect(screen.getByLabelText(/Korrektur/)).toHaveValue("Deich hält");
+    expect(props.onCorrect).not.toHaveBeenCalled();
+  });
+
+  it("keeps the entry valid when the confirmation is cancelled", async () => {
+    const props = setup();
+    await chooseAction(1, "Annullieren …");
+    await userEvent.click(screen.getByRole("button", { name: "Abbrechen" }));
+    expect(props.onAnnul).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("closes the confirmation after a successful annulment", async () => {
+    setup();
+    await chooseAction(1, "Annullieren …");
+    await userEvent.click(screen.getByRole("button", { name: "Annullieren" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("annuls only once on a double click", async () => {
+    const onAnnul = vi
+      .fn<JournalPanelProps["onAnnul"]>()
+      .mockReturnValue(new Promise(() => {}));
+    setup({ onAnnul });
+    await chooseAction(1, "Annullieren …");
+    await userEvent.dblClick(
+      screen.getByRole("button", { name: "Annullieren" }),
+    );
+    expect(onAnnul).toHaveBeenCalledTimes(1);
+  });
+
+  it("hides the entry's menu while it is being corrected", async () => {
+    setup();
+    await chooseAction(1, "Korrigieren");
+    expect(
+      screen.queryByRole("button", { name: "Aktionen für Eintrag #1" }),
+    ).toBeNull();
+  });
+
+  it("annuls the entry whose menu was used when several are listed", async () => {
+    const props = setup({
+      entries: [
+        entry({ id: "e1", number: 1, text: "Deich hält" }),
+        entry({ id: "e2", number: 2, text: "Pegel steigt" }),
+      ],
+    });
+    await chooseAction(2, "Annullieren …");
+    await screen.findByRole("dialog", { name: "Eintrag #2 annullieren" });
+    await userEvent.click(screen.getByRole("button", { name: "Annullieren" }));
+    expect(props.onAnnul).toHaveBeenCalledWith("e2");
+  });
+
+  it("keeps the confirmation open while the annulment is in flight", async () => {
+    const onAnnul = vi
+      .fn<JournalPanelProps["onAnnul"]>()
+      .mockReturnValue(new Promise(() => {}));
+    setup({ onAnnul });
+    await chooseAction(1, "Annullieren …");
+    await userEvent.click(screen.getByRole("button", { name: "Annullieren" }));
+    await userEvent.click(screen.getByRole("button", { name: "Abbrechen" }));
+    await userEvent.keyboard("{Escape}");
+    expect(
+      screen.getByRole("dialog", { name: "Eintrag #1 annullieren" }),
+    ).toBeInTheDocument();
+  });
+
+  it("can annul another entry after an annulment has settled", async () => {
+    const props = setup({
+      entries: [
+        entry({ id: "e1", number: 1, text: "Deich hält" }),
+        entry({ id: "e2", number: 2, text: "Pegel steigt" }),
+      ],
+    });
+    await chooseAction(1, "Annullieren …");
+    await userEvent.click(screen.getByRole("button", { name: "Annullieren" }));
+    await chooseAction(2, "Annullieren …");
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Annullieren" }),
+    );
+    expect(props.onAnnul).toHaveBeenLastCalledWith("e2");
+  });
+
+  it("ignores a second click while the settled confirmation fades out", async () => {
+    const onAnnul = vi.fn<JournalPanelProps["onAnnul"]>(async () => ({}));
+    // Without env="test", so the modal keeps its exit transition and stays
+    // clickable while it fades out.
+    rtlRender(
+      <MantineProvider>
+        <JournalPanel
+          entries={[entry()]}
+          onAdd={vi.fn()}
+          onCorrect={vi.fn()}
+          onAnnul={onAnnul}
+        />
+      </MantineProvider>,
+    );
+    await chooseAction(1, "Annullieren …");
+    const confirm = await screen.findByRole("button", { name: "Annullieren" });
+    await userEvent.click(confirm);
+    await userEvent.click(confirm);
+    expect(onAnnul).toHaveBeenCalledTimes(1);
   });
 
   it("corrects a manual entry through an inline edit prefilled with the current text", async () => {
     const props = setup();
-    await userEvent.click(screen.getByRole("button", { name: /Korrigieren/ }));
+    await chooseAction(1, "Korrigieren");
     const field = screen.getByLabelText(/Korrektur/);
     fireEvent.change(field, { target: { value: "Deich hält nicht" } });
     await userEvent.click(screen.getByRole("button", { name: /Speichern/ }));
@@ -167,8 +294,9 @@ describe("JournalPanel", () => {
 
   it("offers no correct/annul actions on an annulled entry", () => {
     setup({ entries: [entry({ state: "annulliert", text: "Fehleintrag" })] });
-    expect(screen.queryByRole("button", { name: /Korrigieren/ })).toBeNull();
-    expect(screen.queryByRole("button", { name: /Annullieren/ })).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: /Aktionen für Eintrag/ }),
+    ).toBeNull();
   });
 
   it("surfaces a save error and keeps the draft when adding fails", async () => {
@@ -188,7 +316,7 @@ describe("JournalPanel", () => {
 
   it("saves a correction with Strg+Enter in the edit field", async () => {
     const props = setup();
-    await userEvent.click(screen.getByRole("button", { name: /Korrigieren/ }));
+    await chooseAction(1, "Korrigieren");
     const field = screen.getByLabelText(/Korrektur/);
     fireEvent.change(field, { target: { value: "Deich hält nicht" } });
     await userEvent.type(field, "{Control>}{Enter}{/Control}");
@@ -200,7 +328,7 @@ describe("JournalPanel", () => {
       .fn<JournalPanelProps["onCorrect"]>()
       .mockRejectedValue(new Error("boom"));
     setup({ onCorrect });
-    await userEvent.click(screen.getByRole("button", { name: /Korrigieren/ }));
+    await chooseAction(1, "Korrigieren");
     const field = screen.getByLabelText(/Korrektur/);
     fireEvent.change(field, { target: { value: "Neuer Text" } });
     await userEvent.click(screen.getByRole("button", { name: /Speichern/ }));
@@ -214,7 +342,7 @@ describe("JournalPanel", () => {
         error: "Annullierte Einträge können nicht geändert werden.",
       });
     setup({ onCorrect });
-    await userEvent.click(screen.getByRole("button", { name: /Korrigieren/ }));
+    await chooseAction(1, "Korrigieren");
     const field = screen.getByLabelText(/Korrektur/);
     fireEvent.change(field, { target: { value: "Neuer Text" } });
     await userEvent.click(screen.getByRole("button", { name: /Speichern/ }));
@@ -230,8 +358,23 @@ describe("JournalPanel", () => {
       .fn<JournalPanelProps["onAnnul"]>()
       .mockRejectedValue(new Error("boom"));
     setup({ onAnnul });
-    await userEvent.click(screen.getByRole("button", { name: /Annullieren/ }));
+    await chooseAction(1, "Annullieren …");
+    await userEvent.click(screen.getByRole("button", { name: "Annullieren" }));
     expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("closes the confirmation and shows the reason when annulling is rejected", async () => {
+    const onAnnul = vi
+      .fn<JournalPanelProps["onAnnul"]>()
+      .mockResolvedValue({ error: "Eintrag nicht gefunden." });
+    setup({ onAnnul });
+    await chooseAction(1, "Annullieren …");
+    await userEvent.click(screen.getByRole("button", { name: "Annullieren" }));
+    expect(
+      await screen.findByText("Eintrag nicht gefunden."),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 
   it("shows a correction timestamp on a corrected entry", () => {

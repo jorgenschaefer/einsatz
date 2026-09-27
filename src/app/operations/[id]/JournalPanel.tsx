@@ -1,16 +1,20 @@
 "use client";
 
 import {
+  ActionIcon,
   Alert,
   Badge,
   Button,
   Checkbox,
   Group,
+  Menu,
+  Modal,
   Paper,
   Stack,
   Text,
   Textarea,
 } from "@mantine/core";
+import { useDisclosure } from "@mantine/hooks";
 import { useState } from "react";
 import type { ActionResult } from "./action-result";
 
@@ -58,6 +62,9 @@ export function JournalPanel({
   const [draft, setDraft] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
+  const [annulTarget, setAnnulTarget] = useState<JournalEntryView | null>(null);
+  const [annulConfirmationOpen, annulConfirmation] = useDisclosure(false);
+  const [annulPending, setAnnulPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const visible = hideAuto
@@ -110,16 +117,31 @@ export function JournalPanel({
     }
   };
 
-  const annul = async (id: string) => {
+  const startCorrection = (entry: JournalEntryView) => {
+    setEditingId(entry.id);
+    setEditText(entry.text);
+  };
+
+  const openAnnulConfirmation = (entry: JournalEntryView) => {
+    setAnnulTarget(entry);
+    annulConfirmation.open();
+  };
+
+  const closeAnnulConfirmation = () => {
+    if (!annulPending) annulConfirmation.close();
+  };
+
+  const annul = async () => {
+    if (!annulTarget || !annulConfirmationOpen) return;
+    setAnnulPending(true);
     try {
-      const { error: err } = await onAnnul(id);
-      if (err) {
-        setError(err);
-        return;
-      }
-      setError(null);
+      const { error: err } = await onAnnul(annulTarget.id);
+      setError(err ?? null);
     } catch {
       setError(SAVE_ERROR);
+    } finally {
+      setAnnulPending(false);
+      annulConfirmation.close();
     }
   };
 
@@ -159,11 +181,37 @@ export function JournalPanel({
                     </Badge>
                   )}
                 </Group>
-                {entry.author && (
-                  <Text size="xs" c="dimmed">
-                    {entry.author}
-                  </Text>
-                )}
+                <Group gap="xs" wrap="nowrap">
+                  {entry.author && (
+                    <Text size="xs" c="dimmed">
+                      {entry.author}
+                    </Text>
+                  )}
+                  {canEdit && editingId !== entry.id && (
+                    <Menu position="bottom-end" withinPortal>
+                      <Menu.Target>
+                        <ActionIcon
+                          variant="subtle"
+                          color="gray"
+                          aria-label={`Aktionen für Eintrag #${entry.number}`}
+                        >
+                          ⋯
+                        </ActionIcon>
+                      </Menu.Target>
+                      <Menu.Dropdown>
+                        <Menu.Item onClick={() => startCorrection(entry)}>
+                          Korrigieren
+                        </Menu.Item>
+                        <Menu.Item
+                          color="red"
+                          onClick={() => openAnnulConfirmation(entry)}
+                        >
+                          Annullieren …
+                        </Menu.Item>
+                      </Menu.Dropdown>
+                    </Menu>
+                  )}
+                </Group>
               </Group>
 
               {entry.revisions.map((rev, index) => (
@@ -191,29 +239,6 @@ export function JournalPanel({
                 <Text size="xs" c="dimmed">
                   korrigiert {berlinTime(entry.editedAt)}
                 </Text>
-              )}
-
-              {canEdit && editingId !== entry.id && (
-                <Group mt="xs" gap="xs">
-                  <Button
-                    size="xs"
-                    variant="light"
-                    onClick={() => {
-                      setEditingId(entry.id);
-                      setEditText(entry.text);
-                    }}
-                  >
-                    Korrigieren
-                  </Button>
-                  <Button
-                    size="xs"
-                    variant="light"
-                    color="red"
-                    onClick={() => annul(entry.id)}
-                  >
-                    Annullieren
-                  </Button>
-                </Group>
               )}
 
               {editingId === entry.id && (
@@ -255,6 +280,31 @@ export function JournalPanel({
           Eintrag hinzufügen
         </Button>
       </Stack>
+
+      <Modal
+        opened={annulConfirmationOpen}
+        onClose={closeAnnulConfirmation}
+        title={`Eintrag #${annulTarget?.number} annullieren`}
+      >
+        <Stack>
+          <Text>
+            Der Eintrag bleibt durchgestrichen im Einsatztagebuch stehen. Das
+            lässt sich nicht rückgängig machen.
+          </Text>
+          <Group justify="flex-end">
+            <Button
+              variant="default"
+              disabled={annulPending}
+              onClick={closeAnnulConfirmation}
+            >
+              Abbrechen
+            </Button>
+            <Button color="red" loading={annulPending} onClick={annul}>
+              Annullieren
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
     </Stack>
   );
 }
