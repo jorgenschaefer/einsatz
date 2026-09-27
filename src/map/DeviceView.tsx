@@ -120,7 +120,13 @@ export function DeviceView({
         imageOverlays={imageOverlays}
         factory={factory}
       />
-      <Box pos="absolute" top={8} left={8} right={8} style={{ zIndex: 1100 }}>
+      <Box
+        pos="absolute"
+        top={8}
+        left={8}
+        w={{ base: "calc(100% - 16px)", sm: 340 }}
+        style={{ zIndex: 1100 }}
+      >
         <SearchBar
           query={searchQuery}
           onQueryChange={setSearchQuery}

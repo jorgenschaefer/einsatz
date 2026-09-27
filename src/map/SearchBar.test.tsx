@@ -18,6 +18,14 @@ function setup(over: Partial<SearchBarProps> = {}) {
 }
 
 describe("SearchBar", () => {
+  it("fills the width of its container", () => {
+    setup();
+    const root = screen
+      .getByLabelText("Suche")
+      .closest(".mantine-TextInput-root")?.parentElement;
+    expect(root?.style.width).toBe("100%");
+  });
+
   it("reports typed queries", async () => {
     const props = setup();
     fireEvent.change(screen.getByLabelText("Suche"), {

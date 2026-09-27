@@ -33,7 +33,7 @@ export function SearchBar({
   const nothing = objectResults.length === 0 && addressResults.length === 0;
 
   return (
-    <Box pos="relative" w={320} maw="100%">
+    <Box pos="relative" w="100%">
       <TextInput
         aria-label="Suche"
         placeholder="Objekte und Adressen suchen …"
