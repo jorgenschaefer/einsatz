@@ -4,7 +4,7 @@ import { migrate } from "./migrations";
 
 describe("migrate", () => {
   it("creates the core tables", async () => {
-    const db = emptyDb();
+    const db = await emptyDb();
     await migrate(db);
 
     const { rows } = await db.query<{ table_name: string }>(
@@ -22,7 +22,7 @@ describe("migrate", () => {
   });
 
   it("rolls back a migration's DDL when its bookkeeping fails (atomic)", async () => {
-    const db = emptyDb();
+    const db = await emptyDb();
     // Zwei Migrationen mit gleichem Namen: die zweite Buchung verletzt den
     // Primärschlüssel von schema_migrations, nachdem ihre DDL lief.
     const migrations = [
@@ -38,7 +38,7 @@ describe("migrate", () => {
   });
 
   it("is idempotent when run twice", async () => {
-    const db = emptyDb();
+    const db = await emptyDb();
     await migrate(db);
     const countSql = "SELECT count(*)::text AS count FROM schema_migrations";
     const afterFirst = await db.query<{ count: string }>(countSql);

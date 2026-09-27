@@ -13,7 +13,6 @@ export default defineConfig({
   plugins: [react()],
   test: {
     globals: true,
-    globalSetup: ["./src/test/db-templates.ts"],
     setupFiles: ["./src/test/fast-bcrypt.ts"],
     // jsdom kostet ~3 s Aufbau je Testdatei; nur Tests, die ein DOM brauchen
     // (Komponenten, Browser-Hooks, Leaflet), bekommen es. Alles andere läuft
@@ -38,10 +37,6 @@ export default defineConfig({
         },
       },
     ],
-    // PGlite (In-Process-DB) initialisiert je Test frisch; unter Last/CI kann das
-    // die knappen 5 s überschreiten. Großzügiger Timeout hält die DB-Tests stabil.
-    testTimeout: 30_000,
-    hookTimeout: 30_000,
     // `taktische-zeichen-core` enthält im veröffentlichten Build versehentliche
     // console.log-Aufrufe beim Base64-Kodieren der dataUrl. Beim Rendern von
     // Kartenzeichen fluten diese das Testprotokoll mit dem kompletten SVG.

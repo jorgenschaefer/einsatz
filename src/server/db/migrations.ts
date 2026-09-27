@@ -8,7 +8,7 @@ const migrationsDir = join(
   "migrations",
 );
 
-function loadMigrations(): { name: string; sql: string }[] {
+export function loadMigrations(): { name: string; sql: string }[] {
   return readdirSync(migrationsDir)
     .filter((f) => f.endsWith(".sql"))
     .sort()

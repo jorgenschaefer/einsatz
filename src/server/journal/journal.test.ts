@@ -58,6 +58,26 @@ describe("journal", () => {
     expect(second.number).toBe(2);
   });
 
+  it("serializes concurrent appends so numbers stay gapless and unique", async () => {
+    const db = await freshDb();
+    const op = await anOperation(db);
+
+    const entries = await Promise.all(
+      ["A", "B", "C", "D", "E"].map((text) =>
+        db.transaction((tx) =>
+          appendEntry(tx, {
+            operationId: op.id,
+            text,
+            type: "manuell",
+            author: "anna",
+          }),
+        ),
+      ),
+    );
+
+    expect(entries.map((e) => e.number).sort()).toEqual([1, 2, 3, 4, 5]);
+  });
+
   it("rejects a duplicate (operation_id, number) via the UNIQUE constraint", async () => {
     // Backstop hinter der Lock-basierten Nummerierung: selbst wenn zwei parallele
     // Anhänge dieselbe Nummer berechnen würden, weist die DB den zweiten ab.

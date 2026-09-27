@@ -74,11 +74,9 @@ function requireEntryText(raw: string): string {
  * Einsatzes an. Muss innerhalb einer Transaktion laufen; sperrt die
  * Einsatz-Zeile, damit parallele Anhänge nicht dieselbe Nummer vergeben.
  *
- * Die Nebenläufigkeits-Serialisierung ist **nicht** durch einen Test abgesichert
- * (PGlite hat nur eine Verbindung und kann echte Parallelität nicht
- * reproduzieren), sondern durch den `FOR UPDATE`-Lock ({@link lockOperation})
- * **plus** den `UNIQUE (operation_id, number)`-Backstop der DB – Letzterer ist in
- * `journal.test.ts` gepinnt.
+ * Die Serialisierung leistet der `FOR UPDATE`-Lock ({@link lockOperation});
+ * der `UNIQUE (operation_id, number)`-Constraint ist der Backstop der DB. Beides
+ * ist in `journal.test.ts` gepinnt.
  */
 export async function appendEntry(
   tx: Queryable,
