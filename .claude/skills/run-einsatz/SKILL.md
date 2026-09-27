@@ -37,14 +37,52 @@ If nothing is listening, start it in the background: `npm run dev`, then poll
 
 ## Run (agent path): the driver
 
-It reads one command per line from stdin and prints `ok <cmd> → result` or
-`ERR <cmd>: …`. Write the script to a file and redirect it in. Screenshots
-go to `/tmp/einsatz-shots/NN-<name>.png` (`SHOTS_DIR` overrides this; `BASE_URL`
+Each command prints `ok <cmd> → result` or `ERR <cmd>: …`. Screenshots go to
+`/tmp/einsatz-shots/NN-<name>.png` (`SHOTS_DIR` overrides this; `BASE_URL`
 defaults to `http://localhost:3000`). Always open the PNGs and check them.
+Everything below writes to the dev DB, so delete any Einsatz you create.
 
-This verified flow creates an Einsatz, checks the Lagekarte and the ETB
-(desktop and mobile), then deletes it again. It writes to the dev DB, so
-clean up after yourself:
+### Step by step: `--serve` plus a blocking `curl`
+
+Use this when you want to look at each result before choosing the next step.
+It needs no tmux, no `sleep` and no wait loop. Start the driver once as a
+**background** Bash task:
+
+```bash
+node --env-file=.env .claude/skills/run-einsatz/driver.mjs --serve   # run_in_background
+```
+
+Then send commands in the **foreground**, one or more lines per call:
+
+```bash
+curl -sS --fail-with-body --retry 60 --retry-delay 1 --retry-connrefused \
+  --data-binary @- localhost:9223 <<'CMDS'
+login
+click role=button[name="Neuer Einsatz"]
+CMDS
+```
+
+- `curl` returns only after the last command has finished, and prints the
+  results. That's all the waiting you need. The retry flags make the first
+  call wait until the driver is listening.
+- If any command fails, the reply is HTTP 422 and `curl` exits 22. The
+  remaining lines of that call still run.
+- Put the commands in a quoted heredoc (`<<'CMDS'`), so selectors need no
+  shell quoting.
+- The background task's output is a transcript of every command and result.
+- Agents running in parallel each need their own port (`DRIVER_PORT=9224`).
+
+**Shut down** by sending `quit`. It replies `ok quit`, closes the browser,
+and the background task ends by itself with exit 0. If the driver hangs, stop
+**that task by its ID** (TaskStop). Never use `pkill`, `killall` or
+`kill $(pgrep …)`: those patterns also match your own background shells
+(`… driver.mjs`, `tail …`) and kill them (exit 144).
+
+### Whole script: stdin
+
+In stdin mode the driver reads one command per line. Write the script to a
+file and redirect it in. This verified flow creates an Einsatz, checks the
+Lagekarte and the ETB (desktop and mobile), then deletes it again:
 
 ```bash
 cat > "${TMPDIR:-/tmp}/einsatz-cmds.txt" <<'EOF'
@@ -55,7 +93,7 @@ click role=button[name="Einsatz eröffnen"]
 wait-url **/operations/*
 wait-tiles
 ss lagekarte
-click text=ETB
+click role=button[name="ETB"]
 fill 'label=Neuer Eintrag' Lage erkundet
 press Control+Enter
 wait-for text=#2
@@ -81,6 +119,7 @@ timeout 300 node --env-file=.env .claude/skills/run-einsatz/driver.mjs < "${TMPD
 | `nav <path>` | goes to the path, relative to `BASE_URL` |
 | `click <sel>` / `wait-for <sel>` | acts on or waits for the first match (30 s timeout) |
 | `fill <sel> <text>` | fills an input. Quote the selector as `'…'` if it contains spaces |
+| `upload <sel> <path>` | sets the file on an `<input type=file>`, e.g. `upload 'label=Bild-Overlay einbinden' /abs/plan.png` (panel "Ebenen") |
 | `press <key>` | presses a key, e.g. `press Control+Enter` (submits the ETB draft) |
 | `wait-url <glob>` | waits for navigation |
 | `wait-fn <js>` | waits until the JS expression is truthy |
@@ -93,7 +132,6 @@ timeout 300 node --env-file=.env .claude/skills/run-einsatz/driver.mjs < "${TMPD
 
 Selectors: anything `page.locator()` accepts (`text=…`, `role=button[name="…"]`,
 CSS with `:has-text()`), plus `label=<label substring>` for Mantine form fields.
-For iterative poking, run the driver under tmux and `send-keys` one command at a time.
 
 ## Test
 
@@ -124,6 +162,9 @@ npm run check                                      # tsc + biome + vitest (~2.5 
   The Mantine menu never opened after `nav /operations` while `nav` waited
   only for `domcontentloaded`. `nav` now waits for `load`. If a click
   "succeeds" but nothing happens, wait for something client-rendered first.
+- **`text=ETB` misses the main-view bar** (Lagekarte | ETB). Use
+  `role=button[name="ETB"]`. It matches a substring, so it also works when
+  the label reads "ETB 2 neue Einträge".
 - **Each card on `/operations` has its own `Einsatz-Aktionen` button.** Scope
   it with `.mantine-Card-root:has-text("<name>")`. `text=Einsatz löschen`
   didn't reliably hit the menu item, but `role=menuitem[name=…]` does.
@@ -137,6 +178,8 @@ npm run check                                      # tsc + biome + vitest (~2.5 
 - **The driver exits with no output after an `ERR … Timeout 30000ms`**: the
   outer `timeout` killed it, because each failed step burns 30 s. Fix the
   selector, or raise the outer `timeout`.
+- **`--serve` fails with `EADDRINUSE`**: another driver already holds that
+  port. Send it `quit`, or pick another `DRIVER_PORT`.
 - **`ERR login: locator.fill: Timeout`**: the password field's label is
   "Passwort *" plus a visibility toggle, so it doesn't match a label lookup.
   The driver fills `input[name=password]` instead. If login still fails,

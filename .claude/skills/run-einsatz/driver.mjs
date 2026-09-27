@@ -1,12 +1,17 @@
-// REPL driver for the einsatz web app: reads one command per line from stdin,
-// drives a headless Chromium via Playwright. Pipe a heredoc or run under tmux.
-// Usage (from einsatz/): node --env-file=.env .claude/skills/run-einsatz/driver.mjs
+// REPL driver for the einsatz web app: drives a headless Chromium via
+// Playwright, one command per line. Usage (from einsatz/):
+//   node --env-file=.env .claude/skills/run-einsatz/driver.mjs < cmds.txt
+//   node --env-file=.env .claude/skills/run-einsatz/driver.mjs --serve
+// --serve listens on 127.0.0.1:$DRIVER_PORT (9223); POST command lines, the
+// response holds their results (HTTP 422 if any failed).
 import { mkdirSync } from "node:fs";
+import { createServer } from "node:http";
 import { createInterface } from "node:readline";
 import { chromium } from "playwright-core";
 
 const BASE = process.env.BASE_URL ?? "http://localhost:3000";
 const SHOTS = process.env.SHOTS_DIR ?? "/tmp/einsatz-shots";
+const PORT = Number(process.env.DRIVER_PORT ?? 9223);
 mkdirSync(SHOTS, { recursive: true });
 
 const browser = await chromium.launch({ args: ["--no-sandbox"] });
@@ -64,6 +69,10 @@ const commands = {
     const [sel, value] = splitSel(rest);
     await loc(sel).fill(value);
   },
+  async upload(rest) {
+    const [sel, path] = splitSel(rest);
+    await loc(sel).setInputFiles(path);
+  },
   async press(key) {
     await page.keyboard.press(key);
   },
@@ -110,32 +119,74 @@ const commands = {
   },
   async quit() {
     await browser.close();
+    server?.close();
     process.exit(0);
   },
 };
 
-console.log(`driver ready (${BASE}, shots → ${SHOTS})`);
-const rl = createInterface({ input: process.stdin, terminal: false });
-rl.setPrompt("> ");
-rl.prompt();
-for await (const line of rl) {
+// Runs one input line; returns its result line, or null for blanks/comments.
+async function run(line) {
   const trimmed = line.trim();
-  if (trimmed && !trimmed.startsWith("#")) {
-    const i = trimmed.indexOf(" ");
-    const [cmd, rest] =
-      i < 0 ? [trimmed, ""] : [trimmed.slice(0, i), trimmed.slice(i + 1)];
-    const fn = commands[cmd];
-    try {
-      if (!fn)
-        throw new Error(
-          `unknown command: ${cmd} (${Object.keys(commands).join(", ")})`,
-        );
-      const result = await fn(rest);
-      console.log(`ok ${cmd}${result ? ` → ${result}` : ""}`);
-    } catch (e) {
-      console.log(`ERR ${cmd}: ${e.message.split("\n")[0]}`);
-    }
+  if (!trimmed || trimmed.startsWith("#")) return null;
+  const i = trimmed.indexOf(" ");
+  const [cmd, rest] =
+    i < 0 ? [trimmed, ""] : [trimmed.slice(0, i), trimmed.slice(i + 1)];
+  const fn = commands[cmd];
+  try {
+    if (!fn)
+      throw new Error(
+        `unknown command: ${cmd} (${Object.keys(commands).join(", ")})`,
+      );
+    // quit exits the process; answer first so the sender gets a reply.
+    if (cmd === "quit") return "ok quit";
+    const result = await fn(rest);
+    return `ok ${cmd}${result ? ` → ${result}` : ""}`;
+  } catch (e) {
+    return `ERR ${cmd}: ${e.message.split("\n")[0]}`;
   }
-  if (!rl.closed) rl.prompt();
 }
-await browser.close();
+
+let server;
+if (process.argv.includes("--serve")) {
+  let queue = Promise.resolve();
+  server = createServer(async (req, res) => {
+    let body = "";
+    for await (const chunk of req) body += chunk;
+    // Requests queue up, so concurrent sends never interleave commands.
+    queue = queue.then(async () => {
+      const out = [];
+      let quit = false;
+      for (const line of body.split("\n")) {
+        const result = await run(line);
+        if (result === null) continue;
+        console.log(`> ${line.trim()}\n${result}`);
+        out.push(result);
+        if (result === "ok quit") {
+          quit = true;
+          break;
+        }
+      }
+      // 422, not 5xx: curl --retry would silently re-run a failed command.
+      const failed = out.some((r) => r.startsWith("ERR"));
+      res.writeHead(failed ? 422 : 200, { "content-type": "text/plain" });
+      res.end(`${out.join("\n")}\n`, quit ? () => commands.quit() : undefined);
+    });
+  });
+  server.listen(PORT, "127.0.0.1", () =>
+    console.log(
+      `driver ready on http://127.0.0.1:${PORT} (${BASE}, shots → ${SHOTS})`,
+    ),
+  );
+} else {
+  console.log(`driver ready (${BASE}, shots → ${SHOTS})`);
+  const rl = createInterface({ input: process.stdin, terminal: false });
+  rl.setPrompt("> ");
+  rl.prompt();
+  for await (const line of rl) {
+    const result = await run(line);
+    if (result) console.log(result);
+    if (result === "ok quit") await commands.quit();
+    if (!rl.closed) rl.prompt();
+  }
+  await browser.close();
+}
