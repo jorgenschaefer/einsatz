@@ -17,6 +17,15 @@ describe("extractGeometry", () => {
     });
   });
 
+  it.each([
+    [463.27, 463],
+    [463.5, 464],
+    [0.4, 0],
+  ])("rounds a drawn circle's radius of %s to %s whole metres", (drawn, stored) => {
+    const layer = L.circle([53.55, 9.99], { radius: drawn });
+    expect(extractGeometry("circle", layer)).toMatchObject({ radius: stored });
+  });
+
   it("reads a polygon's outer ring", () => {
     const layer = L.polygon([
       [1, 2],

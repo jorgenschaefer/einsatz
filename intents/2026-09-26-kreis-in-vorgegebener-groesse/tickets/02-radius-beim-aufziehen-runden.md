@@ -2,8 +2,8 @@
 solution:  02-SOLUTION.md
 satisfies: AC-1
 after:     
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -21,3 +21,15 @@ Circles are drawn with Geoman; `startDrawing` in `src/map/leaflet-adapter.ts` co
 
 ## Not here
 existing stored circles are not touched (AC-13, 01); a radius rounding to 0 is rejected by the existing assertRadius as today.
+
+## Record
+Criteria → tests (`src/map/leaflet-adapter.conversion.test.ts` › extractGeometry):
+- **AC-1** "rounds a drawn circle's radius of %s to %s whole metres" (it.each: 463.27 → 463, 463.5 → 464, 0.4 → 0); existing "reads a circle's center and radius" (250) still green. New drawing and „Form neu zeichnen" both reach `extractGeometry` via its only caller, `startDrawing`'s `pm:create` handler; `SituationWorkspace.handleDrawComplete` then routes to `onCreateArea` or `onUpdateAreaGeometry` – so one change covers both (checked by reading, as the plan said).
+
+Command: `npm run check` — green (tsc, biome, 766/766 vitest).
+
+Departures from the plan: added a third case, 0.4 → 0, which makes visible that a sub-half-metre circle arrives at the server as radius 0 and is rejected by `assertRadius` as today (Not here). No new handling for it.
+
+Left standing:
+- Review (fresh-context critique): clean – no blockers, should-fix or nits. Its one tradeoff note: the 0.4 → 0 case pins a value that can never be stored; kept, since it documents the handoff to `assertRadius`.
+- The `pm:create` → `extractGeometry` wiring in `startDrawing` is untested (Geoman adapter edge; unchanged by this diff). Not verified by drawing a circle in a real browser.

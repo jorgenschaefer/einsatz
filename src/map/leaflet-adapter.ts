@@ -82,7 +82,7 @@ export function extractGeometry(
     return {
       shape: "circle",
       center: { lat: c.lat, lng: c.lng },
-      radius: (layer as L.Circle).getRadius(),
+      radius: Math.round((layer as L.Circle).getRadius()),
     };
   }
   const latlngs = (layer as L.Polyline).getLatLngs();
