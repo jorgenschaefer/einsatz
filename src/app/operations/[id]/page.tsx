@@ -46,7 +46,6 @@ import {
   removeKmlAction,
   setKmlVisibilityAction,
 } from "./kml-actions";
-import { LageansichtShell } from "./LageansichtShell";
 import {
   deleteMapSymbolAction,
   generateDeviceLinkAction,
@@ -134,55 +133,52 @@ export default async function LageansichtPage({
   const { tileUrl, attribution } = mapTileConfig();
 
   return (
-    <LageansichtShell
+    <SituationWorkspace
+      operationId={operation.id}
       operationName={operation.name}
       status={operation.status}
       viewLinks={viewLinks}
       onCreateViewLink={createViewLinkAction.bind(null, operation.id)}
       onDeleteViewLink={deleteViewLinkAction.bind(null, operation.id)}
-    >
-      <SituationWorkspace
-        operationId={operation.id}
-        operationDefaultView={operation.defaultView}
-        tileUrl={tileUrl}
-        attribution={attribution}
-        symbols={symbols}
-        journalEntries={entries}
-        onAddJournalEntry={addJournalEntryAction.bind(null, operation.id)}
-        onCorrectJournalEntry={correctEntryAction}
-        onAnnulJournalEntry={annulEntryAction}
-        onSetDefault={setDefaultViewAction.bind(null, operation.id)}
-        onPlace={placeMapSymbolAction.bind(null, operation.id)}
-        onMove={moveMapSymbolAction.bind(null, operation.id)}
-        onUpdate={updateMapSymbolCompositionAction.bind(null, operation.id)}
-        onDelete={deleteMapSymbolAction.bind(null, operation.id)}
-        onGenerateDeviceLink={generateDeviceLinkAction.bind(null, operation.id)}
-        onGeocode={geocodeAddressAction}
-        geocoderAttribution={GEOCODER_ATTRIBUTION}
-        areas={areas}
-        onCreateArea={createAreaAction.bind(null, operation.id)}
-        onUpdateAreaStyle={updateAreaStyleAction.bind(null, operation.id)}
-        onUpdateAreaGeometry={updateAreaGeometryAction.bind(null, operation.id)}
-        onDeleteArea={deleteAreaAction.bind(null, operation.id)}
-        kmlOverlays={kmlOverlays}
-        onAddKmlFile={addKmlFileAction.bind(null, operation.id)}
-        onAddKmlUrl={addKmlUrlAction.bind(null, operation.id)}
-        onSetKmlVisibility={setKmlVisibilityAction.bind(null, operation.id)}
-        onReloadKml={reloadKmlAction.bind(null, operation.id)}
-        onRemoveKml={removeKmlAction.bind(null, operation.id)}
-        imageOverlays={imageOverlays}
-        onAddImage={addImageOverlayAction.bind(null, operation.id)}
-        onUpdateImagePlacement={updateImageOverlayPlacementAction.bind(
-          null,
-          operation.id,
-        )}
-        onReplaceImage={replaceImageOverlayFileAction.bind(null, operation.id)}
-        onSetImageVisibility={setImageOverlayVisibilityAction.bind(
-          null,
-          operation.id,
-        )}
-        onDeleteImage={deleteImageOverlayAction.bind(null, operation.id)}
-      />
-    </LageansichtShell>
+      operationDefaultView={operation.defaultView}
+      tileUrl={tileUrl}
+      attribution={attribution}
+      symbols={symbols}
+      journalEntries={entries}
+      onAddJournalEntry={addJournalEntryAction.bind(null, operation.id)}
+      onCorrectJournalEntry={correctEntryAction}
+      onAnnulJournalEntry={annulEntryAction}
+      onSetDefault={setDefaultViewAction.bind(null, operation.id)}
+      onPlace={placeMapSymbolAction.bind(null, operation.id)}
+      onMove={moveMapSymbolAction.bind(null, operation.id)}
+      onUpdate={updateMapSymbolCompositionAction.bind(null, operation.id)}
+      onDelete={deleteMapSymbolAction.bind(null, operation.id)}
+      onGenerateDeviceLink={generateDeviceLinkAction.bind(null, operation.id)}
+      onGeocode={geocodeAddressAction}
+      geocoderAttribution={GEOCODER_ATTRIBUTION}
+      areas={areas}
+      onCreateArea={createAreaAction.bind(null, operation.id)}
+      onUpdateAreaStyle={updateAreaStyleAction.bind(null, operation.id)}
+      onUpdateAreaGeometry={updateAreaGeometryAction.bind(null, operation.id)}
+      onDeleteArea={deleteAreaAction.bind(null, operation.id)}
+      kmlOverlays={kmlOverlays}
+      onAddKmlFile={addKmlFileAction.bind(null, operation.id)}
+      onAddKmlUrl={addKmlUrlAction.bind(null, operation.id)}
+      onSetKmlVisibility={setKmlVisibilityAction.bind(null, operation.id)}
+      onReloadKml={reloadKmlAction.bind(null, operation.id)}
+      onRemoveKml={removeKmlAction.bind(null, operation.id)}
+      imageOverlays={imageOverlays}
+      onAddImage={addImageOverlayAction.bind(null, operation.id)}
+      onUpdateImagePlacement={updateImageOverlayPlacementAction.bind(
+        null,
+        operation.id,
+      )}
+      onReplaceImage={replaceImageOverlayFileAction.bind(null, operation.id)}
+      onSetImageVisibility={setImageOverlayVisibilityAction.bind(
+        null,
+        operation.id,
+      )}
+      onDeleteImage={deleteImageOverlayAction.bind(null, operation.id)}
+    />
   );
 }

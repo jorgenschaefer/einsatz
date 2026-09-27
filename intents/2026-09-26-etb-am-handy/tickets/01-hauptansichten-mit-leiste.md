@@ -2,8 +2,8 @@
 solution:  02-SOLUTION.md
 satisfies: AC-1, AC-2, AC-9, AC-10, AC-12, AC-13, AC-14
 after:     
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -122,3 +122,114 @@ all-functions checks (06).
 
 Non-goals from the solution: showing Karte and ETB at the same time on the
 desktop; remembering the chosen main view across a reload.
+
+## Record
+
+Command: `docker compose -f docker-compose.test.yml up -d && npm run check`
+(`tsc --noEmit`, `biome check`, `vitest run`) — green: 99 test files, 668
+tests, no type or lint errors.
+
+Criterion → test:
+
+- **AC-1** (bar, tap shows full-area main view) —
+  `src/map/MainViewBar.test.tsx` "marks the active view and reports a
+  selection"; `src/map/SituationWorkspace.test.tsx` "starts on the ETB on a
+  phone"; browser check A (56 px bar, both items present).
+- **AC-2** (map nowhere visible while ETB shown, ≤16 px margin) —
+  "starts on the ETB on a phone" (map `hidden`/`display:none`, unreachable via
+  `getByRole`); browser check A (map `getComputedStyle().display === "none"`,
+  `boundingBox() === null`; `.etb-pane` 16 px inline padding).
+- **AC-9** (in-progress ETB entry and map viewport survive a switch) —
+  "keeps a started ETB entry when switching to the Lagekarte and back";
+  "does not recreate the map when switching views" (fake adapter: `create`
+  called once, `destroy` never).
+- **AC-10** (map fills without grey edges after switching) — pinned
+  structurally by the map staying mounted (previous test) plus the
+  pre-existing `src/map/leaflet-adapter.resize.test.ts` (untouched,
+  ResizeObserver → `invalidateSize`); confirmed live in browser check B
+  (3/3 `.leaflet-tile-loaded`, no blank tiles).
+- **AC-12** (72 px desktop rail, same items/order) — "starts on the Lagekarte
+  on the desktop"; browser check C (rail width 71 px measured).
+- **AC-13** (ETB ≤720 px, left-aligned on desktop) — CSS-only
+  (`.etb-pane` `max-width: 720px`), pixel sizes not observable in jsdom per
+  ticket's Context; browser check C (`.etb-pane` width exactly 720 px, left
+  edge at x=72, flush against the rail).
+- **AC-14** (mobile→ETB, desktop→Lagekarte before JS) — "carries
+  data-main-view=\"default\" in the server-rendered markup" (`renderToString`);
+  "starts on the ETB on a phone" / "starts on the Lagekarte on the desktop"
+  (stubbed `matchMedia`); browser check D — a genuine
+  `javaScriptEnabled: false` Playwright context confirmed the server markup
+  resolves the correct pane per viewport via CSS alone, with zero JS
+  execution.
+- **Edge case** (main view survives a resize across 768 px) — "keeps the main
+  view when the width crosses 768 px" (simulates a real `MediaQueryList`;
+  fires a captured `change` listener if one was wrongly registered — proven
+  to catch that regression by a temporary mutation test before this was
+  recorded).
+- **Stärke not yet existing** — `MainViewBar` renders exactly the two items
+  Lagekarte/ETB; no third item, no dead code for a Stärke view.
+
+Browser check (step 7, delegated to a subagent driving headless Chromium via
+Playwright against a freshly seeded dev DB — see its full report for
+screenshots/scripts under `/tmp/check-*.png`, `/tmp/verify*.mjs`): all of A–D
+above passed, including a live `getComputedStyle`/`getBoundingClientRect`
+re-verification of the display:none fix below.
+
+Two fresh-context `critique` rounds were run (per the `implement` skill):
+
+- **Round 1** found one blocker: the inactive pane was hidden with the native
+  `hidden` attribute, which Mantine's own `.mantine-Group-root` class
+  (`display:flex`) silently defeats in a real browser — the UA `[hidden]`
+  rule loses to any author-origin rule regardless of specificity, so jsdom
+  tests (which never load Mantine's real stylesheet) couldn't see the bug.
+  Fixed by switching both panes to an inline `style={{ display: mainView ===
+  … ? "none" : undefined }}`, which always wins over any class. Verified via
+  a real headless-Chromium check with Mantine's stylesheet loaded (in the
+  critique round itself) and again in the step-7 browser check.
+  Also found two should-fix items, both fixed: `MainViewBar`'s `activeView`
+  now accepts `"default"` and marks neither item current before the start
+  view is known (was wrongly defaulting to "etb"); the resize-edge-case test
+  was rewritten to simulate a real `MediaQueryList` and actually invoke a
+  captured `change` listener, since firing a plain `resize` event on
+  `window` could never have failed against the regression it claimed to
+  pin. Two nits fixed: a stale test name referencing the removed
+  "Einsatztagebuch tab"; an over-loosened regex in the Kartenzeichen-search
+  test tightened back to the exact label now that the query is scoped to the
+  search-results group.
+- **Round 2** came back clean (no blockers, no should-fix). Its four nits
+  were applied: a stale code comment describing the old `[hidden]` mechanism
+  reworded for the inline-style approach; the two pre-hydration media
+  queries rewritten as exact complements (`@media not all and (min-width:
+  48em)` / `@media (min-width: 48em)`) instead of `max-width: 47.9375em` /
+  `min-width: 48em`, which left a real (if narrow) gap around fractional
+  viewport widths; an unused `matchMediaSpy` dropped from a test helper's
+  return value; the workspace's and shell's own `"active" | "closed"`
+  literals replaced with the existing `OperationStatus` type from
+  `src/server/operations/operations.ts`.
+  Round 2 also flagged the desktop rail's `flex: 1` bar items as maybe
+  stretching to half the rail's height — checked directly against a
+  browser-check screenshot (`/tmp/check-C-desktop-map.png`): both items sit
+  compact and top-aligned as intended, not stretched. No code change needed;
+  not a defect.
+
+Left standing (tradeoffs raised by critique, not acted on — per
+`CODING_STANDARDS.md` these are decisions for a person, not something to
+resolve unilaterally in an unattended run):
+
+- `SituationWorkspace` now renders `LageansichtShell` and owns the page
+  shell/header props (five props it only passes through), so the bar can
+  share `mainView` state with both panes without a context. Alternative:
+  lift the state into a small client wrapper around shell+workspace, at the
+  cost of `page.tsx`'s current flatness.
+- `MainViewBar` is rendered twice (once per `AppShell.Footer`/`Navbar` slot,
+  shown/hidden via Mantine's `hiddenFrom`/`visibleFrom`), so there are always
+  two DOM copies; tests use `getAllByRole(...)[0]`. Alternative: one bar
+  with its own positioning/repositioning code instead of relying on
+  AppShell's slots.
+
+Departure from the plan: none of substance — the plan's steps were followed
+as written; the `hidden`→inline-`display:none` change (step 3) was a fix
+found by review, not a planned departure.
+
+Not run: a third critique round (stop condition — round 2 was clean, per the
+`implement` skill's two-rounds-at-most rule).

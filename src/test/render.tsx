@@ -22,7 +22,7 @@ const stubRouter: AppRouterInstance = {
   prefetch: vi.fn(),
 };
 
-function Providers({ children }: { children: ReactNode }) {
+export function Providers({ children }: { children: ReactNode }) {
   return (
     <AppRouterContext.Provider value={stubRouter}>
       <MantineProvider theme={theme}>{children}</MantineProvider>

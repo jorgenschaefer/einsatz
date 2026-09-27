@@ -1,12 +1,15 @@
 import userEvent from "@testing-library/user-event";
+import { renderToString } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import {
   act,
   fireEvent,
+  Providers,
   render,
   routerRefresh,
   screen,
   waitFor,
+  within,
 } from "@/test/render";
 import type {
   CreateMapOptions,
@@ -39,19 +42,64 @@ function fakeFactory() {
     cancelDrawing: vi.fn(),
     destroy: vi.fn(),
   };
-  const factory: MapAdapterFactory = {
-    create(_c, options) {
-      captured.options = options;
-      return adapter;
-    },
-  };
+  const create = vi.fn((_c: HTMLElement, options: CreateMapOptions) => {
+    captured.options = options;
+    return adapter;
+  });
+  const factory: MapAdapterFactory = { create };
   return { factory, captured, adapter };
 }
 
-function renderWorkspace(over: Partial<SituationWorkspaceProps> = {}) {
+const selectMainView = (name: "Lagekarte" | "ETB") =>
+  userEvent.click(screen.getAllByRole("button", { name })[0]);
+
+const START_VIEW_QUERY = "(min-width: 48em)";
+
+/**
+ * Stubbt `window.matchMedia` mit einem `matches`-Wert für `START_VIEW_QUERY`,
+ * der sich über `fireChange` ändern lässt – simuliert dabei einen echten
+ * `MediaQueryList`: ein per `addEventListener("change", …)` auf genau dieser
+ * Query registrierter Listener wird tatsächlich aufgerufen, falls die
+ * Implementierung (fälschlich) einen registriert. Mantine ruft `matchMedia`
+ * für andere Queries auf (Farbschema u. Ä.); jeder Aufruf bekommt daher ein
+ * eigenes MediaQueryList-Objekt, damit deren Listener sich nicht mit unserem
+ * überschreiben.
+ */
+function stubMatchMedia(matches: boolean) {
+  let changeListener: ((event: { matches: boolean }) => void) | null = null;
+  vi.stubGlobal(
+    "matchMedia",
+    vi.fn((query: string) => ({
+      matches: query === START_VIEW_QUERY ? matches : false,
+      media: query,
+      onchange: null,
+      addEventListener: vi.fn((event: string, cb: typeof changeListener) => {
+        if (event === "change" && query === START_VIEW_QUERY) {
+          changeListener = cb;
+        }
+      }),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  );
+  return {
+    fireChange: (nextMatches: boolean) => {
+      changeListener?.({ matches: nextMatches });
+    },
+  };
+}
+
+function buildProps(over: Partial<SituationWorkspaceProps> = {}) {
   const fake = fakeFactory();
   const props: SituationWorkspaceProps = {
     operationId: "op-x",
+    operationName: "Hochwasser",
+    status: "active",
+    viewLinks: [],
+    onCreateViewLink: vi.fn(async () => {}),
+    onDeleteViewLink: vi.fn(async () => {}),
     operationDefaultView: null,
     tileUrl: "t",
     attribution: "© OpenStreetMap",
@@ -88,23 +136,122 @@ function renderWorkspace(over: Partial<SituationWorkspaceProps> = {}) {
     factory: fake.factory,
     ...over,
   };
-  render(<SituationWorkspace {...props} />);
   return { ...fake, props };
 }
 
-const openTab = (name: RegExp | string) =>
-  userEvent.click(screen.getByRole("tab", { name }));
+function renderWorkspace(over: Partial<SituationWorkspaceProps> = {}) {
+  const built = buildProps(over);
+  render(<SituationWorkspace {...built.props} />);
+  return built;
+}
+
+// Die Seitenleisten-Tabs (Kartenzeichen, Bereiche, Ebenen) leben nur in der
+// Lagekarten-Hauptansicht; erst hinschalten, dann den Tab öffnen.
+const openTab = async (name: RegExp | string) => {
+  await selectMainView("Lagekarte");
+  await userEvent.click(screen.getByRole("tab", { name }));
+};
 
 describe("SituationWorkspace", () => {
-  it("lays the four sidebar tabs out in a 2x2 grid", () => {
-    renderWorkspace();
-    expect(screen.getByRole("tablist")).toHaveStyle({
-      display: "grid",
-      gridTemplateColumns: "repeat(2, 1fr)",
-    });
+  it("renders the operation name and Teilen in the header", () => {
+    renderWorkspace({ operationName: "Cyclassics 2026" });
+    expect(screen.getByText("Cyclassics 2026")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Teilen/i })).toBeInTheDocument();
   });
 
-  it("opens the Einsatztagebuch tab by default and adds an entry", async () => {
+  it("keeps a started ETB entry when switching to the Lagekarte and back", async () => {
+    renderWorkspace();
+    fireEvent.change(screen.getByLabelText("Neuer Eintrag"), {
+      target: { value: "Deich gesichert" },
+    });
+    await selectMainView("Lagekarte");
+    await selectMainView("ETB");
+    expect(screen.getByLabelText("Neuer Eintrag")).toHaveValue(
+      "Deich gesichert",
+    );
+  });
+
+  it("does not recreate the map when switching views", async () => {
+    const { factory, adapter } = renderWorkspace();
+    await selectMainView("Lagekarte");
+    await selectMainView("ETB");
+    expect(factory.create).toHaveBeenCalledTimes(1);
+    expect(adapter.destroy).not.toHaveBeenCalled();
+  });
+
+  it("starts on the ETB on a phone", () => {
+    stubMatchMedia(false);
+    try {
+      renderWorkspace();
+      expect(screen.getByLabelText("Neuer Eintrag")).toBeVisible();
+      expect(
+        screen.getByRole("button", {
+          name: "Zum Standard-Ausschnitt zurück",
+          hidden: true,
+        }),
+      ).not.toBeVisible();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("starts on the Lagekarte on the desktop", () => {
+    stubMatchMedia(true);
+    try {
+      renderWorkspace();
+      expect(
+        screen.getByRole("button", { name: "Zum Standard-Ausschnitt zurück" }),
+      ).toBeVisible();
+      expect(screen.getByLabelText("Neuer Eintrag")).not.toBeVisible();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("keeps the main view when the width crosses 768 px", () => {
+    const { fireChange } = stubMatchMedia(false);
+    try {
+      renderWorkspace();
+      expect(screen.getByLabelText("Neuer Eintrag")).toBeVisible();
+
+      // Die Breite überschreitet 768 px. Selbst wenn ein Listener registriert
+      // wäre (was er nicht sein soll), darf sich die Hauptansicht dadurch
+      // nicht ändern – sie steht seit dem ersten Rendern fest.
+      act(() => {
+        fireChange(true);
+      });
+
+      expect(screen.getByLabelText("Neuer Eintrag")).toBeVisible();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('carries data-main-view="default" in the server-rendered markup', () => {
+    const { props } = buildProps();
+    const html = renderToString(
+      <Providers>
+        <SituationWorkspace {...props} />
+      </Providers>,
+    );
+    expect(html).toContain('data-main-view="default"');
+  });
+
+  it("lays the three map sidebar tabs out in a grid", async () => {
+    renderWorkspace();
+    await selectMainView("Lagekarte");
+    expect(screen.getByRole("tablist")).toHaveStyle({
+      display: "grid",
+      gridTemplateColumns: "repeat(3, 1fr)",
+    });
+    expect(
+      screen.getByRole("tab", { name: "Kartenzeichen" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Bereiche" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Ebenen" })).toBeInTheDocument();
+  });
+
+  it("shows the ETB as the default main view on a phone and adds an entry", async () => {
     const onAddJournalEntry = vi.fn(async () => ({}));
     renderWorkspace({
       onAddJournalEntry,
@@ -341,6 +488,7 @@ describe("SituationWorkspace", () => {
       { label: "Rathaus, Hamburg", lat: 53.55, lng: 9.99 },
     ]);
     renderWorkspace({ onGeocode });
+    await selectMainView("Lagekarte");
     fireEvent.change(screen.getByLabelText("Suche"), {
       target: { value: "Hamburg" },
     });
@@ -365,11 +513,17 @@ describe("SituationWorkspace", () => {
         },
       ],
     });
+    await selectMainView("Lagekarte");
     fireEvent.change(screen.getByLabelText("Suche"), {
       target: { value: "Rotkreuz" },
     });
+    // Ein Kartenzeichen mit demselben Namen kann gleichzeitig in der
+    // Kartenzeichen-Seitenleiste stehen; auf das Suchergebnis beschränken.
+    const results = within(
+      (await screen.findByText("Einsatzobjekte")).parentElement as HTMLElement,
+    );
     await userEvent.click(
-      await screen.findByRole("button", { name: /Rotkreuz 83\/1/ }),
+      results.getByRole("button", { name: /Rotkreuz 83\/1/ }),
     );
     await waitFor(() =>
       expect(adapter.setView).toHaveBeenCalledWith({
@@ -1158,8 +1312,9 @@ describe("SituationWorkspace", () => {
 
   it("collapses and reopens the sidebar via the toggle button", async () => {
     renderWorkspace();
+    await selectMainView("Lagekarte");
     // Seitenleiste offen: der Tab-Reiter ist sichtbar.
-    expect(screen.getByRole("tab", { name: "Einsatztagebuch" })).toBeVisible();
+    expect(screen.getByRole("tab", { name: "Kartenzeichen" })).toBeVisible();
 
     const collapse = screen.getByRole("button", {
       name: "Seitenleiste einklappen",
@@ -1167,7 +1322,7 @@ describe("SituationWorkspace", () => {
     expect(collapse).toHaveAttribute("aria-expanded", "true");
     await userEvent.click(collapse);
     // Eingeklappt: die Tabs sind weg, der Ausklapp-Button erscheint.
-    expect(screen.queryByRole("tab", { name: "Einsatztagebuch" })).toBeNull();
+    expect(screen.queryByRole("tab", { name: "Kartenzeichen" })).toBeNull();
     expect(
       screen.getByRole("button", { name: "Seitenleiste ausklappen" }),
     ).toHaveAttribute("aria-expanded", "false");
@@ -1175,11 +1330,12 @@ describe("SituationWorkspace", () => {
     await userEvent.click(
       screen.getByRole("button", { name: "Seitenleiste ausklappen" }),
     );
-    expect(screen.getByRole("tab", { name: "Einsatztagebuch" })).toBeVisible();
+    expect(screen.getByRole("tab", { name: "Kartenzeichen" })).toBeVisible();
   });
 
-  it("disables the return-to-default button when no default view is set", () => {
+  it("disables the return-to-default button when no default view is set", async () => {
     renderWorkspace({ operationDefaultView: null });
+    await selectMainView("Lagekarte");
     expect(
       screen.getByRole("button", { name: "Zum Standard-Ausschnitt zurück" }),
     ).toBeDisabled();
@@ -1189,6 +1345,7 @@ describe("SituationWorkspace", () => {
     const { adapter } = renderWorkspace({
       operationDefaultView: { lat: 52.5, lng: 13.4, zoom: 12 },
     });
+    await selectMainView("Lagekarte");
     const button = screen.getByRole("button", {
       name: "Zum Standard-Ausschnitt zurück",
     });

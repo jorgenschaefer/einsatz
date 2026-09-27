@@ -1,0 +1,29 @@
+/* Hauptansichten-Leiste: unten am Handy (Reihe), links am Desktop (Spalte). Dieselbe
+   48-em-Schwelle wie AppShell (Footer/Navbar-Konfiguration in LageansichtShell). */
+.main-view-bar {
+  display: flex;
+  flex-direction: row;
+  height: 100%;
+  width: 100%;
+}
+
+@media (min-width: 48em) {
+  .main-view-bar {
+    flex-direction: column;
+  }
+}
+
+.main-view-bar-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  font-size: var(--mantine-font-size-xs);
+  color: var(--mantine-color-dimmed);
+}
+
+.main-view-bar-item[aria-current="page"] {
+  color: var(--mantine-color-blue-6);
+}

@@ -5,3 +5,36 @@
 .sidebar-row:hover {
   background-color: var(--mantine-color-default-hover);
 }
+
+/* Startansicht vor der Hydration (AC-14): solange data-main-view="default"
+   ist, hat keine der beiden Hauptansichten ein inline display (JS kennt die
+   Breite noch nicht), daher entscheidet hier reines CSS anhand derselben
+   48-em-Schwelle wie die AppShell-Leiste (LageansichtShell). Die zweite Query
+   ist die exakte Verneinung der ersten (kein max-width-Gegenstück mit
+   Rundungslücke), damit keine Breite durchs Raster fällt. Sobald der
+   Mount-Effekt eine echte Hauptansicht setzt, greifen diese Regeln nicht mehr
+   (data-main-view ist dann "map" oder "etb", nicht mehr "default"; das
+   inline display der Bereiche entscheidet). */
+@media not all and (min-width: 48em) {
+  [data-main-view="default"] [data-view="map"] {
+    display: none;
+  }
+}
+@media (min-width: 48em) {
+  [data-main-view="default"] [data-view="etb"] {
+    display: none;
+  }
+}
+
+/* ETB-Breite (AC-13): am Handy volle Breite abzüglich Rand, am Desktop auf eine
+   lesbare Zeilenlänge begrenzt und linksbündig statt zentriert. */
+.etb-pane {
+  padding-inline: 16px;
+}
+
+@media (min-width: 48em) {
+  .etb-pane {
+    max-width: 720px;
+    padding-inline: 0;
+  }
+}
