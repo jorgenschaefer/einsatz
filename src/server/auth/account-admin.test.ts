@@ -19,6 +19,8 @@ import {
   insertUser,
 } from "./users";
 
+const inAnHour = () => new Date(Date.now() + 60 * 60_000);
+
 async function seedAdmin(
   db: Awaited<ReturnType<typeof freshDb>>,
   username = "chef",
@@ -149,7 +151,7 @@ describe("resetPassword", () => {
     await insertSession(db, {
       token: "anna-session",
       userId: anna.id,
-      expiresAt: new Date(Date.now() + 1000),
+      expiresAt: inAnHour(),
     });
 
     await resetPassword(db, anna.id, "brand-new-pass");
@@ -170,7 +172,7 @@ describe("changePassword (self-service)", () => {
     await insertSession(db, {
       token: "anna-session",
       userId: anna.id,
-      expiresAt: new Date(Date.now() + 1000),
+      expiresAt: inAnHour(),
     });
 
     await changePassword(db, anna.id, "a-good-password", "brand-new-pass");
@@ -191,7 +193,7 @@ describe("changePassword (self-service)", () => {
     await insertSession(db, {
       token: "anna-session",
       userId: anna.id,
-      expiresAt: new Date(Date.now() + 1000),
+      expiresAt: inAnHour(),
     });
 
     await expect(

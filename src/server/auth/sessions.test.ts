@@ -9,7 +9,7 @@ import {
 } from "./sessions";
 import { insertUser } from "./users";
 
-const soon = () => new Date(Date.now() + 1000);
+const inAnHour = () => new Date(Date.now() + 60 * 60_000);
 
 async function seedUser(db: Awaited<ReturnType<typeof freshDb>>) {
   return insertUser(db, { username: "anna", passwordHash: "h", role: "user" });
@@ -50,7 +50,7 @@ describe("sessions repository", () => {
     await insertSession(db, {
       token: "tok",
       userId: user.id,
-      expiresAt: new Date(Date.now() + 1000),
+      expiresAt: inAnHour(),
     });
 
     const found = await findUserBySessionToken(db, "tok");
@@ -82,12 +82,12 @@ describe("sessions repository", () => {
     await insertSession(db, {
       token: "keep",
       userId: user.id,
-      expiresAt: soon(),
+      expiresAt: inAnHour(),
     });
     await insertSession(db, {
       token: "drop",
       userId: user.id,
-      expiresAt: soon(),
+      expiresAt: inAnHour(),
     });
 
     await deleteSession(db, "drop");
@@ -108,17 +108,17 @@ describe("sessions repository", () => {
     await insertSession(db, {
       token: "anna1",
       userId: anna.id,
-      expiresAt: soon(),
+      expiresAt: inAnHour(),
     });
     await insertSession(db, {
       token: "anna2",
       userId: anna.id,
-      expiresAt: soon(),
+      expiresAt: inAnHour(),
     });
     await insertSession(db, {
       token: "bob1",
       userId: bob.id,
-      expiresAt: soon(),
+      expiresAt: inAnHour(),
     });
 
     await deleteSessionsForUser(db, anna.id);
