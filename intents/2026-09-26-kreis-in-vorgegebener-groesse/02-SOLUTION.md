@@ -17,12 +17,14 @@ Kreis grob auf und tippt die Zahl ein; „Speichern" schreibt den neuen Radius u
 denselben Mittelpunkt.
 
 Zum Versetzen bekommt der Editor bei Kreisen den Knopf „Verschieben". Er
-schließt den Editor, klappt die Seitenleiste zu und schaltet einen neuen
-Karten-Modus ein: Die Karte
+schließt den Editor, schließt am Smartphone das Kartenpanel und schaltet
+einen neuen Karten-Modus ein: Die Karte
 zentriert auf den Mittelpunkt des Kreises, in der Kartenmitte steht ein festes
 Fadenkreuz, und der Kreis wird mit unverändertem Radius um die Kartenmitte
-gezeichnet, während die Führungskraft die Karte schiebt und zoomt. „Hier
-setzen" speichert den neuen Mittelpunkt einmal; „Abbrechen" verwirft ihn.
+gezeichnet, während die Führungskraft die Karte schiebt und zoomt. Wie die
+anderen Karten-Modi zeigt ein Modus-Band unter der Suche den Modus an, hier mit
+„Hier setzen" und „Abbrechen": „Hier setzen" speichert den neuen Mittelpunkt
+einmal; „Abbrechen" verwirft ihn.
 Der Finger liegt beim Zielen nie auf dem Zielpunkt, und für größere Strecken
 genügt Schieben und Zoomen der Karte.
 
@@ -42,7 +44,8 @@ bis sie beendet wird. Den gespeicherten Kreis blendet `SituationMap` aus,
 indem es ihn während des Modus aus den abgeglichenen Bereichen herausfiltert –
 nicht im Adapter, damit der Abgleich bei jedem Live-Update ihn nicht wieder
 einblendet. Das Fadenkreuz ist ein Element über der Karte in React; „Hier
-setzen" liest die Kartenmitte über das bestehende `getView()`.
+setzen" liest die Kartenmitte über die bestehende Karten-Ref
+(`SituationMapHandle.getView()`).
 
 Die Form folgt den Kriterien des Nutzers: Ein Kreis lässt sich weiter ohne
 Zahl malen, und der Radius lässt sich exakt setzen.
@@ -74,11 +77,13 @@ Specimen:
 - **AC-6** Ein ungültiger Radius (leer, 0, negativ) wird nicht gespeichert; der
   Editor zeigt einen Fehler und bleibt offen. *(C-1, C-3)*
 - **AC-7** Der Editor zeigt bei Kreis-Bereichen den Knopf „Verschieben", bei
-  Polygon und Linie nicht. Er schließt den Editor, klappt die Seitenleiste zu
-  und schaltet den Verschiebe-Modus für diesen Kreis ein. *(C-2, C-5)*
+  Polygon und Linie nicht. Er schließt den Editor, schließt am Smartphone das
+  Kartenpanel (am Desktop bleibt es neben der Karte offen) und schaltet den
+  Verschiebe-Modus für diesen Kreis ein. *(C-2, C-5)*
 - **AC-11** Der Verschiebe-Modus schließt die anderen Karten-Modi aus
   (Platzieren, Bild-Overlay bearbeiten, Zeichnen): Das Einschalten eines
-  anderen Modus beendet ihn und umgekehrt. *(C-2)*
+  anderen Modus beendet ihn und umgekehrt. Ein Wechsel der Hauptansicht
+  (Lagekarte/ETB) beendet ihn wie jeden Karten-Modus. *(C-2)*
 - **AC-12** Jede gespeicherte Änderung des Radius erscheint live in
   Führungsansicht, Gerätelink- und Ansichtslink-Ansicht. *(Constraint: live)*
 - **AC-13** Kreis-Bereiche, die vor der Änderung angelegt wurden, werden mit
@@ -97,12 +102,13 @@ Specimen:
 - **AC-17** „Hier setzen" speichert als neuen Mittelpunkt die Kartenmitte
   unter dem Fadenkreuz, mit dem Radius aus dem jüngsten Zustand, den der
   Client zu diesem Zeitpunkt kennt, in einem einzigen Schreibvorgang, und
-  beendet den Modus. Die Seitenleiste bleibt danach zugeklappt. *(C-2, C-6)*
+  beendet den Modus. Das Kartenpanel bleibt dabei, wie es ist. *(C-2, C-6)*
 - **AC-18** „Abbrechen" beendet den Modus ohne zu speichern; der Kreis steht
-  wieder am gespeicherten Mittelpunkt. Die Seitenleiste bleibt zugeklappt. *(C-2)*
+  wieder am gespeicherten Mittelpunkt. Das Kartenpanel bleibt dabei, wie es
+  ist. *(C-2)*
 - **AC-19** Fadenkreuz, „Hier setzen" und „Abbrechen" liegen über der Karte
-  und sind auch bei zugeklappter Seitenleiste auf einem Smartphone sichtbar
-  und per Touch bedienbar; die Karte lässt sich im Modus per Touch schieben
+  und sind auf einem Smartphone sichtbar und per Touch bedienbar, ohne dass
+  das Kartenpanel sie verdeckt; die Karte lässt sich im Modus per Touch schieben
   und zoomen. *(C-5)*
 - **AC-20** Schlägt das Speichern bei „Hier setzen" fehl, wird der Fehler
   angezeigt und der Modus bleibt aktiv; gespeichert ist nichts, und
@@ -111,7 +117,7 @@ Specimen:
   Zustand (z. B. von anderer Stelle gelöscht), endet der Modus; Fadenkreuz
   und Knöpfe verschwinden. *(C-2)*
 - **AC-22** Der Bereich-Editor samt Radiusfeld lässt sich auf einem
-  Smartphone per Touch öffnen (über die Bereichsliste der Seitenleiste oder
+  Smartphone per Touch öffnen (über die Liste im Bereiche-Panel oder
   automatisch nach dem Anlegen), ausfüllen und speichern. *(C-5)*
 - **AC-23** Jede gespeicherte Änderung des Mittelpunkts erscheint live in
   Führungsansicht, Gerätelink- und Ansichtslink-Ansicht. *(Constraint: live)*
@@ -174,17 +180,18 @@ Specimen:
   geändert ist; gekauft wird, dass keine Zwischenstände live rausgehen.
 - **`createAreaAction` bekommt als einzige Einsatz-Action einen eigenen
   Rückgabetyp mit `id`.** Gekauft: Der neue Kreis muss nicht als unbenannter
-  „Bereich" in der Seitenleiste gesucht werden, ohne den gemeinsamen
+  „Bereich" im Bereiche-Panel gesucht werden, ohne den gemeinsamen
   Choke-Point `operationAction` oder den geteilten Typ `ActionResult` zu
   ändern.
 - **`MapAdapter` wächst um eine Kreis-Vorschau**, die nur der
   Verschiebe-Modus nutzt. Gekauft: Die Kartenmitte bleibt hinter der
   einzigen Grenze zu Leaflet, statt dass React Kartenereignisse selbst
   abonniert.
-- **Die Seitenleiste klappt beim Verschieben auch am Desktop zu**, wo Platz
-  wäre. Gekauft: eine Regel für alle Bildschirmbreiten statt einer
-  Breitenabfrage; auf dem Handy ist die Karte sonst neben der 360 px breiten
-  Seitenleiste kaum zu sehen.
+- **Das Kartenpanel schließt beim Verschieben nur am Smartphone.** Dort liegt
+  es als Blatt über der unteren Kartenhälfte und verdeckte Fadenkreuz und
+  Kreis; am Desktop steht es neben der Karte und bleibt offen. Gekauft: eine
+  Breitenabfrage, aber dieselbe (`closeSheetOnPhone`), mit der Platzieren,
+  Zeichnen und Bild-Overlay-Bearbeiten das Panel schon behandeln.
 - **Zwei Schreibvorgänge und zwei Live-Events beim Speichern mit geändertem
   Radius**, mit möglichem Teilerfolg (Radius gespeichert, Stil nicht).
   Gekauft: keine neue Server-Action für „Stil und Geometrie zusammen".
