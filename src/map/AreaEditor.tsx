@@ -20,6 +20,8 @@ export interface AreaEditorProps {
     radius: number | undefined,
   ) => void | Promise<void>;
   onRedraw: () => void;
+  /** Only for circles: moves the circle under the map's crosshair. */
+  onMove?: () => void;
   onDelete: () => void | Promise<void>;
   busy?: boolean;
   error?: string | null;
@@ -30,6 +32,7 @@ export function AreaEditor({
   radius: initialRadius,
   onSave,
   onRedraw,
+  onMove,
   onDelete,
   busy = false,
   error = null,
@@ -103,6 +106,11 @@ export function AreaEditor({
         <Button variant="light" onClick={onRedraw} disabled={busy}>
           Form neu zeichnen
         </Button>
+        {onMove && (
+          <Button variant="light" onClick={onMove} disabled={busy}>
+            Verschieben
+          </Button>
+        )}
         <Button
           variant="light"
           color="red"

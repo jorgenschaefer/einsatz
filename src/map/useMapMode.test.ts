@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SymbolComposition } from "./composition";
-import { type MapMode, mapModeReducer } from "./useMapMode";
+import { type MapMode, type MapModeAction, mapModeReducer } from "./useMapMode";
 
 const idle: MapMode = { kind: "idle" };
 const comp: SymbolComposition = {
@@ -69,5 +69,60 @@ describe("mapModeReducer", () => {
     expect(
       mapModeReducer({ kind: "quick", quickId: "x" }, { type: "reset" }),
     ).toEqual(idle);
+  });
+
+  describe("moving a circle", () => {
+    const moving: MapMode = { kind: "moveCircle", areaId: "c1" };
+
+    it("arms moving a circle", () => {
+      expect(
+        mapModeReducer(idle, { type: "armMoveCircle", areaId: "c1" }),
+      ).toEqual(moving);
+    });
+
+    it.each<[string, MapModeAction]>([
+      ["drawing", { type: "toggleDraw", shape: "circle" }],
+      ["redrawing", { type: "redraw", shape: "circle", areaId: "c1" }],
+      ["the quick selection", { type: "armQuick", quickId: "ktw" }],
+      ["a custom symbol", { type: "armCustom", composition: comp }],
+      ["an image edit", { type: "armImageEdit", imageId: "i1" }],
+    ])("arming %s replaces moving", (_, action) => {
+      const mode = mapModeReducer(moving, action);
+      expect(mode.kind).not.toBe("moveCircle");
+      expect(mode.kind).not.toBe("idle");
+    });
+
+    it("arming moving replaces drawing", () => {
+      expect(
+        mapModeReducer(
+          { kind: "draw", shape: "polygon", redrawAreaId: null },
+          { type: "armMoveCircle", areaId: "c1" },
+        ),
+      ).toEqual(moving);
+    });
+
+    it("ending the move of that circle ends moving", () => {
+      expect(
+        mapModeReducer(moving, { type: "endMoveCircle", areaId: "c1" }),
+      ).toEqual(idle);
+    });
+
+    it("ending the move of a circle leaves any other mode alone", () => {
+      const drawing: MapMode = {
+        kind: "draw",
+        shape: "polygon",
+        redrawAreaId: null,
+      };
+      const other: MapMode = { kind: "moveCircle", areaId: "c2" };
+      for (const mode of [drawing, other, idle]) {
+        expect(
+          mapModeReducer(mode, { type: "endMoveCircle", areaId: "c1" }),
+        ).toBe(mode);
+      }
+    });
+
+    it("reset ends moving", () => {
+      expect(mapModeReducer(moving, { type: "reset" })).toEqual(idle);
+    });
   });
 });

@@ -41,18 +41,20 @@ type RotatedImageOverlayFactory = (
 const toPoints = (latlngs: L.LatLng[]) =>
   latlngs.map((p) => ({ lat: p.lat, lng: p.lng }));
 
+const filledAreaStyle = (color: string, opacity: number): L.PathOptions => ({
+  color,
+  fillColor: color,
+  fillOpacity: opacity,
+  opacity: 1,
+  weight: 2,
+});
+
 function applyAreaStyle(layer: L.Path, spec: AreaSpec) {
-  if (spec.geometry.shape === "line") {
-    layer.setStyle({ color: spec.color, opacity: spec.opacity, weight: 3 });
-  } else {
-    layer.setStyle({
-      color: spec.color,
-      fillColor: spec.color,
-      fillOpacity: spec.opacity,
-      opacity: 1,
-      weight: 2,
-    });
-  }
+  layer.setStyle(
+    spec.geometry.shape === "line"
+      ? { color: spec.color, opacity: spec.opacity, weight: 3 }
+      : filledAreaStyle(spec.color, spec.opacity),
+  );
   if (spec.label)
     layer.bindTooltip(spec.label, { permanent: true, direction: "center" });
   const { onClick } = spec;
@@ -437,6 +439,14 @@ export const leafletMapAdapterFactory: MapAdapterFactory = {
         });
     };
 
+    let circlePreview: { circle: L.Circle; follow: () => void } | null = null;
+    function stopCirclePreview() {
+      if (!circlePreview) return;
+      map.off("move", circlePreview.follow);
+      circlePreview.circle.remove();
+      circlePreview = null;
+    }
+
     const adapter: MapAdapter = {
       getView: currentView,
       setView: (view) => {
@@ -561,6 +571,18 @@ export const leafletMapAdapterFactory: MapAdapterFactory = {
         map.off("pm:create");
         geoman.pm.disableDraw();
       },
+      startCirclePreview: (spec) => {
+        stopCirclePreview();
+        const circle = L.circle(map.getCenter(), {
+          ...filledAreaStyle(spec.color, spec.opacity),
+          radius: spec.radius,
+          interactive: false,
+        }).addTo(map);
+        const follow = () => circle.setLatLng(map.getCenter());
+        map.on("move", follow);
+        circlePreview = { circle, follow };
+      },
+      stopCirclePreview,
       destroy: () => {
         clearHandles();
         resizeObserver?.disconnect();

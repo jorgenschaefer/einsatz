@@ -83,6 +83,11 @@ export interface SituationMapProps {
   /** Ein Bild-Overlay wird per Griff bearbeitet; Griffe erscheinen auf der Karte. */
   editingImageId?: string | null;
   onEditImagePlacement?: (id: string, placement: ImagePlacement) => void;
+  /**
+   * A circle area is being moved: the map centres on it, and it follows the map
+   * centre as a preview instead of standing at its saved centre.
+   */
+  movingCircleId?: string | null;
   /** Für Tests injizierbar; sonst wird zur Laufzeit der Leaflet-Adapter geladen. */
   factory?: MapAdapterFactory;
 }
@@ -112,6 +117,7 @@ export function SituationMap({
   imageOverlays = EMPTY_IMAGES,
   editingImageId = null,
   onEditImagePlacement,
+  movingCircleId = null,
   factory,
 }: SituationMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -148,6 +154,8 @@ export function SituationMap({
   attributionRef.current = attribution;
   const operationDefaultViewRef = useRef(operationDefaultView);
   operationDefaultViewRef.current = operationDefaultView;
+  const areasRef = useRef(areas);
+  areasRef.current = areas;
 
   useEffect(() => {
     let disposed = false;
@@ -228,14 +236,17 @@ export function SituationMap({
   }, [ready, focusTarget]);
 
   // Bereichs-Reconciliation aus dem geladenen Einsatz-Zustand (add/update/remove).
+  // The circle being moved is not drawn at its saved centre; its preview stands
+  // around the map centre instead.
   useEffect(() => {
     const adapter = adapterRef.current;
     if (!ready || !adapter) return;
-    const next = new Set(areas.map((a) => a.id));
+    const shown = areas.filter((a) => a.id !== movingCircleId);
+    const next = new Set(shown.map((a) => a.id));
     for (const id of knownAreaIds.current) {
       if (!next.has(id)) adapter.removeArea(id);
     }
-    for (const area of areas) {
+    for (const area of shown) {
       adapter.setArea(area.id, {
         geometry: area.geometry,
         color: area.color,
@@ -244,7 +255,45 @@ export function SituationMap({
       });
     }
     knownAreaIds.current = next;
-  }, [ready, areas]);
+  }, [ready, areas, movingCircleId]);
+
+  // Moving a circle: centre on it once when the mode starts, keeping the zoom.
+  useEffect(() => {
+    const adapter = adapterRef.current;
+    if (!ready || !adapter || !movingCircleId) return;
+    const geometry = areasRef.current.find(
+      (a) => a.id === movingCircleId,
+    )?.geometry;
+    if (geometry?.shape !== "circle") return;
+    adapter.setView({ ...geometry.center, zoom: adapter.getView().zoom });
+  }, [ready, movingCircleId]);
+
+  // Preview of the circle being moved; a radius or style changed elsewhere is
+  // taken over.
+  const movingCircle = areas.find((a) => a.id === movingCircleId);
+  const previewRadius =
+    movingCircle?.geometry.shape === "circle"
+      ? movingCircle.geometry.radius
+      : null;
+  const previewColor = movingCircle?.color;
+  const previewOpacity = movingCircle?.opacity;
+  useEffect(() => {
+    const adapter = adapterRef.current;
+    if (
+      !ready ||
+      !adapter ||
+      previewRadius === null ||
+      previewColor === undefined ||
+      previewOpacity === undefined
+    )
+      return;
+    adapter.startCirclePreview({
+      radius: previewRadius,
+      color: previewColor,
+      opacity: previewOpacity,
+    });
+    return () => adapter.stopCirclePreview();
+  }, [ready, previewRadius, previewColor, previewOpacity]);
 
   // KML-Overlay-Reconciliation: jede Ebene mit ihrer Sichtbarkeit setzen, entfernte lösen.
   useEffect(() => {

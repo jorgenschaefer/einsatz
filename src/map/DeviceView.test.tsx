@@ -27,6 +27,8 @@ function fakeFactory() {
     stopImageOverlayEdit: vi.fn(),
     startDrawing: vi.fn(),
     cancelDrawing: vi.fn(),
+    startCirclePreview: vi.fn(),
+    stopCirclePreview: vi.fn(),
     destroy: vi.fn(),
   };
   const factory: MapAdapterFactory = {

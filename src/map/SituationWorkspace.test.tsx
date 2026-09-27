@@ -43,6 +43,8 @@ function fakeFactory() {
     stopImageOverlayEdit: vi.fn(),
     startDrawing: vi.fn(),
     cancelDrawing: vi.fn(),
+    startCirclePreview: vi.fn(),
+    stopCirclePreview: vi.fn(),
     destroy: vi.fn(),
   };
   const create = vi.fn((_c: HTMLElement, options: CreateMapOptions) => {
@@ -1379,6 +1381,282 @@ describe("SituationWorkspace", () => {
         "a1",
         expect.objectContaining({ radius: 250 }),
       );
+    });
+  });
+
+  describe("moving a circle", () => {
+    const POLYGON = {
+      ...AREA,
+      id: "p1",
+      label: "Feld",
+      geometry: {
+        shape: "polygon" as const,
+        points: [
+          { lat: 1, lng: 1 },
+          { lat: 1, lng: 2 },
+          { lat: 2, lng: 2 },
+        ],
+      },
+    };
+    const LINE = {
+      ...AREA,
+      id: "l1",
+      label: "Sperre",
+      geometry: {
+        shape: "line" as const,
+        points: [
+          { lat: 1, lng: 1 },
+          { lat: 1, lng: 2 },
+        ],
+      },
+    };
+    const MAP_CENTRE = { lat: 54, lng: 10, zoom: 15 };
+
+    beforeEach(() => {
+      stubMatchMedia(true);
+    });
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    const openEditor = async (label = "Deich") => {
+      await openPanel("Bereiche");
+      await userEvent.click(
+        await screen.findByRole("button", { name: `${label} bearbeiten` }),
+      );
+      return screen.findByRole("dialog");
+    };
+    const startMoving = async () => {
+      await userEvent.click(
+        within(await openEditor()).getByRole("button", { name: "Verschieben" }),
+      );
+    };
+    const movingBand = () =>
+      screen.queryByRole("toolbar", { name: "Kreis verschieben" });
+    const crosshair = () => document.querySelector(".map-crosshair");
+    const setHere = () =>
+      userEvent.click(
+        within(modeBand("Kreis verschieben")).getByRole("button", {
+          name: "Hier setzen",
+        }),
+      );
+    const cancel = () =>
+      userEvent.click(
+        within(modeBand("Kreis verschieben")).getByRole("button", {
+          name: "Abbrechen",
+        }),
+      );
+
+    it("offers Verschieben only for circles", async () => {
+      renderWorkspace({ areas: [AREA, POLYGON, LINE] });
+      expect(
+        within(await openEditor()).getByRole("button", { name: "Verschieben" }),
+      ).toBeInTheDocument();
+      for (const label of ["Feld", "Sperre"]) {
+        await userEvent.keyboard("{Escape}");
+        await waitFor(() =>
+          expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+        );
+        await userEvent.click(
+          screen.getByRole("button", { name: `${label} bearbeiten` }),
+        );
+        const dialog = await screen.findByRole("dialog");
+        expect(
+          within(dialog).getByRole("button", { name: "Form neu zeichnen" }),
+        ).toBeInTheDocument();
+        expect(
+          within(dialog).queryByRole("button", { name: "Verschieben" }),
+        ).not.toBeInTheDocument();
+      }
+    });
+
+    it("Verschieben closes the editor and, on a phone, the panel, and starts moving", async () => {
+      stubMatchMedia(false);
+      const { adapter } = renderWorkspace({ areas: [AREA] });
+      expect(movingBand()).toBeNull();
+      expect(crosshair()).toBeNull();
+      await startMoving();
+
+      await waitFor(() =>
+        expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+      );
+      expect(anyMapPanel()).toBeNull();
+      expect(movingBand()).toBeInTheDocument();
+      expect(crosshair()).toHaveAttribute("aria-hidden", "true");
+      await waitFor(() =>
+        expect(adapter.startCirclePreview).toHaveBeenCalledWith({
+          radius: 100,
+          color: "#e2001a",
+          opacity: 0.4,
+        }),
+      );
+      expect(adapter.removeArea).toHaveBeenCalledWith("a1");
+    });
+
+    it("Verschieben keeps the panel open on the desktop", async () => {
+      renderWorkspace({ areas: [AREA] });
+      await startMoving();
+      expect(movingBand()).toBeInTheDocument();
+      expect(mapPanel("Bereiche")).toBeVisible();
+    });
+
+    it("Hier setzen saves the map centre with the latest radius once and ends moving", async () => {
+      const onUpdateAreaGeometry = vi.fn(async () => ({}));
+      const { props, adapter } = buildProps({
+        areas: [AREA],
+        onUpdateAreaGeometry,
+      });
+      const { rerender } = render(<SituationWorkspace {...props} />);
+      await startMoving();
+      rerender(
+        <SituationWorkspace
+          {...props}
+          areas={[{ ...AREA, geometry: { ...AREA.geometry, radius: 400 } }]}
+        />,
+      );
+      adapter.getView = () => MAP_CENTRE;
+      await setHere();
+
+      expect(onUpdateAreaGeometry).toHaveBeenCalledTimes(1);
+      expect(onUpdateAreaGeometry).toHaveBeenCalledWith("a1", {
+        shape: "circle",
+        center: { lat: 54, lng: 10 },
+        radius: 400,
+      });
+      await waitFor(() => expect(movingBand()).toBeNull());
+      expect(crosshair()).toBeNull();
+      expect(adapter.stopCirclePreview).toHaveBeenCalled();
+      expect(mapPanel("Bereiche")).toBeVisible();
+    });
+
+    it("a second tap while saving does not write again", async () => {
+      let finish: (r: object) => void = () => {};
+      const onUpdateAreaGeometry = vi.fn(
+        () => new Promise<object>((resolve) => (finish = resolve)),
+      );
+      renderWorkspace({ areas: [AREA], onUpdateAreaGeometry });
+      await startMoving();
+      await setHere();
+      const setButton = within(modeBand("Kreis verschieben")).getByRole(
+        "button",
+        { name: "Hier setzen" },
+      );
+      expect(setButton).toBeDisabled();
+      fireEvent.click(setButton);
+      expect(onUpdateAreaGeometry).toHaveBeenCalledTimes(1);
+      // Cancelling cannot undo a write already sent.
+      expect(
+        within(modeBand("Kreis verschieben")).getByRole("button", {
+          name: "Abbrechen",
+        }),
+      ).toBeDisabled();
+
+      await act(async () => finish({}));
+      await waitFor(() => expect(movingBand()).toBeNull());
+    });
+
+    it("a save finishing after another mode started does not end that mode", async () => {
+      let finish: (r: object) => void = () => {};
+      const onUpdateAreaGeometry = vi.fn(
+        () => new Promise<object>((resolve) => (finish = resolve)),
+      );
+      renderWorkspace({ areas: [AREA], onUpdateAreaGeometry });
+      await startMoving();
+      await setHere();
+      await userEvent.click(screen.getByRole("button", { name: "Polygon" }));
+
+      await act(async () => finish({}));
+      expect(modeBand("Bereich zeichnen")).toBeInTheDocument();
+    });
+
+    it("a failed save keeps moving and shows the error; Abbrechen restores the saved circle", async () => {
+      const onUpdateAreaGeometry = vi.fn(async () => ({
+        error: "Ungültige Geometrie.",
+      }));
+      const { adapter } = renderWorkspace({
+        areas: [AREA],
+        onUpdateAreaGeometry,
+      });
+      await startMoving();
+      await setHere();
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "Ungültige Geometrie.",
+      );
+      expect(movingBand()).toBeInTheDocument();
+      expect(
+        within(modeBand("Kreis verschieben")).getByRole("button", {
+          name: "Hier setzen",
+        }),
+      ).toBeEnabled();
+
+      adapter.setArea.mockClear();
+      await cancel();
+      expect(movingBand()).toBeNull();
+      await waitFor(() =>
+        expect(adapter.setArea).toHaveBeenCalledWith(
+          "a1",
+          expect.objectContaining({ geometry: AREA.geometry }),
+        ),
+      );
+    });
+
+    it("a thrown save keeps moving and shows the fallback error", async () => {
+      const onUpdateAreaGeometry = vi.fn(async () => {
+        throw new Error("db down");
+      });
+      renderWorkspace({ areas: [AREA], onUpdateAreaGeometry });
+      await startMoving();
+      await setHere();
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "Aktion fehlgeschlagen",
+      );
+      expect(movingBand()).toBeInTheDocument();
+    });
+
+    it("Abbrechen ends moving without saving", async () => {
+      const onUpdateAreaGeometry = vi.fn(async () => ({}));
+      const { adapter } = renderWorkspace({
+        areas: [AREA],
+        onUpdateAreaGeometry,
+      });
+      await startMoving();
+      await cancel();
+
+      expect(movingBand()).toBeNull();
+      expect(crosshair()).toBeNull();
+      await waitFor(() => expect(adapter.stopCirclePreview).toHaveBeenCalled());
+      expect(onUpdateAreaGeometry).not.toHaveBeenCalled();
+      expect(mapPanel("Bereiche")).toBeVisible();
+    });
+
+    it("ends moving when the circle disappears", async () => {
+      const { props } = buildProps({ areas: [AREA] });
+      const { rerender } = render(<SituationWorkspace {...props} />);
+      await startMoving();
+      rerender(<SituationWorkspace {...props} areas={[]} />);
+
+      await waitFor(() => expect(movingBand()).toBeNull());
+      expect(crosshair()).toBeNull();
+    });
+
+    it("starting to draw ends moving", async () => {
+      renderWorkspace({ areas: [AREA] });
+      await startMoving();
+      await userEvent.click(screen.getByRole("button", { name: "Polygon" }));
+
+      expect(movingBand()).toBeNull();
+      expect(modeBand("Bereich zeichnen")).toBeInTheDocument();
+    });
+
+    it("switching to the ETB ends moving", async () => {
+      renderWorkspace({ areas: [AREA] });
+      await startMoving();
+      await selectMainView("ETB");
+      await selectMainView("Lagekarte");
+
+      expect(movingBand()).toBeNull();
     });
   });
 

@@ -27,6 +27,8 @@ function fakeFactory(currentView: MapView) {
     stopImageOverlayEdit: vi.fn(),
     startDrawing: vi.fn(),
     cancelDrawing: vi.fn(),
+    startCirclePreview: vi.fn(),
+    stopCirclePreview: vi.fn(),
     destroy: vi.fn(),
   };
   const factory: MapAdapterFactory = {
@@ -110,6 +112,8 @@ describe("SituationMap", () => {
       stopImageOverlayEdit: vi.fn(),
       startDrawing: vi.fn(),
       cancelDrawing: vi.fn(),
+      startCirclePreview: vi.fn(),
+      stopCirclePreview: vi.fn(),
       destroy: vi.fn(),
     };
     const create = vi.fn(() => adapter);
@@ -413,6 +417,226 @@ describe("SituationMap", () => {
     await waitFor(() =>
       expect(adapter.removeImageOverlay).toHaveBeenCalledWith("i1"),
     );
+  });
+
+  describe("moving a circle", () => {
+    const circle = {
+      id: "c1",
+      geometry: {
+        shape: "circle" as const,
+        center: { lat: 53.5, lng: 9.9 },
+        radius: 250,
+      },
+      color: "#e8590c",
+      opacity: 0.3,
+      label: "Zone",
+    };
+    const other = {
+      id: "p1",
+      geometry: {
+        shape: "polygon" as const,
+        points: [{ lat: 1, lng: 2 }],
+      },
+      color: "#e2001a",
+      opacity: 0.4,
+      label: "",
+    };
+    const props = {
+      operationId: "op-x",
+      operationDefaultView: dflt,
+      tileUrl: "t",
+      attribution: "© OpenStreetMap",
+    };
+
+    it("hides the moving circle from the reconcile and previews it", async () => {
+      const { factory, adapter } = fakeFactory({ lat: 5, lng: 6, zoom: 14 });
+      const { rerender } = render(
+        <SituationMap {...props} factory={factory} areas={[circle, other]} />,
+      );
+      await waitFor(() => expect(adapter.setArea).toHaveBeenCalledTimes(2));
+
+      rerender(
+        <SituationMap
+          {...props}
+          factory={factory}
+          areas={[circle, other]}
+          movingCircleId="c1"
+        />,
+      );
+      await waitFor(() =>
+        expect(adapter.removeArea).toHaveBeenCalledWith("c1"),
+      );
+      expect(adapter.startCirclePreview).toHaveBeenLastCalledWith({
+        radius: 250,
+        color: "#e8590c",
+        opacity: 0.3,
+      });
+
+      // A live refresh does not bring the circle back.
+      adapter.setArea.mockClear();
+      rerender(
+        <SituationMap
+          {...props}
+          factory={factory}
+          areas={[{ ...circle }, other]}
+          movingCircleId="c1"
+        />,
+      );
+      await waitFor(() => expect(adapter.setArea).toHaveBeenCalled());
+      expect(adapter.setArea).not.toHaveBeenCalledWith("c1", expect.anything());
+      expect(adapter.removeArea).not.toHaveBeenCalledWith("p1");
+    });
+
+    it("centres on the circle keeping the zoom", async () => {
+      const { factory, adapter } = fakeFactory({ lat: 5, lng: 6, zoom: 14 });
+      render(
+        <SituationMap
+          {...props}
+          factory={factory}
+          areas={[circle]}
+          movingCircleId="c1"
+        />,
+      );
+      await waitFor(() =>
+        expect(adapter.setView).toHaveBeenCalledWith({
+          lat: 53.5,
+          lng: 9.9,
+          zoom: 14,
+        }),
+      );
+    });
+
+    it("does not re-centre on a live refresh while moving", async () => {
+      const { factory, adapter } = fakeFactory({ lat: 5, lng: 6, zoom: 14 });
+      const { rerender } = render(
+        <SituationMap
+          {...props}
+          factory={factory}
+          areas={[circle]}
+          movingCircleId="c1"
+        />,
+      );
+      await waitFor(() => expect(adapter.setView).toHaveBeenCalledTimes(1));
+      rerender(
+        <SituationMap
+          {...props}
+          factory={factory}
+          areas={[{ ...circle, label: "Neu" }]}
+          movingCircleId="c1"
+        />,
+      );
+      await waitFor(() =>
+        expect(adapter.startCirclePreview).toHaveBeenCalled(),
+      );
+      expect(adapter.setView).toHaveBeenCalledTimes(1);
+    });
+
+    it("restores the circle when moving ends", async () => {
+      const { factory, adapter } = fakeFactory({ lat: 5, lng: 6, zoom: 14 });
+      const { rerender } = render(
+        <SituationMap
+          {...props}
+          factory={factory}
+          areas={[circle]}
+          movingCircleId="c1"
+        />,
+      );
+      await waitFor(() =>
+        expect(adapter.startCirclePreview).toHaveBeenCalled(),
+      );
+      expect(adapter.setArea).not.toHaveBeenCalled();
+
+      rerender(
+        <SituationMap
+          {...props}
+          factory={factory}
+          areas={[circle]}
+          movingCircleId={null}
+        />,
+      );
+      await waitFor(() =>
+        expect(adapter.setArea).toHaveBeenCalledWith(
+          "c1",
+          expect.objectContaining({ geometry: circle.geometry }),
+        ),
+      );
+      expect(adapter.stopCirclePreview).toHaveBeenCalled();
+    });
+
+    it("restarts the preview when the colour or opacity changes", async () => {
+      const { factory, adapter } = fakeFactory({ lat: 5, lng: 6, zoom: 14 });
+      const { rerender } = render(
+        <SituationMap
+          {...props}
+          factory={factory}
+          areas={[circle]}
+          movingCircleId="c1"
+        />,
+      );
+      await waitFor(() =>
+        expect(adapter.startCirclePreview).toHaveBeenCalled(),
+      );
+      rerender(
+        <SituationMap
+          {...props}
+          factory={factory}
+          areas={[{ ...circle, color: "#1971c2" }]}
+          movingCircleId="c1"
+        />,
+      );
+      await waitFor(() =>
+        expect(adapter.startCirclePreview).toHaveBeenLastCalledWith({
+          radius: 250,
+          color: "#1971c2",
+          opacity: 0.3,
+        }),
+      );
+      rerender(
+        <SituationMap
+          {...props}
+          factory={factory}
+          areas={[{ ...circle, color: "#1971c2", opacity: 0.6 }]}
+          movingCircleId="c1"
+        />,
+      );
+      await waitFor(() =>
+        expect(adapter.startCirclePreview).toHaveBeenLastCalledWith({
+          radius: 250,
+          color: "#1971c2",
+          opacity: 0.6,
+        }),
+      );
+    });
+
+    it("restarts the preview when the radius changes", async () => {
+      const { factory, adapter } = fakeFactory({ lat: 5, lng: 6, zoom: 14 });
+      const { rerender } = render(
+        <SituationMap
+          {...props}
+          factory={factory}
+          areas={[circle]}
+          movingCircleId="c1"
+        />,
+      );
+      await waitFor(() =>
+        expect(adapter.startCirclePreview).toHaveBeenCalled(),
+      );
+      rerender(
+        <SituationMap
+          {...props}
+          factory={factory}
+          areas={[{ ...circle, geometry: { ...circle.geometry, radius: 400 } }]}
+          movingCircleId="c1"
+        />,
+      );
+      await waitFor(() =>
+        expect(adapter.startCirclePreview).toHaveBeenLastCalledWith({
+          radius: 400,
+          color: "#e8590c",
+          opacity: 0.3,
+        }),
+      );
+    });
   });
 
   it("renders markers non-draggable in read-only mode", async () => {

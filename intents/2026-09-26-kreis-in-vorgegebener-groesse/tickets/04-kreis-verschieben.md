@@ -2,8 +2,8 @@
 solution:  02-SOLUTION.md
 satisfies: AC-7, AC-11, AC-16, AC-17, AC-18, AC-19, AC-20, AC-21, AC-23
 after:     03-editor-nach-dem-aufziehen
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -43,3 +43,35 @@ Map interaction modes live in `src/map/useMapMode.ts` (a reducer; modes are mutu
 
 ## Not here
 moving polygons/lines; moving several circles together; showing the old circle while moving; a metre label; radius field (01).
+
+## Record
+Criteria → tests (`src/map/SituationWorkspace.test.tsx` › "moving a circle" = SW; `src/map/SituationMap.test.tsx` › "moving a circle" = SM; `src/map/leaflet-adapter.circle-preview.test.ts` = LA; `src/map/useMapMode.test.ts` › "moving a circle" = MM; `src/map/ModeBand.test.tsx` = MB; `src/map/AreaEditor.test.tsx` = AE):
+- **AC-7** SW "offers Verschieben only for circles" (circle yes, Polygon/Linie no), SW "Verschieben closes the editor and, on a phone, the panel, and starts moving", SW "Verschieben keeps the panel open on the desktop"; AE "offers Verschieben only when onMove is given" / "offers no Verschieben without onMove".
+- **AC-11** MM "arms moving a circle", "arming %s replaces moving" (draw, redraw, quick, custom, image edit), "arming moving replaces drawing", "reset ends moving"; SW "starting to draw ends moving", SW "switching to the ETB ends moving".
+- **AC-16** SM "centres on the circle keeping the zoom", SM "does not re-centre on a live refresh while moving", SM "hides the moving circle from the reconcile and previews it"; LA "draws the preview around the map centre", "follows the map centre after setView", "replaces the preview when started again", "stop removes the preview"; nothing saved before „Hier setzen": SW "Abbrechen ends moving without saving".
+- **AC-17** SW "Hier setzen saves the map centre with the latest radius once and ends moving" (radius changed to 400 while moving, panel still open), SW "a second tap while saving does not write again".
+- **AC-18** SW "Abbrechen ends moving without saving" (panel still open), SM "restores the circle when moving ends".
+- **AC-19** Manual check (below). MB "renders a confirm button before the action when given".
+- **AC-20** SW "a failed save keeps moving and shows the error; Abbrechen restores the saved circle", SW "a thrown save keeps moving and shows the fallback error".
+- **AC-21** SW "ends moving when the circle disappears".
+- **AC-23** No new code (plan step 6): SW "Hier setzen saves …" pins exactly one `onUpdateAreaGeometry` call, which page.tsx binds to `updateAreaGeometryAction` → `operationAction`; revalidate + publish is pinned in `app/operations/[id]/operation-action.test.ts`.
+- Owned edge case: SM "restarts the preview when the radius changes" / "restarts the preview when the colour or opacity changes" (checked against a mutant with those deps removed), SW "Hier setzen saves … with the latest radius"; last write wins needs no code.
+
+Manual check (plan step 7, `run-einsatz` Playwright driver copied to /tmp and patched to a touch context 390×844 with `hasTouch`/`isMobile`, real touch drag and two-finger pinch): „Verschieben" appears for a circle, not for a polygon. Tapping it closed the editor and the sheet, centred the map on the circle, showed the crosshair exactly at the map centre, and showed the „Kreis verschieben" band with both buttons. After a touch drag, a pinch and „−" zoom the circle was centred under the crosshair each time (checked after each gesture, not during it). „Hier setzen" saved the new centre with radius unchanged (DB and reload). „Abbrechen" after a drag put the circle back and saved nothing (DB and reload). Desktop 1280×800: the panel stayed open beside the map, the crosshair was at the centre of the narrowed map, „Hier setzen" saved and the panel stayed open. Console: one pair of React "deps array changed size" warnings right after a reload during the session, consistent with hot reload of the edited files; not seen again.
+
+Command: `npm run check` — green (tsc, biome, 812/812 vitest).
+
+Departures from the plan:
+- ModeBand takes `confirm={{ label, onClick }}` plus a band-wide `busy` instead of `confirmLabel`/`onConfirm`/`confirmDisabled`. From review round 1: while saving, „Abbrechen" is disabled too, because a cancel cannot undo a write already sent (otherwise the circle snaps back and then jumps to the new centre on refresh, contradicting AC-18).
+- Added reducer action `endMoveCircle(areaId)`, which only ends the mode if that circle is still being moved. „Hier setzen" ends the mode this way after the save returns, so a mode started while the save was in flight survives (SW "a save finishing after another mode started does not end that mode"; MM "ending the move of that circle ends moving" / "… leaves any other mode alone"). The disappearing-circle effect uses it too.
+- The preview shares the filled-area style with saved circles (`filledAreaStyle` in leaflet-adapter.ts, review round 2 nit).
+- Some tests were guards that passed on first run: MM "arming %s replaces moving" and LA "stop removes the preview", because the reducer/stop already behaved that way; the SM colour test was mutation-checked.
+
+Left standing:
+- Review round 2 should-fix, not fixed: Leaflet redraws its SVG renderer area only on `moveend`, so during one long drag the preview may be clipped (visible straight edge) until the finger lifts; the saved centre is unaffected. The reviewer worked this out from the Leaflet source and nobody has seen it: the manual check looked at the circle after each gesture, not during it. A fix would mean a renderer with large padding or calling the private `_update` on `move`. Neither can be tested in jsdom, so it needs a look in a browser first.
+- Review round 1 should-fix, not fixed: on a phone, if the user reopens a map panel during move mode, the sheet (top edge at 50 %) covers the lower half of the crosshair. Entering the mode closes the sheet (AC-19); reopening it is the user's choice, same as while placing or drawing. Blocking the panel buttons during the mode was not asked for.
+- Review nit: `useMapMode` callbacks are not memoised, so the "circle disappeared" effect (deps include `endMoveCircle`) runs every render; harmless because of its guard.
+- Review nit: the `useMapMode` doc comment stays German. It is an existing German block that only gained one clause.
+- Review note, not checked: after a successful „Hier setzen" the mode ends when the action returns; if the refreshed `areas` arrive a render later, the circle could flash at the old centre. The existing redraw flow works the same way. The manual check saw no flash but did not look for one.
+- Manual-check cosmetics: on the desktop the band label is truncated to „Kreis verschie…" (band is as wide as the search box, the two buttons take most of it); the circle's label tooltip is hidden while moving (the preview has none – showing the old circle / a label is out of scope).
+

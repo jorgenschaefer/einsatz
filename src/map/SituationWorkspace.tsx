@@ -262,11 +262,14 @@ export function SituationWorkspace({
     editingImageId,
     drawShape,
     redrawAreaId,
+    movingCircleId,
     armQuick,
     armCustom,
     armImageEdit,
     toggleDraw,
     redraw,
+    armMoveCircle,
+    endMoveCircle,
     reset: resetMode,
   } = useMapMode();
   const [advancedOpened, advanced] = useDisclosure(false);
@@ -290,8 +293,10 @@ export function SituationWorkspace({
   const [selectedAreaId, setSelectedAreaId] = useState<string | null>(null);
   const [areaError, setAreaError] = useState<string | null>(null);
   const [areaBusy, setAreaBusy] = useState(false);
+  const [circleMoveSaving, setCircleMoveSaving] = useState(false);
   const selected = symbols.find((s) => s.id === selectedId) ?? null;
   const selectedArea = areas.find((a) => a.id === selectedAreaId) ?? null;
+  const movingCircle = areas.find((a) => a.id === movingCircleId) ?? null;
 
   const closeDetail = () => {
     setSelectedId(null);
@@ -526,6 +531,35 @@ export function SituationWorkspace({
     closeSheetOnPhone();
   };
 
+  const startMoveCircle = () => {
+    if (!selectedArea) return;
+    armMoveCircle(selectedArea.id);
+    setSelectedAreaId(null);
+    setAreaError(null);
+    closeSheetOnPhone();
+  };
+  // The new centre is the map centre under the crosshair; the radius comes from
+  // the latest `areas`, so that a radius changed elsewhere meanwhile is kept.
+  const setCircleHere = async () => {
+    const view = mapRef.current?.getView();
+    if (!view || movingCircle?.geometry.shape !== "circle") return;
+    const { id, geometry } = movingCircle;
+    setCircleMoveSaving(true);
+    const result = await runMapAction(() =>
+      onUpdateAreaGeometry(id, {
+        shape: "circle",
+        center: { lat: view.lat, lng: view.lng },
+        radius: geometry.radius,
+      }),
+    );
+    setCircleMoveSaving(false);
+    if (result && !result.error) endMoveCircle(id);
+  };
+  // Deleted elsewhere while being moved: nothing left to move.
+  useEffect(() => {
+    if (movingCircleId && !movingCircle) endMoveCircle(movingCircleId);
+  }, [movingCircleId, movingCircle, endMoveCircle]);
+
   // Platzierungs-/Deckkraft-/Ersetzen-Änderungen speichern, ohne den
   // Bearbeiten-Modus zu verlassen (nur „Fertig"/„Löschen" beenden ihn).
   const persistImage = async (op: () => Promise<ImageActionResult>) => {
@@ -624,8 +658,12 @@ export function SituationWorkspace({
               imageOverlays={renderedImages}
               editingImageId={editingImageId}
               onEditImagePlacement={saveImagePlacement}
+              movingCircleId={movingCircleId}
               factory={factory}
             />
+            {movingCircleId && (
+              <Box className="map-crosshair" aria-hidden="true" />
+            )}
             {mapError && (
               <Box
                 pos="absolute"
@@ -668,6 +706,15 @@ export function SituationWorkspace({
                     label="Bereich zeichnen"
                     actionLabel="Abbrechen"
                     onAction={endMode}
+                  />
+                )}
+                {movingCircleId && (
+                  <ModeBand
+                    label="Kreis verschieben"
+                    confirm={{ label: "Hier setzen", onClick: setCircleHere }}
+                    actionLabel="Abbrechen"
+                    onAction={endMode}
+                    busy={circleMoveSaving}
                   />
                 )}
                 {editingImageId && (
@@ -942,6 +989,11 @@ export function SituationWorkspace({
                 runArea(() => saveArea(selectedArea, style, radius))
               }
               onRedraw={startRedraw}
+              onMove={
+                selectedArea.geometry.shape === "circle"
+                  ? startMoveCircle
+                  : undefined
+              }
               onDelete={() => runArea(() => onDeleteArea(selectedArea.id))}
             />
           )}

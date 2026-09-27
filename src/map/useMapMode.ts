@@ -7,9 +7,10 @@ import type { SymbolComposition } from "./composition";
 /**
  * Der eine, sich gegenseitig ausschließende Interaktionsmodus der Lagekarte: es
  * kann immer nur eines scharf sein – ein Kartenzeichen platzieren (Schnellauswahl
- * oder erweitert), ein Bild-Overlay per Griff bearbeiten oder einen Bereich
- * zeichnen bzw. neu zeichnen. Jeder Moduswechsel ersetzt den ganzen Zustand; die
- * gegenseitige Ausschließlichkeit ist damit strukturell garantiert (kein manuelles
+ * oder erweitert), ein Bild-Overlay per Griff bearbeiten, einen Bereich
+ * zeichnen bzw. neu zeichnen oder einen Kreis unter dem Fadenkreuz verschieben.
+ * Jeder Moduswechsel ersetzt den ganzen Zustand; die gegenseitige
+ * Ausschließlichkeit ist damit strukturell garantiert (kein manuelles
  * Zurücksetzen der übrigen Modi je Handler mehr).
  */
 export type MapMode =
@@ -17,7 +18,8 @@ export type MapMode =
   | { kind: "quick"; quickId: string }
   | { kind: "custom"; composition: SymbolComposition }
   | { kind: "imageEdit"; imageId: string }
-  | { kind: "draw"; shape: AreaShape; redrawAreaId: string | null };
+  | { kind: "draw"; shape: AreaShape; redrawAreaId: string | null }
+  | { kind: "moveCircle"; areaId: string };
 
 export type MapModeAction =
   | { type: "armQuick"; quickId: string | null }
@@ -25,6 +27,8 @@ export type MapModeAction =
   | { type: "armImageEdit"; imageId: string }
   | { type: "toggleDraw"; shape: AreaShape }
   | { type: "redraw"; shape: AreaShape; areaId: string }
+  | { type: "armMoveCircle"; areaId: string }
+  | { type: "endMoveCircle"; areaId: string }
   | { type: "reset" };
 
 export function mapModeReducer(mode: MapMode, action: MapModeAction): MapMode {
@@ -44,6 +48,14 @@ export function mapModeReducer(mode: MapMode, action: MapModeAction): MapMode {
         : { kind: "draw", shape: action.shape, redrawAreaId: null };
     case "redraw":
       return { kind: "draw", shape: action.shape, redrawAreaId: action.areaId };
+    case "armMoveCircle":
+      return { kind: "moveCircle", areaId: action.areaId };
+    case "endMoveCircle":
+      // Only while this very circle is still being moved; a mode started
+      // meanwhile stays.
+      return mode.kind === "moveCircle" && mode.areaId === action.areaId
+        ? { kind: "idle" }
+        : mode;
     case "reset":
       return { kind: "idle" };
   }
@@ -55,11 +67,14 @@ export interface MapModeControls {
   editingImageId: string | null;
   drawShape: AreaShape | null;
   redrawAreaId: string | null;
+  movingCircleId: string | null;
   armQuick: (quickId: string | null) => void;
   armCustom: (composition: SymbolComposition) => void;
   armImageEdit: (imageId: string) => void;
   toggleDraw: (shape: AreaShape) => void;
   redraw: (shape: AreaShape, areaId: string) => void;
+  armMoveCircle: (areaId: string) => void;
+  endMoveCircle: (areaId: string) => void;
   reset: () => void;
 }
 
@@ -72,11 +87,14 @@ export function useMapMode(): MapModeControls {
     editingImageId: mode.kind === "imageEdit" ? mode.imageId : null,
     drawShape: mode.kind === "draw" ? mode.shape : null,
     redrawAreaId: mode.kind === "draw" ? mode.redrawAreaId : null,
+    movingCircleId: mode.kind === "moveCircle" ? mode.areaId : null,
     armQuick: (quickId) => dispatch({ type: "armQuick", quickId }),
     armCustom: (composition) => dispatch({ type: "armCustom", composition }),
     armImageEdit: (imageId) => dispatch({ type: "armImageEdit", imageId }),
     toggleDraw: (shape) => dispatch({ type: "toggleDraw", shape }),
     redraw: (shape, areaId) => dispatch({ type: "redraw", shape, areaId }),
+    armMoveCircle: (areaId) => dispatch({ type: "armMoveCircle", areaId }),
+    endMoveCircle: (areaId) => dispatch({ type: "endMoveCircle", areaId }),
     reset: () => dispatch({ type: "reset" }),
   };
 }

@@ -27,6 +27,20 @@ describe("AreaEditor", () => {
     expect(screen.getByLabelText(/Radius/)).toHaveValue("463,27 m");
   });
 
+  it("offers Verschieben only when onMove is given", async () => {
+    const onMove = vi.fn();
+    setup({ radius: 250, onMove });
+    await userEvent.click(screen.getByRole("button", { name: "Verschieben" }));
+    expect(onMove).toHaveBeenCalledTimes(1);
+  });
+
+  it("offers no Verschieben without onMove", () => {
+    setup();
+    expect(
+      screen.queryByRole("button", { name: "Verschieben" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("shows no radius field without a radius", () => {
     setup();
     expect(screen.queryByLabelText(/Radius/)).not.toBeInTheDocument();

@@ -49,6 +49,13 @@ export interface ImageOverlaySpec {
   visible: boolean;
 }
 
+/** Look of the preview circle while a circle area is being moved. */
+export interface CirclePreviewSpec {
+  radius: number;
+  color: string;
+  opacity: number;
+}
+
 export interface MapAdapter {
   getView(): MapView;
   setView(view: MapView): void;
@@ -80,6 +87,12 @@ export interface MapAdapter {
     onComplete: (geometry: AreaGeometry) => void,
   ): void;
   cancelDrawing(): void;
+  /**
+   * Draws a preview circle around the current map centre that follows every
+   * pan and zoom; calling it again replaces the preview.
+   */
+  startCirclePreview(spec: CirclePreviewSpec): void;
+  stopCirclePreview(): void;
   destroy(): void;
 }
 
