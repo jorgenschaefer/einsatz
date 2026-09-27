@@ -1191,6 +1191,196 @@ describe("SituationWorkspace", () => {
     ).toBeInTheDocument();
   });
 
+  describe("changing a circle's radius in the area editor", () => {
+    const LEGACY_CIRCLE = {
+      ...AREA,
+      geometry: { ...AREA.geometry, radius: 463.27 },
+    };
+
+    const openEditor = async () => {
+      await openPanel("Bereiche");
+      await userEvent.click(
+        await screen.findByRole("button", { name: /Deich bearbeiten/ }),
+      );
+    };
+    const typeRadius = async (value: string) => {
+      const radius = await screen.findByLabelText(/Radius/);
+      await userEvent.clear(radius);
+      await userEvent.type(radius, value);
+    };
+    const save = () =>
+      userEvent.click(screen.getByRole("button", { name: "Speichern" }));
+
+    it("shows no radius field for a polygon", async () => {
+      renderWorkspace({
+        areas: [
+          {
+            ...AREA,
+            geometry: {
+              shape: "polygon",
+              points: [
+                { lat: 1, lng: 1 },
+                { lat: 1, lng: 2 },
+                { lat: 2, lng: 2 },
+              ],
+            },
+          },
+        ],
+      });
+      await openEditor();
+      expect(await screen.findByLabelText(/Beschriftung/)).toBeInTheDocument();
+      expect(screen.queryByLabelText(/Radius/)).not.toBeInTheDocument();
+    });
+
+    it("saves a changed radius around the centre the client currently knows", async () => {
+      const onUpdateAreaGeometry = vi.fn(async () => ({}));
+      const onUpdateAreaStyle = vi.fn(async () => ({}));
+      const { props } = buildProps({
+        areas: [LEGACY_CIRCLE],
+        onUpdateAreaGeometry,
+        onUpdateAreaStyle,
+      });
+      const { rerender } = render(<SituationWorkspace {...props} />);
+      await openEditor();
+      await typeRadius("250");
+
+      const moved = { lat: 54, lng: 10 };
+      rerender(
+        <SituationWorkspace
+          {...props}
+          areas={[
+            {
+              ...LEGACY_CIRCLE,
+              geometry: { ...LEGACY_CIRCLE.geometry, center: moved },
+            },
+          ]}
+        />,
+      );
+      await save();
+
+      expect(onUpdateAreaGeometry).toHaveBeenCalledWith("a1", {
+        shape: "circle",
+        center: moved,
+        radius: 250,
+      });
+      expect(onUpdateAreaStyle).toHaveBeenCalledWith("a1", {
+        color: "#e2001a",
+        opacity: 0.4,
+        label: "Deich",
+      });
+      await waitFor(() =>
+        expect(screen.queryByLabelText(/Radius/)).not.toBeInTheDocument(),
+      );
+    });
+
+    it("saves only the style when the radius is unchanged", async () => {
+      const onUpdateAreaGeometry = vi.fn(async () => ({}));
+      const onUpdateAreaStyle = vi.fn(async () => ({}));
+      renderWorkspace({
+        areas: [LEGACY_CIRCLE],
+        onUpdateAreaGeometry,
+        onUpdateAreaStyle,
+      });
+      await openEditor();
+      expect(await screen.findByLabelText(/Radius/)).toHaveValue("463,27 m");
+      await save();
+
+      expect(onUpdateAreaStyle).toHaveBeenCalled();
+      expect(onUpdateAreaGeometry).not.toHaveBeenCalled();
+    });
+
+    it("does not overwrite a radius changed elsewhere while the editor was open", async () => {
+      const onUpdateAreaGeometry = vi.fn(async () => ({}));
+      const { props } = buildProps({
+        areas: [LEGACY_CIRCLE],
+        onUpdateAreaGeometry,
+      });
+      const { rerender } = render(<SituationWorkspace {...props} />);
+      await openEditor();
+      await screen.findByLabelText(/Radius/);
+
+      rerender(
+        <SituationWorkspace
+          {...props}
+          areas={[
+            {
+              ...LEGACY_CIRCLE,
+              geometry: { ...LEGACY_CIRCLE.geometry, radius: 300 },
+            },
+          ]}
+        />,
+      );
+      await save();
+
+      expect(props.onUpdateAreaStyle).toHaveBeenCalled();
+      expect(onUpdateAreaGeometry).not.toHaveBeenCalled();
+    });
+
+    it("does not write the style when the radius save fails", async () => {
+      const onUpdateAreaGeometry = vi.fn(async () => ({
+        error: "Bereich nicht gefunden.",
+      }));
+      const onUpdateAreaStyle = vi.fn(async () => ({}));
+      renderWorkspace({
+        areas: [LEGACY_CIRCLE],
+        onUpdateAreaGeometry,
+        onUpdateAreaStyle,
+      });
+      await openEditor();
+      await typeRadius("250");
+      await save();
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "Bereich nicht gefunden.",
+      );
+      expect(onUpdateAreaGeometry).toHaveBeenCalled();
+      expect(onUpdateAreaStyle).not.toHaveBeenCalled();
+    });
+
+    it("does not write the style when the radius save throws", async () => {
+      const onUpdateAreaGeometry = vi.fn(async () => {
+        throw new Error("boom");
+      });
+      const onUpdateAreaStyle = vi.fn(async () => ({}));
+      renderWorkspace({
+        areas: [LEGACY_CIRCLE],
+        onUpdateAreaGeometry,
+        onUpdateAreaStyle,
+      });
+      await openEditor();
+      await typeRadius("250");
+      await save();
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "Speichern fehlgeschlagen.",
+      );
+      expect(onUpdateAreaStyle).not.toHaveBeenCalled();
+    });
+
+    it("shows the error when the style fails after the radius was saved", async () => {
+      const onUpdateAreaGeometry = vi.fn(async () => ({}));
+      const onUpdateAreaStyle = vi.fn(async () => ({
+        error: "Die Deckkraft muss zwischen 0 und 1 liegen.",
+      }));
+      renderWorkspace({
+        areas: [LEGACY_CIRCLE],
+        onUpdateAreaGeometry,
+        onUpdateAreaStyle,
+      });
+      await openEditor();
+      await typeRadius("250");
+      await save();
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "Die Deckkraft muss zwischen 0 und 1 liegen.",
+      );
+      expect(onUpdateAreaGeometry).toHaveBeenCalledWith(
+        "a1",
+        expect.objectContaining({ radius: 250 }),
+      );
+    });
+  });
+
   it("replaces an area geometry when redrawing", async () => {
     const onUpdateAreaGeometry = vi.fn(async () => ({}));
     const { adapter } = renderWorkspace({

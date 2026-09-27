@@ -13,7 +13,12 @@ import type { AreaStyle } from "./area";
 
 export interface AreaEditorProps {
   initial: AreaStyle;
-  onSave: (style: AreaStyle) => void | Promise<void>;
+  radius?: number;
+  /** `radius` only when the user changed it from the value at open. */
+  onSave: (
+    style: AreaStyle,
+    radius: number | undefined,
+  ) => void | Promise<void>;
   onRedraw: () => void;
   onDelete: () => void | Promise<void>;
   busy?: boolean;
@@ -22,6 +27,7 @@ export interface AreaEditorProps {
 
 export function AreaEditor({
   initial,
+  radius: initialRadius,
   onSave,
   onRedraw,
   onDelete,
@@ -31,12 +37,35 @@ export function AreaEditor({
   const [color, setColor] = useState(initial.color);
   const [opacity, setOpacity] = useState(initial.opacity);
   const [label, setLabel] = useState(initial.label);
+  // The prop follows live updates; the field is compared against the value at
+  // open so that a radius changed elsewhere meanwhile is not overwritten.
+  const [radiusAtOpen] = useState(initialRadius);
+  const [radius, setRadius] = useState<string | number>(radiusAtOpen ?? "");
+  const [radiusError, setRadiusError] = useState<string | null>(null);
+
+  const save = () => {
+    const style = { color, opacity, label };
+    // NumberInput reports partial input such as "250," as the string "250.".
+    const value = Number(radius);
+    if (radiusAtOpen === undefined || value === radiusAtOpen) {
+      setRadiusError(null);
+      return onSave(style, undefined);
+    }
+    if (!Number.isFinite(value) || value <= 0) {
+      setRadiusError("Der Radius muss größer als 0 sein.");
+      return;
+    }
+    setRadiusError(null);
+    return onSave(style, value);
+  };
+
+  const shownError = radiusError ?? error;
 
   return (
     <Stack>
-      {error && (
+      {shownError && (
         <Alert color="red" role="alert">
-          {error}
+          {shownError}
         </Alert>
       )}
       <TextInput
@@ -53,17 +82,22 @@ export function AreaEditor({
         step={0.1}
         decimalScale={2}
       />
+      {initialRadius !== undefined && (
+        <NumberInput
+          label="Radius"
+          value={radius}
+          onChange={setRadius}
+          decimalSeparator=","
+          suffix=" m"
+        />
+      )}
       <TextInput
         label="Beschriftung"
         value={label}
         onChange={(e) => setLabel(e.currentTarget.value)}
       />
       <Group justify="space-between">
-        <Button
-          onClick={() => onSave({ color, opacity, label })}
-          loading={busy}
-          disabled={busy}
-        >
+        <Button onClick={save} loading={busy} disabled={busy}>
           Speichern
         </Button>
         <Button variant="light" onClick={onRedraw} disabled={busy}>

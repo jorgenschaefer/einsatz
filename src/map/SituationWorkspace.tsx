@@ -490,6 +490,23 @@ export function SituationWorkspace({
       setAreaBusy(false);
     }
   };
+  // The centre comes from the latest `areas`, so that a move made elsewhere
+  // while the editor was open is not undone.
+  const saveArea = async (
+    area: RenderedArea,
+    style: AreaStyle,
+    radius: number | undefined,
+  ): Promise<ActionResult> => {
+    if (radius !== undefined && area.geometry.shape === "circle") {
+      const { error } = await onUpdateAreaGeometry(area.id, {
+        shape: "circle",
+        center: area.geometry.center,
+        radius,
+      });
+      if (error) return { error };
+    }
+    return onUpdateAreaStyle(area.id, style);
+  };
   const startRedraw = () => {
     if (!selectedArea) return;
     redraw(selectedArea.geometry.shape, selectedArea.id);
@@ -901,10 +918,15 @@ export function SituationWorkspace({
                 opacity: selectedArea.opacity,
                 label: selectedArea.label,
               }}
+              radius={
+                selectedArea.geometry.shape === "circle"
+                  ? selectedArea.geometry.radius
+                  : undefined
+              }
               busy={areaBusy}
               error={areaError}
-              onSave={(style) =>
-                runArea(() => onUpdateAreaStyle(selectedArea.id, style))
+              onSave={(style, radius) =>
+                runArea(() => saveArea(selectedArea, style, radius))
               }
               onRedraw={startRedraw}
               onDelete={() => runArea(() => onDeleteArea(selectedArea.id))}

@@ -2,8 +2,8 @@
 solution:  02-SOLUTION.md
 satisfies: AC-2, AC-3, AC-4, AC-5, AC-6, AC-12, AC-13
 after:     
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -37,3 +37,26 @@ The Bereich-Editor (`src/map/AreaEditor.tsx`) is a Mantine Modal in `src/map/Sit
 
 ## Not here
 rounding on drawing (02); editor opening after drawing (03); Verschieben (04); radius as a number in Gerätelink/Ansichtslink views (non-goal); no protection of style fields against concurrent changes (non-goal).
+
+## Record
+Criteria → tests (`src/map/AreaEditor.test.tsx` = AE, `src/map/SituationWorkspace.test.tsx` › "changing a circle's radius in the area editor" = SW):
+- **AC-2** AE "shows the radius of a circle exactly with a decimal comma" (463.27 → „463,27 m"), AE "shows no radius field without a radius", SW "shows no radius field for a polygon".
+- **AC-3** SW "saves a changed radius around the centre the client currently knows" (rerenders `areas` with a moved centre while the editor is open), AE "passes a changed radius", AE "accepts a radius typed with a trailing decimal comma".
+- **AC-4** AE "passes no radius when unchanged", AE "passes no radius when the radius changed elsewhere but not in the field", SW "saves only the style when the radius is unchanged", SW "does not overwrite a radius changed elsewhere while the editor was open".
+- **AC-5** AE "saves edited style" (tightened to exact args), SW "saves an area style from the row editor, then surfaces a save error" (existing).
+- **AC-6** AE "rejects a empty/0/negative radius with an error and does not save" (it.each), AE "clears the radius error once the radius is valid again".
+- **AC-12** No new code: SW "saves a changed radius …" pins that `onUpdateAreaGeometry` gets the new radius; page.tsx binds it to `updateAreaGeometryAction` → `operationAction`, whose revalidate + publish is pinned in `app/operations/[id]/operation-action.test.ts` (plan step 4; no red step possible).
+- **AC-13** SW "saves only the style when the radius is unchanged" (legacy 463.27 circle, no geometry write) + AE "shows the radius … exactly".
+- Owned edge cases: SW "does not write the style when the radius save fails" / "… throws", SW "shows the error when the style fails after the radius was saved".
+
+Command: `npm run check` — green (tsc, biome, 763/763 vitest).
+
+Departures from the plan:
+- `onSave(style, radius)` takes `radius: number | undefined` as a required second argument rather than optional, so the unchanged case is explicit in tests.
+- The baseline for "unchanged" is frozen at open (`useState`), not the live `radius` prop; the first review found that comparing against the live prop overwrote a radius changed elsewhere (AC-4 violation). Fixed test-first.
+- Geometry write lives in a `saveArea` helper in SituationWorkspace, run through the existing `runArea` channel.
+
+Left standing:
+- Review (round 2) should-fix, not fixed: if the radius write succeeds but the style write fails, the editor stays open with the baseline still at the open-time radius; typing that original value back and saving writes only the style, so the circle keeps the just-saved radius. AC-4 as written ("value at open") prescribes this; fixing it would need the editor to learn about partial success. Narrow case (style fails only on invalid style or DB error); left for a decision.
+- Flakiness observed, pre-existing: under high machine load (two parallel full runs) older `SituationWorkspace.test.tsx` tests hit the 5 s timeout; alone and on the final run all pass. This change adds seven UI tests to that already slow file.
+- Not verified in a real browser (mobile keyboard, blur timing on tapping Speichern, display of very long drawn radii like 463.27345678912).
