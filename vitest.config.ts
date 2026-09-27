@@ -14,6 +14,7 @@ export default defineConfig({
   test: {
     globals: true,
     globalSetup: ["./src/test/db-templates.ts"],
+    setupFiles: ["./src/test/fast-bcrypt.ts"],
     // jsdom kostet ~3 s Aufbau je Testdatei; nur Tests, die ein DOM brauchen
     // (Komponenten, Browser-Hooks, Leaflet), bekommen es. Alles andere läuft
     // unter Node.

@@ -1,5 +1,5 @@
 import bcrypt from "bcryptjs";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   assertPasswordPolicy,
   DUMMY_PASSWORD_HASH,
@@ -7,6 +7,9 @@ import {
   MIN_PASSWORD_LENGTH,
   verifyPassword,
 } from "./password";
+
+// Hier zählt der echte, produktive Kostenfaktor – nicht der schnelle Testmock.
+vi.unmock("bcryptjs");
 
 const costOf = (hash: string) => Number(hash.split("$")[2]);
 
