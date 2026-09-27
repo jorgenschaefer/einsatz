@@ -155,7 +155,11 @@ const openTab = async (name: RegExp | string) => {
 describe("SituationWorkspace", () => {
   it("renders the operation name and Teilen in the header", () => {
     renderWorkspace({ operationName: "Cyclassics 2026" });
-    expect(screen.getByText("Cyclassics 2026")).toBeInTheDocument();
+    expect(
+      within(screen.getByTestId("desktop-header")).getByRole("heading", {
+        name: "Cyclassics 2026",
+      }),
+    ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Teilen/i })).toBeInTheDocument();
   });
 
@@ -323,6 +327,21 @@ describe("SituationWorkspace", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       /fehlgeschlagen/i,
     );
+  });
+
+  it("shows a placement error as an overlay inside the map container, not a banner above the work area", async () => {
+    const onPlace = vi.fn(async () => ({
+      error: "Ungültige Zeichen-Komposition.",
+    }));
+    const { captured } = renderWorkspace({ onPlace });
+    await openTab("Kartenzeichen");
+    await userEvent.click(screen.getByRole("button", { name: /KTW/ }));
+    await waitFor(() => expect(captured.options?.onMapClick).toBeDefined());
+    await act(async () => {
+      captured.options!.onMapClick!({ lat: 50, lng: 8 });
+    });
+    const alert = await screen.findByRole("alert");
+    expect(alert.closest('[data-view="map"]')).not.toBeNull();
   });
 
   it("clears a placement error on the next successful placement", async () => {
@@ -942,9 +961,16 @@ describe("SituationWorkspace", () => {
     ).toBeInTheDocument();
   });
 
-  it("shows a connection-lost hint when the live stream is disconnected", () => {
+  it("shows a connection-lost symbol on both header sizes when the live stream is disconnected, without a banner above the work area", () => {
     renderWorkspace({ eventsHook: () => ({ connected: false }) });
-    expect(screen.getByText(/Verbindung getrennt/i)).toBeInTheDocument();
+    for (const testId of ["desktop-header", "mobile-header"]) {
+      expect(
+        within(screen.getByTestId(testId)).getByRole("button", {
+          name: "Verbindung getrennt – wird automatisch wiederhergestellt",
+        }),
+      ).toBeInTheDocument();
+    }
+    expect(screen.queryByRole("status")).toBeNull();
   });
 
   it("reloads the full state when a live event arrives", () => {

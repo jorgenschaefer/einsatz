@@ -504,26 +504,9 @@ export function SituationWorkspace({
       onCreateViewLink={onCreateViewLink}
       onDeleteViewLink={onDeleteViewLink}
       navigation={<MainViewBar activeView={mainView} onSelect={setMainView} />}
+      connected={connected}
     >
       <Stack gap={0} h="100%" data-main-view={mainView}>
-        {!connected && (
-          <Alert color="orange" radius={0} py="xs" role="status">
-            Verbindung getrennt – wird automatisch wiederhergestellt.
-          </Alert>
-        )}
-        {mapError && (
-          <Alert
-            color="red"
-            radius={0}
-            py="xs"
-            role="alert"
-            withCloseButton
-            onClose={() => setMapError(null)}
-          >
-            {mapError}
-          </Alert>
-        )}
-
         <Group
           gap={0}
           wrap="nowrap"
@@ -567,6 +550,26 @@ export function SituationWorkspace({
               onEditImagePlacement={saveImagePlacement}
               factory={factory}
             />
+            {mapError && (
+              <Box
+                pos="absolute"
+                bottom={16}
+                left={56}
+                right={72}
+                style={{ zIndex: 1200 }}
+              >
+                <Alert
+                  color="red"
+                  radius="sm"
+                  py="xs"
+                  role="alert"
+                  withCloseButton
+                  onClose={() => setMapError(null)}
+                >
+                  {mapError}
+                </Alert>
+              </Box>
+            )}
             <Box
               pos="absolute"
               top={12}
