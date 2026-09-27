@@ -43,7 +43,6 @@ describe("correctEntry", () => {
       entry.createdAt.getTime(),
     );
     expect(corrected.number).toBe(entry.number);
-    await db.close();
   });
 
   it("accumulates history over multiple corrections, oldest first", async () => {
@@ -58,7 +57,6 @@ describe("correctEntry", () => {
       "Deich hält",
       "zweite",
     ]);
-    await db.close();
   });
 
   it("rejects correcting an automatic entry (unantastbar)", async () => {
@@ -69,7 +67,6 @@ describe("correctEntry", () => {
     await expect(
       correctEntry(db, auto.id, "manipuliert", "anna"),
     ).rejects.toBeInstanceOf(ValidationError);
-    await db.close();
   });
 
   it("rejects an empty correction and changes nothing", async () => {
@@ -81,7 +78,6 @@ describe("correctEntry", () => {
     const [reloaded] = await listEntries(db, entry.operationId);
     expect(reloaded.text).toBe("Deich hält");
     expect(reloaded.revisions).toHaveLength(0);
-    await db.close();
   });
 });
 
@@ -93,7 +89,6 @@ describe("annulEntry", () => {
     expect(annulled.state).toBe("annulliert");
     expect(annulled.number).toBe(entry.number);
     expect(annulled.text).toBe("Deich hält");
-    await db.close();
   });
 
   it("rejects annulling an automatic entry (unantastbar)", async () => {
@@ -103,7 +98,6 @@ describe("annulEntry", () => {
     await expect(annulEntry(db, auto.id)).rejects.toBeInstanceOf(
       ValidationError,
     );
-    await db.close();
   });
 
   it("rejects correcting an already-annulled entry", async () => {
@@ -113,6 +107,5 @@ describe("annulEntry", () => {
     await expect(
       correctEntry(db, entry.id, "neu", "bernd"),
     ).rejects.toBeInstanceOf(ValidationError);
-    await db.close();
   });
 });

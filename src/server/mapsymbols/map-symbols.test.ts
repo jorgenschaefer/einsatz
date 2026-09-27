@@ -44,7 +44,6 @@ describe("map symbols repository", () => {
     const [loaded] = await listMapSymbols(db, op.id);
     expect(loaded).toMatchObject({ id: created.id, lat: 53.55, lng: 9.99 });
     expect(loaded.composition).toEqual(composition);
-    await db.close();
   });
 
   it("creates a symbol with a manual position source and no device link", async () => {
@@ -62,7 +61,6 @@ describe("map symbols repository", () => {
       deviceLinkToken: null,
       reportedAt: null,
     });
-    await db.close();
   });
 
   it("rejects a malformed composition and persists nothing", async () => {
@@ -90,7 +88,6 @@ describe("map symbols repository", () => {
     ).rejects.toBeInstanceOf(ValidationError);
 
     expect(await listMapSymbols(db, op.id)).toHaveLength(0);
-    await db.close();
   });
 
   it("accepts a composition with free text/symbol values (no value-enum check)", async () => {
@@ -109,7 +106,6 @@ describe("map symbols repository", () => {
     const [loaded] = await listMapSymbols(db, op.id);
     expect(loaded.composition).toEqual(free);
     expect(loaded.id).toBe(created.id);
-    await db.close();
   });
 
   it("updateMapSymbolComposition rejects a malformed composition and keeps the old value", async () => {
@@ -128,7 +124,6 @@ describe("map symbols repository", () => {
     ).rejects.toBeInstanceOf(ValidationError);
     const [loaded] = await listMapSymbols(db, op.id);
     expect(loaded.composition).toEqual(composition);
-    await db.close();
   });
 
   it("resets the position source to manual when the symbol is moved by hand", async () => {
@@ -146,7 +141,6 @@ describe("map symbols repository", () => {
     await moveMapSymbol(db, symbol.id, 5, 6); // Führungskraft verschiebt manuell
     const [loaded] = await listMapSymbols(db, op.id);
     expect(loaded).toMatchObject({ lat: 5, lng: 6, positionSource: "manual" });
-    await db.close();
   });
 
   it("reports a live position that overrides the manual one, even after a manual move", async () => {
@@ -174,7 +168,6 @@ describe("map symbols repository", () => {
       positionSource: "device",
     });
     expect(loaded.reportedAt?.toISOString()).toBe(at.toISOString());
-    await db.close();
   });
 
   it("denies a position report for an unknown or regenerated token", async () => {
@@ -195,7 +188,6 @@ describe("map symbols repository", () => {
     expect(await reportPosition(db, "never-issued", 50, 8, new Date())).toEqual(
       { result: "denied" },
     );
-    await db.close();
   });
 
   it("denies reports for a closed operation and accepts again once reopened", async () => {
@@ -219,7 +211,6 @@ describe("map symbols repository", () => {
       result: "ok",
       operationId: op.id,
     });
-    await db.close();
   });
 
   it("resolves device access to the symbol and operation only while the operation is active", async () => {
@@ -244,7 +235,6 @@ describe("map symbols repository", () => {
     await reopenOperation(db, op.id);
     await generateDeviceLink(db, symbol.id); // Token neu generiert
     expect(await resolveDeviceAccess(db, token)).toBeNull(); // alter Link ungültig
-    await db.close();
   });
 
   it("generates a device link and regenerating yields a different token", async () => {
@@ -261,7 +251,6 @@ describe("map symbols repository", () => {
     expect(token).toBeTruthy();
     const regenerated = await generateDeviceLink(db, symbol.id);
     expect(regenerated).not.toBe(token);
-    await db.close();
   });
 
   it("scopes symbols to their operation", async () => {
@@ -275,7 +264,6 @@ describe("map symbols repository", () => {
       lng: 2,
     });
     expect(await listMapSymbols(db, b.id)).toHaveLength(0);
-    await db.close();
   });
 
   it("moves a symbol to a new position, keeping only the latest", async () => {
@@ -291,7 +279,6 @@ describe("map symbols repository", () => {
 
     const [loaded] = await listMapSymbols(db, op.id);
     expect(loaded).toMatchObject({ lat: 10, lng: 20 });
-    await db.close();
   });
 
   it("updates the composition, leaving the position unchanged", async () => {
@@ -313,7 +300,6 @@ describe("map symbols repository", () => {
     const [loaded] = await listMapSymbols(db, op.id);
     expect(loaded.composition).toEqual(next);
     expect(loaded).toMatchObject({ lat: 1, lng: 2 });
-    await db.close();
   });
 
   it("deletes a symbol", async () => {
@@ -327,7 +313,6 @@ describe("map symbols repository", () => {
     });
     await deleteMapSymbol(db, s.id);
     expect(await listMapSymbols(db, op.id)).toHaveLength(0);
-    await db.close();
   });
 
   it("rejects placing a symbol at out-of-range coordinates", async () => {
@@ -342,7 +327,6 @@ describe("map symbols repository", () => {
       }),
     ).rejects.toBeInstanceOf(ValidationError);
     expect(await listMapSymbols(db, op.id)).toHaveLength(0);
-    await db.close();
   });
 
   it("rejects moving a symbol to invalid coordinates", async () => {
@@ -357,6 +341,5 @@ describe("map symbols repository", () => {
     await expect(
       moveMapSymbol(db, s.id, Number.NaN, 9.99),
     ).rejects.toBeInstanceOf(ValidationError);
-    await db.close();
   });
 });

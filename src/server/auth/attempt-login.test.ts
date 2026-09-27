@@ -27,7 +27,6 @@ describe("attemptLogin", () => {
       "a-good-password",
     );
     expect(result).toEqual({ status: "ok", user });
-    await db.close();
   });
 
   it("returns invalid and records a failure for wrong credentials", async () => {
@@ -43,7 +42,6 @@ describe("attemptLogin", () => {
     );
     expect(result).toEqual({ status: "invalid" });
     expect(limiter.isBlocked(IP, "anna", 0)).toBe(false); // one failure, not yet blocked
-    await db.close();
   });
 
   it("blocks once the pair threshold is reached and short-circuits before authenticating", async () => {
@@ -61,7 +59,6 @@ describe("attemptLogin", () => {
       "a-good-password",
     );
     expect(result).toEqual({ status: "rate-limited" });
-    await db.close();
   });
 
   it("resets the pair failure count on a successful login", async () => {
@@ -79,6 +76,5 @@ describe("attemptLogin", () => {
       "a-good-password",
     );
     expect(result.status).toBe("ok");
-    await db.close();
   });
 });

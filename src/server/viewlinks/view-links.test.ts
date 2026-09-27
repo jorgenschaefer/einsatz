@@ -37,7 +37,6 @@ describe("view links repository", () => {
       label: "Leitstelle",
       token: created.token,
     });
-    await db.close();
   });
 
   it("lists links oldest first", async () => {
@@ -47,7 +46,6 @@ describe("view links repository", () => {
     await createViewLink(db, { operationId: op.id, label: "zweiter" });
     const labels = (await listViewLinks(db, op.id)).map((l) => l.label);
     expect(labels).toEqual(["erster", "zweiter"]);
-    await db.close();
   });
 
   it("gives each link a distinct token", async () => {
@@ -56,7 +54,6 @@ describe("view links repository", () => {
     const a = await createViewLink(db, { operationId: op.id, label: "a" });
     const b = await createViewLink(db, { operationId: op.id, label: "b" });
     expect(a.token).not.toBe(b.token);
-    await db.close();
   });
 
   it("deletes only the chosen link, leaving the others valid", async () => {
@@ -73,7 +70,6 @@ describe("view links repository", () => {
     expect(await resolveViewAccess(db, b.token)).toEqual({
       operationId: op.id,
     });
-    await db.close();
   });
 
   it("resolves access only while the operation is active", async () => {
@@ -96,7 +92,6 @@ describe("view links repository", () => {
     expect(await resolveViewAccess(db, link.token)).toEqual({
       operationId: op.id,
     });
-    await db.close();
   });
 
   it("allows a blank label and lists it", async () => {
@@ -105,7 +100,6 @@ describe("view links repository", () => {
     const created = await createViewLink(db, { operationId: op.id, label: "" });
     const [loaded] = await listViewLinks(db, op.id);
     expect(loaded).toMatchObject({ id: created.id, label: "" });
-    await db.close();
   });
 
   it("scopes links to their operation", async () => {
@@ -114,7 +108,6 @@ describe("view links repository", () => {
     const b = await anOperation(db);
     await createViewLink(db, { operationId: a.id, label: "a" });
     expect(await listViewLinks(db, b.id)).toHaveLength(0);
-    await db.close();
   });
 
   it("cascades when the operation is deleted", async () => {
@@ -125,6 +118,5 @@ describe("view links repository", () => {
     await deleteOperationRow(db, op.id);
 
     expect(await resolveViewAccess(db, link.token)).toBeNull();
-    await db.close();
   });
 });

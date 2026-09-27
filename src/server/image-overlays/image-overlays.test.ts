@@ -53,7 +53,6 @@ describe("image overlays repository", () => {
       id: overlay.id,
       filePath: "op/x/plan.png",
     });
-    await db.close();
   });
 
   it("updates placement, toggles visibility, and deletes; scoped to the operation", async () => {
@@ -84,7 +83,6 @@ describe("image overlays repository", () => {
 
     await deleteImageOverlay(db, overlay.id);
     expect(await listImageOverlays(db, op.id)).toHaveLength(0);
-    await db.close();
   });
 
   it("replaces the file and dimensions but keeps placement and visibility", async () => {
@@ -115,7 +113,6 @@ describe("image overlays repository", () => {
       placement: A_PLACEMENT,
       visible: false,
     });
-    await db.close();
   });
 
   it("rejects invalid placements and writes nothing", async () => {
@@ -151,7 +148,6 @@ describe("image overlays repository", () => {
     ).rejects.toBeInstanceOf(ValidationError);
 
     expect(await listImageOverlays(db, op.id)).toHaveLength(0);
-    await db.close();
   });
 
   it("scaleM<=0 is rejected with the scale message, not the radius message", async () => {
@@ -172,7 +168,6 @@ describe("image overlays repository", () => {
     }
     expect(message).not.toMatch(/Radius/);
     expect(message).toMatch(/Skalierung/);
-    await db.close();
   });
 
   it("updateImagePlacement rejects invalid values and leaves the row unchanged", async () => {
@@ -209,7 +204,6 @@ describe("image overlays repository", () => {
     expect((await getImageOverlay(db, overlay.id))?.placement).toEqual(
       A_PLACEMENT,
     );
-    await db.close();
   });
 
   it("accepts a finite rotation outside 0–360 without normalizing it", async () => {
@@ -232,7 +226,6 @@ describe("image overlays repository", () => {
     expect((await getImageOverlay(db, overlay.id))?.placement.rotationDeg).toBe(
       -30,
     );
-    await db.close();
   });
 
   it("cascades when the operation is deleted", async () => {
@@ -248,6 +241,5 @@ describe("image overlays repository", () => {
     });
     await deleteOperationRow(db, op.id);
     expect(await listImageOverlays(db, op.id)).toHaveLength(0);
-    await db.close();
   });
 });

@@ -50,7 +50,6 @@ describe("deleteOperation (domain)", () => {
     expect(await getOperation(db, op.id)).toBeNull();
     expect(await listEntries(db, op.id)).toHaveLength(0);
     expect(await listMapSymbols(db, op.id)).toHaveLength(0);
-    await db.close();
   });
 
   it("removes the operation's overlay files along with the row", async () => {
@@ -69,7 +68,6 @@ describe("deleteOperation (domain)", () => {
 
     expect(await getOperation(db, op.id)).toBeNull();
     expect(deleteOverlayFiles).toHaveBeenCalledWith(["op/x/plan.webp"]);
-    await db.close();
   });
 
   it("deletes an operation without overlays without touching files", async () => {
@@ -80,6 +78,5 @@ describe("deleteOperation (domain)", () => {
 
     expect(await getOperation(db, op.id)).toBeNull();
     expect(deleteOverlayFiles).toHaveBeenCalledWith([]); // no file paths
-    await db.close();
   });
 });

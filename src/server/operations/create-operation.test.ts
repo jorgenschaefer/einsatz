@@ -31,14 +31,12 @@ describe("createOperation", () => {
       state: "gueltig",
       author: null,
     });
-    await db.close();
   });
 
   it("trims the Bezeichnung", async () => {
     const db = await freshDb();
     const op = await createOperation(db, { name: "  Hochwasser  " });
     expect(op.name).toBe("Hochwasser");
-    await db.close();
   });
 
   it("rejects an empty Bezeichnung and persists nothing", async () => {
@@ -47,6 +45,5 @@ describe("createOperation", () => {
       ValidationError,
     );
     expect(await listOperations(db)).toHaveLength(0);
-    await db.close();
   });
 });

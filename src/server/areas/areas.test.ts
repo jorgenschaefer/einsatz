@@ -56,7 +56,6 @@ describe("areas repository", () => {
         (a) => a.color === "#e2001a" && a.opacity === 0.4 && a.label === "Zone",
       ),
     ).toBe(true);
-    await db.close();
   });
 
   it("scopes areas to their operation", async () => {
@@ -71,7 +70,6 @@ describe("areas repository", () => {
       label: "",
     });
     expect(await listAreas(db, b.id)).toHaveLength(0);
-    await db.close();
   });
 
   it("updates style and geometry, and deletes", async () => {
@@ -101,7 +99,6 @@ describe("areas repository", () => {
 
     await deleteArea(db, area.id);
     expect(await listAreas(db, op.id)).toHaveLength(0);
-    await db.close();
   });
 
   it("rejects geometry with an out-of-range point", async () => {
@@ -125,7 +122,6 @@ describe("areas repository", () => {
       }),
     ).rejects.toBeInstanceOf(ValidationError);
     expect(await listAreas(db, op.id)).toHaveLength(0);
-    await db.close();
   });
 
   it("rejects a circle with a non-positive radius", async () => {
@@ -145,7 +141,6 @@ describe("areas repository", () => {
         label: "",
       }),
     ).rejects.toBeInstanceOf(ValidationError);
-    await db.close();
   });
 
   it("rejects a style with opacity out of range", async () => {
@@ -165,6 +160,5 @@ describe("areas repository", () => {
         label: "",
       }),
     ).rejects.toBeInstanceOf(ValidationError);
-    await db.close();
   });
 });

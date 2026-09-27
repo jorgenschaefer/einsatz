@@ -34,7 +34,6 @@ describe("kml overlays repository", () => {
     });
     const [loaded] = await listKmlOverlays(db, op.id);
     expect(loaded.content).toBe("<kml/>");
-    await db.close();
   });
 
   it("toggles visibility, reloads content, and deletes; scoped to the operation", async () => {
@@ -57,7 +56,6 @@ describe("kml overlays repository", () => {
 
     await deleteKmlOverlay(db, overlay.id);
     expect(await listKmlOverlays(db, op.id)).toHaveLength(0);
-    await db.close();
   });
 
   it("reloads a URL overlay by re-fetching from its source URL", async () => {
@@ -76,7 +74,6 @@ describe("kml overlays repository", () => {
     });
     const [loaded] = await listKmlOverlays(db, op.id);
     expect(loaded.content).toBe("<new/>");
-    await db.close();
   });
 
   it("refuses to reload a file overlay", async () => {
@@ -92,6 +89,5 @@ describe("kml overlays repository", () => {
     await expect(
       reloadKmlOverlay(db, overlay.id, async () => "<b/>"),
     ).rejects.toBeInstanceOf(ValidationError);
-    await db.close();
   });
 });

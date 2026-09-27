@@ -28,13 +28,11 @@ describe("users repository", () => {
       passwordHash: "h",
       role: "admin",
     });
-    await db.close();
   });
 
   it("returns null for an unknown username", async () => {
     const db = await freshDb();
     expect(await findUserByUsername(db, "nobody")).toBeNull();
-    await db.close();
   });
 
   it("rejects a duplicate username", async () => {
@@ -43,7 +41,6 @@ describe("users repository", () => {
     await expect(
       insertUser(db, { username: "anna", passwordHash: "x", role: "user" }),
     ).rejects.toThrow();
-    await db.close();
   });
 
   it("counts users", async () => {
@@ -55,7 +52,6 @@ describe("users repository", () => {
       role: "admin",
     });
     expect(await countUsers(db)).toBe(1);
-    await db.close();
   });
 
   it("lists users alphabetically and finds by id", async () => {
@@ -74,7 +70,6 @@ describe("users repository", () => {
     expect(
       await findUserById(db, "00000000-0000-0000-0000-000000000000"),
     ).toBeNull();
-    await db.close();
   });
 
   it("updates role and password, and counts admins", async () => {
@@ -89,7 +84,6 @@ describe("users repository", () => {
     expect(await countAdmins(db)).toBe(1);
     await updateUserPasswordHash(db, u.id, "newhash");
     expect((await findUserById(db, u.id))?.passwordHash).toBe("newhash");
-    await db.close();
   });
 
   it("deletes a user", async () => {
@@ -101,6 +95,5 @@ describe("users repository", () => {
     });
     await deleteUser(db, u.id);
     expect(await findUserById(db, u.id)).toBeNull();
-    await db.close();
   });
 });

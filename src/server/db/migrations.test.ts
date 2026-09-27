@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
+import { emptyDb } from "@/test/db";
 import { migrate } from "./migrations";
-import { createPGliteDb } from "./pglite";
 
 describe("migrate", () => {
   it("creates the core tables", async () => {
-    const db = createPGliteDb();
+    const db = emptyDb();
     await migrate(db);
 
     const { rows } = await db.query<{ table_name: string }>(
@@ -19,11 +19,10 @@ describe("migrate", () => {
         "journal_entries",
       ]),
     );
-    await db.close();
   });
 
   it("rolls back a migration's DDL when its bookkeeping fails (atomic)", async () => {
-    const db = createPGliteDb();
+    const db = emptyDb();
     // Zwei Migrationen mit gleichem Namen: die zweite Buchung verletzt den
     // Primärschlüssel von schema_migrations, nachdem ihre DDL lief.
     const migrations = [
@@ -36,11 +35,10 @@ describe("migrate", () => {
       "SELECT to_regclass('second_t') AS t",
     );
     expect(rows[0].t).toBeNull(); // DDL mit der fehlgeschlagenen Buchung zurückgerollt
-    await db.close();
   });
 
   it("is idempotent when run twice", async () => {
-    const db = createPGliteDb();
+    const db = emptyDb();
     await migrate(db);
     const countSql = "SELECT count(*)::text AS count FROM schema_migrations";
     const afterFirst = await db.query<{ count: string }>(countSql);
@@ -50,6 +48,5 @@ describe("migrate", () => {
 
     expect(Number(afterFirst.rows[0].count)).toBeGreaterThan(0);
     expect(afterSecond.rows[0].count).toBe(afterFirst.rows[0].count);
-    await db.close();
   });
 });

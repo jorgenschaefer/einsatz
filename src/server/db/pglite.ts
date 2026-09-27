@@ -2,9 +2,7 @@ import { PGlite } from "@electric-sql/pglite";
 import type { Db, Queryable, Transaction } from "./db";
 
 /** In-Process-PostgreSQL (PGlite) als {@link Db} – ausschließlich für Tests. */
-export function createPGliteDb(): Db {
-  const pg = new PGlite();
-
+export function createPGliteDb(pg = new PGlite()): Db {
   const asQueryable = (runner: {
     query: (text: string, params?: unknown[]) => Promise<{ rows: unknown[] }>;
   }): Queryable => ({

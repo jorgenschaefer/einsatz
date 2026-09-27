@@ -45,7 +45,6 @@ describe("createAccount", () => {
     expect(await verifyPassword("a-good-password", found!.passwordHash)).toBe(
       true,
     );
-    await db.close();
   });
 
   it("rejects a duplicate username", async () => {
@@ -62,7 +61,6 @@ describe("createAccount", () => {
         role: "user",
       }),
     ).rejects.toBeInstanceOf(ValidationError);
-    await db.close();
   });
 
   it("rejects a too-short password and creates nothing", async () => {
@@ -71,7 +69,6 @@ describe("createAccount", () => {
       createAccount(db, { username: "anna", password: "short", role: "user" }),
     ).rejects.toBeInstanceOf(ValidationError);
     expect(await findUserByUsername(db, "anna")).toBeNull();
-    await db.close();
   });
 });
 
@@ -86,7 +83,6 @@ describe("setRole (last-admin protection)", () => {
     });
     await setRole(db, anna.id, "admin");
     expect((await findUserById(db, anna.id))?.role).toBe("admin");
-    await db.close();
   });
 
   it("blocks demoting the last remaining admin", async () => {
@@ -96,7 +92,6 @@ describe("setRole (last-admin protection)", () => {
       ValidationError,
     );
     expect((await findUserById(db, chef.id))?.role).toBe("admin");
-    await db.close();
   });
 
   it("allows demoting an admin while another admin remains", async () => {
@@ -106,7 +101,6 @@ describe("setRole (last-admin protection)", () => {
     await setRole(db, chef.id, "user");
     expect((await findUserById(db, chef.id))?.role).toBe("user");
     expect(await countAdmins(db)).toBe(1);
-    await db.close();
   });
 });
 
@@ -125,7 +119,6 @@ describe("resetPassword", () => {
         (await findUserById(db, anna.id))!.passwordHash,
       ),
     ).toBe(true);
-    await db.close();
   });
 
   it("rejects a too-short new password", async () => {
@@ -138,7 +131,6 @@ describe("resetPassword", () => {
     await expect(resetPassword(db, anna.id, "short")).rejects.toBeInstanceOf(
       ValidationError,
     );
-    await db.close();
   });
 
   it("revokes the user's open sessions", async () => {
@@ -157,7 +149,6 @@ describe("resetPassword", () => {
     await resetPassword(db, anna.id, "brand-new-pass");
 
     expect(await findUserBySessionToken(db, "anna-session")).toBeNull();
-    await db.close();
   });
 });
 
@@ -180,7 +171,6 @@ describe("changePassword (self-service)", () => {
     const stored = (await findUserById(db, anna.id))!.passwordHash;
     expect(await verifyPassword("brand-new-pass", stored)).toBe(true);
     expect(await findUserBySessionToken(db, "anna-session")).toBeNull();
-    await db.close();
   });
 
   it("rejects a wrong current password and leaves password and sessions intact", async () => {
@@ -203,7 +193,6 @@ describe("changePassword (self-service)", () => {
     const stored = (await findUserById(db, anna.id))!.passwordHash;
     expect(await verifyPassword("a-good-password", stored)).toBe(true);
     expect(await findUserBySessionToken(db, "anna-session")).not.toBeNull();
-    await db.close();
   });
 });
 
@@ -215,7 +204,6 @@ describe("deleteAccount (last-admin protection)", () => {
       ValidationError,
     );
     expect(await findUserById(db, chef.id)).not.toBeNull();
-    await db.close();
   });
 
   it("deletes a non-last account", async () => {
@@ -228,7 +216,6 @@ describe("deleteAccount (last-admin protection)", () => {
     });
     await deleteAccount(db, anna.id);
     expect(await findUserById(db, anna.id)).toBeNull();
-    await db.close();
   });
 
   it("leaves the deleted user's ETB entries readable with their author snapshot", async () => {
@@ -254,6 +241,5 @@ describe("deleteAccount (last-admin protection)", () => {
 
     const [entry] = await listEntries(db, op.id);
     expect(entry).toMatchObject({ text: "Lage", author: "anna" });
-    await db.close();
   });
 });

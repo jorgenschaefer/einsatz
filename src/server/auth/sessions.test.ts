@@ -39,7 +39,6 @@ describe("deleteExpiredSessions", () => {
       "SELECT token FROM sessions ORDER BY token",
     );
     expect(rows.map((r) => r.token)).toEqual(["valid"]);
-    await db.close();
   });
 });
 
@@ -57,7 +56,6 @@ describe("sessions repository", () => {
     expect(found).toMatchObject({ id: user.id, username: "anna" });
     // Der breit gereichte Identitätstyp trägt keinen Passwort-Hash.
     expect(found).not.toHaveProperty("passwordHash");
-    await db.close();
   });
 
   it("returns null for an expired token", async () => {
@@ -67,13 +65,11 @@ describe("sessions repository", () => {
     await insertSession(db, { token: "old", userId: user.id, expiresAt });
 
     expect(await findUserBySessionToken(db, "old")).toBeNull();
-    await db.close();
   });
 
   it("returns null for an unknown token", async () => {
     const db = await freshDb();
     expect(await findUserBySessionToken(db, "nope")).toBeNull();
-    await db.close();
   });
 
   it("deletes a single session by token, leaving the others", async () => {
@@ -94,7 +90,6 @@ describe("sessions repository", () => {
 
     expect(await findUserBySessionToken(db, "drop")).toBeNull();
     expect(await findUserBySessionToken(db, "keep")).not.toBeNull();
-    await db.close();
   });
 
   it("revokes every session of one user, leaving another user's intact", async () => {
@@ -126,6 +121,5 @@ describe("sessions repository", () => {
     expect(await findUserBySessionToken(db, "anna1")).toBeNull();
     expect(await findUserBySessionToken(db, "anna2")).toBeNull();
     expect(await findUserBySessionToken(db, "bob1")).not.toBeNull();
-    await db.close();
   });
 });

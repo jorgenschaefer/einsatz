@@ -27,7 +27,6 @@ describe("closeOperation / reopenOperation", () => {
       text: OPERATION_CLOSED_ENTRY_TEXT,
       author: null,
     });
-    await db.close();
   });
 
   it('reopens a closed operation and appends an automatic "Einsatz eröffnet" entry', async () => {
@@ -45,7 +44,6 @@ describe("closeOperation / reopenOperation", () => {
     ]);
     expect(entries.map((e) => e.number)).toEqual([1, 2, 3]);
     expect(entries[2].text).toBe(OPERATION_OPENED_ENTRY_TEXT);
-    await db.close();
   });
 
   it("does nothing when closing an already-closed operation (no duplicate milestone)", async () => {
@@ -59,7 +57,6 @@ describe("closeOperation / reopenOperation", () => {
         (e) => e.type === "einsatz-geschlossen",
       ),
     ).toHaveLength(1);
-    await db.close();
   });
 
   it("does nothing when reopening an already-active operation", async () => {
@@ -67,7 +64,6 @@ describe("closeOperation / reopenOperation", () => {
     const op = await createOperation(db, { name: "Hochwasser" });
     await reopenOperation(db, op.id);
     expect(await listEntries(db, op.id)).toHaveLength(1); // only the initial opening entry
-    await db.close();
   });
 
   it("leaves a closed operation fully editable (no write-lock)", async () => {
@@ -83,6 +79,5 @@ describe("closeOperation / reopenOperation", () => {
     expect(
       (await listEntries(db, op.id)).some((e) => e.text === "nachträglich"),
     ).toBe(true);
-    await db.close();
   });
 });

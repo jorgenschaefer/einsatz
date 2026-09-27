@@ -26,7 +26,6 @@ describe("operations repository", () => {
 
     const found = await getOperation(db, created.id);
     expect(found).toMatchObject({ id: created.id, name: "Hochwasser" });
-    await db.close();
   });
 
   it("returns null for an unknown operation", async () => {
@@ -34,7 +33,6 @@ describe("operations repository", () => {
     expect(
       await getOperation(db, "00000000-0000-0000-0000-000000000000"),
     ).toBeNull();
-    await db.close();
   });
 
   it("persists a default map view that reads back on the operation", async () => {
@@ -47,7 +45,6 @@ describe("operations repository", () => {
 
     const reloaded = await getOperation(db, op.id);
     expect(reloaded?.defaultView).toEqual({ lat: 53.55, lng: 9.99, zoom: 13 });
-    await db.close();
   });
 
   it("rejects a default view with invalid coordinates or zoom, writing nothing", async () => {
@@ -69,7 +66,6 @@ describe("operations repository", () => {
     ).rejects.toBeInstanceOf(ValidationError);
 
     expect((await getOperation(db, op.id))?.defaultView).toBeNull();
-    await db.close();
   });
 
   it("accepts a default view at the tile-layer max zoom (19)", async () => {
@@ -84,7 +80,6 @@ describe("operations repository", () => {
       lng: 9.99,
       zoom: 19,
     });
-    await db.close();
   });
 
   it("lists all operations, newest first", async () => {
@@ -95,6 +90,5 @@ describe("operations repository", () => {
     expect(all).toHaveLength(2);
     expect(all.map((o) => o.name)).toContain("Erst");
     expect(all.map((o) => o.name)).toContain("Zweit");
-    await db.close();
   });
 });

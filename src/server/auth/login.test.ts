@@ -20,20 +20,17 @@ describe("authenticate", () => {
     expect(await authenticate(db, "anna", "a-good-password")).toMatchObject({
       id: user.id,
     });
-    await db.close();
   });
 
   it("returns null for a wrong password", async () => {
     const db = await freshDb();
     await seedAnna(db);
     expect(await authenticate(db, "anna", "wrong-password!")).toBeNull();
-    await db.close();
   });
 
   it("returns null for an unknown user", async () => {
     const db = await freshDb();
     expect(await authenticate(db, "ghost", "whatever-1234")).toBeNull();
-    await db.close();
   });
 });
 
@@ -57,7 +54,6 @@ describe("createSession", () => {
       new Date(now + SESSION_TTL_MS + 1),
     );
     expect(after).toBeNull();
-    await db.close();
   });
 
   it("creates distinct tokens each time", async () => {
@@ -66,7 +62,6 @@ describe("createSession", () => {
     const a = await createSession(db, user.id);
     const b = await createSession(db, user.id);
     expect(a.token).not.toBe(b.token);
-    await db.close();
   });
 
   it("purges expired sessions when a new one is created (purge-on-write)", async () => {
@@ -84,7 +79,6 @@ describe("createSession", () => {
       "SELECT count(*)::text AS count FROM sessions WHERE token = 'stale'",
     );
     expect(rows[0].count).toBe("0");
-    await db.close();
   });
 
   it("still logs in when the best-effort purge fails", async () => {

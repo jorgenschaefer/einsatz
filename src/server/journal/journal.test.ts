@@ -24,7 +24,6 @@ describe("journal", () => {
     await expect(append("")).rejects.toBeInstanceOf(ValidationError);
     await expect(append("   ")).rejects.toBeInstanceOf(ValidationError);
     expect(await listEntries(db, op.id)).toHaveLength(0);
-    await db.close();
   });
 
   it("stores the trimmed entry text", async () => {
@@ -37,7 +36,6 @@ describe("journal", () => {
       author: "a",
     });
     expect(entry.text).toBe("Deich hält");
-    await db.close();
   });
   it("assigns gapless per-operation numbers starting at 1", async () => {
     const db = await freshDb();
@@ -58,7 +56,6 @@ describe("journal", () => {
 
     expect(first.number).toBe(1);
     expect(second.number).toBe(2);
-    await db.close();
   });
 
   it("rejects a duplicate (operation_id, number) via the UNIQUE constraint", async () => {
@@ -75,7 +72,6 @@ describe("journal", () => {
 
     await insertRaw(1);
     await expect(insertRaw(1)).rejects.toThrow();
-    await db.close();
   });
 
   it("numbers entries independently per operation", async () => {
@@ -98,7 +94,6 @@ describe("journal", () => {
 
     expect(inA.number).toBe(1);
     expect(inB.number).toBe(1);
-    await db.close();
   });
 
   it("lists entries of an operation in order", async () => {
@@ -119,6 +114,5 @@ describe("journal", () => {
 
     const entries = await listEntries(db, op.id);
     expect(entries.map((e) => e.text)).toEqual(["first", "second"]);
-    await db.close();
   });
 });

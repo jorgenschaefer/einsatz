@@ -16,7 +16,6 @@ describe("seedAdmin", () => {
     expect(await verifyPassword("super-secret-1", admin!.passwordHash)).toBe(
       true,
     );
-    await db.close();
   });
 
   it("is idempotent: running twice does not create a duplicate", async () => {
@@ -24,7 +23,6 @@ describe("seedAdmin", () => {
     await seedAdmin(db, { username: "chef", password: "super-secret-1" });
     await seedAdmin(db, { username: "chef", password: "super-secret-1" });
     expect(await countUsers(db)).toBe(1);
-    await db.close();
   });
 
   it("leaves an existing account set untouched", async () => {
@@ -33,7 +31,6 @@ describe("seedAdmin", () => {
     await seedAdmin(db, { username: "second", password: "super-secret-2" });
     expect(await countUsers(db)).toBe(1);
     expect(await findUserByUsername(db, "second")).toBeNull();
-    await db.close();
   });
 
   it("rejects an admin password shorter than the minimum when seeding is needed", async () => {
@@ -42,7 +39,6 @@ describe("seedAdmin", () => {
       seedAdmin(db, { username: "chef", password: "short" }),
     ).rejects.toThrow();
     expect(await countUsers(db)).toBe(0);
-    await db.close();
   });
 
   it("boots fine on an already-seeded database even if the configured password is now too short", async () => {
@@ -52,6 +48,5 @@ describe("seedAdmin", () => {
       seedAdmin(db, { username: "chef", password: "short" }),
     ).resolves.toBeUndefined();
     expect(await countUsers(db)).toBe(1);
-    await db.close();
   });
 });
