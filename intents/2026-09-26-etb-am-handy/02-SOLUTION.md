@@ -82,9 +82,9 @@ Nord".
   Lagekarte, ETB und (sobald es sie gibt) Stärke. Ein Tipp zeigt die gewählte
   Hauptansicht über die ganze Fläche zwischen Kopfzeile und Leiste. *(C-1,
   C-4, C-5)*
-- **AC-2** Während das ETB oder die Stärke zu sehen ist, ist die Lagekarte
-  nirgends sichtbar, und deren Inhalt nimmt die volle Breite ein, abzüglich
-  höchstens 16 px Rand je Seite. *(C-1, C-5)*
+- **AC-2** Während am Handy das ETB oder die Stärke zu sehen ist, ist die
+  Lagekarte nirgends sichtbar, und deren Inhalt nimmt die volle Breite ein,
+  abzüglich höchstens 16 px Rand je Seite. *(C-1, C-5)*
 - **AC-3** Am Handy ist die Kopfzeile 40 px hoch. Zusammen mit der Leiste
   belegen Bedienelemente außerhalb der Hauptansicht 96 px. *(C-2, C-5)*
 - **AC-4** Ist am Handy die Bildschirmtastatur offen, ist die Leiste
@@ -118,23 +118,21 @@ Nord".
   Zeichnen eines Bereichs begonnen oder aus dem Panel ein Kartenzeichen
   angesprungen, oder beginnt das Bearbeiten eines Bild-Overlays, schließt das
   Blatt. *(C-3)*
-- **AC-9** Beim Wechsel zwischen Hauptansichten bleiben ein angefangener ETB-
-  Eintrag (und ein angefangenes Stärke-Formular), der Kartenausschnitt und ein
-  offenes Kartenpanel erhalten. *(C-4)*
+- **AC-9** Beim Wechsel zwischen Hauptansichten bleiben ein angefangener
+  ETB-Eintrag (und ein angefangenes Stärke-Formular) und der Kartenausschnitt
+  erhalten. *(C-4)*
 - **AC-10** Nach dem Wechsel zur Lagekarte füllt die Karte die Fläche ohne
   graue, nicht geladene Ränder. *(C-4)*
 - **AC-11** Bei 360 px Breite scrollt nichts waagerecht: keine Hauptansicht,
   keine Kopfzeile, keine Leiste, kein Blatt und kein Modal. *(C-3)*
 - **AC-12** Am Desktop steht die Leiste links, 72 px breit, mit denselben
-  Punkten in derselben Reihenfolge. Die Kopfzeile bleibt wie heute.
-  Kartenknöpfe wie in AC-6; das Panel öffnet rechts neben der Karte, 360 px
-  breit, und verkleinert die Karte. *(Constraint: alle Funktionen auf jeder
-  Größe)*
+  Punkten in derselben Reihenfolge. Die Kopfzeile bleibt bis auf AC-22 wie
+  heute. *(Constraint: alle Funktionen auf jeder Größe)*
 - **AC-13** Am Desktop wird das ETB auf höchstens 720 px Breite begrenzt und
   links ausgerichtet. *(Constraint: alle Funktionen auf jeder Größe)*
 - **AC-14** Beim Öffnen der Führungsansicht ist am Handy das ETB die
   Hauptansicht, am Desktop die Lagekarte, schon bevor JavaScript geladen ist.
-  Kein Panel ist offen. *(C-1)*
+  *(C-1)*
 - **AC-15** Jede Funktion, die heute über Kopfzeile oder Seitenleiste
   erreichbar ist, ist auf beiden Größen weiter erreichbar. *(Constraint)*
 - **AC-17** Kommen per Live-Aktualisierung neue ETB-Einträge an, während eine
@@ -169,6 +167,12 @@ Nord".
   Kartenfehler (heute roter Balken, `mapError`) erscheint als schließbare
   Meldung über der Karte, ohne die Arbeitsfläche zu verkleinern. Beides gilt
   auf beiden Größen. *(C-2; vom Nutzer entschieden, Variante b)*
+- **AC-23** Am Desktop gibt es die Kartenknöpfe wie in AC-6; das Panel öffnet
+  rechts neben der Karte, 360 px breit, und verkleinert die Karte.
+  *(Constraint: alle Funktionen auf jeder Größe)*
+- **AC-24** Beim Wechsel zwischen Hauptansichten bleibt ein offenes
+  Kartenpanel erhalten. *(C-4)*
+- **AC-25** Beim Öffnen der Führungsansicht ist kein Kartenpanel offen. *(C-1)*
 
 ## Edge cases
 
