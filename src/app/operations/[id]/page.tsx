@@ -79,7 +79,7 @@ export default async function LageansichtPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await requireUser();
+  const user = await requireUser();
   const { id } = await params;
   const db = getDb();
   const operation = await getOperation(db, id);
@@ -137,6 +137,7 @@ export default async function LageansichtPage({
       operationId={operation.id}
       operationName={operation.name}
       status={operation.status}
+      currentUsername={user.username}
       viewLinks={viewLinks}
       onCreateViewLink={createViewLinkAction.bind(null, operation.id)}
       onDeleteViewLink={deleteViewLinkAction.bind(null, operation.id)}

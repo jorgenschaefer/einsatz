@@ -1,6 +1,7 @@
 import userEvent from "@testing-library/user-event";
 import { renderToString } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
+import type { JournalEntryView } from "@/app/operations/[id]/JournalPanel";
 import {
   act,
   fireEvent,
@@ -51,8 +52,11 @@ function fakeFactory() {
   return { factory, captured, adapter };
 }
 
+// Der ETB-Punkt trägt die Zahl neuer Einträge im Namen („ETB 2 neue Einträge").
 const selectMainView = (name: "Lagekarte" | "ETB") =>
-  userEvent.click(screen.getAllByRole("button", { name })[0]);
+  userEvent.click(
+    screen.getAllByRole("button", { name: new RegExp(`^${name}`) })[0],
+  );
 
 /**
  * Gibt Mantines AppShell die Höhe der Leiste an die Hauptansicht zurück?
@@ -108,6 +112,7 @@ function buildProps(over: Partial<SituationWorkspaceProps> = {}) {
     operationId: "op-x",
     operationName: "Hochwasser",
     status: "active",
+    currentUsername: "anna",
     viewLinks: [],
     onCreateViewLink: vi.fn(async () => {}),
     onDeleteViewLink: vi.fn(async () => {}),
@@ -163,6 +168,24 @@ const openTab = async (name: RegExp | string) => {
   await userEvent.click(screen.getByRole("tab", { name }));
 };
 
+const journalEntry = (
+  number: number,
+  author: string | null,
+): JournalEntryView => ({
+  id: `e${number}`,
+  number,
+  createdAt: "2026-07-03T08:00:00.000Z",
+  text: `Eintrag ${number}`,
+  type: "manuell",
+  state: "gueltig",
+  author,
+  editedAt: null,
+  revisions: [],
+});
+
+/** Der ETB-Punkt der Leiste; sein Name trägt die Zahl neuer Einträge. */
+const etbItem = () => screen.getAllByRole("button", { name: /^ETB/ })[0];
+
 const modeBand = (label: string) =>
   screen.getByRole("toolbar", { name: label });
 
@@ -182,6 +205,87 @@ describe("SituationWorkspace", () => {
       }),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Teilen/i })).toBeInTheDocument();
+  });
+
+  describe("counting new ETB entries", () => {
+    it("counts a new entry from another author while the Lagekarte is shown", async () => {
+      const { props } = buildProps({ journalEntries: [journalEntry(1, null)] });
+      const { rerender } = render(<SituationWorkspace {...props} />);
+      await selectMainView("Lagekarte");
+
+      rerender(
+        <SituationWorkspace
+          {...props}
+          journalEntries={[
+            journalEntry(1, null),
+            journalEntry(2, "ben"),
+            journalEntry(3, null),
+          ]}
+        />,
+      );
+
+      expect(etbItem()).toHaveAccessibleName("ETB 2 neue Einträge");
+    });
+
+    it("does not count own entries", async () => {
+      const { props } = buildProps({ journalEntries: [journalEntry(1, null)] });
+      const { rerender } = render(<SituationWorkspace {...props} />);
+      await selectMainView("Lagekarte");
+
+      rerender(
+        <SituationWorkspace
+          {...props}
+          journalEntries={[journalEntry(1, null), journalEntry(2, "anna")]}
+        />,
+      );
+
+      expect(etbItem()).toHaveAccessibleName("ETB");
+    });
+
+    it("resets when switching to the ETB", async () => {
+      const { props } = buildProps({ journalEntries: [journalEntry(1, null)] });
+      const { rerender } = render(<SituationWorkspace {...props} />);
+      await selectMainView("Lagekarte");
+      rerender(
+        <SituationWorkspace
+          {...props}
+          journalEntries={[journalEntry(1, null), journalEntry(2, "ben")]}
+        />,
+      );
+
+      await selectMainView("ETB");
+      expect(etbItem()).toHaveAccessibleName("ETB");
+
+      await selectMainView("Lagekarte");
+      expect(etbItem()).toHaveAccessibleName("ETB");
+    });
+
+    it("treats entries arriving while the ETB is shown as seen", async () => {
+      const { props } = buildProps({ journalEntries: [journalEntry(1, null)] });
+      const { rerender } = render(<SituationWorkspace {...props} />);
+      rerender(
+        <SituationWorkspace
+          {...props}
+          journalEntries={[journalEntry(1, null), journalEntry(2, "ben")]}
+        />,
+      );
+      expect(etbItem()).toHaveAccessibleName("ETB");
+
+      await selectMainView("Lagekarte");
+      expect(etbItem()).toHaveAccessibleName("ETB");
+    });
+
+    it("does not count entries present at load on the desktop", () => {
+      stubMatchMedia(true);
+      try {
+        renderWorkspace({
+          journalEntries: [journalEntry(1, null), journalEntry(2, "ben")],
+        });
+        expect(etbItem()).toHaveAccessibleName("ETB");
+      } finally {
+        vi.unstubAllGlobals();
+      }
+    });
   });
 
   it("keeps a started ETB entry when switching to the Lagekarte and back", async () => {

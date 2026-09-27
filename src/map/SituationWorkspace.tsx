@@ -71,6 +71,7 @@ import {
   SituationMap,
 } from "./SituationMap";
 import { renderSymbolDataUrl } from "./tactical-symbol";
+import { countUnseenEntries } from "./unseen-entries";
 import { useMapFocus } from "./useMapFocus";
 import { useMapMode } from "./useMapMode";
 import { useMapSearch } from "./useMapSearch";
@@ -120,6 +121,8 @@ export interface SituationWorkspaceProps {
   operationId: string;
   operationName: string;
   status: OperationStatus;
+  /** Nutzername des angemeldeten Nutzers; eigene ETB-Einträge zählen nicht als neu. */
+  currentUsername: string;
   viewLinks?: ViewLinkItem[];
   onCreateViewLink?: (label: string) => void | Promise<void>;
   onDeleteViewLink?: (id: string) => void | Promise<void>;
@@ -189,6 +192,7 @@ export function SituationWorkspace({
   operationId,
   operationName,
   status,
+  currentUsername,
   viewLinks,
   onCreateViewLink,
   onDeleteViewLink,
@@ -240,6 +244,17 @@ export function SituationWorkspace({
   useEffect(() => {
     setMainView(window.matchMedia("(min-width: 48em)").matches ? "map" : "etb");
   }, []);
+  const latestEntryNumber = Math.max(
+    0,
+    ...journalEntries.map((entry) => entry.number),
+  );
+  // Höchste Eintragsnummer, die im ETB zu sehen war; beim Laden gilt alles
+  // Vorhandene als gesehen. Lebt nur in dieser Seite.
+  const [seenUpTo, setSeenUpTo] = useState(latestEntryNumber);
+  const newEtbEntries =
+    mainView === "map"
+      ? countUnseenEntries(journalEntries, seenUpTo, currentUsername)
+      : 0;
   const {
     armedQuickId,
     armedCustom,
@@ -475,6 +490,7 @@ export function SituationWorkspace({
   const switchMainView = (view: MainView) => {
     if (view === mainView) return;
     setMainView(view);
+    setSeenUpTo(latestEntryNumber);
     endMode();
   };
   const saveImagePlacement = (id: string, placement: ImagePlacement) =>
@@ -512,7 +528,11 @@ export function SituationWorkspace({
       onCreateViewLink={onCreateViewLink}
       onDeleteViewLink={onDeleteViewLink}
       navigation={
-        <MainViewBar activeView={mainView} onSelect={switchMainView} />
+        <MainViewBar
+          activeView={mainView}
+          onSelect={switchMainView}
+          newEtbEntries={newEtbEntries}
+        />
       }
       connected={connected}
     >
