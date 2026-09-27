@@ -2,9 +2,10 @@ import L from "leaflet";
 import { expect, it, vi } from "vitest";
 import { leafletMapAdapterFactory } from "./leaflet-adapter";
 
-// Leaflet misst den Container nur bei window-resize neu. Klappt die Seitenleiste
-// ein, ändert sich nur die Container-Breite – ohne erneutes Vermessen bliebe ein
-// grauer, ungefüllter Streifen. Der Adapter beobachtet den Container daher selbst.
+// Leaflet misst den Container nur bei window-resize neu. Öffnet sich das
+// Kartenpanel daneben, ändert sich nur die Container-Breite – ohne erneutes
+// Vermessen bliebe ein grauer, ungefüllter Streifen. Der Adapter beobachtet den
+// Container daher selbst.
 it("invalidates the map size when its container resizes", () => {
   const captured: { fireResize?: () => void } = {};
   const observe = vi.fn();

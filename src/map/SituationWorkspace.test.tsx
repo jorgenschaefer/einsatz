@@ -1,6 +1,6 @@
 import userEvent from "@testing-library/user-event";
 import { renderToString } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { JournalEntryView } from "@/app/operations/[id]/JournalPanel";
 import {
   act,
@@ -80,12 +80,15 @@ const START_VIEW_QUERY = "(min-width: 48em)";
  * eigenes MediaQueryList-Objekt, damit deren Listener sich nicht mit unserem
  * überschreiben.
  */
-function stubMatchMedia(matches: boolean) {
+function stubMatchMedia(initialMatches: boolean) {
+  let matches = initialMatches;
   let changeListener: ((event: { matches: boolean }) => void) | null = null;
   vi.stubGlobal(
     "matchMedia",
     vi.fn((query: string) => ({
-      matches: query === START_VIEW_QUERY ? matches : false,
+      get matches() {
+        return query === START_VIEW_QUERY ? matches : false;
+      },
       media: query,
       onchange: null,
       addEventListener: vi.fn((event: string, cb: typeof changeListener) => {
@@ -101,6 +104,7 @@ function stubMatchMedia(matches: boolean) {
   );
   return {
     fireChange: (nextMatches: boolean) => {
+      matches = nextMatches;
       changeListener?.({ matches: nextMatches });
     },
   };
@@ -161,11 +165,40 @@ function renderWorkspace(over: Partial<SituationWorkspaceProps> = {}) {
   return built;
 }
 
-// Die Seitenleisten-Tabs (Kartenzeichen, Bereiche, Ebenen) leben nur in der
-// Lagekarten-Hauptansicht; erst hinschalten, dann den Tab öffnen.
-const openTab = async (name: RegExp | string) => {
+type PanelName = "Kartenzeichen" | "Bereiche" | "Ebenen";
+
+// Die Kartenpanels leben nur in der Lagekarten-Hauptansicht; erst hinschalten,
+// dann den Kartenknopf tippen.
+const openPanel = async (name: PanelName) => {
   await selectMainView("Lagekarte");
-  await userEvent.click(screen.getByRole("tab", { name }));
+  await userEvent.click(screen.getByRole("button", { name }));
+};
+
+const mapPanel = (name: PanelName) => screen.getByRole("region", { name });
+const anyMapPanel = () =>
+  screen.queryByRole("region", { name: /^(Kartenzeichen|Bereiche|Ebenen)$/ });
+
+const SYMBOL = {
+  id: "s1",
+  lat: 53.5,
+  lng: 9.9,
+  composition: {
+    grundzeichen: "taktische-formation" as const,
+    organisation: "hilfsorganisation" as const,
+    text: "Pumpe 1",
+  },
+};
+
+const AREA = {
+  id: "a1",
+  geometry: {
+    shape: "circle" as const,
+    center: { lat: 53.5, lng: 9.9 },
+    radius: 100,
+  },
+  color: "#e2001a",
+  opacity: 0.4,
+  label: "Deich",
 };
 
 const journalEntry = (
@@ -190,10 +223,17 @@ const modeBand = (label: string) =>
   screen.getByRole("toolbar", { name: label });
 
 const startEditingImage = async () => {
-  await openTab("Ebenen");
+  await openPanel("Ebenen");
   await userEvent.click(
     await screen.findByRole("button", { name: "Bearbeiten" }),
   );
+};
+
+// Am Handy schließt das Blatt, sobald das Bearbeiten beginnt; den Editor
+// zeigt das wieder geöffnete Ebenen-Panel.
+const openImageEditor = async () => {
+  await startEditingImage();
+  await openPanel("Ebenen");
 };
 
 describe("SituationWorkspace", () => {
@@ -391,18 +431,230 @@ describe("SituationWorkspace", () => {
     }
   });
 
-  it("lays the three map sidebar tabs out in a grid", async () => {
+  it("opens no map panel at start", () => {
+    stubMatchMedia(true);
+    try {
+      renderWorkspace();
+      expect(anyMapPanel()).toBeNull();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("switches and closes map panels via the controls and ✕", async () => {
+    renderWorkspace();
+    await openPanel("Kartenzeichen");
+    expect(mapPanel("Kartenzeichen")).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Kartenzeichen" }),
+    ).toHaveAttribute("aria-pressed", "true");
+
+    await userEvent.click(screen.getByRole("button", { name: "Bereiche" }));
+    expect(mapPanel("Bereiche")).toBeVisible();
+    expect(screen.queryByRole("region", { name: "Kartenzeichen" })).toBeNull();
+
+    await userEvent.click(screen.getByRole("button", { name: "Bereiche" }));
+    expect(anyMapPanel()).toBeNull();
+
+    await userEvent.click(screen.getByRole("button", { name: "Ebenen" }));
+    await userEvent.click(
+      within(mapPanel("Ebenen")).getByRole("button", { name: "Schließen" }),
+    );
+    expect(anyMapPanel()).toBeNull();
+  });
+
+  it("marks the Lagekarte while a map panel is open", async () => {
     renderWorkspace();
     await selectMainView("Lagekarte");
-    expect(screen.getByRole("tablist")).toHaveStyle({
-      display: "grid",
-      gridTemplateColumns: "repeat(3, 1fr)",
+    const map = document.querySelector('[data-view="map"]');
+    expect(map).not.toHaveAttribute("data-panel-open");
+
+    await openPanel("Ebenen");
+    expect(map).toHaveAttribute("data-panel-open");
+  });
+
+  it("keeps the open map panel when switching to the ETB and back", async () => {
+    renderWorkspace();
+    await openPanel("Ebenen");
+    await selectMainView("ETB");
+    await selectMainView("Lagekarte");
+    expect(mapPanel("Ebenen")).toBeVisible();
+  });
+
+  it("keeps the open map panel as the right panel when the width crosses 768 px", async () => {
+    const { fireChange } = stubMatchMedia(false);
+    try {
+      renderWorkspace();
+      await openPanel("Kartenzeichen");
+      act(() => {
+        fireChange(true);
+      });
+      expect(mapPanel("Kartenzeichen")).toBeVisible();
+
+      // Jetzt Desktop-Form: Scharfstellen lässt das Panel stehen.
+      await userEvent.click(screen.getByRole("button", { name: /KTW/ }));
+      expect(mapPanel("Kartenzeichen")).toBeVisible();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("saves the current map view as the default after confirming", async () => {
+    const onSetDefault = vi.fn(async () => ({}));
+    const { captured } = renderWorkspace({ onSetDefault });
+    await selectMainView("Lagekarte");
+    await waitFor(() => expect(captured.options).toBeDefined());
+    await userEvent.click(
+      screen.getByRole("button", { name: "Standard-Ausschnitt festlegen" }),
+    );
+    await userEvent.click(
+      within(await screen.findByRole("dialog")).getByRole("button", {
+        name: "Festlegen",
+      }),
+    );
+    expect(onSetDefault).toHaveBeenCalledWith({ lat: 0, lng: 0, zoom: 1 });
+  });
+
+  it("does not save a default view before the map has loaded", async () => {
+    // Der echte Leaflet-Adapter wird dynamisch geladen; hängt das Laden, gibt es
+    // noch keine Karte und damit keinen Ausschnitt.
+    vi.doMock("./leaflet-adapter", () => new Promise(() => {}));
+    try {
+      const onSetDefault = vi.fn(async () => ({}));
+      renderWorkspace({ onSetDefault, factory: undefined });
+      await selectMainView("Lagekarte");
+      await userEvent.click(
+        screen.getByRole("button", { name: "Standard-Ausschnitt festlegen" }),
+      );
+      const dialog = await screen.findByRole("dialog");
+      await userEvent.click(
+        within(dialog).getByRole("button", { name: "Festlegen" }),
+      );
+
+      expect(within(dialog).getByRole("alert")).toHaveTextContent(
+        "Die Karte lädt noch. Bitte erneut versuchen.",
+      );
+      expect(onSetDefault).not.toHaveBeenCalled();
+    } finally {
+      vi.doUnmock("./leaflet-adapter");
+    }
+  });
+
+  describe("closing the sheet on a phone", () => {
+    beforeEach(() => {
+      stubMatchMedia(false);
     });
-    expect(
-      screen.getByRole("tab", { name: "Kartenzeichen" }),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Bereiche" })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Ebenen" })).toBeInTheDocument();
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    it("closes it when a Schnellauswahl symbol is armed", async () => {
+      renderWorkspace();
+      await openPanel("Kartenzeichen");
+      await userEvent.click(screen.getByRole("button", { name: /KTW/ }));
+      expect(anyMapPanel()).toBeNull();
+    });
+
+    it("closes it when an Erweitert composition is armed", async () => {
+      renderWorkspace();
+      await openPanel("Kartenzeichen");
+      await userEvent.click(
+        screen.getByRole("button", { name: "Erweitert …" }),
+      );
+      expect(mapPanel("Kartenzeichen")).toBeInTheDocument();
+      await userEvent.click(
+        within(await screen.findByRole("dialog")).getByRole("button", {
+          name: "Platzieren",
+        }),
+      );
+      expect(anyMapPanel()).toBeNull();
+    });
+
+    it("closes it when drawing a Bereich starts", async () => {
+      renderWorkspace();
+      await openPanel("Bereiche");
+      await userEvent.click(screen.getByRole("button", { name: "Polygon" }));
+      expect(anyMapPanel()).toBeNull();
+    });
+
+    it("closes it when a Bereich is redrawn", async () => {
+      renderWorkspace({ areas: [AREA] });
+      await openPanel("Bereiche");
+      await userEvent.click(
+        screen.getByRole("button", { name: "Deich bearbeiten" }),
+      );
+      await userEvent.click(
+        within(await screen.findByRole("dialog")).getByRole("button", {
+          name: "Form neu zeichnen",
+        }),
+      );
+      expect(anyMapPanel()).toBeNull();
+    });
+
+    it("closes it when a Kartenzeichen is jumped to from the list", async () => {
+      renderWorkspace({ symbols: [SYMBOL] });
+      await openPanel("Kartenzeichen");
+      await userEvent.click(screen.getByRole("button", { name: "Pumpe 1" }));
+      expect(anyMapPanel()).toBeNull();
+    });
+
+    it("closes it when a Bereich is jumped to from the list", async () => {
+      renderWorkspace({ areas: [AREA] });
+      await openPanel("Bereiche");
+      await userEvent.click(
+        screen.getByRole("button", { name: "Deich Kreis" }),
+      );
+      expect(anyMapPanel()).toBeNull();
+    });
+
+    it("closes it when editing an image overlay starts", async () => {
+      renderWorkspace({ imageOverlays: [anImageOverlay] });
+      await startEditingImage();
+      expect(anyMapPanel()).toBeNull();
+    });
+
+    it("closes it when a map action fails, so the error is not hidden under it", async () => {
+      const { captured } = renderWorkspace({
+        onPlace: vi.fn(async () => ({
+          error: "Ungültige Zeichen-Komposition.",
+        })),
+      });
+      await openPanel("Kartenzeichen");
+      await userEvent.click(screen.getByRole("button", { name: /KTW/ }));
+      await openPanel("Kartenzeichen");
+      await waitFor(() => expect(captured.options?.onMapClick).toBeDefined());
+      await act(async () => {
+        captured.options!.onMapClick!({ lat: 50, lng: 8 });
+      });
+      expect(await screen.findByRole("alert")).toBeInTheDocument();
+      expect(anyMapPanel()).toBeNull();
+    });
+
+    it("keeps it open when a Schnellauswahl symbol is disarmed", async () => {
+      renderWorkspace();
+      await openPanel("Kartenzeichen");
+      await userEvent.click(screen.getByRole("button", { name: /KTW/ }));
+      await openPanel("Kartenzeichen");
+      await userEvent.click(screen.getByRole("button", { name: /KTW/ }));
+      expect(mapPanel("Kartenzeichen")).toBeVisible();
+    });
+
+    it("keeps it open when drawing is toggled off", async () => {
+      renderWorkspace();
+      await openPanel("Bereiche");
+      await userEvent.click(screen.getByRole("button", { name: "Polygon" }));
+      await openPanel("Bereiche");
+      await userEvent.click(screen.getByRole("button", { name: "Polygon" }));
+      expect(mapPanel("Bereiche")).toBeVisible();
+    });
+
+    it("keeps the right panel open on the desktop", async () => {
+      stubMatchMedia(true);
+      renderWorkspace();
+      await openPanel("Kartenzeichen");
+      await userEvent.click(screen.getByRole("button", { name: /KTW/ }));
+      expect(mapPanel("Kartenzeichen")).toBeVisible();
+    });
   });
 
   it("shows the ETB as the default main view on a phone and adds an entry", async () => {
@@ -436,7 +688,7 @@ describe("SituationWorkspace", () => {
   it("places the armed Schnellauswahl composition where the map is clicked", async () => {
     const onPlace = vi.fn(async () => ({}));
     const { captured } = renderWorkspace({ onPlace });
-    await openTab("Kartenzeichen");
+    await openPanel("Kartenzeichen");
     await userEvent.click(screen.getByRole("button", { name: /KTW/ }));
     await waitFor(() => expect(captured.options?.onMapClick).toBeDefined());
     await act(async () => {
@@ -452,7 +704,7 @@ describe("SituationWorkspace", () => {
       error: "Ungültige Zeichen-Komposition.",
     }));
     const { captured } = renderWorkspace({ onPlace });
-    await openTab("Kartenzeichen");
+    await openPanel("Kartenzeichen");
     await userEvent.click(screen.getByRole("button", { name: /KTW/ }));
     await waitFor(() => expect(captured.options?.onMapClick).toBeDefined());
     await act(async () => {
@@ -468,7 +720,7 @@ describe("SituationWorkspace", () => {
       throw new Error("boom");
     });
     const { captured } = renderWorkspace({ onPlace });
-    await openTab("Kartenzeichen");
+    await openPanel("Kartenzeichen");
     await userEvent.click(screen.getByRole("button", { name: /KTW/ }));
     await waitFor(() => expect(captured.options?.onMapClick).toBeDefined());
     await act(async () => {
@@ -484,7 +736,7 @@ describe("SituationWorkspace", () => {
       error: "Ungültige Zeichen-Komposition.",
     }));
     const { captured } = renderWorkspace({ onPlace });
-    await openTab("Kartenzeichen");
+    await openPanel("Kartenzeichen");
     await userEvent.click(screen.getByRole("button", { name: /KTW/ }));
     await waitFor(() => expect(captured.options?.onMapClick).toBeDefined());
     await act(async () => {
@@ -500,7 +752,7 @@ describe("SituationWorkspace", () => {
       .mockResolvedValueOnce({ error: "Ungültige Zeichen-Komposition." })
       .mockResolvedValueOnce({});
     const { captured } = renderWorkspace({ onPlace });
-    await openTab("Kartenzeichen");
+    await openPanel("Kartenzeichen");
     await userEvent.click(screen.getByRole("button", { name: /KTW/ }));
     await waitFor(() => expect(captured.options?.onMapClick).toBeDefined());
     await act(async () => {
@@ -508,6 +760,7 @@ describe("SituationWorkspace", () => {
     });
     expect(await screen.findByRole("alert")).toBeInTheDocument();
     // Erneut scharfstellen und platzieren – der alte Fehler verschwindet.
+    await openPanel("Kartenzeichen");
     await userEvent.click(screen.getByRole("button", { name: /KTW/ }));
     await waitFor(() => expect(captured.options?.onMapClick).toBeDefined());
     await act(async () => {
@@ -527,7 +780,7 @@ describe("SituationWorkspace", () => {
         }),
     );
     const { captured } = renderWorkspace({ onPlace });
-    await openTab("Kartenzeichen");
+    await openPanel("Kartenzeichen");
     await userEvent.click(screen.getByRole("button", { name: /KTW/ }));
     await waitFor(() => expect(captured.options?.onMapClick).toBeDefined());
     await act(async () => {
@@ -542,7 +795,7 @@ describe("SituationWorkspace", () => {
   it("places a composition built in the Erweitert form where the map is clicked", async () => {
     const onPlace = vi.fn(async () => ({}));
     const { captured } = renderWorkspace({ onPlace });
-    await openTab("Kartenzeichen");
+    await openPanel("Kartenzeichen");
     await userEvent.click(screen.getByRole("button", { name: /Erweitert/ }));
     await userEvent.click(
       await screen.findByRole("button", { name: "Platzieren" }),
@@ -577,7 +830,7 @@ describe("SituationWorkspace", () => {
         },
       ],
     });
-    await openTab("Kartenzeichen");
+    await openPanel("Kartenzeichen");
     await userEvent.click(await screen.findByText("Rotkreuz 83/1"));
     await waitFor(() =>
       expect(adapter.setView).toHaveBeenCalledWith({
@@ -604,7 +857,7 @@ describe("SituationWorkspace", () => {
         },
       ],
     });
-    await openTab("Kartenzeichen");
+    await openPanel("Kartenzeichen");
     await userEvent.click(
       await screen.findByRole("button", { name: /Rotkreuz 83\/1 bearbeiten/ }),
     );
@@ -613,9 +866,9 @@ describe("SituationWorkspace", () => {
     );
   });
 
-  it("shows an empty state in the Kartenzeichen tab when none are placed", async () => {
+  it("shows an empty state in the Kartenzeichen panel when none are placed", async () => {
     renderWorkspace({ symbols: [] });
-    await openTab("Kartenzeichen");
+    await openPanel("Kartenzeichen");
     expect(
       await screen.findByText(/Noch keine Kartenzeichen/),
     ).toBeInTheDocument();
@@ -646,7 +899,7 @@ describe("SituationWorkspace", () => {
         },
       ],
     });
-    await openTab("Kartenzeichen");
+    await openPanel("Kartenzeichen");
     expect(await screen.findByText("Ohne Bezeichnung")).toBeInTheDocument(); // Fallback ohne Bezeichnung
     expect(screen.getByText("live")).toBeInTheDocument();
     expect(screen.getByText("veraltet")).toBeInTheDocument();
@@ -686,8 +939,8 @@ describe("SituationWorkspace", () => {
     fireEvent.change(screen.getByLabelText("Suche"), {
       target: { value: "Rotkreuz" },
     });
-    // Ein Kartenzeichen mit demselben Namen kann gleichzeitig in der
-    // Kartenzeichen-Seitenleiste stehen; auf das Suchergebnis beschränken.
+    // Ein Kartenzeichen mit demselben Namen kann gleichzeitig im offenen
+    // Kartenzeichen-Panel stehen; auf das Suchergebnis beschränken.
     const results = within(
       (await screen.findByText("Einsatzobjekte")).parentElement as HTMLElement,
     );
@@ -706,7 +959,7 @@ describe("SituationWorkspace", () => {
   it("draws a Bereich: arming a shape then completing creates the area", async () => {
     const onCreateArea = vi.fn(async () => ({}));
     const { adapter } = renderWorkspace({ onCreateArea });
-    await openTab("Bereiche");
+    await openPanel("Bereiche");
     await userEvent.click(screen.getByRole("button", { name: "Polygon" }));
     await waitFor(() =>
       expect(adapter.startDrawing).toHaveBeenCalledWith(
@@ -734,7 +987,7 @@ describe("SituationWorkspace", () => {
       error: "Der Radius muss größer als 0 sein.",
     }));
     const { adapter } = renderWorkspace({ onCreateArea });
-    await openTab("Bereiche");
+    await openPanel("Bereiche");
     await userEvent.click(screen.getByRole("button", { name: "Polygon" }));
     await waitFor(() => expect(adapter.startDrawing).toHaveBeenCalled());
     const onComplete = adapter.startDrawing.mock.calls.at(-1)![1] as (
@@ -747,6 +1000,7 @@ describe("SituationWorkspace", () => {
       await screen.findByText("Der Radius muss größer als 0 sein."),
     ).toBeInTheDocument();
     // Der Zeichenmodus endet trotzdem: erneutes Scharfstellen ist möglich.
+    await openPanel("Bereiche");
     await userEvent.click(screen.getByRole("button", { name: "Polygon" }));
     await waitFor(() => expect(adapter.startDrawing).toHaveBeenCalledTimes(2));
   });
@@ -756,7 +1010,7 @@ describe("SituationWorkspace", () => {
       throw new Error("boom");
     });
     const { adapter } = renderWorkspace({ onCreateArea });
-    await openTab("Bereiche");
+    await openPanel("Bereiche");
     await userEvent.click(screen.getByRole("button", { name: "Polygon" }));
     await waitFor(() => expect(adapter.startDrawing).toHaveBeenCalled());
     const onComplete = adapter.startDrawing.mock.calls.at(-1)![1] as (
@@ -786,7 +1040,7 @@ describe("SituationWorkspace", () => {
       ],
       onUpdateAreaGeometry,
     });
-    await openTab("Bereiche");
+    await openPanel("Bereiche");
     await userEvent.click(
       await screen.findByRole("button", { name: /Z bearbeiten/ }),
     );
@@ -819,7 +1073,7 @@ describe("SituationWorkspace", () => {
       label: "Zone Nord",
     };
     renderWorkspace({ areas: [area], onDeleteArea });
-    await openTab("Bereiche");
+    await openPanel("Bereiche");
     await userEvent.click(
       await screen.findByRole("button", { name: /Zone Nord bearbeiten/ }),
     );
@@ -842,7 +1096,7 @@ describe("SituationWorkspace", () => {
       label: "Zone Nord",
     };
     const { adapter } = renderWorkspace({ areas: [area] });
-    await openTab("Bereiche");
+    await openPanel("Bereiche");
     await userEvent.click(await screen.findByText("Zone Nord"));
     await waitFor(() =>
       expect(adapter.setView).toHaveBeenCalledWith({
@@ -892,7 +1146,7 @@ describe("SituationWorkspace", () => {
       label: "Zone",
     };
     renderWorkspace({ areas: [area], onUpdateAreaStyle });
-    await openTab("Bereiche");
+    await openPanel("Bereiche");
     await userEvent.click(
       await screen.findByRole("button", { name: /Zone bearbeiten/ }),
     );
@@ -925,7 +1179,7 @@ describe("SituationWorkspace", () => {
       label: "Zone",
     };
     renderWorkspace({ areas: [area], onUpdateAreaStyle });
-    await openTab("Bereiche");
+    await openPanel("Bereiche");
     await userEvent.click(
       await screen.findByRole("button", { name: /Zone bearbeiten/ }),
     );
@@ -951,7 +1205,7 @@ describe("SituationWorkspace", () => {
       ],
       onUpdateAreaGeometry,
     });
-    await openTab("Bereiche");
+    await openPanel("Bereiche");
     await userEvent.click(
       await screen.findByRole("button", { name: /Z bearbeiten/ }),
     );
@@ -978,7 +1232,7 @@ describe("SituationWorkspace", () => {
     ["Kreis", "circle"],
   ])("arms drawing the %s shape", async (label, shape) => {
     const { adapter } = renderWorkspace();
-    await openTab("Bereiche");
+    await openPanel("Bereiche");
     await userEvent.click(screen.getByRole("button", { name: label }));
     await waitFor(() =>
       expect(adapter.startDrawing).toHaveBeenCalledWith(
@@ -990,16 +1244,17 @@ describe("SituationWorkspace", () => {
 
   it("cancels drawing when the armed shape is toggled off", async () => {
     const { adapter } = renderWorkspace();
-    await openTab("Bereiche");
+    await openPanel("Bereiche");
     await userEvent.click(screen.getByRole("button", { name: "Polygon" }));
     await waitFor(() => expect(adapter.startDrawing).toHaveBeenCalled());
+    await openPanel("Bereiche");
     await userEvent.click(screen.getByRole("button", { name: "Polygon" }));
     await waitFor(() => expect(adapter.cancelDrawing).toHaveBeenCalled());
   });
 
   it("shows the Kartenzeichen band while a Schnellauswahl symbol is armed and cancels it", async () => {
     renderWorkspace();
-    await openTab("Kartenzeichen");
+    await openPanel("Kartenzeichen");
     const ktw = screen.getByRole("button", { name: /KTW/ });
     await userEvent.click(ktw);
     await userEvent.click(
@@ -1013,7 +1268,7 @@ describe("SituationWorkspace", () => {
 
   it("shows the Kartenzeichen band while an Erweitert composition is armed", async () => {
     renderWorkspace();
-    await openTab("Kartenzeichen");
+    await openPanel("Kartenzeichen");
     await userEvent.click(screen.getByRole("button", { name: "Erweitert …" }));
     await userEvent.click(
       await screen.findByRole("button", { name: "Platzieren" }),
@@ -1023,7 +1278,7 @@ describe("SituationWorkspace", () => {
 
   it("shows the Bereich band while drawing and cancels the drawing", async () => {
     const { adapter } = renderWorkspace();
-    await openTab("Bereiche");
+    await openPanel("Bereiche");
     const polygon = screen.getByRole("button", { name: "Polygon" });
     await userEvent.click(polygon);
     await waitFor(() => expect(adapter.startDrawing).toHaveBeenCalled());
@@ -1040,7 +1295,7 @@ describe("SituationWorkspace", () => {
   it("cancels an armed symbol when switching to the ETB", async () => {
     const onPlace = vi.fn(async () => ({}));
     const { captured } = renderWorkspace({ onPlace });
-    await openTab("Kartenzeichen");
+    await openPanel("Kartenzeichen");
     const ktw = screen.getByRole("button", { name: /KTW/ });
     await userEvent.click(ktw);
     await selectMainView("ETB");
@@ -1055,7 +1310,7 @@ describe("SituationWorkspace", () => {
 
   it("cancels drawing when switching to the ETB", async () => {
     const { adapter } = renderWorkspace();
-    await openTab("Bereiche");
+    await openPanel("Bereiche");
     await userEvent.click(screen.getByRole("button", { name: "Polygon" }));
     await waitFor(() => expect(adapter.startDrawing).toHaveBeenCalled());
     await selectMainView("ETB");
@@ -1066,7 +1321,7 @@ describe("SituationWorkspace", () => {
 
   it("keeps an armed symbol when the active main view is tapped again", async () => {
     renderWorkspace();
-    await openTab("Kartenzeichen");
+    await openPanel("Kartenzeichen");
     await userEvent.click(screen.getByRole("button", { name: /KTW/ }));
     await selectMainView("Lagekarte");
     expect(modeBand("Kartenzeichen platzieren")).toBeInTheDocument();
@@ -1076,7 +1331,7 @@ describe("SituationWorkspace", () => {
     const { fireChange } = stubMatchMedia(true);
     try {
       renderWorkspace();
-      await openTab("Kartenzeichen");
+      await openPanel("Kartenzeichen");
       await userEvent.click(screen.getByRole("button", { name: /KTW/ }));
       act(() => {
         fireChange(false);
@@ -1263,7 +1518,7 @@ describe("SituationWorkspace", () => {
     });
   });
 
-  it("opens the layers tab and toggles overlay visibility", async () => {
+  it("opens the Ebenen panel and toggles overlay visibility", async () => {
     const onSetKmlVisibility = vi.fn(async () => ({}));
     renderWorkspace({
       kmlOverlays: [
@@ -1277,16 +1532,16 @@ describe("SituationWorkspace", () => {
       ],
       onSetKmlVisibility,
     });
-    await openTab("Ebenen");
+    await openPanel("Ebenen");
     await userEvent.click(
       await screen.findByRole("switch", { name: /Laufstrecke/ }),
     );
     expect(onSetKmlVisibility).toHaveBeenCalledWith("k1", false);
   });
 
-  it("splits the layers tab into KML-Datei, KML-URL and Bild-Overlays sections in order", async () => {
+  it("splits the Ebenen panel into KML-Datei, KML-URL and Bild-Overlays sections in order", async () => {
     renderWorkspace();
-    await openTab("Ebenen");
+    await openPanel("Ebenen");
     const file = screen.getByRole("region", { name: "KML-Datei" });
     const url = screen.getByRole("region", { name: "KML-URL" });
     const image = screen.getByRole("region", { name: "Bild-Overlays" });
@@ -1407,13 +1662,13 @@ describe("SituationWorkspace", () => {
     );
   });
 
-  it("opens the layers tab and toggles image overlay visibility", async () => {
+  it("opens the Ebenen panel and toggles image overlay visibility", async () => {
     const onSetImageVisibility = vi.fn(async () => ({}));
     renderWorkspace({
       imageOverlays: [anImageOverlay],
       onSetImageVisibility,
     });
-    await openTab("Ebenen");
+    await openPanel("Ebenen");
     await userEvent.click(
       await screen.findByRole("switch", { name: /Lageplan/ }),
     );
@@ -1422,10 +1677,7 @@ describe("SituationWorkspace", () => {
 
   it("edits an image overlay: shows handles on the map and the inline controls", async () => {
     const { adapter } = renderWorkspace({ imageOverlays: [anImageOverlay] });
-    await openTab("Ebenen");
-    await userEvent.click(
-      await screen.findByRole("button", { name: "Bearbeiten" }),
-    );
+    await openImageEditor();
     await waitFor(() =>
       expect(adapter.startImageOverlayEdit).toHaveBeenCalledWith(
         "i1",
@@ -1433,7 +1685,7 @@ describe("SituationWorkspace", () => {
       ),
     );
     expect(
-      within(screen.getByRole("tabpanel")).getByRole("button", {
+      within(mapPanel("Ebenen")).getByRole("button", {
         name: "Fertig",
       }),
     ).toBeInTheDocument();
@@ -1445,10 +1697,7 @@ describe("SituationWorkspace", () => {
       imageOverlays: [anImageOverlay],
       onUpdateImagePlacement,
     });
-    await openTab("Ebenen");
-    await userEvent.click(
-      await screen.findByRole("button", { name: "Bearbeiten" }),
-    );
+    await openImageEditor();
     await waitFor(() =>
       expect(adapter.startImageOverlayEdit).toHaveBeenCalled(),
     );
@@ -1460,7 +1709,7 @@ describe("SituationWorkspace", () => {
     expect(onUpdateImagePlacement).toHaveBeenCalledWith("i1", moved);
     // Bearbeiten bleibt aktiv.
     expect(
-      within(screen.getByRole("tabpanel")).getByRole("button", {
+      within(mapPanel("Ebenen")).getByRole("button", {
         name: "Fertig",
       }),
     ).toBeInTheDocument();
@@ -1474,10 +1723,7 @@ describe("SituationWorkspace", () => {
       imageOverlays: [anImageOverlay],
       onUpdateImagePlacement,
     });
-    await openTab("Ebenen");
-    await userEvent.click(
-      await screen.findByRole("button", { name: "Bearbeiten" }),
-    );
+    await openImageEditor();
     const slider = await screen.findByRole("slider", { name: "Deckkraft" });
     act(() => slider.focus());
     await userEvent.keyboard("{ArrowRight}");
@@ -1490,10 +1736,7 @@ describe("SituationWorkspace", () => {
   it("replaces the file of an image overlay, keeping it in edit mode", async () => {
     const onReplaceImage = vi.fn(async () => ({}));
     renderWorkspace({ imageOverlays: [anImageOverlay], onReplaceImage });
-    await openTab("Ebenen");
-    await userEvent.click(
-      await screen.findByRole("button", { name: "Bearbeiten" }),
-    );
+    await openImageEditor();
     const file = new File(["%PDF-1.4"], "neu.pdf", {
       type: "application/pdf",
     });
@@ -1503,15 +1746,12 @@ describe("SituationWorkspace", () => {
 
   it("finishes editing, removing the handles from the map", async () => {
     const { adapter } = renderWorkspace({ imageOverlays: [anImageOverlay] });
-    await openTab("Ebenen");
-    await userEvent.click(
-      await screen.findByRole("button", { name: "Bearbeiten" }),
-    );
+    await openImageEditor();
     await waitFor(() =>
       expect(adapter.startImageOverlayEdit).toHaveBeenCalled(),
     );
     await userEvent.click(
-      within(screen.getByRole("tabpanel")).getByRole("button", {
+      within(mapPanel("Ebenen")).getByRole("button", {
         name: "Fertig",
       }),
     );
@@ -1535,11 +1775,11 @@ describe("SituationWorkspace", () => {
     expect(screen.queryByRole("toolbar")).toBeNull();
   });
 
-  it("keeps editing the image overlay when the Ebenen tab is opened", async () => {
+  it("keeps editing the image overlay when the Ebenen panel is opened", async () => {
     const { adapter } = renderWorkspace({ imageOverlays: [anImageOverlay] });
     await startEditingImage();
-    await userEvent.click(screen.getByRole("tab", { name: "Kartenzeichen" }));
-    await userEvent.click(screen.getByRole("tab", { name: "Ebenen" }));
+    await openPanel("Kartenzeichen");
+    await openPanel("Ebenen");
     expect(modeBand("Bild-Overlay bearbeiten")).toBeInTheDocument();
     expect(
       await screen.findByRole("slider", { name: "Deckkraft" }),
@@ -1565,7 +1805,7 @@ describe("SituationWorkspace", () => {
       imageOverlays: [anImageOverlay],
       onPlace,
     });
-    await openTab("Ebenen");
+    await openPanel("Ebenen");
     await userEvent.click(
       await screen.findByRole("button", { name: "Bearbeiten" }),
     );
@@ -1587,7 +1827,7 @@ describe("SituationWorkspace", () => {
         },
       ],
     });
-    await openTab("Ebenen");
+    await openPanel("Ebenen");
     await userEvent.click(
       await screen.findByRole("button", { name: "Bearbeiten" }),
     );
@@ -1595,7 +1835,7 @@ describe("SituationWorkspace", () => {
       expect(adapter.startImageOverlayEdit).toHaveBeenCalled(),
     );
     // Einen Bereich auswählen und dessen Form neu zeichnen …
-    await openTab("Bereiche");
+    await openPanel("Bereiche");
     await userEvent.click(
       await screen.findByRole("button", { name: /Z bearbeiten/ }),
     );
@@ -1631,29 +1871,6 @@ describe("SituationWorkspace", () => {
       await screen.findByRole("button", { name: /Gerätelink erzeugen/ }),
     );
     expect(onGenerateDeviceLink).toHaveBeenCalledWith("s1");
-  });
-
-  it("collapses and reopens the sidebar via the toggle button", async () => {
-    renderWorkspace();
-    await selectMainView("Lagekarte");
-    // Seitenleiste offen: der Tab-Reiter ist sichtbar.
-    expect(screen.getByRole("tab", { name: "Kartenzeichen" })).toBeVisible();
-
-    const collapse = screen.getByRole("button", {
-      name: "Seitenleiste einklappen",
-    });
-    expect(collapse).toHaveAttribute("aria-expanded", "true");
-    await userEvent.click(collapse);
-    // Eingeklappt: die Tabs sind weg, der Ausklapp-Button erscheint.
-    expect(screen.queryByRole("tab", { name: "Kartenzeichen" })).toBeNull();
-    expect(
-      screen.getByRole("button", { name: "Seitenleiste ausklappen" }),
-    ).toHaveAttribute("aria-expanded", "false");
-
-    await userEvent.click(
-      screen.getByRole("button", { name: "Seitenleiste ausklappen" }),
-    );
-    expect(screen.getByRole("tab", { name: "Kartenzeichen" })).toBeVisible();
   });
 
   it("disables the return-to-default button when no default view is set", async () => {

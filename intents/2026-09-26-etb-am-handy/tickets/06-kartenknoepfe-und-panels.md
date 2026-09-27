@@ -2,8 +2,8 @@
 solution:  02-SOLUTION.md
 satisfies: AC-6, AC-7, AC-8, AC-11, AC-15, AC-20, AC-21, AC-23, AC-24, AC-25
 after:     01-hauptansichten-mit-leiste, 02-kopfzeile-am-handy, 03-leiste-weicht-der-tastatur, 04-modus-band, 05-etb-zaehler
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -138,3 +138,148 @@ error overlay (02). Bar and main views (01).
 Non-goals from the solution: dragging the sheet or snapping it to stops;
 changing DeviceView/ViewLinkView beyond the zoom position (and the resulting
 button offset); improving the map tools themselves on the phone.
+
+## Record
+
+Command: `docker compose -f docker-compose.test.yml up -d && npm run check`
+(`tsc --noEmit`, `biome check`, `vitest run`). Result: green, 103 test files
+and 733 tests. One intermediate full run timed out on
+`LageansichtShell.test.tsx` "shows an orange connection-lost symbol …" and a
+second one on three slow `SituationWorkspace` tests (5 s). Both happened while
+the browser check was loading the machine. The files passed on their own, and
+the final run was fully green. This is the same flake 04 recorded.
+
+Criterion → test (workspace tests are in `src/map/SituationWorkspace.test.tsx`):
+
+- **AC-6, order, icons, names**: `src/map/MapControls.test.tsx` "lists the map
+  controls from top to bottom" (aria-labels in order). Browser check: each
+  button is 34×34 and has an icon.
+- **AC-6, zoom bottom right on all maps**: `src/map/leaflet-adapter.zoom.test.ts`
+  "places the zoom control bottom right on every map". The Geräte- and
+  Ansichtslink views use the same adapter.
+- **AC-6, open, switch and close; aria-pressed**: MapControls "marks the open
+  panel's control as pressed" and "reports the tapped panel control"; workspace
+  "switches and closes map panels via the controls and ✕".
+- **AC-6, the sheet's position and the column above it**: CSS on
+  `[data-panel-open]` (`situation-workspace.css`). Workspace "marks the Lagekarte
+  while a map panel is open" pins the attribute. Pixels come from the browser
+  check below.
+- **AC-7**: CSS (`.map-panel`, `.map-panel__content` `overflow: auto`, no drag
+  handle). Browser check below.
+- **AC-8**: the workspace block "closing the sheet on a phone" has one test per
+  trigger:
+  - Schnellauswahl armed
+  - Erweitert composition armed
+  - drawing a Bereich starts
+  - a Bereich is redrawn
+  - a Kartenzeichen is jumped to from the list
+  - a Bereich is jumped to from the list
+  - editing an image overlay starts
+  - a map action fails
+  
+  The guards have their own tests: "keeps it open when a Schnellauswahl symbol is
+  disarmed", "… when drawing is toggled off" and "keeps the right panel open on
+  the desktop". For each trigger and guard, a temporary mutation that removed it
+  made its test fail.
+- **AC-11**: browser check. The page `scrollWidth` was 360 in all of these
+  states: ETB, Lagekarte, all three sheets, open search, name popover, and every
+  modal (Kartenzeichen detail, Erweitert, Bereich editor, Ansichtslinks teilen,
+  set-default confirmation). Header, bar, sheet and sheet content had
+  `scrollWidth` equal to `clientWidth`.
+- **AC-15**: browser walk at both sizes. Everything was reachable:
+  - Header: Zurück/Einsätze, name, Teilen, status.
+  - ETB: add, correct, annul.
+  - Kartenzeichen: quick select, Erweitert, list, jump, edit.
+  - Bereiche: draw, list, jump, edit.
+  - Ebenen: KML file and URL sections. KML upload, visibility and remove worked.
+    KML reload was not exercised, because adding a KML by URL is refused for
+    localhost.
+  - Images: add, edit, replace, delete.
+  - Map: set and return to the default view, zoom, search, Impressum and
+    Datenschutz links.
+- **AC-20**: MapControls "saves the default view only after confirming" and
+  "does not save on Abbrechen". Workspace "saves the current map view as the
+  default after confirming" checks that the adapter's view reaches
+  `onSetDefault`. The ⋯ menu tests in `SituationMap.test.tsx` were removed.
+  "exposes the adapter's current view through its ref" pins the ref.
+- **AC-21**: CSS (`.map-search`). Browser check: 336 px = 360 − 24, and it
+  covers no button.
+- **AC-23**: browser check. The panel is 920–1280 (360 px) and the map is 1208 px
+  wide without it and 848 px with it.
+- **AC-24**: "keeps the open map panel when switching to the ETB and back".
+- **AC-25**: "opens no map panel at start". The browser check also found no panel
+  after a reload.
+- **Edge case, crossing 768 px**: "keeps the open map panel as the right panel
+  when the width crosses 768 px". The `matchMedia` stub's `matches` now follows
+  `fireChange`. After the crossing, arming keeps the panel (desktop form). The
+  test fails if the stub does not update. Browser check: 1280 → 767 became a
+  sheet, 768 became a side panel, and the panel stayed open.
+- **Edge case, jumping to a Kartenzeichen**: see AC-8.
+- **Edge case, modals stay modals**: the existing detail, area-editor and
+  Erweitert tests are green, and these modals render outside the panel.
+
+Browser check (plan step 11): run by a subagent with `run-einsatz` on the dev
+server at 360×640 and 1280×800, with a long operation name, on a throwaway
+Einsatz that was deleted afterwards. Screenshots are in `/tmp/einsatz06/`.
+- Phone: the column is at 270–480, the zoom at 493–557 and the attribution at
+  567–584.
+- Desktop: the column bottom is at 696, the zoom at 709–773 and the attribution
+  starts at 783.
+- Sheet: 312–584 of a map area of 40–584, so exactly half. The panel buttons end
+  8 px above its edge. Festlegen and Zurück are hidden.
+- Gerätelink view: the buttons end 13 px above the zoom.
+- Ansichtslink view: Zurück ends 13 px above the zoom.
+
+The check found one defect in this change: on the phone the map buttons covered
+the open search results. It is fixed by giving `.map-search` a higher z-index
+than the column. That is CSS only; jsdom cannot see stacking, so there is no
+test, and the check was not re-run after the fix.
+
+Review: two fresh-context `critique` rounds.
+- Round 1: no blockers. Three should-fix items, all fixed:
+  - Confirming before the map had loaded silently did nothing. It now shows „Die
+    Karte lädt noch …". Test: "does not save a default view before the map has
+    loaded", using `vi.doMock` on the dynamically imported adapter.
+  - A returned `{error}` or a thrown error from `onSetDefault` was swallowed. It
+    is now shown in the confirmation. Tests: MapControls "keeps the confirmation
+    open and shows the error when saving fails" and "shows a fallback when saving
+    throws".
+  - The 768 px test could not fail. It was reworked as described above.
+  
+  Nits fixed: the phone tests now stub `matchMedia` explicitly; sidebar/tab
+  wording is gone from comments and test names; the button shadow moved to CSS.
+- Round 2: no blockers. One should-fix, fixed: a failed placement or drawing
+  showed its error under the phone sheet. A map error now closes the sheet on the
+  phone (test above). Two comment nits fixed.
+
+Departures from the plan:
+- `MapControls` gets `onSetDefault: () => Promise<ActionResult>`. The workspace
+  reads the view through the map ref, so the component does not hold the ref.
+- The sheet also closes on a Bereich jump, a redraw and a failed map action.
+  AC-8 names only the Kartenzeichen jump and starting a drawing. The reason is
+  the same: the target or the error would lie under the sheet. A reviewer raised
+  this as a tradeoff for a person.
+- Plan step 2 (DeviceView/ViewLinkView offsets) is layout only: +88 px, so 16 →
+  104, 76 → 164, 136 → 224. It has no unit test and is pinned by the browser
+  check.
+- The map error overlay (owned by 02) moved from `bottom 16 / left 56 / right 72`
+  to `24 / 12 / 64`, because the zoom left the bottom-left corner.
+
+Left standing:
+- **Phone landscape (e.g. 640×360) not checked.** The map area there is about
+  264 px tall. The column needs about 314 px from the bottom, so it probably runs
+  into the search. The ACs and the plan's check sizes do not cover landscape.
+  Fixing it would need a layout decision (a compact column or a different
+  offset).
+- **Search results under an open sheet.** A long results list runs under the
+  phone sheet, for the same stacking reason as the map error. It was not changed.
+- **Two „Fertig" buttons during image editing** (from 04): still both there.
+  This is a decision for a person.
+- **Found by the browser check, not from this ticket:**
+  - At exactly 768 px the desktop rail fills the screen (Mantine's AppShell
+    breakpoint versus `visibleFrom="sm"`). Owned by 01 (the bar).
+  - The desktop header squeezes Teilen and the status between 768 and 900 px with
+    a long name. Owned by 02.
+  - A duplicate React key when the geocoder returns the same address twice.
+- **Focus after closing the sheet with ✕** is not moved back to a control.
+

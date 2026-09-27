@@ -241,8 +241,9 @@ export const leafletMapAdapterFactory: MapAdapterFactory = {
       [options.initialView.lat, options.initialView.lng],
       options.initialView.zoom,
     );
-    // Zoom nach unten links – oben links liegt die schwebende Suche.
-    map.zoomControl.setPosition("bottomleft");
+    // Zoom unten rechts über der Attribution – oben liegt die schwebende Suche,
+    // darüber die Spalte der Kartenknöpfe.
+    map.zoomControl.setPosition("bottomright");
 
     // Auf der Vollbild-Karte gibt es keinen Footer; Impressum und Datenschutz
     // stehen daher als Präfix in der Attributionsleiste (unten rechts, neben
@@ -257,7 +258,7 @@ export const leafletMapAdapterFactory: MapAdapterFactory = {
     }).addTo(map);
 
     // Leaflet vermisst den Container nur bei window-resize neu. Ändert sich die
-    // Container-Größe anderweitig (z. B. beim Ein-/Ausklappen der Seitenleiste),
+    // Container-Größe anderweitig (z. B. beim Öffnen des Kartenpanels),
     // bliebe sonst ein ungefüllter grauer Streifen – daher selbst beobachten.
     const resizeObserver =
       typeof ResizeObserver === "undefined"

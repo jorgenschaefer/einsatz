@@ -1,8 +1,8 @@
-/* Listenzeile in der Seitenleiste (Kartenzeichen, Bereich): dezentes Highlight beim Überfahren. */
-.sidebar-row {
+/* Listenzeile im Kartenpanel (Kartenzeichen, Bereich): dezentes Highlight beim Überfahren. */
+.panel-row {
   border-radius: var(--mantine-radius-sm);
 }
-.sidebar-row:hover {
+.panel-row:hover {
   background-color: var(--mantine-color-default-hover);
 }
 
@@ -36,5 +36,92 @@
   .etb-pane {
     max-width: 720px;
     padding-inline: 0;
+  }
+}
+
+/* Lagekarte mit Kartenpanel. Am Handy liegt das Panel als Blatt über der
+   unteren Hälfte der Karte (nicht ziehbar, der Inhalt scrollt); am Desktop steht
+   es 360 px breit rechts neben der Karte und verkleinert sie. Ein Container für
+   beide Formen, damit der Inhalt beim Überschreiten der Schwelle erhalten bleibt. */
+.map-view {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  position: relative;
+}
+
+.map-area {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  isolation: isolate;
+}
+
+.map-panel {
+  position: absolute;
+  inset: 50% 0 0 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  background: var(--mantine-color-body);
+  border-top: 1px solid var(--mantine-color-default-border);
+  box-shadow: var(--mantine-shadow-md);
+}
+
+.map-panel__content {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+@media (min-width: 48em) {
+  .map-panel {
+    position: static;
+    flex: none;
+    width: 360px;
+    border-top: none;
+    border-left: 1px solid var(--mantine-color-default-border);
+    box-shadow: none;
+  }
+}
+
+/* Suche oben auf der Karte: am Handy volle Breite abzüglich Rand. Liegt über
+   den Kartenknöpfen, damit offene Suchergebnisse nicht von ihnen verdeckt werden. */
+.map-search {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 1150;
+  width: calc(100% - 24px);
+}
+
+@media (min-width: 48em) {
+  .map-search {
+    width: 340px;
+    max-width: calc(100% - 24px);
+  }
+}
+
+/* Kartenknöpfe unten rechts, über Leaflets Zoom und der Attributionszeile und
+   an deren rechter Kante ausgerichtet. Ist am Handy das Blatt offen, sitzen die
+   Panel-Knöpfe direkt über dessen Kante; für die übrigen ist dort kein Platz. */
+.map-controls {
+  position: absolute;
+  right: 10px;
+  bottom: 104px;
+  z-index: 1100;
+}
+
+.map-controls button {
+  box-shadow: var(--mantine-shadow-md);
+}
+
+@media not all and (min-width: 48em) {
+  [data-panel-open] .map-controls {
+    bottom: calc(50% + 8px);
+  }
+  [data-panel-open] .map-controls__view {
+    display: none;
   }
 }

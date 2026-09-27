@@ -156,7 +156,7 @@ export function DeviceView({
       )}
       <ActionIcon
         pos="absolute"
-        bottom={136}
+        bottom={224}
         right={16}
         size="xl"
         radius="xl"
@@ -170,7 +170,7 @@ export function DeviceView({
       </ActionIcon>
       <ActionIcon
         pos="absolute"
-        bottom={76}
+        bottom={164}
         right={16}
         size="xl"
         radius="xl"
@@ -184,7 +184,7 @@ export function DeviceView({
       </ActionIcon>
       <Button
         pos="absolute"
-        bottom={16}
+        bottom={104}
         right={16}
         size="lg"
         variant="filled"

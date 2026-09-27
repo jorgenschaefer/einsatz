@@ -1,7 +1,13 @@
 "use client";
 
-import { ActionIcon, Box, Menu } from "@mantine/core";
-import { useEffect, useRef, useState } from "react";
+import { Box } from "@mantine/core";
+import {
+  type Ref,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react";
 import type { LatLng, MapAdapter, MapAdapterFactory } from "./adapter";
 import type { AreaGeometry, AreaShape } from "./area";
 import type { SymbolComposition } from "./composition";
@@ -46,13 +52,19 @@ export interface RenderedImageOverlay {
   visible: boolean;
 }
 
+/** Was die Karte ihrem Besitzer über ihre Ref preisgibt. */
+export interface SituationMapHandle {
+  /** Der aktuelle Ausschnitt, oder null, solange die Karte noch nicht steht. */
+  getView(): MapView | null;
+}
+
 export interface SituationMapProps {
+  ref?: Ref<SituationMapHandle>;
   operationId: string;
   operationDefaultView: MapView | null;
   tileUrl: string;
   attribution: string;
-  onSetDefault?: (view: MapView) => void;
-  /** Read-only (mobile Geräteansicht): keine Werkzeuge/Bearbeitung, kein Standard-Ausschnitt-Knopf. */
+  /** Read-only (mobile Geräteansicht): keine Werkzeuge/Bearbeitung. */
   readOnly?: boolean;
   symbols?: PlacedSymbol[];
   /** Die aktuell in der Schnellauswahl scharfgestellte Komposition (oder null). */
@@ -81,11 +93,11 @@ const EMPTY_KML: RenderedKmlOverlay[] = [];
 const EMPTY_IMAGES: RenderedImageOverlay[] = [];
 
 export function SituationMap({
+  ref,
   operationId,
   operationDefaultView,
   tileUrl,
   attribution,
-  onSetDefault,
   readOnly = false,
   symbols = EMPTY,
   armedComposition = null,
@@ -111,7 +123,10 @@ export function SituationMap({
   const onDrawCompleteRef = useRef(onDrawComplete);
   onDrawCompleteRef.current = onDrawComplete;
   const [ready, setReady] = useState(false);
-  const [saving, setSaving] = useState(false);
+
+  useImperativeHandle(ref, () => ({
+    getView: () => adapterRef.current?.getView() ?? null,
+  }));
 
   // Marker-Callbacks lesen jeweils die aktuellen Props, damit die Marker-Specs
   // beim Reconcile keine veralteten Closures tragen.
@@ -287,41 +302,5 @@ export function SituationMap({
     return () => adapter.cancelDrawing();
   }, [ready, drawShape]);
 
-  const handleSetDefault = async () => {
-    const adapter = adapterRef.current;
-    if (!adapter || !onSetDefault) return;
-    setSaving(true);
-    try {
-      await onSetDefault(adapter.getView());
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <Box pos="relative" h="100%" w="100%">
-      <Box ref={containerRef} h="100%" w="100%" />
-      {!readOnly && onSetDefault && (
-        <Box pos="absolute" top={12} right={12} style={{ zIndex: 1100 }}>
-          <Menu position="bottom-end" withinPortal>
-            <Menu.Target>
-              <ActionIcon
-                variant="default"
-                size="lg"
-                aria-label="Karten-Optionen"
-                disabled={!ready}
-              >
-                ⋯
-              </ActionIcon>
-            </Menu.Target>
-            <Menu.Dropdown>
-              <Menu.Item onClick={handleSetDefault} disabled={saving || !ready}>
-                Standard-Ausschnitt festlegen
-              </Menu.Item>
-            </Menu.Dropdown>
-          </Menu>
-        </Box>
-      )}
-    </Box>
-  );
+  return <Box ref={containerRef} h="100%" w="100%" />;
 }

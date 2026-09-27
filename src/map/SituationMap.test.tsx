@@ -1,13 +1,13 @@
-import userEvent from "@testing-library/user-event";
+import { createRef } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { act, render, screen, waitFor } from "@/test/render";
+import { act, render, waitFor } from "@/test/render";
 import type {
   CreateMapOptions,
   MapAdapterFactory,
   MarkerSpec,
 } from "./adapter";
 import { readLastView, writeLastView } from "./last-view-storage";
-import { SituationMap } from "./SituationMap";
+import { SituationMap, type SituationMapHandle } from "./SituationMap";
 import type { MapView } from "./view";
 
 function fakeFactory(currentView: MapView) {
@@ -50,7 +50,6 @@ function renderMap(
       operationDefaultView={dflt}
       tileUrl="https://tiles.example/{z}/{x}/{y}.png"
       attribution="© OpenStreetMap-Mitwirkende"
-      onSetDefault={vi.fn()}
       factory={own.factory}
       {...over}
     />,
@@ -88,23 +87,11 @@ describe("SituationMap", () => {
     expect(readLastView("op-x")).toEqual({ lat: 9, lng: 9, zoom: 9 });
   });
 
-  it("saves the current view as the default from the map menu", async () => {
-    const onSetDefault = vi.fn();
-    const { adapter } = renderMap({ onSetDefault });
-    await waitFor(() =>
-      expect(
-        screen.getByRole("button", { name: "Karten-Optionen" }),
-      ).toBeEnabled(),
-    );
-    await userEvent.click(
-      screen.getByRole("button", { name: "Karten-Optionen" }),
-    );
-    await userEvent.click(
-      await screen.findByRole("menuitem", {
-        name: /Standard-Ausschnitt festlegen/,
-      }),
-    );
-    expect(onSetDefault).toHaveBeenCalledWith(adapter.getView());
+  it("exposes the adapter's current view through its ref", async () => {
+    const mapRef = createRef<SituationMapHandle>();
+    const { captured } = renderMap({ ref: mapRef });
+    await waitFor(() => expect(captured.options).toBeDefined());
+    expect(mapRef.current?.getView()).toEqual({ lat: 5, lng: 6, zoom: 14 });
   });
 
   it("keeps the same map instance across a refresh that changes operationDefaultView identity", async () => {
@@ -131,7 +118,6 @@ describe("SituationMap", () => {
       operationId: "op-x",
       tileUrl: "t",
       attribution: "a",
-      onSetDefault: vi.fn(),
       factory,
     };
     const { rerender } = render(
@@ -153,14 +139,6 @@ describe("SituationMap", () => {
     expect(adapter.destroy).not.toHaveBeenCalled();
   });
 
-  it("offers no map menu in read-only mode", async () => {
-    const { captured } = renderMap({ readOnly: true });
-    await waitFor(() => expect(captured.options).toBeDefined());
-    expect(
-      screen.queryByRole("button", { name: "Karten-Optionen" }),
-    ).toBeNull();
-  });
-
   it("sets a marker for each Kartenzeichen and removes it when the symbol is gone", async () => {
     const { factory, adapter } = fakeFactory({ lat: 5, lng: 6, zoom: 14 });
     const props = {
@@ -168,7 +146,6 @@ describe("SituationMap", () => {
       operationDefaultView: dflt,
       tileUrl: "https://tiles.example/{z}/{x}/{y}.png",
       attribution: "© OpenStreetMap-Mitwirkende",
-      onSetDefault: vi.fn(),
       factory,
     };
     const { rerender } = render(
@@ -240,7 +217,6 @@ describe("SituationMap", () => {
       operationDefaultView: dflt,
       tileUrl: "t",
       attribution: "© OpenStreetMap",
-      onSetDefault: vi.fn(),
       factory,
     };
     const { rerender } = render(<SituationMap {...props} focusTarget={null} />);
@@ -275,7 +251,6 @@ describe("SituationMap", () => {
       operationDefaultView: dflt,
       tileUrl: "t",
       attribution: "© OpenStreetMap",
-      onSetDefault: vi.fn(),
       factory,
     };
     const { rerender } = render(<SituationMap {...props} areas={[area]} />);
@@ -319,7 +294,6 @@ describe("SituationMap", () => {
       operationDefaultView: dflt,
       tileUrl: "t",
       attribution: "© OpenStreetMap",
-      onSetDefault: vi.fn(),
       factory,
     };
     const overlay = { id: "k1", content: "<kml/>", visible: true };
@@ -383,7 +357,6 @@ describe("SituationMap", () => {
       operationDefaultView: dflt,
       tileUrl: "t",
       attribution: "© OpenStreetMap",
-      onSetDefault: vi.fn(),
       factory,
     };
     const { rerender } = render(
@@ -408,7 +381,6 @@ describe("SituationMap", () => {
       operationDefaultView: dflt,
       tileUrl: "t",
       attribution: "© OpenStreetMap",
-      onSetDefault: vi.fn(),
       factory,
     };
     const placement = {

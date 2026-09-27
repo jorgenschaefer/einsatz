@@ -7,23 +7,18 @@ import {
   Badge,
   Box,
   Button,
+  CloseButton,
   Group,
   Image,
   Modal,
   Stack,
-  Tabs,
   Text,
   UnstyledButton,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import {
-  IconChevronLeft,
-  IconChevronRight,
-  IconHome,
-  IconPencil,
-} from "@tabler/icons-react";
+import { IconPencil } from "@tabler/icons-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ActionResult } from "@/app/operations/[id]/action-result";
 import {
   type JournalEntryView,
@@ -58,6 +53,7 @@ import {
   KmlPanel,
 } from "./KmlPanel";
 import { type MainView, MainViewBar } from "./MainViewBar";
+import { MAP_PANEL_LABEL, MapControls, type MapPanel } from "./MapControls";
 import { ModeBand } from "./ModeBand";
 import { toPlacedSymbols } from "./placed-symbols";
 import { QuickSelectToolbar } from "./QuickSelectToolbar";
@@ -69,6 +65,7 @@ import {
   type RenderedImageOverlay,
   type RenderedKmlOverlay,
   SituationMap,
+  type SituationMapHandle,
 } from "./SituationMap";
 import { renderSymbolDataUrl } from "./tactical-symbol";
 import { countUnseenEntries } from "./unseen-entries";
@@ -184,9 +181,10 @@ export interface SituationWorkspaceProps {
   eventsHook?: (url: string, onChanged: () => void) => LiveConnection;
 }
 
-type TabId = "symbols" | "areas" | "layers";
+/** Ab dieser Breite gilt die Desktop-Form (Leiste links, Panel rechts). */
+const WIDE_QUERY = "(min-width: 48em)";
 
-const PANEL_STYLE = { flex: 1, minHeight: 0, overflow: "auto" as const };
+const isPhone = () => !window.matchMedia(WIDE_QUERY).matches;
 
 export function SituationWorkspace({
   operationId,
@@ -236,13 +234,14 @@ export function SituationWorkspace({
   const { connected } = eventsHook(`/operations/${operationId}/events`, () =>
     router.refresh(),
   );
-  const [tab, setTab] = useState<TabId>("symbols");
+  const [openPanel, setOpenPanel] = useState<MapPanel | null>(null);
+  const mapRef = useRef<SituationMapHandle>(null);
   const [mainView, setMainView] = useState<MainView | "default">("default");
   // Einmalig beim Mount die Startansicht nach Breite festlegen (kein Listener):
   // eine spätere Breitenänderung (Tablet drehen) soll die gewählte Hauptansicht
   // nicht mehr verändern.
   useEffect(() => {
-    setMainView(window.matchMedia("(min-width: 48em)").matches ? "map" : "etb");
+    setMainView(window.matchMedia(WIDE_QUERY).matches ? "map" : "etb");
   }, []);
   const latestEntryNumber = Math.max(
     0,
@@ -269,7 +268,6 @@ export function SituationWorkspace({
     reset: resetMode,
   } = useMapMode();
   const [advancedOpened, advanced] = useDisclosure(false);
-  const [sidebarOpen, sidebar] = useDisclosure(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [detailBusy, setDetailBusy] = useState(false);
@@ -303,10 +301,10 @@ export function SituationWorkspace({
   // JournalPanel sichtbar durch. Platzieren und Zeichnen haben kein Panel,
   // können aber sehr wohl scheitern (eine überlange Bezeichnung aus dem
   // Erweitert-Formular, eine entartete Geometrie), daher zeigen sie ihren
-  // `{error}` über den `mapError`-Kanal. Nur die strukturell stets gültigen
+  // `{error}` über den `mapError`-Kanal; „Standard-Ausschnitt festlegen" zeigt
+  // seinen in der Rückfrage (MapControls). Nur die strukturell stets gültigen
   // Interaktionen bleiben bewusst fire-and-forget: onMove (Drag auf gültige
-  // Koordinaten), onSetDefault (aktueller Ausschnitt) und onGenerateDeviceLink
-  // (nur eine Objekt-id).
+  // Koordinaten) und onGenerateDeviceLink (nur eine Objekt-id).
   const runDetail = async (op: () => Promise<ActionResult>) => {
     setDetailBusy(true);
     try {
@@ -399,9 +397,35 @@ export function SituationWorkspace({
   const editingImage =
     imageOverlays.find((o) => o.id === editingImageId) ?? null;
 
+  const togglePanel = (panel: MapPanel) =>
+    setOpenPanel((open) => (open === panel ? null : panel));
+  // Am Handy liegt das Blatt über der unteren Kartenhälfte; wer dort auf der
+  // Karte weiterarbeitet (platzieren, zeichnen, angesprungenes Ziel ansehen),
+  // braucht die Fläche. Am Desktop steht das Panel neben der Karte und bleibt.
+  const closeSheetOnPhone = () => {
+    if (isPhone()) setOpenPanel(null);
+  };
+  const armQuickSymbol = (quickId: string | null) => {
+    armQuick(quickId);
+    if (quickId) closeSheetOnPhone();
+  };
   const armAdvanced = (composition: SymbolComposition) => {
     armCustom(composition);
     advanced.close();
+    closeSheetOnPhone();
+  };
+  const toggleAreaDraw = (shape: AreaShape) => {
+    toggleDraw(shape);
+    if (drawShape !== shape) closeSheetOnPhone();
+  };
+  const jumpFromPanel = (lat: number, lng: number) => {
+    jumpTo(lat, lng);
+    closeSheetOnPhone();
+  };
+  const saveDefaultView = async (): Promise<ActionResult> => {
+    const view = mapRef.current?.getView();
+    if (!view) return { error: "Die Karte lädt noch. Bitte erneut versuchen." };
+    return onSetDefault(view);
   };
   // Karten-Interaktionen ohne Panel (Platzieren, Zeichnen) über einen
   // gemeinsamen Fehlerkanal: ein zurückgegebener {error} landet im mapError-
@@ -412,10 +436,15 @@ export function SituationWorkspace({
     setMapError(null);
     try {
       const { error } = await op();
-      if (error) setMapError(error);
+      if (error) showMapError(error);
     } catch {
-      setMapError("Aktion fehlgeschlagen. Bitte erneut versuchen.");
+      showMapError("Aktion fehlgeschlagen. Bitte erneut versuchen.");
     }
+  };
+  // Der Fehler steht unten auf der Karte; am Handy läge er sonst unter dem Blatt.
+  const showMapError = (error: string) => {
+    setMapError(error);
+    closeSheetOnPhone();
   };
 
   // Wie bei Bild: nach einer Platzierung den Modus beenden, sonst platziert
@@ -465,6 +494,7 @@ export function SituationWorkspace({
     if (!selectedArea) return;
     redraw(selectedArea.geometry.shape, selectedArea.id);
     setSelectedAreaId(null);
+    closeSheetOnPhone();
   };
 
   // Platzierungs-/Deckkraft-/Ersetzen-Änderungen speichern, ohne den
@@ -480,6 +510,7 @@ export function SituationWorkspace({
   const startEditImage = (id: string) => {
     setImageError(null);
     armImageEdit(id);
+    closeSheetOnPhone();
   };
   const endMode = () => {
     setImageError(null);
@@ -537,34 +568,20 @@ export function SituationWorkspace({
       connected={connected}
     >
       <Stack gap={0} h="100%" data-main-view={mainView}>
-        <Group
-          gap={0}
-          wrap="nowrap"
-          align="stretch"
+        <Box
+          className="map-view"
           data-view="map"
-          style={{
-            flex: 1,
-            minHeight: 0,
-            // Mantines eigene Klasse setzt display:flex; ein bloßes hidden-
-            // Attribut (UA-Stylesheet, niedrigste Priorität) würde das nicht
-            // schlagen. Inline gewinnt immer, unabhängig von Mantines CSS.
-            display: mainView === "etb" ? "none" : undefined,
-          }}
+          data-panel-open={openPanel ? "" : undefined}
+          // Inline, damit es jede Klasse schlägt (auch die Startansicht-Regel).
+          style={{ display: mainView === "etb" ? "none" : undefined }}
         >
-          <Box
-            style={{
-              flex: 1,
-              minWidth: 0,
-              position: "relative",
-              isolation: "isolate",
-            }}
-          >
+          <Box className="map-area">
             <SituationMap
+              ref={mapRef}
               operationId={operationId}
               operationDefaultView={operationDefaultView}
               tileUrl={tileUrl}
               attribution={attribution}
-              onSetDefault={onSetDefault}
               symbols={placed}
               armedComposition={armedComposition}
               onPlace={placeSymbolAt}
@@ -583,9 +600,9 @@ export function SituationWorkspace({
             {mapError && (
               <Box
                 pos="absolute"
-                bottom={16}
-                left={56}
-                right={72}
+                bottom={24}
+                left={12}
+                right={64}
                 style={{ zIndex: 1200 }}
               >
                 <Alert
@@ -600,16 +617,7 @@ export function SituationWorkspace({
                 </Alert>
               </Box>
             )}
-            <Box
-              pos="absolute"
-              top={12}
-              left={12}
-              style={{
-                zIndex: 1100,
-                width: 340,
-                maxWidth: "calc(100% - 24px)",
-              }}
-            >
+            <Box className="map-search">
               <Stack gap={8}>
                 <SearchBar
                   query={searchQuery}
@@ -642,80 +650,38 @@ export function SituationWorkspace({
                 )}
               </Stack>
             </Box>
-            <ActionIcon
-              variant="default"
-              size="lg"
-              pos="absolute"
-              top="50%"
-              right={12}
-              aria-label={
-                sidebarOpen
-                  ? "Seitenleiste einklappen"
-                  : "Seitenleiste ausklappen"
-              }
-              aria-expanded={sidebarOpen}
-              onClick={sidebar.toggle}
-              style={{ zIndex: 1100, transform: "translateY(-50%)" }}
-            >
-              {sidebarOpen ? (
-                <IconChevronRight size={18} />
-              ) : (
-                <IconChevronLeft size={18} />
-              )}
-            </ActionIcon>
-            <ActionIcon
-              variant="default"
-              size="lg"
-              pos="absolute"
-              bottom={16}
-              right={16}
-              aria-label="Zum Standard-Ausschnitt zurück"
-              disabled={!operationDefaultView}
-              onClick={returnToDefaultView}
-              style={{ zIndex: 1100, boxShadow: "var(--mantine-shadow-md)" }}
-            >
-              <IconHome size={18} />
-            </ActionIcon>
+            <MapControls
+              openPanel={openPanel}
+              onTogglePanel={togglePanel}
+              onSetDefault={saveDefaultView}
+              onReturnToDefault={returnToDefaultView}
+              canReturnToDefault={operationDefaultView !== null}
+            />
           </Box>
 
-          {sidebarOpen && (
+          {openPanel && (
             <Box
-              w={360}
-              style={{
-                borderLeft: "1px solid var(--mantine-color-default-border)",
-                display: "flex",
-                flexDirection: "column",
-                minHeight: 0,
-              }}
+              component="section"
+              aria-labelledby="map-panel-title"
+              className="map-panel"
             >
-              <Tabs
-                value={tab}
-                onChange={(value) => setTab((value as TabId) ?? "symbols")}
-                keepMounted={false}
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  height: "100%",
-                }}
-              >
-                <Tabs.List
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(3, 1fr)",
-                  }}
-                >
-                  <Tabs.Tab value="symbols">Kartenzeichen</Tabs.Tab>
-                  <Tabs.Tab value="areas">Bereiche</Tabs.Tab>
-                  <Tabs.Tab value="layers">Ebenen</Tabs.Tab>
-                </Tabs.List>
-
-                <Tabs.Panel value="symbols" p="sm" style={PANEL_STYLE}>
+              <Group justify="space-between" wrap="nowrap" px="sm" py={6}>
+                <Text id="map-panel-title" fw={600}>
+                  {MAP_PANEL_LABEL[openPanel]}
+                </Text>
+                <CloseButton
+                  aria-label="Schließen"
+                  onClick={() => setOpenPanel(null)}
+                />
+              </Group>
+              <Box className="map-panel__content" p="sm">
+                {openPanel === "symbols" && (
                   <Stack gap="sm">
                     <Group gap="xs" align="flex-start">
                       <QuickSelectToolbar
                         items={toolbarItems}
                         armedId={armedQuickId}
-                        onArm={armQuick}
+                        onArm={armQuickSymbol}
                       />
                       <Button size="xs" variant="light" onClick={advanced.open}>
                         Erweitert …
@@ -733,11 +699,11 @@ export function SituationWorkspace({
                             key={row.id}
                             gap="xs"
                             wrap="nowrap"
-                            className="sidebar-row"
+                            className="panel-row"
                           >
                             <UnstyledButton
                               p={6}
-                              onClick={() => jumpTo(row.lat, row.lng)}
+                              onClick={() => jumpFromPanel(row.lat, row.lng)}
                               style={{
                                 flex: 1,
                                 minWidth: 0,
@@ -777,9 +743,8 @@ export function SituationWorkspace({
                       </Stack>
                     )}
                   </Stack>
-                </Tabs.Panel>
-
-                <Tabs.Panel value="areas" p="sm" style={PANEL_STYLE}>
+                )}
+                {openPanel === "areas" && (
                   <Stack gap="sm">
                     <Group gap="xs">
                       {AREA_SHAPES.map(({ shape, label }) => (
@@ -788,7 +753,7 @@ export function SituationWorkspace({
                           size="xs"
                           variant={drawShape === shape ? "filled" : "default"}
                           aria-pressed={drawShape === shape}
-                          onClick={() => toggleDraw(shape)}
+                          onClick={() => toggleAreaDraw(shape)}
                         >
                           {label}
                         </Button>
@@ -806,13 +771,13 @@ export function SituationWorkspace({
                             key={area.id}
                             gap="xs"
                             wrap="nowrap"
-                            className="sidebar-row"
+                            className="panel-row"
                           >
                             <UnstyledButton
                               p={6}
                               onClick={() => {
                                 const center = areaCenter(area.geometry);
-                                jumpTo(center.lat, center.lng);
+                                jumpFromPanel(center.lat, center.lng);
                               }}
                               style={{
                                 flex: 1,
@@ -855,9 +820,8 @@ export function SituationWorkspace({
                       </Stack>
                     )}
                   </Stack>
-                </Tabs.Panel>
-
-                <Tabs.Panel value="layers" p="sm" style={PANEL_STYLE}>
+                )}
+                {openPanel === "layers" && (
                   <Stack>
                     <KmlPanel
                       overlays={kmlViews}
@@ -897,11 +861,11 @@ export function SituationWorkspace({
                       />
                     </Stack>
                   </Stack>
-                </Tabs.Panel>
-              </Tabs>
+                )}
+              </Box>
             </Box>
           )}
-        </Group>
+        </Box>
 
         <Box
           className="etb-pane"

@@ -128,7 +128,7 @@ export function ViewLinkView({
       )}
       <ActionIcon
         pos="absolute"
-        bottom={16}
+        bottom={104}
         right={16}
         size="xl"
         radius="xl"
