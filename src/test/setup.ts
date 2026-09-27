@@ -1,10 +1,6 @@
 import "@testing-library/jest-dom/vitest";
-import { cleanup, configure } from "@testing-library/react";
+import { cleanup } from "@testing-library/react";
 import { afterEach, vi } from "vitest";
-
-// Portale (Mantine Menu/Modal) können unter paralleler Last träger erscheinen;
-// der knappe 1-s-Default von findBy* flakte dann. Großzügiger asyncUtilTimeout.
-configure({ asyncUtilTimeout: 15000 });
 
 afterEach(() => {
   cleanup();

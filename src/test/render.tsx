@@ -25,7 +25,11 @@ const stubRouter: AppRouterInstance = {
 export function Providers({ children }: { children: ReactNode }) {
   return (
     <AppRouterContext.Provider value={stubRouter}>
-      <MantineProvider theme={theme}>{children}</MantineProvider>
+      {/* env="test": keine Transitions/Portale, und Popover blenden sich nicht
+          aus, weil jsdom alles mit 0×0 misst (sonst Flake unter Last). */}
+      <MantineProvider theme={theme} env="test">
+        {children}
+      </MantineProvider>
     </AppRouterContext.Provider>
   );
 }

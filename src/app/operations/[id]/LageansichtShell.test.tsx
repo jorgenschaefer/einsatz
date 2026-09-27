@@ -159,7 +159,7 @@ describe("LageansichtShell", () => {
       expect(
         within(dialog).getByText(CONNECTION_LOST_LABEL),
       ).toBeInTheDocument();
-      await userEvent.keyboard("{Escape}");
+      await userEvent.click(button);
       await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     }
   });
