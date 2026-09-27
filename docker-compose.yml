@@ -16,22 +16,5 @@ services:
       timeout: 5s
       retries: 10
 
-  app:
-    build: .
-    restart: unless-stopped
-    depends_on:
-      db:
-        condition: service_healthy
-    environment:
-      DATABASE_URL: postgres://einsatz:einsatz@db:5432/einsatz
-      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ADMIN_PASSWORD is required}
-      MAPTILER_API_KEY: ${MAPTILER_API_KEY:-}
-    ports:
-      - '127.0.0.1:3000:3000'
-    volumes:
-      - uploads:/data/uploads
-
 volumes:
   db-data:
-  uploads:
