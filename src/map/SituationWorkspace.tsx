@@ -147,7 +147,9 @@ export interface SituationWorkspaceProps {
   onGeocode: (query: string) => Promise<GeoHit[]>;
   geocoderAttribution: string;
   areas: RenderedArea[];
-  onCreateArea: (geometry: AreaGeometry) => Promise<ActionResult>;
+  onCreateArea: (
+    geometry: AreaGeometry,
+  ) => Promise<ActionResult & { id?: string }>;
   onUpdateAreaStyle: (id: string, style: AreaStyle) => Promise<ActionResult>;
   onUpdateAreaGeometry: (
     id: string,
@@ -432,13 +434,17 @@ export function SituationWorkspace({
   // Alert, eine geworfene Ausnahme (kein ValidationError – z. B. DB-/Netzfehler,
   // die operationAction weiterwirft) im gleichen Kanal mit Fallback-Text.
   // Analog zu runDetail/runArea, nur ohne eigenes Panel.
-  const runMapAction = async (op: () => Promise<ActionResult>) => {
+  const runMapAction = async <R extends ActionResult>(
+    op: () => Promise<R>,
+  ): Promise<R | undefined> => {
     setMapError(null);
     try {
-      const { error } = await op();
-      if (error) showMapError(error);
+      const result = await op();
+      if (result.error) showMapError(result.error);
+      return result;
     } catch {
       showMapError("Aktion fehlgeschlagen. Bitte erneut versuchen.");
+      return undefined;
     }
   };
   // Der Fehler steht unten auf der Karte; am Handy läge er sonst unter dem Blatt.
@@ -468,11 +474,16 @@ export function SituationWorkspace({
     // hält die id vorher fest, weil resetMode redrawAreaId leert.
     const redrawId = redrawAreaId;
     resetMode();
-    await runMapAction(() =>
-      redrawId
-        ? onUpdateAreaGeometry(redrawId, geometry)
-        : onCreateArea(geometry),
-    );
+    if (redrawId) {
+      await runMapAction(() => onUpdateAreaGeometry(redrawId, geometry));
+      return;
+    }
+    const created = await runMapAction(() => onCreateArea(geometry));
+    // A new circle opens its editor for the radius. The area arrives with the
+    // next refresh; the Modal opens once `areas` contains it.
+    if (created?.id && geometry.shape === "circle") {
+      setSelectedAreaId(created.id);
+    }
   };
   const runArea = async (op: () => Promise<ActionResult>) => {
     setAreaBusy(true);
@@ -511,6 +522,7 @@ export function SituationWorkspace({
     if (!selectedArea) return;
     redraw(selectedArea.geometry.shape, selectedArea.id);
     setSelectedAreaId(null);
+    setAreaError(null);
     closeSheetOnPhone();
   };
 
@@ -913,6 +925,7 @@ export function SituationWorkspace({
         >
           {selectedArea && (
             <AreaEditor
+              key={selectedArea.id}
               initial={{
                 color: selectedArea.color,
                 opacity: selectedArea.opacity,

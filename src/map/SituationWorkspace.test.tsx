@@ -18,6 +18,7 @@ import type {
   MapAdapterFactory,
   MarkerSpec,
 } from "./adapter";
+import type { AreaGeometry } from "./area";
 import type { ImagePlacement } from "./image-overlay";
 import { QUICK_SELECT } from "./quick-select";
 import {
@@ -1378,6 +1379,218 @@ describe("SituationWorkspace", () => {
         "a1",
         expect.objectContaining({ radius: 250 }),
       );
+    });
+  });
+
+  describe("opening the area editor after drawing", () => {
+    const CIRCLE = {
+      shape: "circle" as const,
+      center: { lat: 53.5, lng: 9.9 },
+      radius: 250,
+    };
+    const POLYGON = {
+      shape: "polygon" as const,
+      points: [
+        { lat: 1, lng: 1 },
+        { lat: 1, lng: 2 },
+        { lat: 2, lng: 2 },
+      ],
+    };
+    const LINE = {
+      shape: "line" as const,
+      points: [
+        { lat: 1, lng: 1 },
+        { lat: 1, lng: 2 },
+      ],
+    };
+
+    const draw = async (
+      adapter: ReturnType<typeof buildProps>["adapter"],
+      shapeLabel: string,
+      geometry: AreaGeometry,
+    ) => {
+      await openPanel("Bereiche");
+      await userEvent.click(screen.getByRole("button", { name: shapeLabel }));
+      await waitFor(() => expect(adapter.startDrawing).toHaveBeenCalled());
+      await act(async () => {
+        (adapter.startDrawing.mock.calls.at(-1)![1] as (g: unknown) => void)(
+          geometry,
+        );
+      });
+    };
+    const arrive = (
+      rerender: (ui: React.ReactElement) => void,
+      props: SituationWorkspaceProps,
+      geometry: AreaGeometry,
+    ) =>
+      rerender(
+        <SituationWorkspace
+          {...props}
+          areas={[{ ...AREA, id: "a9", label: "", geometry }]}
+        />,
+      );
+    const editor = () => screen.queryByRole("dialog", { name: "Bereich" });
+
+    it("opens the editor for a newly drawn circle once it arrives", async () => {
+      const { adapter, props } = buildProps({
+        onCreateArea: vi.fn(async () => ({ id: "a9" })),
+      });
+      const { rerender } = render(<SituationWorkspace {...props} />);
+      await draw(adapter, "Kreis", CIRCLE);
+      expect(editor()).not.toBeInTheDocument();
+
+      arrive(rerender, props, CIRCLE);
+
+      expect(
+        await screen.findByRole("dialog", { name: "Bereich" }),
+      ).toBeInTheDocument();
+      expect(screen.getByLabelText(/Radius/)).toHaveValue("250 m");
+    });
+
+    it.each([
+      ["Polygon", POLYGON],
+      ["Linie", LINE],
+    ] as const)("does not open the editor after drawing a %s", async (label, geometry) => {
+      const { adapter, props } = buildProps({
+        onCreateArea: vi.fn(async () => ({ id: "a9" })),
+      });
+      const { rerender } = render(<SituationWorkspace {...props} />);
+      await draw(adapter, label, geometry);
+
+      arrive(rerender, props, geometry);
+
+      await act(async () => {});
+      expect(editor()).not.toBeInTheDocument();
+    });
+
+    it("does not open the editor after redrawing a circle", async () => {
+      const { adapter, props } = buildProps({ areas: [AREA] });
+      const { rerender } = render(<SituationWorkspace {...props} />);
+      await openPanel("Bereiche");
+      await userEvent.click(
+        await screen.findByRole("button", { name: /Deich bearbeiten/ }),
+      );
+      await userEvent.click(
+        await screen.findByRole("button", { name: /Form neu zeichnen/ }),
+      );
+      await waitFor(() => expect(adapter.startDrawing).toHaveBeenCalled());
+      await act(async () => {
+        (adapter.startDrawing.mock.calls.at(-1)![1] as (g: unknown) => void)(
+          CIRCLE,
+        );
+      });
+
+      rerender(
+        <SituationWorkspace
+          {...props}
+          areas={[{ ...AREA, geometry: CIRCLE }]}
+        />,
+      );
+
+      await act(async () => {});
+      expect(editor()).not.toBeInTheDocument();
+    });
+
+    it("shows the new circle, not the area opened while it was being created", async () => {
+      let created: (r: { id: string }) => void = () => {};
+      const { adapter, props } = buildProps({
+        areas: [AREA],
+        onCreateArea: vi.fn(
+          () =>
+            new Promise<{ id: string }>((resolve) => {
+              created = resolve;
+            }),
+        ),
+      });
+      const { rerender } = render(<SituationWorkspace {...props} />);
+      await draw(adapter, "Kreis", { ...CIRCLE, radius: 250 });
+      await openPanel("Bereiche");
+      await userEvent.click(
+        await screen.findByRole("button", { name: /Deich bearbeiten/ }),
+      );
+      expect(await screen.findByLabelText(/Beschriftung/)).toHaveValue("Deich");
+
+      rerender(
+        <SituationWorkspace
+          {...props}
+          areas={[AREA, { ...AREA, id: "a9", label: "", geometry: CIRCLE }]}
+        />,
+      );
+      await act(async () => created({ id: "a9" }));
+
+      await waitFor(() =>
+        expect(screen.getByLabelText(/Beschriftung/)).toHaveValue(""),
+      );
+      expect(screen.getByLabelText(/Radius/)).toHaveValue("250 m");
+    });
+
+    it("opens the editor for a new circle without an earlier area's save error", async () => {
+      const { adapter, props } = buildProps({
+        areas: [AREA],
+        onUpdateAreaStyle: vi.fn(async () => ({ error: "Stil ungültig." })),
+        onCreateArea: vi.fn(async () => ({ id: "a9" })),
+      });
+      const { rerender } = render(<SituationWorkspace {...props} />);
+      await openPanel("Bereiche");
+      await userEvent.click(
+        await screen.findByRole("button", { name: /Deich bearbeiten/ }),
+      );
+      await userEvent.click(screen.getByRole("button", { name: "Speichern" }));
+      expect(await screen.findByText("Stil ungültig.")).toBeInTheDocument();
+      await userEvent.click(
+        screen.getByRole("button", { name: /Form neu zeichnen/ }),
+      );
+      await waitFor(() => expect(adapter.startDrawing).toHaveBeenCalled());
+      await act(async () => {
+        (adapter.startDrawing.mock.calls.at(-1)![1] as (g: unknown) => void)(
+          CIRCLE,
+        );
+      });
+
+      await draw(adapter, "Kreis", CIRCLE);
+      rerender(
+        <SituationWorkspace
+          {...props}
+          areas={[AREA, { ...AREA, id: "a9", label: "", geometry: CIRCLE }]}
+        />,
+      );
+
+      expect(
+        await screen.findByRole("dialog", { name: "Bereich" }),
+      ).toBeInTheDocument();
+      expect(screen.queryByText("Stil ungültig.")).not.toBeInTheDocument();
+    });
+
+    it("does not open the editor when creating fails", async () => {
+      const { adapter, props } = buildProps({
+        onCreateArea: vi.fn(async () => ({
+          error: "Der Radius muss größer als 0 sein.",
+        })),
+      });
+      const { rerender } = render(<SituationWorkspace {...props} />);
+      await draw(adapter, "Kreis", { ...CIRCLE, radius: 0 });
+      arrive(rerender, props, CIRCLE);
+
+      expect(
+        await screen.findByText("Der Radius muss größer als 0 sein."),
+      ).toBeInTheDocument();
+      expect(editor()).not.toBeInTheDocument();
+    });
+
+    it("does not open the editor when creating throws", async () => {
+      const { adapter, props } = buildProps({
+        onCreateArea: vi.fn(async () => {
+          throw new Error("boom");
+        }),
+      });
+      const { rerender } = render(<SituationWorkspace {...props} />);
+      await draw(adapter, "Kreis", CIRCLE);
+      arrive(rerender, props, CIRCLE);
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        /fehlgeschlagen/i,
+      );
+      expect(editor()).not.toBeInTheDocument();
     });
   });
 

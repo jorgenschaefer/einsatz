@@ -2,8 +2,8 @@
 solution:  02-SOLUTION.md
 satisfies: AC-15, AC-22
 after:     01-radius-im-editor
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -26,3 +26,23 @@ After drawing a new circle, the Bereich-Editor opens for exactly that circle; th
 
 ## Not here
 the radius field itself (01); an additional crosshair creation path (ruled out unless touch drawing fails – then it is a new intent, not this slice); rounding (02).
+
+## Record
+Criteria → tests (`src/map/SituationWorkspace.test.tsx` › "opening the area editor after drawing" = SW; `src/app/operations/[id]/area-actions.test.ts` = AA):
+- **AC-15** AA "returns the id of the created area", AA "returns no id on a ValidationError"; SW "opens the editor for a newly drawn circle once it arrives" (dialog „Bereich" with Radius „250 m"), SW "does not open the editor after drawing a Polygon / Linie" (it.each), SW "does not open the editor after redrawing a circle", SW "shows the new circle, not the area opened while it was being created".
+- Owned edge cases: SW "does not open the editor when creating fails" (radius 0 rejected, error shown, area re-rendered, no dialog), SW "… when creating throws" (fallback alert, no dialog).
+- **AC-22** Manual check (plan step 3), `run-einsatz` Playwright driver patched to a touch phone context (390×844, `hasTouch`, `isMobile`): editor opened from the Bereiche list by tapping the pencil, radius typed (1500), Speichern tapped, value stored (survives reload); after drawing a circle by touch the editor opened by itself, radius typed (300), saved, reopened showing „300 m". Drawing a Polygon opened no editor. No console errors.
+  - **Touch drawing (open concern):** a circle can be created by touch with two taps (centre, then edge). A touch drag does *not* draw – it pans the map. Geoman's hint texts are English („Click to finish circle").
+
+Command: `npm run check` — green (tsc, biome, 776/776 vitest).
+
+Departures from the plan:
+- `runMapAction` became generic over the result type (`<R extends ActionResult>`) so `handleDrawComplete` sees `id`; the redraw path now returns early instead of sharing one `runMapAction` call.
+- Beyond the plan, from review: `AreaEditor` is keyed by area id (round-2 blocker: when the create result arrived while another area's editor was open and the new area was already in `areas`, the editor switched to the new circle but kept the old area's colour/label/radius-at-open, so Speichern would write them onto the new circle). `startRedraw` now clears `areaError` (round-1 nit: an earlier save error showed in the new circle's editor).
+- The four negative SW tests passed on first run (guards, not red steps); each was checked to fail against a mutant (dropping the circle check fails Polygon/Linie; ignoring the result fails fails/throws).
+
+Left standing:
+- Review round 2 nit, not fixed: `areaError` can still survive when the open area is deleted by someone else (Modal closes without `onClose`); the next editor would show it. Pre-existing route, outside this ticket's flow.
+- Review round 2 nit, not fixed: `ActionResult & { id?: string }` is written twice (area-actions.ts, SituationWorkspace.tsx props). Kept inline; one name for one use-pair did not seem worth a new export.
+- Manual-check observations, not investigated: the Modal's „Schließen" button did not respond to a Playwright tap (Escape worked); right after the edge tap, the drawn circle and modal appeared only ~0.5–1 s later (dev-mode rendering). The Bereiche list does not show the radius (not asked for).
+- The first full `npm run check` reported an unhandled Mantine transition-timer error from untouched `src/map/KmlPanel.test.tsx` while a dev server and browser ran in parallel; it passes alone and both later full runs were clean.

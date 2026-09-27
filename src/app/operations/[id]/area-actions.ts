@@ -24,11 +24,17 @@ const DEFAULT_AREA_STYLE: AreaStyle = {
 export async function createAreaAction(
   operationId: string,
   geometry: AreaGeometry,
-): Promise<ActionResult> {
-  return operationAction(async (db) => {
-    await createArea(db, { operationId, geometry, ...DEFAULT_AREA_STYLE });
+): Promise<ActionResult & { id?: string }> {
+  let id: string | undefined;
+  const result = await operationAction(async (db) => {
+    ({ id } = await createArea(db, {
+      operationId,
+      geometry,
+      ...DEFAULT_AREA_STYLE,
+    }));
     return operationId;
   });
+  return { ...result, id };
 }
 
 export async function updateAreaStyleAction(
