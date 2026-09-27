@@ -2,14 +2,41 @@ import { fileURLToPath } from "node:url";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
 
+/** .ts-Tests, die trotzdem ein DOM brauchen (Browser-Hooks, Leaflet, Storage). */
+const browserTestsInTs = [
+  "src/map/use*.test.ts",
+  "src/map/leaflet-adapter.*.test.ts",
+  "src/map/last-view-storage.test.ts",
+];
+
 export default defineConfig({
   plugins: [react()],
   test: {
-    environment: "jsdom",
     globals: true,
     globalSetup: ["./src/test/db-templates.ts"],
-    setupFiles: ["./src/test/setup.ts"],
-    include: ["src/**/*.test.{ts,tsx}"],
+    // jsdom kostet ~3 s Aufbau je Testdatei; nur Tests, die ein DOM brauchen
+    // (Komponenten, Browser-Hooks, Leaflet), bekommen es. Alles andere läuft
+    // unter Node.
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: "dom",
+          environment: "jsdom",
+          setupFiles: ["./src/test/setup.ts"],
+          include: ["src/**/*.test.tsx", ...browserTestsInTs],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: "node",
+          environment: "node",
+          include: ["src/**/*.test.ts"],
+          exclude: browserTestsInTs,
+        },
+      },
+    ],
     // PGlite (In-Process-DB) initialisiert je Test frisch; unter Last/CI kann das
     // die knappen 5 s überschreiten. Großzügiger Timeout hält die DB-Tests stabil.
     testTimeout: 30_000,
