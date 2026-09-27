@@ -58,6 +58,7 @@ import {
   KmlPanel,
 } from "./KmlPanel";
 import { type MainView, MainViewBar } from "./MainViewBar";
+import { ModeBand } from "./ModeBand";
 import { toPlacedSymbols } from "./placed-symbols";
 import { QuickSelectToolbar } from "./QuickSelectToolbar";
 import { QUICK_SELECT } from "./quick-select";
@@ -465,9 +466,16 @@ export function SituationWorkspace({
     setImageError(null);
     armImageEdit(id);
   };
-  const stopEditImage = () => {
+  const endMode = () => {
     setImageError(null);
     resetMode();
+  };
+  // Ein Wechsel der Hauptansicht beendet jeden Karten-Modus, sonst platziert
+  // ein späterer Tap auf die wieder gezeigte Karte unerwartet ein Zeichen.
+  const switchMainView = (view: MainView) => {
+    if (view === mainView) return;
+    setMainView(view);
+    endMode();
   };
   const saveImagePlacement = (id: string, placement: ImagePlacement) =>
     persistImage(() => onUpdateImagePlacement(id, placement));
@@ -490,7 +498,7 @@ export function SituationWorkspace({
     try {
       const result = await onDeleteImage(editingImageId);
       if (result.error) setImageError(result.error);
-      else stopEditImage();
+      else endMode();
     } finally {
       setImageBusy(false);
     }
@@ -503,7 +511,9 @@ export function SituationWorkspace({
       viewLinks={viewLinks}
       onCreateViewLink={onCreateViewLink}
       onDeleteViewLink={onDeleteViewLink}
-      navigation={<MainViewBar activeView={mainView} onSelect={setMainView} />}
+      navigation={
+        <MainViewBar activeView={mainView} onSelect={switchMainView} />
+      }
       connected={connected}
     >
       <Stack gap={0} h="100%" data-main-view={mainView}>
@@ -580,14 +590,37 @@ export function SituationWorkspace({
                 maxWidth: "calc(100% - 24px)",
               }}
             >
-              <SearchBar
-                query={searchQuery}
-                onQueryChange={setSearchQuery}
-                objectResults={objectResults}
-                addressResults={addressResults}
-                attribution={geocoderAttribution}
-                onJump={jumpTo}
-              />
+              <Stack gap={8}>
+                <SearchBar
+                  query={searchQuery}
+                  onQueryChange={setSearchQuery}
+                  objectResults={objectResults}
+                  addressResults={addressResults}
+                  attribution={geocoderAttribution}
+                  onJump={jumpTo}
+                />
+                {armedComposition && (
+                  <ModeBand
+                    label="Kartenzeichen platzieren"
+                    actionLabel="Abbrechen"
+                    onAction={endMode}
+                  />
+                )}
+                {drawShape && (
+                  <ModeBand
+                    label="Bereich zeichnen"
+                    actionLabel="Abbrechen"
+                    onAction={endMode}
+                  />
+                )}
+                {editingImageId && (
+                  <ModeBand
+                    label="Bild-Overlay bearbeiten"
+                    actionLabel="Fertig"
+                    onAction={endMode}
+                  />
+                )}
+              </Stack>
             </Box>
             <ActionIcon
               variant="default"
@@ -835,7 +868,7 @@ export function SituationWorkspace({
                               onOpacityChange={changeImageOpacity}
                               onReplace={replaceImage}
                               onDelete={deleteImage}
-                              onDone={stopEditImage}
+                              onDone={endMode}
                               busy={imageBusy}
                               error={imageError}
                             />

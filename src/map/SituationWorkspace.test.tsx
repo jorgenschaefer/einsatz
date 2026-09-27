@@ -163,6 +163,16 @@ const openTab = async (name: RegExp | string) => {
   await userEvent.click(screen.getByRole("tab", { name }));
 };
 
+const modeBand = (label: string) =>
+  screen.getByRole("toolbar", { name: label });
+
+const startEditingImage = async () => {
+  await openTab("Ebenen");
+  await userEvent.click(
+    await screen.findByRole("button", { name: "Bearbeiten" }),
+  );
+};
+
 describe("SituationWorkspace", () => {
   it("renders the operation name and Teilen in the header", () => {
     renderWorkspace({ operationName: "Cyclassics 2026" });
@@ -883,6 +893,102 @@ describe("SituationWorkspace", () => {
     await waitFor(() => expect(adapter.cancelDrawing).toHaveBeenCalled());
   });
 
+  it("shows the Kartenzeichen band while a Schnellauswahl symbol is armed and cancels it", async () => {
+    renderWorkspace();
+    await openTab("Kartenzeichen");
+    const ktw = screen.getByRole("button", { name: /KTW/ });
+    await userEvent.click(ktw);
+    await userEvent.click(
+      within(modeBand("Kartenzeichen platzieren")).getByRole("button", {
+        name: "Abbrechen",
+      }),
+    );
+    expect(ktw).toHaveAttribute("aria-pressed", "false");
+    expect(screen.queryByRole("toolbar")).toBeNull();
+  });
+
+  it("shows the Kartenzeichen band while an Erweitert composition is armed", async () => {
+    renderWorkspace();
+    await openTab("Kartenzeichen");
+    await userEvent.click(screen.getByRole("button", { name: "Erweitert …" }));
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Platzieren" }),
+    );
+    expect(modeBand("Kartenzeichen platzieren")).toBeInTheDocument();
+  });
+
+  it("shows the Bereich band while drawing and cancels the drawing", async () => {
+    const { adapter } = renderWorkspace();
+    await openTab("Bereiche");
+    const polygon = screen.getByRole("button", { name: "Polygon" });
+    await userEvent.click(polygon);
+    await waitFor(() => expect(adapter.startDrawing).toHaveBeenCalled());
+    await userEvent.click(
+      within(modeBand("Bereich zeichnen")).getByRole("button", {
+        name: "Abbrechen",
+      }),
+    );
+    await waitFor(() => expect(adapter.cancelDrawing).toHaveBeenCalled());
+    expect(polygon).toHaveAttribute("aria-pressed", "false");
+    expect(screen.queryByRole("toolbar")).toBeNull();
+  });
+
+  it("cancels an armed symbol when switching to the ETB", async () => {
+    const onPlace = vi.fn(async () => ({}));
+    const { captured } = renderWorkspace({ onPlace });
+    await openTab("Kartenzeichen");
+    const ktw = screen.getByRole("button", { name: /KTW/ });
+    await userEvent.click(ktw);
+    await selectMainView("ETB");
+    await selectMainView("Lagekarte");
+    expect(screen.queryByRole("toolbar")).toBeNull();
+    expect(ktw).toHaveAttribute("aria-pressed", "false");
+    await act(async () => {
+      captured.options!.onMapClick!({ lat: 50, lng: 8 });
+    });
+    expect(onPlace).not.toHaveBeenCalled();
+  });
+
+  it("cancels drawing when switching to the ETB", async () => {
+    const { adapter } = renderWorkspace();
+    await openTab("Bereiche");
+    await userEvent.click(screen.getByRole("button", { name: "Polygon" }));
+    await waitFor(() => expect(adapter.startDrawing).toHaveBeenCalled());
+    await selectMainView("ETB");
+    await waitFor(() => expect(adapter.cancelDrawing).toHaveBeenCalled());
+    await selectMainView("Lagekarte");
+    expect(screen.queryByRole("toolbar")).toBeNull();
+  });
+
+  it("keeps an armed symbol when the active main view is tapped again", async () => {
+    renderWorkspace();
+    await openTab("Kartenzeichen");
+    await userEvent.click(screen.getByRole("button", { name: /KTW/ }));
+    await selectMainView("Lagekarte");
+    expect(modeBand("Kartenzeichen platzieren")).toBeInTheDocument();
+  });
+
+  it("keeps an armed symbol when the width crosses 768 px", async () => {
+    const { fireChange } = stubMatchMedia(true);
+    try {
+      renderWorkspace();
+      await openTab("Kartenzeichen");
+      await userEvent.click(screen.getByRole("button", { name: /KTW/ }));
+      act(() => {
+        fireChange(false);
+      });
+      expect(modeBand("Kartenzeichen platzieren")).toBeInTheDocument();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("shows no mode band while nothing is armed", async () => {
+    renderWorkspace();
+    await selectMainView("Lagekarte");
+    expect(screen.queryByRole("toolbar")).toBeNull();
+  });
+
   it("renders a marker for each provided Kartenzeichen", async () => {
     const { adapter } = renderWorkspace({
       symbols: [
@@ -1222,7 +1328,11 @@ describe("SituationWorkspace", () => {
         expect.any(Function),
       ),
     );
-    expect(screen.getByRole("button", { name: "Fertig" })).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("tabpanel")).getByRole("button", {
+        name: "Fertig",
+      }),
+    ).toBeInTheDocument();
   });
 
   it("saves the placement from a map gesture without leaving edit mode", async () => {
@@ -1245,7 +1355,11 @@ describe("SituationWorkspace", () => {
     await act(async () => onChange(moved));
     expect(onUpdateImagePlacement).toHaveBeenCalledWith("i1", moved);
     // Bearbeiten bleibt aktiv.
-    expect(screen.getByRole("button", { name: "Fertig" })).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("tabpanel")).getByRole("button", {
+        name: "Fertig",
+      }),
+    ).toBeInTheDocument();
   });
 
   it("changes the opacity from the inline controls", async () => {
@@ -1292,10 +1406,53 @@ describe("SituationWorkspace", () => {
     await waitFor(() =>
       expect(adapter.startImageOverlayEdit).toHaveBeenCalled(),
     );
-    await userEvent.click(screen.getByRole("button", { name: "Fertig" }));
+    await userEvent.click(
+      within(screen.getByRole("tabpanel")).getByRole("button", {
+        name: "Fertig",
+      }),
+    );
     await waitFor(() =>
       expect(adapter.stopImageOverlayEdit).toHaveBeenCalled(),
     );
+  });
+
+  it("shows the Bild-Overlay band while editing and finishes editing from it", async () => {
+    const { adapter } = renderWorkspace({ imageOverlays: [anImageOverlay] });
+    await startEditingImage();
+    await userEvent.click(
+      within(modeBand("Bild-Overlay bearbeiten")).getByRole("button", {
+        name: "Fertig",
+      }),
+    );
+    await waitFor(() =>
+      expect(adapter.stopImageOverlayEdit).toHaveBeenCalled(),
+    );
+    expect(screen.queryByRole("slider", { name: "Deckkraft" })).toBeNull();
+    expect(screen.queryByRole("toolbar")).toBeNull();
+  });
+
+  it("keeps editing the image overlay when the Ebenen tab is opened", async () => {
+    const { adapter } = renderWorkspace({ imageOverlays: [anImageOverlay] });
+    await startEditingImage();
+    await userEvent.click(screen.getByRole("tab", { name: "Kartenzeichen" }));
+    await userEvent.click(screen.getByRole("tab", { name: "Ebenen" }));
+    expect(modeBand("Bild-Overlay bearbeiten")).toBeInTheDocument();
+    expect(
+      await screen.findByRole("slider", { name: "Deckkraft" }),
+    ).toBeInTheDocument();
+    expect(adapter.stopImageOverlayEdit).not.toHaveBeenCalled();
+  });
+
+  it("ends image editing when switching the main view", async () => {
+    const { adapter } = renderWorkspace({ imageOverlays: [anImageOverlay] });
+    await startEditingImage();
+    await selectMainView("ETB");
+    await waitFor(() =>
+      expect(adapter.stopImageOverlayEdit).toHaveBeenCalled(),
+    );
+    await selectMainView("Lagekarte");
+    expect(screen.queryByRole("toolbar")).toBeNull();
+    expect(screen.queryByRole("slider", { name: "Deckkraft" })).toBeNull();
   });
 
   it("does not place a Kartenzeichen when the map is clicked while editing an overlay", async () => {
