@@ -19,6 +19,7 @@ import { IconWifiOff } from "@tabler/icons-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { BackLink } from "@/app/BackLink";
+import { useKeyboardOpen } from "@/map/useKeyboardOpen";
 import { type ViewLinkItem, ViewLinkPanel } from "@/map/ViewLinkPanel";
 import type { OperationStatus } from "@/server/operations/operations";
 
@@ -71,6 +72,7 @@ export function LageansichtShell({
   children: ReactNode;
 }) {
   const [shareOpened, share] = useDisclosure(false);
+  const keyboardOpen = useKeyboardOpen();
   const statusBadge = (
     <Badge color={status === "active" ? "green" : "gray"}>
       {status === "active" ? "aktiv" : "abgeschlossen"}
@@ -80,7 +82,13 @@ export function LageansichtShell({
   return (
     <AppShell
       header={{ height: HEADER_HEIGHT }}
-      footer={{ height: { base: FOOTER_HEIGHT, sm: 0 } }}
+      // Bei offener Bildschirmtastatur weicht die Leiste: „collapsed" gibt der
+      // Hauptansicht die Höhe zurück; ausgehängt ist sie auch nicht mehr per
+      // Tab erreichbar.
+      footer={{
+        height: { base: FOOTER_HEIGHT, sm: 0 },
+        collapsed: keyboardOpen,
+      }}
       navbar={{ width: { base: 0, sm: NAVBAR_WIDTH }, breakpoint: "sm" }}
       padding={0}
     >
@@ -157,7 +165,9 @@ export function LageansichtShell({
         </Group>
       </AppShell.Header>
       <AppShell.Navbar visibleFrom="sm">{navigation}</AppShell.Navbar>
-      <AppShell.Footer hiddenFrom="sm">{navigation}</AppShell.Footer>
+      {!keyboardOpen && (
+        <AppShell.Footer hiddenFrom="sm">{navigation}</AppShell.Footer>
+      )}
       <AppShell.Main>
         <Box
           h={

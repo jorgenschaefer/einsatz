@@ -11,6 +11,7 @@ import {
   waitFor,
   within,
 } from "@/test/render";
+import { stubVisualViewport } from "@/test/visual-viewport";
 import type {
   CreateMapOptions,
   MapAdapterFactory,
@@ -52,6 +53,16 @@ function fakeFactory() {
 
 const selectMainView = (name: "Lagekarte" | "ETB") =>
   userEvent.click(screen.getAllByRole("button", { name })[0]);
+
+/**
+ * Gibt Mantines AppShell die Höhe der Leiste an die Hauptansicht zurück?
+ * jsdom rechnet kein Layout; sichtbar ist das nur an der CSS-Variable, die
+ * AppShell in ihr Inline-Stylesheet schreibt.
+ */
+const footerOffsetReleased = () =>
+  [...document.querySelectorAll("style")].some((style) =>
+    style.textContent?.includes("--app-shell-footer-offset:0px !important"),
+  );
 
 const START_VIEW_QUERY = "(min-width: 48em)";
 
@@ -239,6 +250,31 @@ describe("SituationWorkspace", () => {
       </Providers>,
     );
     expect(html).toContain('data-main-view="default"');
+  });
+
+  it("hides the phone bar while the on-screen keyboard is open, even with the field still focused", () => {
+    const viewport = stubVisualViewport(window.innerHeight);
+    try {
+      renderWorkspace();
+      const phoneBar = () => screen.queryByRole("contentinfo");
+      expect(
+        within(phoneBar() as HTMLElement).getByRole("button", {
+          name: "Lagekarte",
+        }),
+      ).toBeInTheDocument();
+
+      screen.getByLabelText("Neuer Eintrag").focus();
+      act(() => viewport.resizeTo(window.innerHeight - 300));
+      expect(phoneBar()).toBeNull();
+      expect(footerOffsetReleased()).toBe(true);
+
+      act(() => viewport.resizeTo(window.innerHeight));
+      expect(screen.getByLabelText("Neuer Eintrag")).toHaveFocus();
+      expect(phoneBar()).toBeInTheDocument();
+      expect(footerOffsetReleased()).toBe(false);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it("lays the three map sidebar tabs out in a grid", async () => {
