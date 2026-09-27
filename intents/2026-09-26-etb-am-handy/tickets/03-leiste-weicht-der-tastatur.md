@@ -30,10 +30,7 @@ signal; the visual viewport shrinks while the keyboard is open.
 2. **Hide the bar.** The workspace passes `footer={{ collapsed: keyboardOpen }}`
    (or hides the footer bar) below `sm`. Proof: workspace test "hides the bar
    while the keyboard is open" with the stub.
-3. **Device check** on an Android phone (Chrome): open ETB, tap „Neuer
-   Eintrag" – bar gone; press „Zurück" – bar back while the field keeps
-   focus. Record in `## Record`; if no device is at hand, say so there.
-4. `npm run check`.
+3. `npm run check`.
 
 ## Not here
 The bar and its placement (01). Header (02).
