@@ -181,7 +181,9 @@ describe("DeviceView", () => {
         },
       ],
     });
-    await userEvent.type(screen.getByLabelText("Suche"), "rotkreuz");
+    fireEvent.change(screen.getByLabelText("Suche"), {
+      target: { value: "rotkreuz" },
+    });
     await userEvent.click(
       await screen.findByRole("button", { name: /Rotkreuz 83\/1/ }),
     );
@@ -197,7 +199,9 @@ describe("DeviceView", () => {
       { label: "Rathaus, Hamburg", lat: 53.55, lng: 9.99 },
     ]);
     const { adapter } = renderDevice({ onGeocode });
-    await userEvent.type(screen.getByLabelText("Suche"), "hamburg");
+    fireEvent.change(screen.getByLabelText("Suche"), {
+      target: { value: "hamburg" },
+    });
     await userEvent.click(
       await screen.findByRole("button", { name: /Rathaus, Hamburg/ }),
     );

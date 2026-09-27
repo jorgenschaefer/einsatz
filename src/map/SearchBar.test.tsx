@@ -1,6 +1,6 @@
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@/test/render";
+import { fireEvent, render, screen } from "@/test/render";
 import { SearchBar, type SearchBarProps } from "./SearchBar";
 
 function setup(over: Partial<SearchBarProps> = {}) {
@@ -20,7 +20,9 @@ function setup(over: Partial<SearchBarProps> = {}) {
 describe("SearchBar", () => {
   it("reports typed queries", async () => {
     const props = setup();
-    await userEvent.type(screen.getByLabelText("Suche"), "DOM");
+    fireEvent.change(screen.getByLabelText("Suche"), {
+      target: { value: "DOM" },
+    });
     expect(props.onQueryChange).toHaveBeenCalled();
   });
 

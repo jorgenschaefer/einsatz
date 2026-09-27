@@ -1,6 +1,6 @@
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor, within } from "@/test/render";
+import { fireEvent, render, screen, waitFor, within } from "@/test/render";
 import {
   type AccountSummary,
   UserAdminPanel,
@@ -37,11 +37,12 @@ describe("UserAdminPanel", () => {
 
   it("creates an account", async () => {
     const props = setup();
-    await userEvent.type(screen.getByLabelText(/Nutzername/), "bob");
-    await userEvent.type(
-      screen.getByLabelText(/Start-Passwort/),
-      "a-good-password",
-    );
+    fireEvent.change(screen.getByLabelText(/Nutzername/), {
+      target: { value: "bob" },
+    });
+    fireEvent.change(screen.getByLabelText(/Start-Passwort/), {
+      target: { value: "a-good-password" },
+    });
     await userEvent.click(screen.getByLabelText(/Administrator/));
     await userEvent.click(
       screen.getByRole("button", { name: "Konto anlegen" }),
@@ -92,11 +93,12 @@ describe("UserAdminPanel", () => {
       () => new Promise<{ error?: string }>((res) => (resolveCreate = res)),
     );
     setup({ onCreate });
-    await userEvent.type(screen.getByLabelText(/Nutzername/), "bob");
-    await userEvent.type(
-      screen.getByLabelText(/Start-Passwort/),
-      "a-good-password",
-    );
+    fireEvent.change(screen.getByLabelText(/Nutzername/), {
+      target: { value: "bob" },
+    });
+    fireEvent.change(screen.getByLabelText(/Start-Passwort/), {
+      target: { value: "a-good-password" },
+    });
     const button = screen.getByRole("button", { name: "Konto anlegen" });
     await userEvent.click(button);
     expect(button).toBeDisabled();
@@ -112,10 +114,9 @@ describe("UserAdminPanel", () => {
         name: /Passwort zurücksetzen/,
       }),
     );
-    await userEvent.type(
-      within(rowOf("anna")).getByLabelText(/Neues Passwort/),
-      "reset-password-1",
-    );
+    fireEvent.change(within(rowOf("anna")).getByLabelText(/Neues Passwort/), {
+      target: { value: "reset-password-1" },
+    });
     await userEvent.click(
       within(rowOf("anna")).getByRole("button", { name: "Setzen" }),
     );

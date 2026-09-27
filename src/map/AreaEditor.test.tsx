@@ -1,6 +1,6 @@
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@/test/render";
+import { fireEvent, render, screen } from "@/test/render";
 import { AreaEditor, type AreaEditorProps } from "./AreaEditor";
 
 function setup(over: Partial<AreaEditorProps> = {}) {
@@ -25,8 +25,7 @@ describe("AreaEditor", () => {
   it("saves edited style", async () => {
     const props = setup();
     const label = screen.getByLabelText(/Beschriftung/);
-    await userEvent.clear(label);
-    await userEvent.type(label, "Gefahrenzone");
+    fireEvent.change(label, { target: { value: "Gefahrenzone" } });
     await userEvent.click(screen.getByRole("button", { name: "Speichern" }));
     expect(props.onSave).toHaveBeenCalledWith(
       expect.objectContaining({

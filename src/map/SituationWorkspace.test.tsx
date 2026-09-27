@@ -1,6 +1,13 @@
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { act, render, routerRefresh, screen, waitFor } from "@/test/render";
+import {
+  act,
+  fireEvent,
+  render,
+  routerRefresh,
+  screen,
+  waitFor,
+} from "@/test/render";
 import type {
   CreateMapOptions,
   MapAdapterFactory,
@@ -116,10 +123,9 @@ describe("SituationWorkspace", () => {
       ],
     });
     expect(screen.getByText("Einsatz eröffnet")).toBeInTheDocument();
-    await userEvent.type(
-      screen.getByLabelText("Neuer Eintrag"),
-      "Deich gesichert",
-    );
+    fireEvent.change(screen.getByLabelText("Neuer Eintrag"), {
+      target: { value: "Deich gesichert" },
+    });
     await userEvent.click(
       screen.getByRole("button", { name: "Eintrag hinzufügen" }),
     );
@@ -335,7 +341,9 @@ describe("SituationWorkspace", () => {
       { label: "Rathaus, Hamburg", lat: 53.55, lng: 9.99 },
     ]);
     renderWorkspace({ onGeocode });
-    await userEvent.type(screen.getByLabelText("Suche"), "Hamburg");
+    fireEvent.change(screen.getByLabelText("Suche"), {
+      target: { value: "Hamburg" },
+    });
     await waitFor(() => expect(onGeocode).toHaveBeenCalledWith("Hamburg"));
     expect(
       await screen.findByRole("button", { name: /Rathaus, Hamburg/ }),
@@ -357,7 +365,9 @@ describe("SituationWorkspace", () => {
         },
       ],
     });
-    await userEvent.type(screen.getByLabelText("Suche"), "Rotkreuz");
+    fireEvent.change(screen.getByLabelText("Suche"), {
+      target: { value: "Rotkreuz" },
+    });
     await userEvent.click(
       await screen.findByRole("button", { name: /Rotkreuz 83\/1/ }),
     );

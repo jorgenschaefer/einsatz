@@ -1,6 +1,6 @@
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { act, render, screen, waitFor } from "@/test/render";
+import { act, fireEvent, render, screen, waitFor } from "@/test/render";
 import { ViewLinkPanel, type ViewLinkPanelProps } from "./ViewLinkPanel";
 
 function setup(over: Partial<ViewLinkPanelProps> = {}) {
@@ -22,7 +22,9 @@ describe("ViewLinkPanel", () => {
 
   it("creates a named view link and clears the field", async () => {
     const props = setup();
-    await userEvent.type(screen.getByLabelText(/Bezeichnung/i), "Leitstelle");
+    fireEvent.change(screen.getByLabelText(/Bezeichnung/i), {
+      target: { value: "Leitstelle" },
+    });
     await userEvent.click(
       screen.getByRole("button", { name: /Ansichtslink erzeugen/i }),
     );
@@ -34,7 +36,9 @@ describe("ViewLinkPanel", () => {
     let resolve: () => void = () => {};
     const onCreate = vi.fn(() => new Promise<void>((r) => (resolve = r)));
     setup({ onCreate });
-    await userEvent.type(screen.getByLabelText(/Bezeichnung/i), "Leitstelle");
+    fireEvent.change(screen.getByLabelText(/Bezeichnung/i), {
+      target: { value: "Leitstelle" },
+    });
     const button = screen.getByRole("button", {
       name: /Ansichtslink erzeugen/i,
     });

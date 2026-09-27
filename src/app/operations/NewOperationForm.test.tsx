@@ -1,6 +1,6 @@
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@/test/render";
+import { fireEvent, render, screen } from "@/test/render";
 import { NewOperationForm, type OperationFormAction } from "./NewOperationForm";
 
 describe("NewOperationForm", () => {
@@ -16,8 +16,12 @@ describe("NewOperationForm", () => {
     const action = vi.fn<OperationFormAction>(async () => ({}));
     render(<NewOperationForm action={action} />);
 
-    await userEvent.type(screen.getByLabelText(/Bezeichnung/), "Hochwasser");
-    await userEvent.type(screen.getByLabelText(/Beschreibung/), "Deich Nord");
+    fireEvent.change(screen.getByLabelText(/Bezeichnung/), {
+      target: { value: "Hochwasser" },
+    });
+    fireEvent.change(screen.getByLabelText(/Beschreibung/), {
+      target: { value: "Deich Nord" },
+    });
     await userEvent.click(
       screen.getByRole("button", { name: "Einsatz eröffnen" }),
     );
@@ -34,7 +38,9 @@ describe("NewOperationForm", () => {
     }));
     render(<NewOperationForm action={action} />);
 
-    await userEvent.type(screen.getByLabelText(/Bezeichnung/), "Hochwasser");
+    fireEvent.change(screen.getByLabelText(/Bezeichnung/), {
+      target: { value: "Hochwasser" },
+    });
     await userEvent.click(
       screen.getByRole("button", { name: "Einsatz eröffnen" }),
     );

@@ -1,6 +1,6 @@
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@/test/render";
+import { fireEvent, render, screen } from "@/test/render";
 import {
   type ChangePasswordAction,
   ChangePasswordForm,
@@ -10,14 +10,12 @@ describe("ChangePasswordForm", () => {
   it("submits the current and the new password", async () => {
     const action = vi.fn<ChangePasswordAction>(async () => ({ success: true }));
     render(<ChangePasswordForm action={action} />);
-    await userEvent.type(
-      screen.getByLabelText(/Aktuelles Passwort/),
-      "the-old-password",
-    );
-    await userEvent.type(
-      screen.getByLabelText(/Neues Passwort/),
-      "a-brand-new-pass",
-    );
+    fireEvent.change(screen.getByLabelText(/Aktuelles Passwort/), {
+      target: { value: "the-old-password" },
+    });
+    fireEvent.change(screen.getByLabelText(/Neues Passwort/), {
+      target: { value: "a-brand-new-pass" },
+    });
     await userEvent.click(
       screen.getByRole("button", { name: "Passwort ändern" }),
     );
@@ -32,11 +30,12 @@ describe("ChangePasswordForm", () => {
       error: "Das Passwort muss mindestens 12 Zeichen haben.",
     }));
     render(<ChangePasswordForm action={action} />);
-    await userEvent.type(
-      screen.getByLabelText(/Aktuelles Passwort/),
-      "the-old-password",
-    );
-    await userEvent.type(screen.getByLabelText(/Neues Passwort/), "short");
+    fireEvent.change(screen.getByLabelText(/Aktuelles Passwort/), {
+      target: { value: "the-old-password" },
+    });
+    fireEvent.change(screen.getByLabelText(/Neues Passwort/), {
+      target: { value: "short" },
+    });
     await userEvent.click(
       screen.getByRole("button", { name: "Passwort ändern" }),
     );
@@ -48,14 +47,12 @@ describe("ChangePasswordForm", () => {
   it("confirms success", async () => {
     const action = vi.fn<ChangePasswordAction>(async () => ({ success: true }));
     render(<ChangePasswordForm action={action} />);
-    await userEvent.type(
-      screen.getByLabelText(/Aktuelles Passwort/),
-      "the-old-password",
-    );
-    await userEvent.type(
-      screen.getByLabelText(/Neues Passwort/),
-      "a-brand-new-pass",
-    );
+    fireEvent.change(screen.getByLabelText(/Aktuelles Passwort/), {
+      target: { value: "the-old-password" },
+    });
+    fireEvent.change(screen.getByLabelText(/Neues Passwort/), {
+      target: { value: "a-brand-new-pass" },
+    });
     await userEvent.click(
       screen.getByRole("button", { name: "Passwort ändern" }),
     );

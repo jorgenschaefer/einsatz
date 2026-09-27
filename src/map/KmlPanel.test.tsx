@@ -1,7 +1,7 @@
 import userEvent from "@testing-library/user-event";
 import { strToU8, zipSync } from "fflate";
 import { describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor, within } from "@/test/render";
+import { fireEvent, render, screen, waitFor, within } from "@/test/render";
 import { type KmlOverlayView, KmlPanel, type KmlPanelProps } from "./KmlPanel";
 
 function renderPanel(over: Partial<KmlPanelProps> = {}) {
@@ -61,11 +61,12 @@ describe("KmlPanel", () => {
   it("adds a KML by URL", async () => {
     const onAddUrl = vi.fn(async () => ({}));
     renderPanel({ onAddUrl });
-    await userEvent.type(screen.getByLabelText("Name"), "Laufstrecke");
-    await userEvent.type(
-      screen.getByLabelText("KML-/KMZ-URL"),
-      "https://maps.example/x.kml",
-    );
+    fireEvent.change(screen.getByLabelText("Name"), {
+      target: { value: "Laufstrecke" },
+    });
+    fireEvent.change(screen.getByLabelText("KML-/KMZ-URL"), {
+      target: { value: "https://maps.example/x.kml" },
+    });
     await userEvent.click(
       screen.getByRole("button", { name: "Per URL einbinden" }),
     );
@@ -140,11 +141,10 @@ describe("KmlPanel", () => {
       error: "KML konnte nicht geladen werden (404).",
     }));
     renderPanel({ onAddUrl });
-    await userEvent.type(screen.getByLabelText("Name"), "X");
-    await userEvent.type(
-      screen.getByLabelText("KML-/KMZ-URL"),
-      "https://maps.example/missing.kml",
-    );
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "X" } });
+    fireEvent.change(screen.getByLabelText("KML-/KMZ-URL"), {
+      target: { value: "https://maps.example/missing.kml" },
+    });
     await userEvent.click(
       screen.getByRole("button", { name: "Per URL einbinden" }),
     );

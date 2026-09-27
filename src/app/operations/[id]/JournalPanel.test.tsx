@@ -1,6 +1,6 @@
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@/test/render";
+import { fireEvent, render, screen, within } from "@/test/render";
 import {
   type JournalEntryView,
   JournalPanel,
@@ -68,7 +68,9 @@ describe("JournalPanel", () => {
 
   it("adds a new manual entry from the input row", async () => {
     const props = setup();
-    await userEvent.type(screen.getByLabelText(/Neuer Eintrag/), "Neue Lage");
+    fireEvent.change(screen.getByLabelText(/Neuer Eintrag/), {
+      target: { value: "Neue Lage" },
+    });
     await userEvent.click(
       screen.getByRole("button", { name: /Eintrag hinzufügen/ }),
     );
@@ -77,7 +79,9 @@ describe("JournalPanel", () => {
 
   it("adds a new manual entry with Strg+Enter in the input field", async () => {
     const props = setup();
-    await userEvent.type(screen.getByLabelText(/Neuer Eintrag/), "Neue Lage");
+    fireEvent.change(screen.getByLabelText(/Neuer Eintrag/), {
+      target: { value: "Neue Lage" },
+    });
     await userEvent.type(
       screen.getByLabelText(/Neuer Eintrag/),
       "{Control>}{Enter}{/Control}",
@@ -103,8 +107,7 @@ describe("JournalPanel", () => {
     const props = setup();
     await userEvent.click(screen.getByRole("button", { name: /Korrigieren/ }));
     const field = screen.getByLabelText(/Korrektur/);
-    await userEvent.clear(field);
-    await userEvent.type(field, "Deich hält nicht");
+    fireEvent.change(field, { target: { value: "Deich hält nicht" } });
     await userEvent.click(screen.getByRole("button", { name: /Speichern/ }));
     expect(props.onCorrect).toHaveBeenCalledWith("e1", "Deich hält nicht");
   });
@@ -173,7 +176,9 @@ describe("JournalPanel", () => {
       .fn<JournalPanelProps["onAdd"]>()
       .mockRejectedValue(new Error("boom"));
     setup({ onAdd });
-    await userEvent.type(screen.getByLabelText(/Neuer Eintrag/), "Neue Lage");
+    fireEvent.change(screen.getByLabelText(/Neuer Eintrag/), {
+      target: { value: "Neue Lage" },
+    });
     await userEvent.click(
       screen.getByRole("button", { name: /Eintrag hinzufügen/ }),
     );
@@ -185,8 +190,8 @@ describe("JournalPanel", () => {
     const props = setup();
     await userEvent.click(screen.getByRole("button", { name: /Korrigieren/ }));
     const field = screen.getByLabelText(/Korrektur/);
-    await userEvent.clear(field);
-    await userEvent.type(field, "Deich hält nicht{Control>}{Enter}{/Control}");
+    fireEvent.change(field, { target: { value: "Deich hält nicht" } });
+    await userEvent.type(field, "{Control>}{Enter}{/Control}");
     expect(props.onCorrect).toHaveBeenCalledWith("e1", "Deich hält nicht");
   });
 
@@ -197,8 +202,7 @@ describe("JournalPanel", () => {
     setup({ onCorrect });
     await userEvent.click(screen.getByRole("button", { name: /Korrigieren/ }));
     const field = screen.getByLabelText(/Korrektur/);
-    await userEvent.clear(field);
-    await userEvent.type(field, "Neuer Text");
+    fireEvent.change(field, { target: { value: "Neuer Text" } });
     await userEvent.click(screen.getByRole("button", { name: /Speichern/ }));
     expect(await screen.findByRole("alert")).toBeInTheDocument();
   });
@@ -212,8 +216,7 @@ describe("JournalPanel", () => {
     setup({ onCorrect });
     await userEvent.click(screen.getByRole("button", { name: /Korrigieren/ }));
     const field = screen.getByLabelText(/Korrektur/);
-    await userEvent.clear(field);
-    await userEvent.type(field, "Neuer Text");
+    fireEvent.change(field, { target: { value: "Neuer Text" } });
     await userEvent.click(screen.getByRole("button", { name: /Speichern/ }));
     expect(
       await screen.findByText(

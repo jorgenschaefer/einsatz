@@ -1,6 +1,6 @@
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@/test/render";
+import { fireEvent, render, screen } from "@/test/render";
 import { type LoginAction, LoginForm } from "./LoginForm";
 
 describe("LoginForm", () => {
@@ -19,8 +19,12 @@ describe("LoginForm", () => {
     }));
     render(<LoginForm action={action} />);
 
-    await userEvent.type(screen.getByLabelText(/Nutzername/), "anna");
-    await userEvent.type(screen.getByLabelText(/Passwort/), "wrong-password");
+    fireEvent.change(screen.getByLabelText(/Nutzername/), {
+      target: { value: "anna" },
+    });
+    fireEvent.change(screen.getByLabelText(/Passwort/), {
+      target: { value: "wrong-password" },
+    });
     await userEvent.click(screen.getByRole("button", { name: "Anmelden" }));
 
     expect(
@@ -32,8 +36,12 @@ describe("LoginForm", () => {
     const action = vi.fn<LoginAction>(async () => ({}));
     render(<LoginForm action={action} />);
 
-    await userEvent.type(screen.getByLabelText(/Nutzername/), "anna");
-    await userEvent.type(screen.getByLabelText(/Passwort/), "a-good-password");
+    fireEvent.change(screen.getByLabelText(/Nutzername/), {
+      target: { value: "anna" },
+    });
+    fireEvent.change(screen.getByLabelText(/Passwort/), {
+      target: { value: "a-good-password" },
+    });
     await userEvent.click(screen.getByRole("button", { name: "Anmelden" }));
 
     expect(action).toHaveBeenCalled();

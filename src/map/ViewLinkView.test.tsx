@@ -1,6 +1,13 @@
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { act, render, routerRefresh, screen, waitFor } from "@/test/render";
+import {
+  act,
+  fireEvent,
+  render,
+  routerRefresh,
+  screen,
+  waitFor,
+} from "@/test/render";
 import type {
   CreateMapOptions,
   MapAdapterFactory,
@@ -111,7 +118,9 @@ describe("ViewLinkView", () => {
 
   it("searches placed objects and jumps to a chosen Kartenzeichen", async () => {
     const { adapter } = renderView({ symbols: [aSymbol] });
-    await userEvent.type(screen.getByLabelText("Suche"), "rotkreuz");
+    fireEvent.change(screen.getByLabelText("Suche"), {
+      target: { value: "rotkreuz" },
+    });
     await userEvent.click(
       await screen.findByRole("button", { name: /Rotkreuz 83\/1/ }),
     );
