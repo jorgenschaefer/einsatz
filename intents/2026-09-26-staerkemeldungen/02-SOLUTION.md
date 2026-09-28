@@ -1,4 +1,4 @@
-# Solution: Stellen mit Stärkemeldungen im eigenen Reiter
+# Solution: Stellen mit Stärkemeldungen in eigener Ansicht
 
 ## Intent
 
@@ -15,7 +15,7 @@ optionale Notiz. Σ (Führer + Unterführer + Helfer) und Gesamtpersonen
 Die Uhrzeit einer Meldung ist ihr Erfassungszeitpunkt und lässt sich wie ein
 ETB-Zeitstempel nicht ändern.
 
-In der Seitenleiste der Führungsansicht kommt ein Reiter **„Stärke"** hinzu.
+Neben Lagekarte und ETB kommt eine dritte Hauptansicht **„Stärke"** hinzu.
 Oben steht die Summe mit dem Zeitpunkt der ältesten darin enthaltenen Meldung
 und dem Knopf „Gesamtstärke melden". Darunter steht eine Karte je Stelle mit
 ihrer letzten Meldung. Tippt die Führungskraft eine Stelle an, öffnet sich das
@@ -35,8 +35,8 @@ Jede Änderung steht im ETB, mit dem Nutzer als Urheber:
 Diese Einträge sind keine automatischen Einträge. Sie sind Funkverkehr, den
 die Führungskraft erfasst: Sie tragen kein Badge „automatisch", und
 „Automatische ausblenden" blendet sie nicht aus. Eine Meldung korrigiert
-und annulliert man nur im Reiter „Stärke", damit Tabelle und ETB nicht
-auseinanderlaufen; im ETB fehlen bei ihnen die Knöpfe. Übersicht und Verlauf
+und annulliert man nur in der Ansicht „Stärke", damit Tabelle und ETB nicht
+auseinanderlaufen; im ETB hat ihr Eintrag kein „⋯"-Menü. Übersicht und Verlauf
 zeigen nur die gültige Fassung, das ETB zeigt die ursprüngliche daneben
 durchgestrichen (C-7).
 
@@ -48,7 +48,10 @@ wurden nicht mehr abgestimmt.
 **Stelle** und **Stärkemeldung** kommen als Begriffe in
 `UBIQUITOUS_LANGUAGE.md`, ebenso **Gesamteinsatz** als Sprechweise für den
 Einsatz (`Operation`) in Abgrenzung zum Einsatz als Schadensereignis (siehe
-`IDEAS.md`).
+`IDEAS.md`). Die Einträge **Korrigieren** und **Annullieren** gelten dort
+heute nur für manuelle ETB-Einträge; sie werden erweitert: Annullieren auch
+für „Gesamtstärke gemeldet" und für Stärkemeldungen, Korrigieren auch für
+Stärkemeldungen (beides nur in der Ansicht „Stärke").
 
 **Datenmodell.** Zwei neue Tabellen:
 
@@ -72,21 +75,21 @@ Neue Werte für `JournalEntryType` (in `src/server/journal/journal.ts` und in
 der Kopie in `JournalPanel.tsx`): `stelle-angelegt`, `stelle-umbenannt`,
 `stärkemeldung`, `gesamtstärke-gemeldet`. „Automatisch" sind weiterhin nur
 `einsatz-eröffnet` und `einsatz-geschlossen`. Im ETB korrigierbar bleibt nur
-`manuell`; annullierbar sind `manuell` und `gesamtstärke-gemeldet`.
-`stärkemeldung`-Einträge ändert nur der Reiter „Stärke", Einträge zu Stellen
-sind unantastbar.
+`manuell`; annullierbar sind `manuell` und `gesamtstärke-gemeldet`. Im
+„⋯"-Menü eines `gesamtstärke-gemeldet`-Eintrags steht deshalb nur
+„Annullieren …". `stärkemeldung`-Einträge ändert nur die Ansicht „Stärke",
+Einträge zu Stellen sind unantastbar.
 
-Der Reiter „Stärke" steht als zweiter Reiter nach „Einsatztagebuch". Das
-Raster der Reiterleiste wird dreispaltig, damit fünf Reiter ohne
-verwaisten Einzelreiter passen.
-Steht die Navigation aus `intents/2026-09-26-etb-am-handy/` schon, wird
-„Stärke" stattdessen der dritte Punkt ihrer Leiste (nach Lagekarte und ETB).
+„Stärke" wird der dritte Punkt der Hauptansichtsleiste (`MainViewBar`, nach
+Lagekarte und ETB): am Smartphone die Leiste unten, am Desktop die Leiste
+links. Wie die beiden anderen Ansichten bleibt sie beim Wechsel eingehängt,
+damit ein angefangenes Meldungsformular erhalten bleibt.
 
 Mockup: `specimens/B-stellen-mit-meldungen.html`.
 
 ## Behaviour
 
-- **AC-1** Im Reiter „Stärke" legt die Führungskraft eine Stelle mit einem
+- **AC-1** In der Ansicht „Stärke" legt die Führungskraft eine Stelle mit einem
   Namen an. Der Name wird getrimmt und darf nicht leer sein. Innerhalb eines
   Gesamteinsatzes ist er eindeutig, ohne Rücksicht auf Groß- und
   Kleinschreibung („UHSt 3" und „uhst 3" gelten als dieselbe Stelle). Es
@@ -108,7 +111,7 @@ Mockup: `specimens/B-stellen-mit-meldungen.html`.
   Format „Stärkemeldung UHSt 3: 0/1/6//7, +2 zusätzlich, 9 Personen – 2
   einsatzbereite Streifen". Ohne Notiz entfällt „ – …". Der Zeitstempel des
   Eintrags ist die Uhrzeit der Meldung. *(C-5)*
-- **AC-6** Für jede Stelle zeigt der Reiter die letzte gültige Meldung mit
+- **AC-6** Für jede Stelle zeigt die Ansicht die letzte gültige Meldung mit
   Führer/Unterführer/Helfer//Σ, zusätzlichem Personal, Gesamtpersonen, Notiz
   und Uhrzeit. Eine Stelle ohne gültige Meldung zeigt „noch keine Meldung".
   *(C-1)*
@@ -135,7 +138,8 @@ Mockup: `specimens/B-stellen-mit-meldungen.html`.
   mit „korrigiert hh:mm". Nummer und Zeitstempel des Eintrags bleiben.
   *(C-7, C-5)*
 - **AC-12** Eine Meldung lässt sich annullieren, z. B. wenn sie versehentlich
-  erfasst wurde. Sie fällt aus AC-6 bis AC-10 heraus. Ihr ETB-Eintrag wird
+  erfasst wurde. Wie im ETB fragt vorher ein Modal nach der Bestätigung.
+  Danach fällt sie aus AC-6 bis AC-10 heraus. Ihr ETB-Eintrag wird
   annulliert wie ein Handeintrag heute: Er bleibt mit Nummer und Text
   durchgestrichen stehen. Eine annullierte Meldung lässt sich weder
   korrigieren noch wiederherstellen. *(C-7)*
@@ -147,13 +151,12 @@ Mockup: `specimens/B-stellen-mit-meldungen.html`.
   berechnet, damit keine parallel eingehende Meldung vor dem Eintrag im ETB
   steht, ohne in ihm enthalten zu sein. Ohne gültige Meldung ist der Knopf
   deaktiviert. Ein versehentlich geschriebener Eintrag lässt sich im ETB
-  annullieren. *(C-8)*
+  über sein „⋯"-Menü annullieren. *(C-8)*
 - **AC-14** Jede Änderung aus AC-1 bis AC-13 und AC-19 erscheint in
   allen offenen Führungsansichten dieses Gesamteinsatzes, ohne dass jemand
   neu lädt. Dafür wird der bestehende SSE-Bus genutzt. *(C-1, C-2)*
 - **AC-15** AC-1 bis AC-13 lassen sich bei 360 px Breite vollständig
-  bedienen, ohne waagerecht zu scrollen, unabhängig davon, wo die Ansicht
-  eingehängt ist. *(C-6)*
+  bedienen, ohne waagerecht zu scrollen. *(C-6)*
 - **AC-16** Ein Gesamteinsatz mit 4 Stellen und 13 Meldungen je Stelle (einmal
   stündlich von 08:00 bis 20:00) liefert für AC-6 bis AC-10 die richtigen
   Werte. Ein Test pinnt das an genau diesem Datensatz. *(C-6)*
@@ -165,7 +168,7 @@ Mockup: `specimens/B-stellen-mit-meldungen.html`.
 
 ## Edge cases
 
-- **Keine Stellen:** Der Reiter zeigt nur „Stelle anlegen", keine Summe.
+- **Keine Stellen:** Die Ansicht zeigt nur „Stelle anlegen", keine Summe.
 - **Stelle ohne Meldung:** Sie zählt nicht zur Summe und nicht zur ältesten
   Uhrzeit (AC-7, AC-8).
 - **Stelle abgebaut:** Die Führungskraft meldet einmal 0/0/0//0 mit 0
@@ -212,7 +215,7 @@ Mockup: `specimens/B-stellen-mit-meldungen.html`.
   ETB-Eintragstyps mit Feldern wie in A. Im Gegenzug bleibt der ETB-Eintrag
   reiner Text, und die Werte liegen dort, wo sich Stellen erzwingen lassen.
 - **Stärke-Einträge sind im ETB nur teilweise bedienbar.** Wer eine Meldung im
-  ETB sieht, muss zum Korrigieren oder Annullieren in den Reiter „Stärke"
+  ETB sieht, muss zum Korrigieren oder Annullieren in die Ansicht „Stärke"
   wechseln. Dafür können Meldungstabelle und ETB-Text nicht auseinanderlaufen.
 - **Die Werte stehen doppelt**, als Zahlen in der Meldung und als Text im
   ETB-Eintrag, und werden bei jeder Korrektur gemeinsam geschrieben. Dafür

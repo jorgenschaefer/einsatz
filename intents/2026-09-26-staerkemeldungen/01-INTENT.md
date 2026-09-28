@@ -77,10 +77,12 @@ bleibt im ETB dokumentiert.
 
 - Eine Stelle muss keinen Ort auf der Lagekarte haben. Eine Lösung, die das
   Platzieren einer Stelle auf der Karte voraussetzt, scheidet aus.
-- Die Führungsansicht wird im Einsatz auf dem Smartphone bedient (siehe
-  `intents/2026-09-26-kreis-in-vorgegebener-groesse/01-INTENT.md`, Evidence).
-  Eine Lösung, die nur am großen Bildschirm bedienbar ist, scheidet aus (vom
-  Nutzer für diese Übersicht bestätigt: „Smartphone sollte funktionieren").
+- Die Führungsansicht wird im Einsatz auf dem Smartphone bedient: Ein
+  Screenshot vom Gesamteinsatz „Cyclassics 2026" zeigt sie im Mobilbrowser
+  eines Android-Telefons (vom Nutzer im Gespräch gezeigt, nicht im Repo
+  archiviert). Eine Lösung, die nur am großen Bildschirm bedienbar ist,
+  scheidet aus (vom Nutzer für diese Übersicht bestätigt: „Smartphone sollte
+  funktionieren").
 - Die Beweiskraft des ETB bleibt erhalten: nicht editierbare Zeitstempel,
   Korrekturen als sichtbare Historie. Eine Lösung, die gemeldete Werte ohne
   Spur im ETB überschreibt, scheidet aus.
