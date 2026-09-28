@@ -28,6 +28,7 @@ import {
 import { hashPassword } from "@/server/auth/password";
 import { insertSession } from "@/server/auth/sessions";
 import { insertUser } from "@/server/auth/users";
+import { subscribeOperation } from "@/server/events/operation-events";
 import { listEntries } from "@/server/journal/journal";
 import { insertOperation } from "@/server/operations/operations";
 import { listStations } from "@/server/strength/stations";
@@ -55,6 +56,41 @@ async function anOperation() {
     name: "Cyclassics",
     description: null,
   });
+}
+
+const SOME_VALUES = {
+  leaders: 0,
+  subLeaders: 1,
+  helpers: 6,
+  additionalPersonnel: 2,
+  note: null,
+};
+
+async function aStationWithAReport() {
+  const op = await anOperation();
+  await createStationAction(op.id, "UHSt 3");
+  const db = state.db as Db;
+  const [station] = await listStations(db, op.id);
+  await recordStrengthReportAction(station.id, SOME_VALUES);
+  const [report] = await listStrengthReports(db, op.id);
+  return { operationId: op.id, stationId: station.id, reportId: report.id };
+}
+
+/** How many live events the Führungsansichten of `operationId` receive while `act` runs. */
+async function liveEventsFor(
+  operationId: string,
+  act: () => Promise<unknown>,
+): Promise<number> {
+  let events = 0;
+  const unsubscribe = subscribeOperation(operationId, () => {
+    events += 1;
+  });
+  try {
+    await act();
+  } finally {
+    unsubscribe();
+  }
+  return events;
 }
 
 beforeEach(async () => {
@@ -246,5 +282,63 @@ describe("strength actions", () => {
     expect(await annulStrengthReportAction(report.id)).toEqual({});
 
     expect((await listStrengthReports(db, op.id))[0].state).toBe("annulliert");
+  });
+
+  describe("reach every open Führungsansicht of the operation live", () => {
+    it.each([
+      [
+        "creating a Stelle",
+        (s: { operationId: string }) =>
+          createStationAction(s.operationId, "Ziel"),
+      ],
+      [
+        "renaming a Stelle",
+        (s: { stationId: string }) =>
+          renameStationAction(s.stationId, "UHSt 3 Nord"),
+      ],
+      [
+        "recording a Stärkemeldung",
+        (s: { stationId: string }) =>
+          recordStrengthReportAction(s.stationId, SOME_VALUES),
+      ],
+      [
+        "correcting a Stärkemeldung",
+        (s: { reportId: string; stationId: string }) =>
+          correctStrengthReportAction(s.reportId, s.stationId, {
+            ...SOME_VALUES,
+            helpers: 5,
+          }),
+      ],
+      [
+        "annulling a Stärkemeldung",
+        (s: { reportId: string }) => annulStrengthReportAction(s.reportId),
+      ],
+      [
+        "reporting the Gesamtstärke",
+        (s: { operationId: string }) =>
+          reportTotalStrengthAction(s.operationId),
+      ],
+    ])("%s", async (_, act) => {
+      await loginAs("dora");
+      const setting = await aStationWithAReport();
+
+      expect(
+        await liveEventsFor(setting.operationId, async () =>
+          expect(await act(setting)).toEqual({}),
+        ),
+      ).toBe(1);
+    });
+
+    it("but not those of another operation", async () => {
+      await loginAs("dora");
+      const setting = await aStationWithAReport();
+      const other = await anOperation();
+
+      expect(
+        await liveEventsFor(other.id, () =>
+          recordStrengthReportAction(setting.stationId, SOME_VALUES),
+        ),
+      ).toBe(0);
+    });
   });
 });

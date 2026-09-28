@@ -767,8 +767,11 @@ describe("StrengthPanel", () => {
 
   describe("the Verlauf of a Stelle", () => {
     async function openHistory(reports: StrengthReportView[]) {
-      setup({ stations: [{ id: "s1", name: "UHSt 3", reports }] });
+      const panel = setup({
+        stations: [{ id: "s1", name: "UHSt 3", reports }],
+      });
       await userEvent.click(within(card("UHSt 3")).getByText("UHSt 3"));
+      return panel;
     }
 
     const historyRows = () =>
@@ -826,6 +829,33 @@ describe("StrengthPanel", () => {
       expect(historyRows()).toEqual([
         ["Zeit", "F/UF/H//Σ", "+", "Pers.", "Notiz", ""],
         ["11:01", "0/1/4//5", "2", "7", "2 einsatzbereite Streifen", "⋯"],
+      ]);
+    });
+
+    it("shows a report arriving live while it is open", async () => {
+      const { rerender } = await openHistory([report({ number: 3 })]);
+
+      rerender({
+        stations: [
+          {
+            id: "s1",
+            name: "UHSt 3",
+            reports: [
+              report({ number: 3 }),
+              report({
+                number: 7,
+                reportedAt: "2026-09-26T09:30:00.000Z",
+                helpers: 9,
+              }),
+            ],
+          },
+        ],
+      });
+
+      expect(historyRows()).toEqual([
+        ["Zeit", "F/UF/H//Σ", "+", "Pers.", "Notiz", ""],
+        ["11:30", "0/1/9//10", "2", "12", "2 einsatzbereite Streifen", "⋯"],
+        ["11:01", "0/1/6//7", "2", "9", "2 einsatzbereite Streifen", "⋯"],
       ]);
     });
 
@@ -1241,6 +1271,40 @@ describe("StrengthPanel", () => {
 
       expect(screen.queryByRole("table")).toBeNull();
       expect(card("UHSt 3")).toBeInTheDocument();
+    });
+
+    it("shows a report arriving live while it is open", async () => {
+      const { rerender } = setup({
+        stations: [
+          { id: "s1", name: "UHSt 3", reports: [report({ number: 1 })] },
+          { id: "s2", name: "Ziel", reports: [] },
+        ],
+      });
+      await openTotalHistory();
+
+      rerender({
+        stations: [
+          { id: "s1", name: "UHSt 3", reports: [report({ number: 1 })] },
+          {
+            id: "s2",
+            name: "Ziel",
+            reports: [
+              report({
+                number: 2,
+                reportedAt: "2026-09-26T09:30:00.000Z",
+                helpers: 4,
+                additionalPersonnel: 0,
+              }),
+            ],
+          },
+        ],
+      });
+
+      expect(totalHistoryRows()).toEqual([
+        ["Zeit", "F/UF/H//Σ", "+", "Pers."],
+        ["11:30", "0/2/10//12", "2", "14"],
+        ["11:01", "0/1/6//7", "2", "9"],
+      ]);
     });
 
     it("shows no table once its last valid report is annulled", async () => {

@@ -2,8 +2,8 @@
 solution:  02-SOLUTION.md
 satisfies: AC-14
 after:     01-stellen, 02-meldung-erfassen, 03-summe-und-gesamtstaerke, 04-verlauf-der-stelle, 05-summenverlauf, 06-meldung-korrigieren, 07-meldung-annullieren
-status:    ready
-attempts:  0
+status:    done
+attempts:  2
 ---
 
 ## Build
@@ -65,3 +65,52 @@ auth like `auth-enforcement.test.ts`, assert the listener fired);
 `SituationWorkspace.test.tsx`: the injected events hook's `onChanged` triggers
 `router.refresh` and new `stations` props show in the Stärke pane. Browser check with
 run-einsatz: two tabs, a report in one appears in the other. `npm run check`.
+
+## Record
+
+**Criterion → tests (AC-14)**, link by link, from the change to the open views:
+
+- **Every Stärke change publishes on the SSE bus of its own operation, exactly once.** `src/app/operations/[id]/strength-actions.test.ts` › „strength actions › reach every open Führungsansicht of the operation live". This runs the real action, `operationAction` and the real bus against a fresh DB, and counts the events a `subscribeOperation` listener receives. There is one case per change:
+  - „creating a Stelle" (AC-1)
+  - „renaming a Stelle"
+  - „recording a Stärkemeldung" (AC-2–5)
+  - „correcting a Stärkemeldung" (AC-11)
+  - „annulling a Stärkemeldung" (AC-12)
+  - „reporting the Gesamtstärke" (AC-13)
+
+  „… but not those of another operation" checks that an action's event does not reach another Gesamteinsatz.
+- **An event reloads the page:** the existing `src/map/SituationWorkspace.test.tsx` › „reloads the full state when a live event arrives" (`onChanged` → `router.refresh()`). The existing tests `operation-events.test.ts` and `sse.test.ts` cover the fan-out to every subscriber and the SSE stream.
+- **Reloaded `stations` reach the Stärke pane:**
+  - `SituationWorkspace.test.tsx` › „Stärke › shows a Stelle and a Stärkemeldung arriving live while Stärke is shown": a new Stelle, plus the report on the card and in the Summe (AC-6, AC-7).
+- **An open Verlauf and an open Summenverlauf follow live:**
+  - `src/strength/StrengthPanel.test.tsx` › „the Verlauf of a Stelle › shows a report arriving live while it is open" (AC-9).
+  - `StrengthPanel.test.tsx` › „the Summenverlauf › shows a report arriving live while it is open" (AC-10).
+  - The existing tests „keeps typed values when a new report arrives live", „closes the correction of a report once it is annulled" and „shows no table once its last valid report is annulled" cover a half-filled form and annulments that arrive live.
+  - The existing test „counts a new entry from another author while Stärke is shown" covers the ETB entries (AC-5, AC-13).
+- **Red-first was impossible, as the ticket says.** Every new test was green on its first run. To prove each can fail, I broke the code once locally, watched the test go red, and reverted:
+  - `renameStationAction` returning `stationId`: 1 failure (`expected +0 to be 1`).
+  - `publishOperationChanged` removed from `operationAction`: 6 failures.
+  - `SituationWorkspace` passing a `useState` snapshot of `stations`: 1 failure.
+  - `StrengthPanel` resolving the open Stelle from a frozen snapshot: the Verlauf test fails.
+  - `totalHistory` frozen in `useState`: the Summenverlauf test fails.
+- **Browser check (run-einsatz, done by a subagent):** two independent logged-in sessions on the same Einsatz, both on „Stärke". Every change made in tab A appeared in tab B without a reload, with no console errors:
+  - Stelle angelegt
+  - a Stärkemeldung (card and Summe)
+  - Gesamtstärke gemeldet
+  - Stelle umbenannt
+  - a report annulled from the Verlauf
+  - each step's ETB entry
+
+  A correction was not tried in the browser; it is pinned by the tests above.
+
+**Command:** `docker compose -f docker-compose.test.yml up -d && npm run check`. Green: tsc, biome, vitest 113 files / 1033 tests.
+
+**Left standing**
+
+- No production code changed: the live path already worked, and this ticket pins it.
+- Review round 1: I fixed the should-fix (Verlauf/Summenverlauf not pinned while open) and both nits (a `getAllByText` that could not tell card from Summe, a test name narrower than its assertions).
+- Review round 2: clean apart from one nit I did not take. The reviewer called „but not those of another operation" redundant with the bus test „notifies subscribers of their own operation only". I kept it because it covers something the `it.each` cannot: an action that publishes to its own operation *and* to a wrong one would pass the count of 1, but fail here.
+- Departure from the plan:
+  - The plan's mocked auth was not needed. The publish tests extend the existing `strength-actions.test.ts`, which already logs in through a real session against `freshDb()`.
+  - The plan's `onChanged` → `router.refresh` test already existed, so I did not write it again.
+  - The two Verlauf/Summenverlauf tests in `StrengthPanel.test.tsx` go beyond the plan (review should-fix).

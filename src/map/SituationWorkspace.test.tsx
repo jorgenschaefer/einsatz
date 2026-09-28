@@ -485,6 +485,54 @@ describe("SituationWorkspace", () => {
       expect(props.onReportTotalStrength).toHaveBeenCalledTimes(1);
     });
 
+    it("shows a Stelle and a Stärkemeldung arriving live while Stärke is shown", async () => {
+      const { props } = buildProps({
+        stations: [{ id: "st1", name: "UHSt 3", reports: [] }],
+      });
+      const { rerender } = render(<SituationWorkspace {...props} />);
+      await selectMainView("Stärke");
+
+      rerender(
+        <SituationWorkspace
+          {...props}
+          stations={[
+            {
+              id: "st1",
+              name: "UHSt 3",
+              reports: [
+                {
+                  id: "r1",
+                  leaders: 0,
+                  subLeaders: 1,
+                  helpers: 6,
+                  additionalPersonnel: 2,
+                  note: null,
+                  reportedAt: new Date().toISOString(),
+                  state: "gueltig",
+                  number: 1,
+                },
+              ],
+            },
+            { id: "st2", name: "Ziel", reports: [] },
+          ]}
+        />,
+      );
+
+      const strength = within(pane("strength"));
+      const stationCard = strength
+        .getByRole("heading", { name: "UHSt 3" })
+        .closest("[data-station]") as HTMLElement;
+      expect(within(stationCard).getByText("0/1/6//7")).toBeInTheDocument();
+      expect(
+        within(strength.getByRole("region", { name: "Summe" })).getByText(
+          "0/1/6//7",
+        ),
+      ).toBeInTheDocument();
+      expect(
+        strength.getByRole("heading", { name: "Ziel" }),
+      ).toBeInTheDocument();
+    });
+
     it("keeps a half-filled Stärkemeldung when switching to the Lagekarte and back", async () => {
       renderWorkspace({
         stations: [{ id: "st1", name: "UHSt 3", reports: [] }],
