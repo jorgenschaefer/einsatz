@@ -832,4 +832,105 @@ describe("StrengthPanel", () => {
       expect(screen.queryByRole("table")).toBeNull();
     });
   });
+
+  describe("the Summenverlauf", () => {
+    const openTotalHistory = () =>
+      userEvent.click(
+        within(screen.getByRole("region", { name: "Summe" })).getByRole(
+          "button",
+          { name: "Verlauf" },
+        ),
+      );
+
+    const totalHistoryRows = () =>
+      within(screen.getByRole("table", { name: "Summenverlauf" }))
+        .getAllByRole("row")
+        .map((row) =>
+          Array.from(row.querySelectorAll("th, td")).map((c) => c.textContent),
+        );
+
+    it("lists a row per valid report, newest first, with the sum that applied then", async () => {
+      setup({
+        stations: [
+          {
+            id: "s1",
+            name: "UHSt 3",
+            reports: [
+              // 08:02 in Berlin
+              report({ number: 1, reportedAt: "2026-09-26T06:02:00.000Z" }),
+              report({
+                number: 4,
+                reportedAt: "2026-09-26T08:10:00.000Z",
+                helpers: 3,
+                state: "annulliert",
+              }),
+            ],
+          },
+          {
+            id: "s2",
+            name: "Ziel",
+            reports: [
+              report({
+                number: 2,
+                reportedAt: "2026-09-26T07:04:00.000Z",
+                leaders: 1,
+                helpers: 10,
+                additionalPersonnel: 0,
+              }),
+            ],
+          },
+        ],
+      });
+
+      await openTotalHistory();
+
+      expect(totalHistoryRows()).toEqual([
+        ["Zeit", "F/UF/H//Σ", "+", "Pers."],
+        ["09:04", "1/2/16//19", "2", "21"],
+        ["08:02", "0/1/6//7", "2", "9"],
+      ]);
+      expect(screen.queryByRole("region", { name: "Summe" })).toBeNull();
+    });
+
+    it("goes back to the Stellen", async () => {
+      setup({ stations: [{ id: "s1", name: "UHSt 3", reports: [report()] }] });
+      await openTotalHistory();
+
+      await userEvent.click(screen.getByRole("button", { name: "Zurück" }));
+
+      expect(screen.queryByRole("table")).toBeNull();
+      expect(card("UHSt 3")).toBeInTheDocument();
+    });
+
+    it("shows no table once its last valid report is annulled", async () => {
+      const { rerender } = setup({
+        stations: [{ id: "s1", name: "UHSt 3", reports: [report()] }],
+      });
+      await openTotalHistory();
+
+      rerender({
+        stations: [
+          {
+            id: "s1",
+            name: "UHSt 3",
+            reports: [report({ state: "annulliert" })],
+          },
+        ],
+      });
+
+      expect(screen.queryByRole("table")).toBeNull();
+      expect(screen.getByRole("button", { name: "Zurück" })).toBeVisible();
+    });
+
+    it("cannot be opened without a valid report", () => {
+      setup();
+
+      expect(
+        within(screen.getByRole("region", { name: "Summe" })).getByRole(
+          "button",
+          { name: "Verlauf" },
+        ),
+      ).toBeDisabled();
+    });
+  });
 });

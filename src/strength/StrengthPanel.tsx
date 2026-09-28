@@ -27,6 +27,7 @@ import {
   type StrengthValues,
   stationHistory,
   sumOf,
+  totalHistory,
   totalOf,
   totalPersonsOf,
 } from "./strength";
@@ -71,6 +72,7 @@ export function StrengthPanel({
   const [selectedStationId, setSelectedStationId] = useState<string | null>(
     null,
   );
+  const [showTotalHistory, setShowTotalHistory] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const selectedStation = stations.find((s) => s.id === selectedStationId);
 
@@ -92,6 +94,7 @@ export function StrengthPanel({
     setCreating(false);
     setRenamingId(null);
     setSelectedStationId(null);
+    setShowTotalHistory(false);
     setError(null);
   };
 
@@ -128,6 +131,8 @@ export function StrengthPanel({
           />
           <StationHistory station={selectedStation} />
         </>
+      ) : showTotalHistory ? (
+        <TotalHistory stations={stations} onBack={closeForms} />
       ) : (
         <>
           {stations.length > 0 && (
@@ -135,6 +140,10 @@ export function StrengthPanel({
               stations={stations}
               now={now}
               onReport={() => save(onReportTotalStrength, () => {})}
+              onShowHistory={() => {
+                closeForms();
+                setShowTotalHistory(true);
+              }}
             />
           )}
 
@@ -224,10 +233,12 @@ function TotalCard({
   stations,
   now,
   onReport,
+  onShowHistory,
 }: {
   stations: StationView[];
   now: number;
   onReport: () => Promise<void>;
+  onShowHistory: () => void;
 }) {
   const total = totalOf(stations.map((s) => s.reports));
   const hasValidReport = stations.some((s) => latestValidReport(s.reports));
@@ -250,21 +261,29 @@ function TotalCard({
           )}
         </Group>
         <Counts counts={total} />
-        <Button
-          w="fit-content"
-          disabled={!hasValidReport}
-          loading={busy}
-          onClick={async () => {
-            setBusy(true);
-            try {
-              await onReport();
-            } finally {
-              setBusy(false);
-            }
-          }}
-        >
-          Gesamtstärke melden
-        </Button>
+        <Group gap="xs">
+          <Button
+            disabled={!hasValidReport}
+            loading={busy}
+            onClick={async () => {
+              setBusy(true);
+              try {
+                await onReport();
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            Gesamtstärke melden
+          </Button>
+          <Button
+            variant="default"
+            disabled={!hasValidReport}
+            onClick={onShowHistory}
+          >
+            Verlauf
+          </Button>
+        </Group>
       </Stack>
     </Paper>
   );
@@ -494,26 +513,94 @@ function StationHistory({ station }: { station: StationView }) {
       <Table aria-labelledby={titleId} fz="sm" horizontalSpacing={4}>
         <Table.Thead>
           <Table.Tr>
-            <Table.Th>Zeit</Table.Th>
-            <Table.Th>{"F/UF/H//Σ"}</Table.Th>
-            <Table.Th>+</Table.Th>
-            <Table.Th>Pers.</Table.Th>
+            <StrengthHeads />
             <Table.Th>Notiz</Table.Th>
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
           {history.map((report) => (
             <Table.Tr key={report.number}>
-              <Table.Td>{berlinTimeOfDay(report.reportedAt)}</Table.Td>
-              <Table.Td>{formatStrength(report)}</Table.Td>
-              <Table.Td>{report.additionalPersonnel}</Table.Td>
-              <Table.Td>{totalPersonsOf(report)}</Table.Td>
+              <StrengthCells reportedAt={report.reportedAt} counts={report} />
               <Table.Td>{report.note}</Table.Td>
             </Table.Tr>
           ))}
         </Table.Tbody>
       </Table>
     </Stack>
+  );
+}
+
+function TotalHistory({
+  stations,
+  onBack,
+}: {
+  stations: StationView[];
+  onBack: () => void;
+}) {
+  const history = totalHistory(stations.map((s) => s.reports));
+  const titleId = useId();
+
+  return (
+    <Stack gap="xs">
+      <Group gap="xs" wrap="nowrap">
+        <Button
+          variant="subtle"
+          size="xs"
+          leftSection={<IconArrowLeft size={16} />}
+          onClick={onBack}
+        >
+          Zurück
+        </Button>
+        <Title id={titleId} order={3} size="h5">
+          Summenverlauf
+        </Title>
+      </Group>
+      {history.length > 0 && (
+        <Table aria-labelledby={titleId} fz="sm" horizontalSpacing={4}>
+          <Table.Thead>
+            <Table.Tr>
+              <StrengthHeads />
+            </Table.Tr>
+          </Table.Thead>
+          <Table.Tbody>
+            {history.map((row) => (
+              <Table.Tr key={row.number}>
+                <StrengthCells reportedAt={row.reportedAt} counts={row.total} />
+              </Table.Tr>
+            ))}
+          </Table.Tbody>
+        </Table>
+      )}
+    </Stack>
+  );
+}
+
+/** Die Spalten Zeit, F/UF/H//Σ, + und Pers. beider Verläufe. */
+function StrengthHeads() {
+  return (
+    <>
+      <Table.Th>Zeit</Table.Th>
+      <Table.Th>{"F/UF/H//Σ"}</Table.Th>
+      <Table.Th>+</Table.Th>
+      <Table.Th>Pers.</Table.Th>
+    </>
+  );
+}
+
+function StrengthCells({
+  reportedAt,
+  counts,
+}: {
+  reportedAt: Date | string;
+  counts: StrengthCounts;
+}) {
+  return (
+    <>
+      <Table.Td>{berlinTimeOfDay(reportedAt)}</Table.Td>
+      <Table.Td>{formatStrength(counts)}</Table.Td>
+      <Table.Td>{counts.additionalPersonnel}</Table.Td>
+      <Table.Td>{totalPersonsOf(counts)}</Table.Td>
+    </>
   );
 }
 

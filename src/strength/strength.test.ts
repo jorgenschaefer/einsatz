@@ -6,9 +6,11 @@ import {
   isReportStale,
   isTotalStale,
   latestValidReport,
+  type ReportedStrength,
   type StrengthValues,
   stationHistory,
   sumOf,
+  totalHistory,
   totalOf,
   totalPersonsOf,
 } from "./strength";
@@ -233,6 +235,118 @@ describe("totalOf", () => {
     ]);
     expect(total.stationCount).toBe(1);
     expect(total.oldestReportedAt).toEqual(new Date("2026-09-26T07:00:00Z"));
+  });
+});
+
+describe("totalHistory", () => {
+  const report = (
+    helpers: number,
+    reportedAt: string,
+    number: number,
+    state: "gueltig" | "annulliert" = "gueltig",
+  ) => ({
+    leaders: 0,
+    subLeaders: 0,
+    helpers,
+    additionalPersonnel: 0,
+    note: null,
+    reportedAt,
+    number,
+    state,
+  });
+
+  const rows = (reportsByStation: ReportedStrength[][]) =>
+    totalHistory(reportsByStation).map((row) => ({
+      number: row.number,
+      reportedAt: row.reportedAt,
+      helpers: row.total.helpers,
+    }));
+
+  it("is empty without a valid report", () => {
+    expect(
+      totalHistory([[], [report(4, "2026-09-26T07:00:00Z", 1, "annulliert")]]),
+    ).toEqual([]);
+  });
+
+  it("has a row per valid report, newest first, with the sum of each Stelle's latest report by then", () => {
+    expect(
+      rows([
+        [
+          report(1, "2026-09-26T07:00:00Z", 1),
+          report(3, "2026-09-26T09:00:00Z", 5),
+        ],
+        [
+          report(10, "2026-09-26T08:00:00Z", 2),
+          report(20, "2026-09-26T10:00:00Z", 8),
+        ],
+      ]),
+    ).toEqual([
+      { number: 8, reportedAt: "2026-09-26T10:00:00Z", helpers: 23 },
+      { number: 5, reportedAt: "2026-09-26T09:00:00Z", helpers: 13 },
+      { number: 2, reportedAt: "2026-09-26T08:00:00Z", helpers: 11 },
+      { number: 1, reportedAt: "2026-09-26T07:00:00Z", helpers: 1 },
+    ]);
+  });
+
+  it("leaves annulled reports out of the rows and out of the sums", () => {
+    expect(
+      rows([
+        [
+          report(1, "2026-09-26T07:00:00Z", 1),
+          report(9, "2026-09-26T08:00:00Z", 3, "annulliert"),
+        ],
+        [report(10, "2026-09-26T09:00:00Z", 5)],
+      ]),
+    ).toEqual([
+      { number: 5, reportedAt: "2026-09-26T09:00:00Z", helpers: 11 },
+      { number: 1, reportedAt: "2026-09-26T07:00:00Z", helpers: 1 },
+    ]);
+  });
+
+  it("counts a report in the same minute only from its own second on", () => {
+    expect(
+      rows([
+        [report(1, "2026-09-26T07:00:10Z", 1)],
+        [report(10, "2026-09-26T07:00:50Z", 2)],
+      ]),
+    ).toEqual([
+      { number: 2, reportedAt: "2026-09-26T07:00:50Z", helpers: 11 },
+      { number: 1, reportedAt: "2026-09-26T07:00:10Z", helpers: 1 },
+    ]);
+  });
+
+  it("counts reports of the very same time in each other's rows", () => {
+    expect(
+      rows([
+        [report(1, "2026-09-26T07:00:00Z", 1)],
+        [report(10, "2026-09-26T07:00:00.000Z", 2)],
+      ]),
+    ).toEqual([
+      { number: 2, reportedAt: "2026-09-26T07:00:00.000Z", helpers: 11 },
+      { number: 1, reportedAt: "2026-09-26T07:00:00Z", helpers: 11 },
+    ]);
+  });
+
+  it("carries the whole Total of the row's time", () => {
+    const [row] = totalHistory([
+      [
+        {
+          ...report(6, "2026-09-26T07:00:00Z", 1),
+          leaders: 1,
+          subLeaders: 2,
+          additionalPersonnel: 3,
+        },
+      ],
+      [report(4, "2026-09-26T08:00:00Z", 2)],
+    ]);
+    expect(row.total).toEqual({
+      leaders: 1,
+      subLeaders: 2,
+      helpers: 10,
+      additionalPersonnel: 3,
+      stationCount: 2,
+      oldestReportedAt: new Date("2026-09-26T07:00:00Z"),
+    });
   });
 });
 

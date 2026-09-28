@@ -93,6 +93,30 @@ export function totalOf(reportsByStation: ReportedStrength[][]): Total {
   return total;
 }
 
+/** Eine Zeile des Summenverlaufs: eine gültige Meldung und die Summe, die dann galt. */
+export interface TotalHistoryRow {
+  number: number;
+  reportedAt: Date | string;
+  total: Total;
+}
+
+/** Summenverlauf: eine Zeile je gültiger Meldung, neueste zuerst. */
+export function totalHistory(
+  reportsByStation: ReportedStrength[][],
+): TotalHistoryRow[] {
+  return stationHistory(reportsByStation.flat()).map((row) => {
+    const rowTime = new Date(row.reportedAt).getTime();
+    const reportedByThen = reportsByStation.map((reports) =>
+      reports.filter((r) => new Date(r.reportedAt).getTime() <= rowTime),
+    );
+    return {
+      number: row.number,
+      reportedAt: row.reportedAt,
+      total: totalOf(reportedByThen),
+    };
+  });
+}
+
 /** Eine Meldung gilt nach 60 Minuten als veraltet. */
 export const REPORT_STALE_AFTER_MS = 60 * 60 * 1000;
 
