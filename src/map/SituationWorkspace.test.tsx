@@ -55,11 +55,8 @@ function fakeFactory() {
   return { factory, captured, adapter };
 }
 
-// Der ETB-Punkt trägt die Zahl neuer Einträge im Namen („ETB 2 neue Einträge").
 const selectMainView = (name: "Lagekarte" | "ETB") =>
-  userEvent.click(
-    screen.getAllByRole("button", { name: new RegExp(`^${name}`) })[0],
-  );
+  userEvent.click(screen.getAllByText(name)[0]);
 
 /**
  * Gibt Mantines AppShell die Höhe der Leiste an die Hauptansicht zurück?
@@ -174,7 +171,7 @@ type PanelName = "Kartenzeichen" | "Bereiche" | "Ebenen";
 // dann den Kartenknopf tippen.
 const openPanel = async (name: PanelName) => {
   await selectMainView("Lagekarte");
-  await userEvent.click(screen.getByRole("button", { name }));
+  await userEvent.click(screen.getByLabelText(name, { selector: "button" }));
 };
 
 const mapPanel = (name: PanelName) => screen.getByRole("region", { name });
@@ -220,16 +217,21 @@ const journalEntry = (
 });
 
 /** Der ETB-Punkt der Leiste; sein Name trägt die Zahl neuer Einträge. */
-const etbItem = () => screen.getAllByRole("button", { name: /^ETB/ })[0];
+const etbItem = () => screen.getAllByText("ETB")[0].closest("button");
+
+/**
+ * Der Knopf mit diesem Text, für Prüfungen am Knopf selbst (Name, disabled,
+ * aria-pressed); `getByText` liefert nur das Textelement darin.
+ */
+const buttonWithText = (text: string | RegExp, container = document.body) =>
+  within(container).getByText(text).closest("button") as HTMLElement;
 
 const modeBand = (label: string) =>
   screen.getByRole("toolbar", { name: label });
 
 const startEditingImage = async () => {
   await openPanel("Ebenen");
-  await userEvent.click(
-    await screen.findByRole("button", { name: "Bearbeiten" }),
-  );
+  await userEvent.click(await screen.findByText("Bearbeiten"));
 };
 
 // Am Handy schließt das Blatt, sobald das Bearbeiten beginnt; den Editor
@@ -247,7 +249,7 @@ describe("SituationWorkspace", () => {
         name: "Cyclassics 2026",
       }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Teilen/i })).toBeInTheDocument();
+    expect(screen.getByText(/Teilen/i)).toBeInTheDocument();
   });
 
   describe("counting new ETB entries", () => {
@@ -357,9 +359,8 @@ describe("SituationWorkspace", () => {
       renderWorkspace();
       expect(screen.getByLabelText("Neuer Eintrag")).toBeVisible();
       expect(
-        screen.getByRole("button", {
-          name: "Zum Standard-Ausschnitt zurück",
-          hidden: true,
+        screen.getByLabelText("Zum Standard-Ausschnitt zurück", {
+          selector: "button",
         }),
       ).not.toBeVisible();
     } finally {
@@ -372,7 +373,9 @@ describe("SituationWorkspace", () => {
     try {
       renderWorkspace();
       expect(
-        screen.getByRole("button", { name: "Zum Standard-Ausschnitt zurück" }),
+        screen.getByLabelText("Zum Standard-Ausschnitt zurück", {
+          selector: "button",
+        }),
       ).toBeVisible();
       expect(screen.getByLabelText("Neuer Eintrag")).not.toBeVisible();
     } finally {
@@ -415,9 +418,7 @@ describe("SituationWorkspace", () => {
       renderWorkspace();
       const phoneBar = () => screen.queryByRole("contentinfo");
       expect(
-        within(phoneBar() as HTMLElement).getByRole("button", {
-          name: "Lagekarte",
-        }),
+        within(phoneBar() as HTMLElement).getByText("Lagekarte"),
       ).toBeInTheDocument();
 
       screen.getByLabelText("Neuer Eintrag").focus();
@@ -449,19 +450,27 @@ describe("SituationWorkspace", () => {
     await openPanel("Kartenzeichen");
     expect(mapPanel("Kartenzeichen")).toBeVisible();
     expect(
-      screen.getByRole("button", { name: "Kartenzeichen" }),
+      screen.getByLabelText("Kartenzeichen", { selector: "button" }),
     ).toHaveAttribute("aria-pressed", "true");
 
-    await userEvent.click(screen.getByRole("button", { name: "Bereiche" }));
+    await userEvent.click(
+      screen.getByLabelText("Bereiche", { selector: "button" }),
+    );
     expect(mapPanel("Bereiche")).toBeVisible();
     expect(screen.queryByRole("region", { name: "Kartenzeichen" })).toBeNull();
 
-    await userEvent.click(screen.getByRole("button", { name: "Bereiche" }));
+    await userEvent.click(
+      screen.getByLabelText("Bereiche", { selector: "button" }),
+    );
     expect(anyMapPanel()).toBeNull();
 
-    await userEvent.click(screen.getByRole("button", { name: "Ebenen" }));
     await userEvent.click(
-      within(mapPanel("Ebenen")).getByRole("button", { name: "Schließen" }),
+      screen.getByLabelText("Ebenen", { selector: "button" }),
+    );
+    await userEvent.click(
+      within(mapPanel("Ebenen")).getByLabelText("Schließen", {
+        selector: "button",
+      }),
     );
     expect(anyMapPanel()).toBeNull();
   });
@@ -495,7 +504,7 @@ describe("SituationWorkspace", () => {
       expect(mapPanel("Kartenzeichen")).toBeVisible();
 
       // Jetzt Desktop-Form: Scharfstellen lässt das Panel stehen.
-      await userEvent.click(screen.getByRole("button", { name: /KTW/ }));
+      await userEvent.click(screen.getByText(/KTW/));
       expect(mapPanel("Kartenzeichen")).toBeVisible();
     } finally {
       vi.unstubAllGlobals();
@@ -508,12 +517,12 @@ describe("SituationWorkspace", () => {
     await selectMainView("Lagekarte");
     await waitFor(() => expect(captured.options).toBeDefined());
     await userEvent.click(
-      screen.getByRole("button", { name: "Standard-Ausschnitt festlegen" }),
+      screen.getByLabelText("Standard-Ausschnitt festlegen", {
+        selector: "button",
+      }),
     );
     await userEvent.click(
-      within(await screen.findByRole("dialog")).getByRole("button", {
-        name: "Festlegen",
-      }),
+      within(await screen.findByRole("dialog")).getByText("Festlegen"),
     );
     expect(onSetDefault).toHaveBeenCalledWith({ lat: 0, lng: 0, zoom: 1 });
   });
@@ -527,12 +536,12 @@ describe("SituationWorkspace", () => {
       renderWorkspace({ onSetDefault, factory: undefined });
       await selectMainView("Lagekarte");
       await userEvent.click(
-        screen.getByRole("button", { name: "Standard-Ausschnitt festlegen" }),
+        screen.getByLabelText("Standard-Ausschnitt festlegen", {
+          selector: "button",
+        }),
       );
       const dialog = await screen.findByRole("dialog");
-      await userEvent.click(
-        within(dialog).getByRole("button", { name: "Festlegen" }),
-      );
+      await userEvent.click(within(dialog).getByText("Festlegen"));
 
       expect(within(dialog).getByRole("alert")).toHaveTextContent(
         "Die Karte lädt noch. Bitte erneut versuchen.",
@@ -554,21 +563,17 @@ describe("SituationWorkspace", () => {
     it("closes it when a Schnellauswahl symbol is armed", async () => {
       renderWorkspace();
       await openPanel("Kartenzeichen");
-      await userEvent.click(screen.getByRole("button", { name: /KTW/ }));
+      await userEvent.click(screen.getByText(/KTW/));
       expect(anyMapPanel()).toBeNull();
     });
 
     it("closes it when an Erweitert composition is armed", async () => {
       renderWorkspace();
       await openPanel("Kartenzeichen");
-      await userEvent.click(
-        screen.getByRole("button", { name: "Erweitert …" }),
-      );
+      await userEvent.click(screen.getByText("Erweitert …"));
       expect(mapPanel("Kartenzeichen")).toBeInTheDocument();
       await userEvent.click(
-        within(await screen.findByRole("dialog")).getByRole("button", {
-          name: "Platzieren",
-        }),
+        within(await screen.findByRole("dialog")).getByText("Platzieren"),
       );
       expect(anyMapPanel()).toBeNull();
     });
@@ -576,7 +581,7 @@ describe("SituationWorkspace", () => {
     it("closes it when drawing a Bereich starts", async () => {
       renderWorkspace();
       await openPanel("Bereiche");
-      await userEvent.click(screen.getByRole("button", { name: "Polygon" }));
+      await userEvent.click(screen.getByText("Polygon"));
       expect(anyMapPanel()).toBeNull();
     });
 
@@ -584,12 +589,12 @@ describe("SituationWorkspace", () => {
       renderWorkspace({ areas: [AREA] });
       await openPanel("Bereiche");
       await userEvent.click(
-        screen.getByRole("button", { name: "Deich bearbeiten" }),
+        screen.getByLabelText("Deich bearbeiten", { selector: "button" }),
       );
       await userEvent.click(
-        within(await screen.findByRole("dialog")).getByRole("button", {
-          name: "Form neu zeichnen",
-        }),
+        within(await screen.findByRole("dialog")).getByText(
+          "Form neu zeichnen",
+        ),
       );
       expect(anyMapPanel()).toBeNull();
     });
@@ -597,16 +602,14 @@ describe("SituationWorkspace", () => {
     it("closes it when a Kartenzeichen is jumped to from the list", async () => {
       renderWorkspace({ symbols: [SYMBOL] });
       await openPanel("Kartenzeichen");
-      await userEvent.click(screen.getByRole("button", { name: "Pumpe 1" }));
+      await userEvent.click(screen.getByText("Pumpe 1"));
       expect(anyMapPanel()).toBeNull();
     });
 
     it("closes it when a Bereich is jumped to from the list", async () => {
       renderWorkspace({ areas: [AREA] });
       await openPanel("Bereiche");
-      await userEvent.click(
-        screen.getByRole("button", { name: "Deich Kreis" }),
-      );
+      await userEvent.click(screen.getByText("Deich"));
       expect(anyMapPanel()).toBeNull();
     });
 
@@ -623,7 +626,7 @@ describe("SituationWorkspace", () => {
         })),
       });
       await openPanel("Kartenzeichen");
-      await userEvent.click(screen.getByRole("button", { name: /KTW/ }));
+      await userEvent.click(screen.getByText(/KTW/));
       await openPanel("Kartenzeichen");
       await waitFor(() => expect(captured.options?.onMapClick).toBeDefined());
       await act(async () => {
@@ -636,18 +639,18 @@ describe("SituationWorkspace", () => {
     it("keeps it open when a Schnellauswahl symbol is disarmed", async () => {
       renderWorkspace();
       await openPanel("Kartenzeichen");
-      await userEvent.click(screen.getByRole("button", { name: /KTW/ }));
+      await userEvent.click(screen.getByText(/KTW/));
       await openPanel("Kartenzeichen");
-      await userEvent.click(screen.getByRole("button", { name: /KTW/ }));
+      await userEvent.click(screen.getByText(/KTW/));
       expect(mapPanel("Kartenzeichen")).toBeVisible();
     });
 
     it("keeps it open when drawing is toggled off", async () => {
       renderWorkspace();
       await openPanel("Bereiche");
-      await userEvent.click(screen.getByRole("button", { name: "Polygon" }));
+      await userEvent.click(screen.getByText("Polygon"));
       await openPanel("Bereiche");
-      await userEvent.click(screen.getByRole("button", { name: "Polygon" }));
+      await userEvent.click(screen.getByText("Polygon"));
       expect(mapPanel("Bereiche")).toBeVisible();
     });
 
@@ -655,7 +658,7 @@ describe("SituationWorkspace", () => {
       stubMatchMedia(true);
       renderWorkspace();
       await openPanel("Kartenzeichen");
-      await userEvent.click(screen.getByRole("button", { name: /KTW/ }));
+      await userEvent.click(screen.getByText(/KTW/));
       expect(mapPanel("Kartenzeichen")).toBeVisible();
     });
   });
@@ -682,9 +685,7 @@ describe("SituationWorkspace", () => {
     fireEvent.change(screen.getByLabelText("Neuer Eintrag"), {
       target: { value: "Deich gesichert" },
     });
-    await userEvent.click(
-      screen.getByRole("button", { name: "Eintrag hinzufügen" }),
-    );
+    await userEvent.click(screen.getByText("Eintrag hinzufügen"));
     expect(onAddJournalEntry).toHaveBeenCalledWith("Deich gesichert");
   });
 
@@ -692,7 +693,7 @@ describe("SituationWorkspace", () => {
     const onPlace = vi.fn(async () => ({}));
     const { captured } = renderWorkspace({ onPlace });
     await openPanel("Kartenzeichen");
-    await userEvent.click(screen.getByRole("button", { name: /KTW/ }));
+    await userEvent.click(screen.getByText(/KTW/));
     await waitFor(() => expect(captured.options?.onMapClick).toBeDefined());
     await act(async () => {
       captured.options!.onMapClick!({ lat: 50, lng: 8 });
@@ -708,7 +709,7 @@ describe("SituationWorkspace", () => {
     }));
     const { captured } = renderWorkspace({ onPlace });
     await openPanel("Kartenzeichen");
-    await userEvent.click(screen.getByRole("button", { name: /KTW/ }));
+    await userEvent.click(screen.getByText(/KTW/));
     await waitFor(() => expect(captured.options?.onMapClick).toBeDefined());
     await act(async () => {
       captured.options!.onMapClick!({ lat: 50, lng: 8 });
@@ -724,7 +725,7 @@ describe("SituationWorkspace", () => {
     });
     const { captured } = renderWorkspace({ onPlace });
     await openPanel("Kartenzeichen");
-    await userEvent.click(screen.getByRole("button", { name: /KTW/ }));
+    await userEvent.click(screen.getByText(/KTW/));
     await waitFor(() => expect(captured.options?.onMapClick).toBeDefined());
     await act(async () => {
       captured.options!.onMapClick!({ lat: 50, lng: 8 });
@@ -740,7 +741,7 @@ describe("SituationWorkspace", () => {
     }));
     const { captured } = renderWorkspace({ onPlace });
     await openPanel("Kartenzeichen");
-    await userEvent.click(screen.getByRole("button", { name: /KTW/ }));
+    await userEvent.click(screen.getByText(/KTW/));
     await waitFor(() => expect(captured.options?.onMapClick).toBeDefined());
     await act(async () => {
       captured.options!.onMapClick!({ lat: 50, lng: 8 });
@@ -756,7 +757,7 @@ describe("SituationWorkspace", () => {
       .mockResolvedValueOnce({});
     const { captured } = renderWorkspace({ onPlace });
     await openPanel("Kartenzeichen");
-    await userEvent.click(screen.getByRole("button", { name: /KTW/ }));
+    await userEvent.click(screen.getByText(/KTW/));
     await waitFor(() => expect(captured.options?.onMapClick).toBeDefined());
     await act(async () => {
       captured.options!.onMapClick!({ lat: 50, lng: 8 });
@@ -764,7 +765,7 @@ describe("SituationWorkspace", () => {
     expect(await screen.findByRole("alert")).toBeInTheDocument();
     // Erneut scharfstellen und platzieren – der alte Fehler verschwindet.
     await openPanel("Kartenzeichen");
-    await userEvent.click(screen.getByRole("button", { name: /KTW/ }));
+    await userEvent.click(screen.getByText(/KTW/));
     await waitFor(() => expect(captured.options?.onMapClick).toBeDefined());
     await act(async () => {
       captured.options!.onMapClick!({ lat: 51, lng: 9 });
@@ -784,7 +785,7 @@ describe("SituationWorkspace", () => {
     );
     const { captured } = renderWorkspace({ onPlace });
     await openPanel("Kartenzeichen");
-    await userEvent.click(screen.getByRole("button", { name: /KTW/ }));
+    await userEvent.click(screen.getByText(/KTW/));
     await waitFor(() => expect(captured.options?.onMapClick).toBeDefined());
     await act(async () => {
       captured.options!.onMapClick!({ lat: 50, lng: 8 });
@@ -799,10 +800,8 @@ describe("SituationWorkspace", () => {
     const onPlace = vi.fn(async () => ({}));
     const { captured } = renderWorkspace({ onPlace });
     await openPanel("Kartenzeichen");
-    await userEvent.click(screen.getByRole("button", { name: /Erweitert/ }));
-    await userEvent.click(
-      await screen.findByRole("button", { name: "Platzieren" }),
-    );
+    await userEvent.click(screen.getByText(/Erweitert/));
+    await userEvent.click(await screen.findByText("Platzieren"));
     await waitFor(() => expect(captured.options?.onMapClick).toBeDefined());
     await act(async () => {
       captured.options!.onMapClick!({ lat: 51, lng: 7 });
@@ -862,7 +861,9 @@ describe("SituationWorkspace", () => {
     });
     await openPanel("Kartenzeichen");
     await userEvent.click(
-      await screen.findByRole("button", { name: /Rotkreuz 83\/1 bearbeiten/ }),
+      await screen.findByLabelText(/Rotkreuz 83\/1 bearbeiten/, {
+        selector: "button",
+      }),
     );
     expect(await screen.findByLabelText("Bezeichnung")).toHaveValue(
       "Rotkreuz 83/1",
@@ -918,9 +919,7 @@ describe("SituationWorkspace", () => {
       target: { value: "Hamburg" },
     });
     await waitFor(() => expect(onGeocode).toHaveBeenCalledWith("Hamburg"));
-    expect(
-      await screen.findByRole("button", { name: /Rathaus, Hamburg/ }),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/Rathaus, Hamburg/)).toBeInTheDocument();
   });
 
   it("jumps the map to a searched Kartenzeichen", async () => {
@@ -947,9 +946,7 @@ describe("SituationWorkspace", () => {
     const results = within(
       (await screen.findByText("Einsatzobjekte")).parentElement as HTMLElement,
     );
-    await userEvent.click(
-      results.getByRole("button", { name: /Rotkreuz 83\/1/ }),
-    );
+    await userEvent.click(results.getByText(/Rotkreuz 83\/1/));
     await waitFor(() =>
       expect(adapter.setView).toHaveBeenCalledWith({
         lat: 53.5,
@@ -963,7 +960,7 @@ describe("SituationWorkspace", () => {
     const onCreateArea = vi.fn(async () => ({}));
     const { adapter } = renderWorkspace({ onCreateArea });
     await openPanel("Bereiche");
-    await userEvent.click(screen.getByRole("button", { name: "Polygon" }));
+    await userEvent.click(screen.getByText("Polygon"));
     await waitFor(() =>
       expect(adapter.startDrawing).toHaveBeenCalledWith(
         "polygon",
@@ -993,7 +990,7 @@ describe("SituationWorkspace", () => {
     }));
     const { adapter } = renderWorkspace({ onCreateArea });
     await openPanel("Bereiche");
-    await userEvent.click(screen.getByRole("button", { name: "Polygon" }));
+    await userEvent.click(screen.getByText("Polygon"));
     await waitFor(() => expect(adapter.startDrawing).toHaveBeenCalled());
     const onComplete = adapter.startDrawing.mock.calls.at(-1)![1] as (
       g: unknown,
@@ -1006,7 +1003,7 @@ describe("SituationWorkspace", () => {
     ).toBeInTheDocument();
     // Der Zeichenmodus endet trotzdem: erneutes Scharfstellen ist möglich.
     await openPanel("Bereiche");
-    await userEvent.click(screen.getByRole("button", { name: "Polygon" }));
+    await userEvent.click(screen.getByText("Polygon"));
     await waitFor(() => expect(adapter.startDrawing).toHaveBeenCalledTimes(2));
   });
 
@@ -1016,7 +1013,7 @@ describe("SituationWorkspace", () => {
     });
     const { adapter } = renderWorkspace({ onCreateArea });
     await openPanel("Bereiche");
-    await userEvent.click(screen.getByRole("button", { name: "Polygon" }));
+    await userEvent.click(screen.getByText("Polygon"));
     await waitFor(() => expect(adapter.startDrawing).toHaveBeenCalled());
     const onComplete = adapter.startDrawing.mock.calls.at(-1)![1] as (
       g: unknown,
@@ -1047,11 +1044,9 @@ describe("SituationWorkspace", () => {
     });
     await openPanel("Bereiche");
     await userEvent.click(
-      await screen.findByRole("button", { name: /Z bearbeiten/ }),
+      await screen.findByLabelText(/Z bearbeiten/, { selector: "button" }),
     );
-    await userEvent.click(
-      await screen.findByRole("button", { name: /Form neu zeichnen/ }),
-    );
+    await userEvent.click(await screen.findByText(/Form neu zeichnen/));
     await waitFor(() => expect(adapter.startDrawing).toHaveBeenCalled());
     await act(async () => {
       (adapter.startDrawing.mock.calls.at(-1)![1] as (g: unknown) => void)({
@@ -1080,11 +1075,11 @@ describe("SituationWorkspace", () => {
     renderWorkspace({ areas: [area], onDeleteArea });
     await openPanel("Bereiche");
     await userEvent.click(
-      await screen.findByRole("button", { name: /Zone Nord bearbeiten/ }),
+      await screen.findByLabelText(/Zone Nord bearbeiten/, {
+        selector: "button",
+      }),
     );
-    await userEvent.click(
-      await screen.findByRole("button", { name: "Löschen" }),
-    );
+    await userEvent.click(await screen.findByText("Löschen"));
     expect(onDeleteArea).toHaveBeenCalledWith("a1");
   });
 
@@ -1153,11 +1148,9 @@ describe("SituationWorkspace", () => {
     renderWorkspace({ areas: [area], onUpdateAreaStyle });
     await openPanel("Bereiche");
     await userEvent.click(
-      await screen.findByRole("button", { name: /Zone bearbeiten/ }),
+      await screen.findByLabelText(/Zone bearbeiten/, { selector: "button" }),
     );
-    await userEvent.click(
-      await screen.findByRole("button", { name: "Speichern" }),
-    );
+    await userEvent.click(await screen.findByText("Speichern"));
     expect(onUpdateAreaStyle).toHaveBeenCalledWith("a1", {
       color: "#e2001a",
       opacity: 0.4,
@@ -1186,11 +1179,9 @@ describe("SituationWorkspace", () => {
     renderWorkspace({ areas: [area], onUpdateAreaStyle });
     await openPanel("Bereiche");
     await userEvent.click(
-      await screen.findByRole("button", { name: /Zone bearbeiten/ }),
+      await screen.findByLabelText(/Zone bearbeiten/, { selector: "button" }),
     );
-    await userEvent.click(
-      await screen.findByRole("button", { name: "Speichern" }),
-    );
+    await userEvent.click(await screen.findByText("Speichern"));
     expect(
       await screen.findByText("Die Deckkraft muss zwischen 0 und 1 liegen."),
     ).toBeInTheDocument();
@@ -1205,7 +1196,9 @@ describe("SituationWorkspace", () => {
     const openEditor = async () => {
       await openPanel("Bereiche");
       await userEvent.click(
-        await screen.findByRole("button", { name: /Deich bearbeiten/ }),
+        await screen.findByLabelText(/Deich bearbeiten/, {
+          selector: "button",
+        }),
       );
     };
     const typeRadius = async (value: string) => {
@@ -1213,8 +1206,7 @@ describe("SituationWorkspace", () => {
       await userEvent.clear(radius);
       await userEvent.type(radius, value);
     };
-    const save = () =>
-      userEvent.click(screen.getByRole("button", { name: "Speichern" }));
+    const save = () => userEvent.click(screen.getByText("Speichern"));
 
     it("shows no radius field for a polygon", async () => {
       renderWorkspace({
@@ -1424,13 +1416,15 @@ describe("SituationWorkspace", () => {
     const openEditor = async (label = "Deich") => {
       await openPanel("Bereiche");
       await userEvent.click(
-        await screen.findByRole("button", { name: `${label} bearbeiten` }),
+        await screen.findByLabelText(`${label} bearbeiten`, {
+          selector: "button",
+        }),
       );
       return screen.findByRole("dialog");
     };
     const startMoving = async () => {
       await userEvent.click(
-        within(await openEditor()).getByRole("button", { name: "Verschieben" }),
+        within(await openEditor()).getByText("Verschieben"),
       );
     };
     const movingBand = () =>
@@ -1438,21 +1432,17 @@ describe("SituationWorkspace", () => {
     const crosshair = () => document.querySelector(".map-crosshair");
     const setHere = () =>
       userEvent.click(
-        within(modeBand("Kreis verschieben")).getByRole("button", {
-          name: "Hier setzen",
-        }),
+        within(modeBand("Kreis verschieben")).getByText("Hier setzen"),
       );
     const cancel = () =>
       userEvent.click(
-        within(modeBand("Kreis verschieben")).getByRole("button", {
-          name: "Abbrechen",
-        }),
+        within(modeBand("Kreis verschieben")).getByText("Abbrechen"),
       );
 
     it("offers Verschieben only for circles", async () => {
       renderWorkspace({ areas: [AREA, POLYGON, LINE] });
       expect(
-        within(await openEditor()).getByRole("button", { name: "Verschieben" }),
+        within(await openEditor()).getByText("Verschieben"),
       ).toBeInTheDocument();
       for (const label of ["Feld", "Sperre"]) {
         await userEvent.keyboard("{Escape}");
@@ -1460,14 +1450,14 @@ describe("SituationWorkspace", () => {
           expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
         );
         await userEvent.click(
-          screen.getByRole("button", { name: `${label} bearbeiten` }),
+          screen.getByLabelText(`${label} bearbeiten`, { selector: "button" }),
         );
         const dialog = await screen.findByRole("dialog");
         expect(
-          within(dialog).getByRole("button", { name: "Form neu zeichnen" }),
+          within(dialog).getByText("Form neu zeichnen"),
         ).toBeInTheDocument();
         expect(
-          within(dialog).queryByRole("button", { name: "Verschieben" }),
+          within(dialog).queryByText("Verschieben"),
         ).not.toBeInTheDocument();
       }
     });
@@ -1539,18 +1529,16 @@ describe("SituationWorkspace", () => {
       renderWorkspace({ areas: [AREA], onUpdateAreaGeometry });
       await startMoving();
       await setHere();
-      const setButton = within(modeBand("Kreis verschieben")).getByRole(
-        "button",
-        { name: "Hier setzen" },
+      const setButton = buttonWithText(
+        "Hier setzen",
+        modeBand("Kreis verschieben"),
       );
       expect(setButton).toBeDisabled();
       fireEvent.click(setButton);
       expect(onUpdateAreaGeometry).toHaveBeenCalledTimes(1);
       // Cancelling cannot undo a write already sent.
       expect(
-        within(modeBand("Kreis verschieben")).getByRole("button", {
-          name: "Abbrechen",
-        }),
+        buttonWithText("Abbrechen", modeBand("Kreis verschieben")),
       ).toBeDisabled();
 
       await act(async () => finish({}));
@@ -1565,7 +1553,7 @@ describe("SituationWorkspace", () => {
       renderWorkspace({ areas: [AREA], onUpdateAreaGeometry });
       await startMoving();
       await setHere();
-      await userEvent.click(screen.getByRole("button", { name: "Polygon" }));
+      await userEvent.click(screen.getByText("Polygon"));
 
       await act(async () => finish({}));
       expect(modeBand("Bereich zeichnen")).toBeInTheDocument();
@@ -1587,9 +1575,7 @@ describe("SituationWorkspace", () => {
       );
       expect(movingBand()).toBeInTheDocument();
       expect(
-        within(modeBand("Kreis verschieben")).getByRole("button", {
-          name: "Hier setzen",
-        }),
+        buttonWithText("Hier setzen", modeBand("Kreis verschieben")),
       ).toBeEnabled();
 
       adapter.setArea.mockClear();
@@ -1646,7 +1632,7 @@ describe("SituationWorkspace", () => {
     it("starting to draw ends moving", async () => {
       renderWorkspace({ areas: [AREA] });
       await startMoving();
-      await userEvent.click(screen.getByRole("button", { name: "Polygon" }));
+      await userEvent.click(screen.getByText("Polygon"));
 
       expect(movingBand()).toBeNull();
       expect(modeBand("Bereich zeichnen")).toBeInTheDocument();
@@ -1690,7 +1676,10 @@ describe("SituationWorkspace", () => {
       geometry: AreaGeometry,
     ) => {
       await openPanel("Bereiche");
-      await userEvent.click(screen.getByRole("button", { name: shapeLabel }));
+      // Die Formknöpfe sind Umschalter; eine Bereichszeile nennt ihre Form auch.
+      await userEvent.click(
+        screen.getByText(shapeLabel, { selector: "[aria-pressed] *" }),
+      );
       await waitFor(() => expect(adapter.startDrawing).toHaveBeenCalled());
       await act(async () => {
         (adapter.startDrawing.mock.calls.at(-1)![1] as (g: unknown) => void)(
@@ -1751,11 +1740,11 @@ describe("SituationWorkspace", () => {
       const { rerender } = render(<SituationWorkspace {...props} />);
       await openPanel("Bereiche");
       await userEvent.click(
-        await screen.findByRole("button", { name: /Deich bearbeiten/ }),
+        await screen.findByLabelText(/Deich bearbeiten/, {
+          selector: "button",
+        }),
       );
-      await userEvent.click(
-        await screen.findByRole("button", { name: /Form neu zeichnen/ }),
-      );
+      await userEvent.click(await screen.findByText(/Form neu zeichnen/));
       await waitFor(() => expect(adapter.startDrawing).toHaveBeenCalled());
       await act(async () => {
         (adapter.startDrawing.mock.calls.at(-1)![1] as (g: unknown) => void)(
@@ -1789,7 +1778,9 @@ describe("SituationWorkspace", () => {
       await draw(adapter, "Kreis", { ...CIRCLE, radius: 250 });
       await openPanel("Bereiche");
       await userEvent.click(
-        await screen.findByRole("button", { name: /Deich bearbeiten/ }),
+        await screen.findByLabelText(/Deich bearbeiten/, {
+          selector: "button",
+        }),
       );
       expect(await screen.findByLabelText(/Beschriftung/)).toHaveValue("Deich");
 
@@ -1816,13 +1807,13 @@ describe("SituationWorkspace", () => {
       const { rerender } = render(<SituationWorkspace {...props} />);
       await openPanel("Bereiche");
       await userEvent.click(
-        await screen.findByRole("button", { name: /Deich bearbeiten/ }),
+        await screen.findByLabelText(/Deich bearbeiten/, {
+          selector: "button",
+        }),
       );
-      await userEvent.click(screen.getByRole("button", { name: "Speichern" }));
+      await userEvent.click(screen.getByText("Speichern"));
       expect(await screen.findByText("Stil ungültig.")).toBeInTheDocument();
-      await userEvent.click(
-        screen.getByRole("button", { name: /Form neu zeichnen/ }),
-      );
+      await userEvent.click(screen.getByText(/Form neu zeichnen/));
       await waitFor(() => expect(adapter.startDrawing).toHaveBeenCalled());
       await act(async () => {
         (adapter.startDrawing.mock.calls.at(-1)![1] as (g: unknown) => void)(
@@ -1893,11 +1884,9 @@ describe("SituationWorkspace", () => {
     });
     await openPanel("Bereiche");
     await userEvent.click(
-      await screen.findByRole("button", { name: /Z bearbeiten/ }),
+      await screen.findByLabelText(/Z bearbeiten/, { selector: "button" }),
     );
-    await userEvent.click(
-      await screen.findByRole("button", { name: /Form neu zeichnen/ }),
-    );
+    await userEvent.click(await screen.findByText(/Form neu zeichnen/));
     await waitFor(() =>
       expect(adapter.startDrawing).toHaveBeenCalledWith(
         "polygon",
@@ -1919,7 +1908,7 @@ describe("SituationWorkspace", () => {
   ])("arms drawing the %s shape", async (label, shape) => {
     const { adapter } = renderWorkspace();
     await openPanel("Bereiche");
-    await userEvent.click(screen.getByRole("button", { name: label }));
+    await userEvent.click(screen.getByText(label));
     await waitFor(() =>
       expect(adapter.startDrawing).toHaveBeenCalledWith(
         shape,
@@ -1931,22 +1920,20 @@ describe("SituationWorkspace", () => {
   it("cancels drawing when the armed shape is toggled off", async () => {
     const { adapter } = renderWorkspace();
     await openPanel("Bereiche");
-    await userEvent.click(screen.getByRole("button", { name: "Polygon" }));
+    await userEvent.click(screen.getByText("Polygon"));
     await waitFor(() => expect(adapter.startDrawing).toHaveBeenCalled());
     await openPanel("Bereiche");
-    await userEvent.click(screen.getByRole("button", { name: "Polygon" }));
+    await userEvent.click(screen.getByText("Polygon"));
     await waitFor(() => expect(adapter.cancelDrawing).toHaveBeenCalled());
   });
 
   it("shows the Kartenzeichen band while a Schnellauswahl symbol is armed and cancels it", async () => {
     renderWorkspace();
     await openPanel("Kartenzeichen");
-    const ktw = screen.getByRole("button", { name: /KTW/ });
+    const ktw = buttonWithText(/KTW/);
     await userEvent.click(ktw);
     await userEvent.click(
-      within(modeBand("Kartenzeichen platzieren")).getByRole("button", {
-        name: "Abbrechen",
-      }),
+      within(modeBand("Kartenzeichen platzieren")).getByText("Abbrechen"),
     );
     expect(ktw).toHaveAttribute("aria-pressed", "false");
     expect(screen.queryByRole("toolbar")).toBeNull();
@@ -1955,23 +1942,19 @@ describe("SituationWorkspace", () => {
   it("shows the Kartenzeichen band while an Erweitert composition is armed", async () => {
     renderWorkspace();
     await openPanel("Kartenzeichen");
-    await userEvent.click(screen.getByRole("button", { name: "Erweitert …" }));
-    await userEvent.click(
-      await screen.findByRole("button", { name: "Platzieren" }),
-    );
+    await userEvent.click(screen.getByText("Erweitert …"));
+    await userEvent.click(await screen.findByText("Platzieren"));
     expect(modeBand("Kartenzeichen platzieren")).toBeInTheDocument();
   });
 
   it("shows the Bereich band while drawing and cancels the drawing", async () => {
     const { adapter } = renderWorkspace();
     await openPanel("Bereiche");
-    const polygon = screen.getByRole("button", { name: "Polygon" });
+    const polygon = buttonWithText("Polygon");
     await userEvent.click(polygon);
     await waitFor(() => expect(adapter.startDrawing).toHaveBeenCalled());
     await userEvent.click(
-      within(modeBand("Bereich zeichnen")).getByRole("button", {
-        name: "Abbrechen",
-      }),
+      within(modeBand("Bereich zeichnen")).getByText("Abbrechen"),
     );
     await waitFor(() => expect(adapter.cancelDrawing).toHaveBeenCalled());
     expect(polygon).toHaveAttribute("aria-pressed", "false");
@@ -1982,7 +1965,7 @@ describe("SituationWorkspace", () => {
     const onPlace = vi.fn(async () => ({}));
     const { captured } = renderWorkspace({ onPlace });
     await openPanel("Kartenzeichen");
-    const ktw = screen.getByRole("button", { name: /KTW/ });
+    const ktw = buttonWithText(/KTW/);
     await userEvent.click(ktw);
     await selectMainView("ETB");
     await selectMainView("Lagekarte");
@@ -1997,7 +1980,7 @@ describe("SituationWorkspace", () => {
   it("cancels drawing when switching to the ETB", async () => {
     const { adapter } = renderWorkspace();
     await openPanel("Bereiche");
-    await userEvent.click(screen.getByRole("button", { name: "Polygon" }));
+    await userEvent.click(screen.getByText("Polygon"));
     await waitFor(() => expect(adapter.startDrawing).toHaveBeenCalled());
     await selectMainView("ETB");
     await waitFor(() => expect(adapter.cancelDrawing).toHaveBeenCalled());
@@ -2008,7 +1991,7 @@ describe("SituationWorkspace", () => {
   it("keeps an armed symbol when the active main view is tapped again", async () => {
     renderWorkspace();
     await openPanel("Kartenzeichen");
-    await userEvent.click(screen.getByRole("button", { name: /KTW/ }));
+    await userEvent.click(screen.getByText(/KTW/));
     await selectMainView("Lagekarte");
     expect(modeBand("Kartenzeichen platzieren")).toBeInTheDocument();
   });
@@ -2018,7 +2001,7 @@ describe("SituationWorkspace", () => {
     try {
       renderWorkspace();
       await openPanel("Kartenzeichen");
-      await userEvent.click(screen.getByRole("button", { name: /KTW/ }));
+      await userEvent.click(screen.getByText(/KTW/));
       act(() => {
         fireChange(false);
       });
@@ -2082,7 +2065,7 @@ describe("SituationWorkspace", () => {
     act(() => spec.onClick!());
 
     expect(await screen.findByLabelText("Bezeichnung")).toHaveValue("RK 1");
-    await userEvent.click(screen.getByRole("button", { name: "Speichern" }));
+    await userEvent.click(screen.getByText("Speichern"));
     expect(onUpdate).toHaveBeenCalledWith(
       "s1",
       expect.objectContaining({
@@ -2113,9 +2096,7 @@ describe("SituationWorkspace", () => {
     await waitFor(() => expect(adapter.setMarker).toHaveBeenCalled());
     const spec = adapter.setMarker.mock.calls.at(-1)![1] as MarkerSpec;
     act(() => spec.onClick!());
-    await userEvent.click(
-      await screen.findByRole("button", { name: "Speichern" }),
-    );
+    await userEvent.click(await screen.findByText("Speichern"));
     expect(await screen.findByRole("alert")).toBeInTheDocument();
   });
 
@@ -2140,9 +2121,7 @@ describe("SituationWorkspace", () => {
     await waitFor(() => expect(adapter.setMarker).toHaveBeenCalled());
     const spec = adapter.setMarker.mock.calls.at(-1)![1] as MarkerSpec;
     act(() => spec.onClick!());
-    await userEvent.click(
-      await screen.findByRole("button", { name: "Speichern" }),
-    );
+    await userEvent.click(await screen.findByText("Speichern"));
     expect(
       await screen.findByText("Ungültige Zeichen-Komposition."),
     ).toBeInTheDocument();
@@ -2152,9 +2131,10 @@ describe("SituationWorkspace", () => {
     renderWorkspace({ eventsHook: () => ({ connected: false }) });
     for (const testId of ["desktop-header", "mobile-header"]) {
       expect(
-        within(screen.getByTestId(testId)).getByRole("button", {
-          name: "Verbindung getrennt – wird automatisch wiederhergestellt",
-        }),
+        within(screen.getByTestId(testId)).getByLabelText(
+          "Verbindung getrennt – wird automatisch wiederhergestellt",
+          { selector: "button" },
+        ),
       ).toBeInTheDocument();
     }
     expect(screen.queryByRole("status")).toBeNull();
@@ -2370,11 +2350,7 @@ describe("SituationWorkspace", () => {
         expect.any(Function),
       ),
     );
-    expect(
-      within(mapPanel("Ebenen")).getByRole("button", {
-        name: "Fertig",
-      }),
-    ).toBeInTheDocument();
+    expect(within(mapPanel("Ebenen")).getByText("Fertig")).toBeInTheDocument();
   });
 
   it("saves the placement from a map gesture without leaving edit mode", async () => {
@@ -2394,11 +2370,7 @@ describe("SituationWorkspace", () => {
     await act(async () => onChange(moved));
     expect(onUpdateImagePlacement).toHaveBeenCalledWith("i1", moved);
     // Bearbeiten bleibt aktiv.
-    expect(
-      within(mapPanel("Ebenen")).getByRole("button", {
-        name: "Fertig",
-      }),
-    ).toBeInTheDocument();
+    expect(within(mapPanel("Ebenen")).getByText("Fertig")).toBeInTheDocument();
   });
 
   it("changes the opacity from the inline controls", async () => {
@@ -2436,11 +2408,7 @@ describe("SituationWorkspace", () => {
     await waitFor(() =>
       expect(adapter.startImageOverlayEdit).toHaveBeenCalled(),
     );
-    await userEvent.click(
-      within(mapPanel("Ebenen")).getByRole("button", {
-        name: "Fertig",
-      }),
-    );
+    await userEvent.click(within(mapPanel("Ebenen")).getByText("Fertig"));
     await waitFor(() =>
       expect(adapter.stopImageOverlayEdit).toHaveBeenCalled(),
     );
@@ -2450,9 +2418,7 @@ describe("SituationWorkspace", () => {
     const { adapter } = renderWorkspace({ imageOverlays: [anImageOverlay] });
     await startEditingImage();
     await userEvent.click(
-      within(modeBand("Bild-Overlay bearbeiten")).getByRole("button", {
-        name: "Fertig",
-      }),
+      within(modeBand("Bild-Overlay bearbeiten")).getByText("Fertig"),
     );
     await waitFor(() =>
       expect(adapter.stopImageOverlayEdit).toHaveBeenCalled(),
@@ -2492,9 +2458,7 @@ describe("SituationWorkspace", () => {
       onPlace,
     });
     await openPanel("Ebenen");
-    await userEvent.click(
-      await screen.findByRole("button", { name: "Bearbeiten" }),
-    );
+    await userEvent.click(await screen.findByText("Bearbeiten"));
     await waitFor(() => expect(captured.options?.onMapClick).toBeDefined());
     captured.options!.onMapClick!({ lat: 50, lng: 8 });
     expect(onPlace).not.toHaveBeenCalled();
@@ -2514,20 +2478,16 @@ describe("SituationWorkspace", () => {
       ],
     });
     await openPanel("Ebenen");
-    await userEvent.click(
-      await screen.findByRole("button", { name: "Bearbeiten" }),
-    );
+    await userEvent.click(await screen.findByText("Bearbeiten"));
     await waitFor(() =>
       expect(adapter.startImageOverlayEdit).toHaveBeenCalled(),
     );
     // Einen Bereich auswählen und dessen Form neu zeichnen …
     await openPanel("Bereiche");
     await userEvent.click(
-      await screen.findByRole("button", { name: /Z bearbeiten/ }),
+      await screen.findByLabelText(/Z bearbeiten/, { selector: "button" }),
     );
-    await userEvent.click(
-      await screen.findByRole("button", { name: /Form neu zeichnen/ }),
-    );
+    await userEvent.click(await screen.findByText(/Form neu zeichnen/));
     // … beendet den Bild-Bearbeiten-Modus.
     await waitFor(() =>
       expect(adapter.stopImageOverlayEdit).toHaveBeenCalled(),
@@ -2553,9 +2513,7 @@ describe("SituationWorkspace", () => {
     await waitFor(() => expect(adapter.setMarker).toHaveBeenCalled());
     const spec = adapter.setMarker.mock.calls.at(-1)![1] as MarkerSpec;
     act(() => spec.onClick!());
-    await userEvent.click(
-      await screen.findByRole("button", { name: /Gerätelink erzeugen/ }),
-    );
+    await userEvent.click(await screen.findByText(/Gerätelink erzeugen/));
     expect(onGenerateDeviceLink).toHaveBeenCalledWith("s1");
   });
 
@@ -2563,7 +2521,9 @@ describe("SituationWorkspace", () => {
     renderWorkspace({ operationDefaultView: null });
     await selectMainView("Lagekarte");
     expect(
-      screen.getByRole("button", { name: "Zum Standard-Ausschnitt zurück" }),
+      screen.getByLabelText("Zum Standard-Ausschnitt zurück", {
+        selector: "button",
+      }),
     ).toBeDisabled();
   });
 
@@ -2572,8 +2532,8 @@ describe("SituationWorkspace", () => {
       operationDefaultView: { lat: 52.5, lng: 13.4, zoom: 12 },
     });
     await selectMainView("Lagekarte");
-    const button = screen.getByRole("button", {
-      name: "Zum Standard-Ausschnitt zurück",
+    const button = screen.getByLabelText("Zum Standard-Ausschnitt zurück", {
+      selector: "button",
     });
     await userEvent.click(button);
     await waitFor(() =>
@@ -2616,9 +2576,7 @@ describe("SituationWorkspace", () => {
     const spec = adapter.setMarker.mock.calls.at(-1)![1] as MarkerSpec;
     act(() => spec.onClick!());
 
-    await userEvent.click(
-      await screen.findByRole("button", { name: "Löschen" }),
-    );
+    await userEvent.click(await screen.findByText("Löschen"));
     expect(onDelete).toHaveBeenCalledWith("s1");
   });
 });

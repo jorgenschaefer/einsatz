@@ -45,6 +45,11 @@ describe("AdvancedSymbolForm", () => {
     ).toBeInTheDocument();
   });
 
+  it("mounts no option lists while every dropdown is closed", () => {
+    render(<AdvancedSymbolForm submitLabel="Platzieren" onSubmit={vi.fn()} />);
+    expect(screen.queryAllByRole("option", { hidden: true })).toHaveLength(0);
+  });
+
   it("prefills from an initial composition when editing", async () => {
     const onSubmit = vi.fn();
     const initial = {

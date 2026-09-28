@@ -24,6 +24,10 @@ export interface AdvancedSymbolFormProps {
   busy?: boolean;
 }
 
+// Mantines Combobox hält die Optionen geschlossener Dropdowns sonst im DOM –
+// bei sieben Achsen fast 200 Optionen, die das Öffnen des Formulars bremsen.
+const comboboxProps = { keepMounted: false };
+
 const options = (list: ReadonlyArray<{ id: string; label: string }>) =>
   list.map((x) => ({ value: x.id, label: x.label }));
 
@@ -69,12 +73,14 @@ export function AdvancedSymbolForm({
         }}
       />
       <Select
+        comboboxProps={comboboxProps}
         label="Organisation"
         data={options(organisationen)}
         value={composition.organisation ?? null}
         onChange={setAxis("organisation")}
       />
       <Select
+        comboboxProps={comboboxProps}
         label="Grundzeichen"
         data={options(grundzeichen)}
         value={composition.grundzeichen ?? null}
@@ -82,6 +88,7 @@ export function AdvancedSymbolForm({
         searchable
       />
       <Select
+        comboboxProps={comboboxProps}
         label="Fachaufgabe"
         data={options(fachaufgaben)}
         value={composition.fachaufgabe ?? null}
@@ -90,6 +97,7 @@ export function AdvancedSymbolForm({
         searchable
       />
       <Select
+        comboboxProps={comboboxProps}
         label="Größenordnung"
         data={options(einheiten)}
         value={composition.einheit ?? null}
@@ -97,6 +105,7 @@ export function AdvancedSymbolForm({
         clearable
       />
       <Select
+        comboboxProps={comboboxProps}
         label="Verwaltungsstufe"
         data={options(verwaltungsstufen)}
         value={composition.verwaltungsstufe ?? null}
@@ -104,6 +113,7 @@ export function AdvancedSymbolForm({
         clearable
       />
       <Select
+        comboboxProps={comboboxProps}
         label="Funktion"
         data={options(funktionen)}
         value={composition.funktion ?? null}
@@ -111,6 +121,7 @@ export function AdvancedSymbolForm({
         clearable
       />
       <Select
+        comboboxProps={comboboxProps}
         label="Symbol"
         data={options(symbole)}
         value={composition.symbol ?? null}

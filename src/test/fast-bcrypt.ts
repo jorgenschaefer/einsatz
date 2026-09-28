@@ -3,7 +3,7 @@ import { vi } from "vitest";
 // bcryptjs ist reines JS: Kostenfaktor 12 braucht je Hash ~1 s, unter Last
 // mehr. Tests prüfen, *dass* gehasht und verglichen wird, nicht wie teuer –
 // daher hier den Minimal-Kostenfaktor. Den produktiven Faktor 12 pinnt
-// `password.test.ts`, das diesen Mock per `vi.unmock` abwählt.
+// `password-cost.test.ts`, das diesen Mock per `vi.unmock` abwählt.
 const TEST_COST = 4;
 
 vi.mock("bcryptjs", async (importOriginal) => {

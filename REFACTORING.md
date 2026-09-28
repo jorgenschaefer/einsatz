@@ -168,13 +168,15 @@ mit falschem Content-Type ausgeliefert.
 
 ### 10. Laufzeit von `SituationWorkspace.test.tsx`
 
-**Heute.** Die Datei läuft allein rund 280 s. Unter Last reißen einzelne Tests
-das 5-s-Timeout, und `npm run check` wird rot, obwohl nichts kaputt ist; die
-Folge-Warnungen zu `act(...)` stammen aus diesen abgebrochenen Tests.
+**Heute.** Die Datei läuft allein rund 55 s (120 Tests); die teuren benannten
+Rollenabfragen sind durch Label-/Textabfragen ersetzt, geschlossene
+`Select`-Dropdowns halten keine Optionen mehr im DOM. Der Rest ist
+React-Rendering im Dev-Build, gut ein Viertel davon die Owner-Stacks (ein
+`Error` je Element). Allein laufen die langsamsten Tests um 1 s; weil Vitest
+nach Dateien parallelisiert, ist die Datei im Gesamtlauf der längste Posten.
 
-**Vorschlag.** Profilieren, was die Zeit kostet (Verdacht: Mantine-`Select`
-in `AdvancedSymbolForm`, `userEvent`-Tippen), und gezielt beschleunigen oder
-die Datei nach Themen aufteilen.
+**Vorschlag.** Die Datei nach Themen aufteilen (Hauptansicht, Kartenzeichen,
+Bereiche, Bild-Overlays), damit sie sich auf die Worker verteilt.
 
 **Bringt.** Ein verlässlicher `npm run check` auch auf ausgelasteten
 Maschinen.

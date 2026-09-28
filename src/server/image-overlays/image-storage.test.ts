@@ -43,8 +43,8 @@ describe("prepareOverlayImage", () => {
   });
 
   it("downscales the longest edge to 3000 px, keeping the aspect ratio", async () => {
-    const result = await prepareOverlayImage("png", await png(5000, 2500));
-    expect(result).toMatchObject({ width: 3000, height: 1500 });
+    const result = await prepareOverlayImage("png", await png(5000, 10));
+    expect(result).toMatchObject({ width: 3000, height: 6 });
   });
 
   it("does not upscale an image that is already smaller", async () => {
