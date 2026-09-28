@@ -81,6 +81,41 @@ describe("correctEntry", () => {
   });
 });
 
+describe.each(["stelle-angelegt", "stelle-umbenannt"] as const)(
+  "a %s entry",
+  (type) => {
+    async function stationEntry(db: Awaited<ReturnType<typeof freshDb>>) {
+      const op = await insertOperation(db, {
+        name: "Cyclassics",
+        description: null,
+      });
+      return appendEntry(db, {
+        operationId: op.id,
+        text: "Stelle angelegt: UHSt 3",
+        type,
+        author: "anna",
+      });
+    }
+    const onlyManual = new ValidationError(
+      "Nur manuelle Einträge können geändert werden.",
+    );
+
+    it("cannot be corrected", async () => {
+      const db = await freshDb();
+      const entry = await stationEntry(db);
+      await expect(
+        correctEntry(db, entry.id, "manipuliert", "bernd"),
+      ).rejects.toThrow(onlyManual);
+    });
+
+    it("cannot be annulled", async () => {
+      const db = await freshDb();
+      const entry = await stationEntry(db);
+      await expect(annulEntry(db, entry.id)).rejects.toThrow(onlyManual);
+    });
+  },
+);
+
 describe("annulEntry", () => {
   it("marks a manual entry annulliert while keeping its number and text", async () => {
     const db = await freshDb();

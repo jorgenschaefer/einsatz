@@ -85,6 +85,10 @@ import {
 } from "@/app/operations/[id]/map-symbol-actions";
 import { GET as operationOverlayGET } from "@/app/operations/[id]/overlays/[overlayId]/route";
 import {
+  createStationAction,
+  renameStationAction,
+} from "@/app/operations/[id]/strength-actions";
+import {
   createViewLinkAction,
   deleteViewLinkAction,
 } from "@/app/operations/[id]/view-link-actions";
@@ -232,6 +236,14 @@ const userGuardedActions: Invocation[] = [
     run: () => correctEntryAction("e-1", "Korrektur"),
   },
   { name: "annulEntryAction", run: () => annulEntryAction("e-1") },
+  {
+    name: "createStationAction",
+    run: () => createStationAction("op-1", "UHSt 3"),
+  },
+  {
+    name: "renameStationAction",
+    run: () => renameStationAction("st-1", "UHSt 3 Nord"),
+  },
   { name: "closeOperationAction", run: () => closeOperationAction("op-1") },
   { name: "reopenOperationAction", run: () => reopenOperationAction("op-1") },
   { name: "deleteOperationAction", run: () => deleteOperationAction("op-1") },

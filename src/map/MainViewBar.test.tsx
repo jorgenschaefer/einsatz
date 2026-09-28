@@ -22,6 +22,22 @@ describe("MainViewBar", () => {
     expect(onSelect).toHaveBeenCalledWith("map");
   });
 
+  it("offers „Stärke“ as the third view, after Lagekarte and ETB", async () => {
+    const onSelect = vi.fn();
+    render(
+      <MainViewBar activeView="map" onSelect={onSelect} newEtbEntries={0} />,
+    );
+
+    expect(screen.getAllByRole("button").map((b) => b.textContent)).toEqual([
+      "Lagekarte",
+      "ETB",
+      "Stärke",
+    ]);
+
+    await userEvent.click(screen.getByRole("button", { name: "Stärke" }));
+    expect(onSelect).toHaveBeenCalledWith("strength");
+  });
+
   it("marks neither item as current before the start view is known", () => {
     render(
       <MainViewBar activeView="default" onSelect={vi.fn()} newEtbEntries={0} />,

@@ -56,6 +56,9 @@ const berlinTime = (iso: string) =>
     timeStyle: "short",
   }).format(new Date(iso));
 
+const isAutomatic = (entry: JournalEntryView) =>
+  entry.type === "einsatz-eröffnet" || entry.type === "einsatz-geschlossen";
+
 export function JournalPanel({
   entries,
   onAdd,
@@ -71,9 +74,7 @@ export function JournalPanel({
   const [annulPending, setAnnulPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const visible = hideAuto
-    ? entries.filter((e) => e.type === "manuell")
-    : entries;
+  const visible = hideAuto ? entries.filter((e) => !isAutomatic(e)) : entries;
 
   const submitNew = async () => {
     const text = draft.trim();
@@ -155,8 +156,8 @@ export function JournalPanel({
 
       <Stack gap="sm">
         {visible.map((entry) => {
-          const isAuto = entry.type !== "manuell";
-          const canEdit = !isAuto && entry.state === "gueltig";
+          const isAuto = isAutomatic(entry);
+          const canEdit = entry.type === "manuell" && entry.state === "gueltig";
           return (
             <Paper key={entry.id} data-entry withBorder p="sm">
               <Group justify="space-between" wrap="nowrap">

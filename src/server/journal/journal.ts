@@ -6,7 +6,9 @@ import { ValidationError } from "@/server/validation";
 export type JournalEntryType =
   | "manuell"
   | "einsatz-eröffnet"
-  | "einsatz-geschlossen";
+  | "einsatz-geschlossen"
+  | "stelle-angelegt"
+  | "stelle-umbenannt";
 export type JournalEntryState = "gueltig" | "annulliert";
 
 /** Eine frühere Fassung eines Eintrags mit eigenem Urheber und Zeitstempel. */
@@ -168,13 +170,13 @@ async function loadEntry(
   return toEntry(rows[0], revisions);
 }
 
-/** Wirft, wenn der Eintrag automatisch oder bereits annulliert ist. */
+/** Wirft, wenn der Eintrag nicht manuell oder bereits annulliert ist. */
 function assertManualAndValid(
   entry: JournalEntry | null,
 ): asserts entry is JournalEntry {
   if (!entry) throw new ValidationError("Eintrag nicht gefunden.");
   if (entry.type !== "manuell") {
-    throw new ValidationError("Automatische Einträge sind unantastbar.");
+    throw new ValidationError("Nur manuelle Einträge können geändert werden.");
   }
   if (entry.state !== "gueltig") {
     throw new ValidationError(
@@ -186,7 +188,7 @@ function assertManualAndValid(
 /**
  * Korrigiert einen manuellen Eintrag: die bisherige Fassung wird als frühere
  * Fassung (mit ihrem Urheber und Zeitstempel) erhalten, die neue Fassung wird
- * zur aktuellen. Automatische oder annullierte Einträge sind unantastbar.
+ * zur aktuellen. Nicht-manuelle oder annullierte Einträge sind unantastbar.
  */
 export async function correctEntry(
   db: Db,
@@ -225,7 +227,7 @@ export async function correctEntry(
 /**
  * Annulliert einen manuellen Eintrag: er bleibt mit seiner Nummer und seinem
  * Text erhalten (durchgestrichen), wird aber als `annulliert` markiert.
- * Automatische Einträge sind unantastbar.
+ * Alle anderen Einträge sind unantastbar.
  */
 export async function annulEntry(
   db: Db,

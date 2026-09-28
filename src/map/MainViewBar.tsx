@@ -1,14 +1,15 @@
 "use client";
 
 import { UnstyledButton } from "@mantine/core";
-import { IconMap, IconNotebook } from "@tabler/icons-react";
+import { IconMap, IconNotebook, IconUsersGroup } from "@tabler/icons-react";
 import "./main-view-bar.css";
 
-export type MainView = "map" | "etb";
+export type MainView = "map" | "etb" | "strength";
 
 const ITEMS: { view: MainView; label: string; Icon: typeof IconMap }[] = [
   { view: "map", label: "Lagekarte", Icon: IconMap },
   { view: "etb", label: "ETB", Icon: IconNotebook },
+  { view: "strength", label: "Stärke", Icon: IconUsersGroup },
 ];
 
 export function MainViewBar({

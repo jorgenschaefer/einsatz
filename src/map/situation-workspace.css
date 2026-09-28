@@ -26,15 +26,17 @@
   }
 }
 
-/* ETB-Breite (AC-13): überall 16 px Rand, damit der Text nicht an der
+/* ETB- und Stärke-Breite (AC-13): überall 16 px Rand, damit der Text nicht an der
    Trennlinie klebt; am Desktop zusätzlich auf eine lesbare Zeilenlänge
    begrenzt und linksbündig statt zentriert. */
-.etb-pane {
+.etb-pane,
+.strength-pane {
   padding-inline: 16px;
 }
 
 @media (min-width: 48em) {
-  .etb-pane {
+  .etb-pane,
+  .strength-pane {
     max-width: 720px;
   }
 }

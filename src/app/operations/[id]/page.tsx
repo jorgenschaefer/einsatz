@@ -17,6 +17,7 @@ import { type JournalEntry, listEntries } from "@/server/journal/journal";
 import { listKmlOverlays } from "@/server/kml/kml-overlays";
 import { listMapSymbols } from "@/server/mapsymbols/map-symbols";
 import { getOperation } from "@/server/operations/operations";
+import { listStations } from "@/server/strength/stations";
 import { listViewLinks } from "@/server/viewlinks/view-links";
 import { setDefaultViewAction } from "./actions";
 import {
@@ -53,6 +54,7 @@ import {
   placeMapSymbolAction,
   updateMapSymbolCompositionAction,
 } from "./map-symbol-actions";
+import { createStationAction, renameStationAction } from "./strength-actions";
 import {
   createViewLinkAction,
   deleteViewLinkAction,
@@ -130,6 +132,10 @@ export default async function LageansichtPage({
     label: l.label,
     token: l.token,
   }));
+  const stations = (await listStations(db, operation.id)).map((s) => ({
+    id: s.id,
+    name: s.name,
+  }));
   const { tileUrl, attribution } = mapTileConfig();
 
   return (
@@ -180,6 +186,9 @@ export default async function LageansichtPage({
         operation.id,
       )}
       onDeleteImage={deleteImageOverlayAction.bind(null, operation.id)}
+      stations={stations}
+      onCreateStation={createStationAction.bind(null, operation.id)}
+      onRenameStation={renameStationAction}
     />
   );
 }

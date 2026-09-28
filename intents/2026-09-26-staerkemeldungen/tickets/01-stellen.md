@@ -2,8 +2,8 @@
 solution:  02-SOLUTION.md
 satisfies: AC-1, AC-2
 after:     
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -111,3 +111,40 @@ reports and the card's report line / „noch keine Meldung" (02); sum,
 verification (09). Non-goals: no deleting/stilllegen/ausblenden of a Stelle, no
 location or map symbol, no Stelle as sender/recipient of ETB entries, nothing in the
 view/device-link views.
+
+## Record
+
+**Criteria → tests**
+
+- **AC-1** (create, trim, non-empty, case-insensitive unique per Gesamteinsatz, ETB „Stelle angelegt: …")
+  - `src/server/strength/stations.test.ts` › createStation: „creates a Stelle with its name and lists it", „records „Stelle angelegt: …" in the ETB with its author", „trims the name", „rejects the empty name "" / "   " without writing anything", „rejects a name that differs from an existing Stelle only in case", „allows the same name in another Gesamteinsatz", „lists the Stellen of a Gesamteinsatz oldest first", „creates concurrent Stellen of one Gesamteinsatz without deadlocking".
+  - `src/app/operations/[id]/strength-actions.test.ts`: „creates a Stelle in the name of the logged-in user", „reports a duplicate name as a form error".
+  - UI: `src/strength/StrengthPanel.test.tsx` › creating a Stelle (5 tests); `src/map/MainViewBar.test.tsx` „offers „Stärke" as the third view, after Lagekarte and ETB"; `src/map/SituationWorkspace.test.tsx` › the main view Stärke (5 tests, incl. „keeps a started Stelle name when switching to the ETB and back").
+- **AC-2** (rename, same name rules, case-only allowed, ETB „Stelle umbenannt: alt → neu")
+  - `stations.test.ts` › renameStation: „renames the Stelle and records „Stelle umbenannt: alt → neu"" (also asserts the id is kept, so reports will stay attached; the reports themselves are ticket 02), „allows a rename that only changes the case", „writes nothing when the name stays the same", „rejects a rename onto another Stelle's name without writing anything", „rejects the empty name", „rejects an unknown Stelle".
+  - `strength-actions.test.ts`: „renames a Stelle in the name of the logged-in user", „reports an empty new name as a form error".
+  - UI: `StrengthPanel.test.tsx` › renaming a Stelle (3 tests); `SituationWorkspace.test.tsx` „renames a Stelle".
+- **Abgeschlossener Gesamteinsatz**: `stations.test.ts` „still accepts a Stelle once the Gesamteinsatz is closed", „still renames once the Gesamteinsatz is closed".
+- **„Automatische ausblenden" / not automatic / untouchable**: `JournalPanel.test.tsx` „shows a stelle-angelegt / stelle-umbenannt entry as neither automatic nor changeable, and keeps it when automatic ones are hidden"; `src/server/journal/journal-history.test.ts` › „a stelle-angelegt / stelle-umbenannt entry" › „cannot be corrected", „cannot be annulled".
+- Auth: both actions are in `src/app/auth-enforcement.test.ts`. Cascade: `delete-operation.test.ts` „cascades the operation's Stellen".
+- ETB badge while on Stärke: `SituationWorkspace.test.tsx` „counts a new entry from another author while Stärke is shown", „keeps the count when switching from Lagekarte to Stärke / Stärke to Lagekarte".
+
+**Command**: `docker compose -f docker-compose.test.yml up -d && npm run check` → green, 109 files, 861 tests.
+
+**Departures from the plan**
+
+- `createStation` appends the ETB entry *before* inserting the Stelle. The planned order (insert, then entry) deadlocked reliably under concurrent creates: the FK takes FOR KEY SHARE on the operation, and `appendEntry` then wants FOR UPDATE. This is pinned by the concurrency test above.
+- A rename to the identical (trimmed) name is a no-op and writes no ETB entry. Otherwise it would leave a permanent, unannullable „UHSt 3 → UHSt 3" entry. This came from review.
+- `switchMainView` now marks ETB entries as seen only when entering or leaving the ETB. The plan kept the old "every switch" behaviour, which would have cleared the badge on Lagekarte ↔ Stärke. This came from review.
+- The server's refusal to correct or annul non-manual entries now reads „Nur manuelle Einträge können geändert werden." instead of „Automatische Einträge sind unantastbar.", because Stelle entries are deliberately not automatic. The glossary's Annullieren/Korrigieren/Typ lines are adjusted to match.
+- No `src/strength/strength.ts` yet: this ticket has no pure shared logic. `StationView` lives in `StrengthPanel.tsx`. Ticket 02 creates the module when it needs it.
+- The Stärke pane has its own class `strength-pane`, sharing the ETB width rules. Rename is started from a pencil icon on the card; the mockup shows no rename affordance.
+- Not strictly test-first in a few places: `renameStation`'s body was written with its first test. That made the later rename tests, plus „oldest first", „another Gesamteinsatz" and the two closed-operation tests, pass on first run. Each rename rule was instead proven by mutating the code (dropping the duplicate translation, the not-found check, trimming, the UPDATE) and watching its test go red.
+
+**Left standing**
+
+- Review nit, not fixed: `renameStation` locks the Stelle row before the operation row, while `deleteOperation` locks the operation first and then cascades. A rename racing a delete could in theory deadlock (40P01 → „Speichern fehlgeschlagen", retry works). I tried to reproduce it with 300 concurrent rename/delete pairs and couldn't, so no red test exists and the code is unchanged. The lock-order comment was narrowed to what it actually guarantees (concurrent creates).
+- Review note, not checked: the error alert sits at the top of the Stärke pane. With a long list on a 360 px phone, a rename error far down may be off-screen. This belongs to ticket 10's mobile check.
+- No test pins a non-ASCII duplicate (e.g. „Übergabe" vs „übergabe"). The reviewer confirmed `lower()` folds umlauts under the test and prod locale.
+- `page.tsx` wiring is covered only by `tsc`. The UI was not looked at in a real browser; 360 px and live-update checks are tickets 10 and 09.
+- During one run, `SituationWorkspace.test.tsx` „closes it when an Erweitert composition is armed" / „places a composition built in the Erweitert form …" hit the 5 s timeout at load average ~8. They pass in isolation with the same durations as on `HEAD` (~1.5–3 s), so this is a pre-existing sensitivity to load, not caused by this change.

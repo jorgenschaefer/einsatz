@@ -72,6 +72,26 @@ describe("JournalPanel", () => {
     ).toBeNull();
   });
 
+  it.each([
+    ["stelle-angelegt", "Stelle angelegt: UHSt 3"],
+    ["stelle-umbenannt", "Stelle umbenannt: UHSt 3 → UHSt 3 Nord"],
+  ] as const)(
+    "shows a %s entry as neither automatic nor changeable, and keeps it when automatic ones are hidden",
+    async (type, text) => {
+      setup({ entries: [entry({ id: "s", number: 1, type, text })] });
+      const item = screen
+        .getByText(text)
+        .closest("[data-entry]") as HTMLElement;
+
+      expect(within(item).queryByText(/automatisch/i)).toBeNull();
+      expect(
+        within(item).queryByRole("button", { name: /Aktionen für Eintrag/ }),
+      ).toBeNull();
+      await userEvent.click(screen.getByLabelText(/automatische ausblenden/i));
+      expect(screen.getByText(text)).toBeInTheDocument();
+    },
+  );
+
   it("adds a new manual entry from the input row", async () => {
     const props = setup();
     fireEvent.change(screen.getByLabelText(/Neuer Eintrag/), {

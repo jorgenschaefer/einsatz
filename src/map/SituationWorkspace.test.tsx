@@ -55,7 +55,7 @@ function fakeFactory() {
   return { factory, captured, adapter };
 }
 
-const selectMainView = (name: "Lagekarte" | "ETB") =>
+const selectMainView = (name: "Lagekarte" | "ETB" | "Stärke") =>
   userEvent.click(screen.getAllByText(name)[0]);
 
 /**
@@ -153,6 +153,9 @@ function buildProps(over: Partial<SituationWorkspaceProps> = {}) {
     onReplaceImage: vi.fn(async () => ({})),
     onSetImageVisibility: vi.fn(async () => ({})),
     onDeleteImage: vi.fn(async () => ({})),
+    stations: [],
+    onCreateStation: vi.fn(async () => ({})),
+    onRenameStation: vi.fn(async () => ({})),
     factory: fake.factory,
     ...over,
   };
@@ -272,6 +275,45 @@ describe("SituationWorkspace", () => {
       expect(etbItem()).toHaveAccessibleName("ETB 2 neue Einträge");
     });
 
+    it("counts a new entry from another author while Stärke is shown", async () => {
+      const { props } = buildProps({ journalEntries: [journalEntry(1, null)] });
+      const { rerender } = render(<SituationWorkspace {...props} />);
+      await selectMainView("Stärke");
+
+      rerender(
+        <SituationWorkspace
+          {...props}
+          journalEntries={[journalEntry(1, null), journalEntry(2, "ben")]}
+        />,
+      );
+
+      expect(etbItem()).toHaveAccessibleName("ETB 1 neuer Eintrag");
+    });
+
+    it.each([
+      ["Lagekarte", "Stärke"],
+      ["Stärke", "Lagekarte"],
+    ] as const)(
+      "keeps the count when switching from %s to %s",
+      async (from, to) => {
+        const { props } = buildProps({
+          journalEntries: [journalEntry(1, null)],
+        });
+        const { rerender } = render(<SituationWorkspace {...props} />);
+        await selectMainView(from);
+        rerender(
+          <SituationWorkspace
+            {...props}
+            journalEntries={[journalEntry(1, null), journalEntry(2, "ben")]}
+          />,
+        );
+
+        await selectMainView(to);
+
+        expect(etbItem()).toHaveAccessibleName("ETB 1 neuer Eintrag");
+      },
+    );
+
     it("does not count own entries", async () => {
       const { props } = buildProps({ journalEntries: [journalEntry(1, null)] });
       const { rerender } = render(<SituationWorkspace {...props} />);
@@ -330,6 +372,75 @@ describe("SituationWorkspace", () => {
       } finally {
         vi.unstubAllGlobals();
       }
+    });
+  });
+
+  describe("the main view Stärke", () => {
+    const pane = (view: string) =>
+      document.querySelector(`[data-view="${view}"]`) as HTMLElement;
+
+    it("is hidden until selected", () => {
+      renderWorkspace();
+      expect(pane("strength").style.display).toBe("none");
+    });
+
+    it("shows only the Stärke pane once selected", async () => {
+      renderWorkspace();
+      await selectMainView("Stärke");
+
+      expect(pane("strength").style.display).toBe("");
+      expect(pane("map").style.display).toBe("none");
+      expect(pane("etb").style.display).toBe("none");
+    });
+
+    it("lists the Stellen and creates one", async () => {
+      const { props } = renderWorkspace({
+        stations: [{ id: "st1", name: "UHSt 3" }],
+      });
+      await selectMainView("Stärke");
+
+      expect(
+        within(pane("strength")).getByRole("heading", { name: "UHSt 3" }),
+      ).toBeInTheDocument();
+      await userEvent.click(screen.getByRole("button", { name: "+ Stelle" }));
+      await userEvent.type(
+        screen.getByRole("textbox", { name: "Name der Stelle" }),
+        "Ziel{Enter}",
+      );
+      expect(props.onCreateStation).toHaveBeenCalledWith("Ziel");
+    });
+
+    it("renames a Stelle", async () => {
+      const { props } = renderWorkspace({
+        stations: [{ id: "st1", name: "UHSt 3" }],
+      });
+      await selectMainView("Stärke");
+
+      await userEvent.click(
+        screen.getByRole("button", { name: "UHSt 3 umbenennen" }),
+      );
+      await userEvent.type(
+        screen.getByRole("textbox", { name: "Neuer Name" }),
+        " Nord{Enter}",
+      );
+      expect(props.onRenameStation).toHaveBeenCalledWith("st1", "UHSt 3 Nord");
+    });
+
+    it("keeps a started Stelle name when switching to the ETB and back", async () => {
+      renderWorkspace();
+      await selectMainView("Stärke");
+      await userEvent.click(screen.getByRole("button", { name: "+ Stelle" }));
+      await userEvent.type(
+        screen.getByRole("textbox", { name: "Name der Stelle" }),
+        "Ziel",
+      );
+
+      await selectMainView("ETB");
+      await selectMainView("Stärke");
+
+      expect(
+        screen.getByRole("textbox", { name: "Name der Stelle" }),
+      ).toHaveValue("Ziel");
     });
   });
 

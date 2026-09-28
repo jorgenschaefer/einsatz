@@ -29,6 +29,7 @@ import type { GeoHit } from "@/server/geocoder/geocoder";
 import type { KmlSourceType } from "@/server/kml/kml-overlays";
 import type { PositionSource } from "@/server/mapsymbols/map-symbols";
 import type { OperationStatus } from "@/server/operations/operations";
+import { type StationView, StrengthPanel } from "@/strength/StrengthPanel";
 import { AdvancedSymbolForm } from "./AdvancedSymbolForm";
 import { AreaEditor } from "./AreaEditor";
 import type { MapAdapterFactory } from "./adapter";
@@ -161,6 +162,9 @@ export interface SituationWorkspaceProps {
   onReplaceImage: (id: string, file: File) => Promise<ActionResult>;
   onSetImageVisibility: (id: string, visible: boolean) => Promise<ActionResult>;
   onDeleteImage: (id: string) => Promise<ActionResult>;
+  stations: StationView[];
+  onCreateStation: (name: string) => Promise<ActionResult>;
+  onRenameStation: (id: string, name: string) => Promise<ActionResult>;
   /** Für Tests injizierbar. */
   factory?: MapAdapterFactory;
   /** Für Tests injizierbar; sonst der echte SSE-Hook. */
@@ -213,6 +217,9 @@ export function SituationWorkspace({
   onReplaceImage,
   onSetImageVisibility,
   onDeleteImage,
+  stations,
+  onCreateStation,
+  onRenameStation,
   factory,
   eventsHook = useOperationEvents,
 }: SituationWorkspaceProps) {
@@ -237,7 +244,7 @@ export function SituationWorkspace({
   // Vorhandene als gesehen. Lebt nur in dieser Seite.
   const [seenUpTo, setSeenUpTo] = useState(latestEntryNumber);
   const newEtbEntries =
-    mainView === "map"
+    mainView === "map" || mainView === "strength"
       ? countUnseenEntries(journalEntries, seenUpTo, currentUsername)
       : 0;
   const {
@@ -529,7 +536,7 @@ export function SituationWorkspace({
   const switchMainView = (view: MainView) => {
     if (view === mainView) return;
     setMainView(view);
-    setSeenUpTo(latestEntryNumber);
+    if (view === "etb" || mainView === "etb") setSeenUpTo(latestEntryNumber);
     endMode();
   };
   const saveImagePlacement = (id: string, placement: ImagePlacement) =>
@@ -581,7 +588,10 @@ export function SituationWorkspace({
           data-view="map"
           data-panel-open={openPanel ? "" : undefined}
           // Inline, damit es jede Klasse schlägt (auch die Startansicht-Regel).
-          style={{ display: mainView === "etb" ? "none" : undefined }}
+          style={{
+            display:
+              mainView === "map" || mainView === "default" ? undefined : "none",
+          }}
         >
           <Box className="map-area">
             <SituationMap
@@ -847,7 +857,8 @@ export function SituationWorkspace({
             flex: 1,
             minHeight: 0,
             overflow: "auto",
-            display: mainView === "map" ? "none" : undefined,
+            display:
+              mainView === "etb" || mainView === "default" ? undefined : "none",
           }}
           py="sm"
         >
@@ -856,6 +867,24 @@ export function SituationWorkspace({
             onAdd={onAddJournalEntry}
             onCorrect={onCorrectJournalEntry}
             onAnnul={onAnnulJournalEntry}
+          />
+        </Box>
+
+        <Box
+          className="strength-pane"
+          data-view="strength"
+          style={{
+            flex: 1,
+            minHeight: 0,
+            overflow: "auto",
+            display: mainView === "strength" ? undefined : "none",
+          }}
+          py="sm"
+        >
+          <StrengthPanel
+            stations={stations}
+            onCreateStation={onCreateStation}
+            onRenameStation={onRenameStation}
           />
         </Box>
 

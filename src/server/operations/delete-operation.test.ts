@@ -11,6 +11,7 @@ import {
   createMapSymbol,
   listMapSymbols,
 } from "@/server/mapsymbols/map-symbols";
+import { createStation, listStations } from "@/server/strength/stations";
 import { freshDb } from "@/test/db";
 import { createOperation } from "./create-operation";
 import { deleteOperation } from "./delete-operation";
@@ -50,6 +51,20 @@ describe("deleteOperation (domain)", () => {
     expect(await getOperation(db, op.id)).toBeNull();
     expect(await listEntries(db, op.id)).toHaveLength(0);
     expect(await listMapSymbols(db, op.id)).toHaveLength(0);
+  });
+
+  it("cascades the operation's Stellen", async () => {
+    const db = await freshDb();
+    const op = await createOperation(db, { name: "Cyclassics" });
+    await createStation(db, {
+      operationId: op.id,
+      name: "UHSt 3",
+      author: "anna",
+    });
+
+    await deleteOperation(db, op.id);
+
+    expect(await listStations(db, op.id)).toHaveLength(0);
   });
 
   it("removes the operation's overlay files along with the row", async () => {
