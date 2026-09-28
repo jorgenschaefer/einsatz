@@ -18,7 +18,7 @@ import {
 import { useDisclosure } from "@mantine/hooks";
 import { IconPencil } from "@tabler/icons-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import type { ActionResult } from "@/app/operations/[id]/action-result";
 import {
   type JournalEntryView,
@@ -41,17 +41,9 @@ import {
 import type { SymbolComposition } from "./composition";
 import { DeviceLinkPanel } from "./DeviceLinkPanel";
 import { ImageOverlayEditor } from "./ImageOverlayEditor";
-import {
-  type ImageActionResult,
-  type ImageOverlayItem,
-  ImageOverlayPanel,
-} from "./ImageOverlayPanel";
+import { ImageOverlayPanel } from "./ImageOverlayPanel";
 import type { ImagePlacement } from "./image-overlay";
-import {
-  type KmlActionResult,
-  type KmlOverlayView,
-  KmlPanel,
-} from "./KmlPanel";
+import { KmlPanel } from "./KmlPanel";
 import { type MainView, MainViewBar } from "./MainViewBar";
 import { MAP_PANEL_LABEL, MapControls, type MapPanel } from "./MapControls";
 import { ModeBand } from "./ModeBand";
@@ -62,8 +54,6 @@ import { SearchBar } from "./SearchBar";
 import {
   type PlacedSymbol,
   type RenderedArea,
-  type RenderedImageOverlay,
-  type RenderedKmlOverlay,
   SituationMap,
   type SituationMapHandle,
 } from "./SituationMap";
@@ -157,26 +147,20 @@ export interface SituationWorkspaceProps {
   ) => Promise<ActionResult>;
   onDeleteArea: (id: string) => Promise<ActionResult>;
   kmlOverlays: WorkspaceKmlOverlay[];
-  onAddKmlFile: (name: string, content: string) => Promise<KmlActionResult>;
-  onAddKmlUrl: (name: string, url: string) => Promise<KmlActionResult>;
-  onSetKmlVisibility: (
-    id: string,
-    visible: boolean,
-  ) => Promise<KmlActionResult>;
-  onReloadKml: (id: string) => Promise<KmlActionResult>;
-  onRemoveKml: (id: string) => Promise<KmlActionResult>;
+  onAddKmlFile: (name: string, content: string) => Promise<ActionResult>;
+  onAddKmlUrl: (name: string, url: string) => Promise<ActionResult>;
+  onSetKmlVisibility: (id: string, visible: boolean) => Promise<ActionResult>;
+  onReloadKml: (id: string) => Promise<ActionResult>;
+  onRemoveKml: (id: string) => Promise<ActionResult>;
   imageOverlays: WorkspaceImageOverlay[];
-  onAddImage: (file: File) => Promise<ImageActionResult>;
+  onAddImage: (file: File) => Promise<ActionResult>;
   onUpdateImagePlacement: (
     id: string,
     placement: ImagePlacement,
-  ) => Promise<ImageActionResult>;
-  onReplaceImage: (id: string, file: File) => Promise<ImageActionResult>;
-  onSetImageVisibility: (
-    id: string,
-    visible: boolean,
-  ) => Promise<ImageActionResult>;
-  onDeleteImage: (id: string) => Promise<ImageActionResult>;
+  ) => Promise<ActionResult>;
+  onReplaceImage: (id: string, file: File) => Promise<ActionResult>;
+  onSetImageVisibility: (id: string, visible: boolean) => Promise<ActionResult>;
+  onDeleteImage: (id: string) => Promise<ActionResult>;
   /** Für Tests injizierbar. */
   factory?: MapAdapterFactory;
   /** Für Tests injizierbar; sonst der echte SSE-Hook. */
@@ -362,45 +346,6 @@ export function SituationWorkspace({
     QUICK_SELECT.find((i) => i.id === armedQuickId)?.composition ??
     null;
 
-  const kmlViews = useMemo<KmlOverlayView[]>(
-    () =>
-      kmlOverlays.map((o) => ({
-        id: o.id,
-        name: o.name,
-        sourceType: o.sourceType,
-        visible: o.visible,
-      })),
-    [kmlOverlays],
-  );
-  const renderedKml = useMemo<RenderedKmlOverlay[]>(
-    () =>
-      kmlOverlays.map((o) => ({
-        id: o.id,
-        content: o.content,
-        visible: o.visible,
-      })),
-    [kmlOverlays],
-  );
-  const imageItems = useMemo<ImageOverlayItem[]>(
-    () =>
-      imageOverlays.map((o) => ({
-        id: o.id,
-        name: o.name,
-        visible: o.visible,
-      })),
-    [imageOverlays],
-  );
-  const renderedImages = useMemo<RenderedImageOverlay[]>(
-    () =>
-      imageOverlays.map((o) => ({
-        id: o.id,
-        imageUrl: o.imageUrl,
-        placement: o.placement,
-        aspect: o.aspect,
-        visible: o.visible,
-      })),
-    [imageOverlays],
-  );
   const editingImage =
     imageOverlays.find((o) => o.id === editingImageId) ?? null;
 
@@ -562,7 +507,7 @@ export function SituationWorkspace({
 
   // Platzierungs-/Deckkraft-/Ersetzen-Änderungen speichern, ohne den
   // Bearbeiten-Modus zu verlassen (nur „Fertig"/„Löschen" beenden ihn).
-  const persistImage = async (op: () => Promise<ImageActionResult>) => {
+  const persistImage = async (op: () => Promise<ActionResult>) => {
     setImageBusy(true);
     try {
       setImageError((await op()).error ?? null);
@@ -654,8 +599,8 @@ export function SituationWorkspace({
               areas={areas}
               drawShape={drawShape}
               onDrawComplete={handleDrawComplete}
-              kmlOverlays={renderedKml}
-              imageOverlays={renderedImages}
+              kmlOverlays={kmlOverlays}
+              imageOverlays={imageOverlays}
               editingImageId={editingImageId}
               onEditImagePlacement={saveImagePlacement}
               movingCircleId={movingCircleId}
@@ -771,50 +716,26 @@ export function SituationWorkspace({
                     ) : (
                       <Stack gap={4}>
                         {symbolRows.map((row) => (
-                          <Group
+                          <PanelRow
                             key={row.id}
-                            gap="xs"
-                            wrap="nowrap"
-                            className="panel-row"
-                          >
-                            <UnstyledButton
-                              p={6}
-                              onClick={() => jumpFromPanel(row.lat, row.lng)}
-                              style={{
-                                flex: 1,
-                                minWidth: 0,
-                                borderRadius: "var(--mantine-radius-sm)",
-                              }}
-                            >
-                              <Group gap="xs" wrap="nowrap">
-                                <Image src={row.iconUrl} alt="" w={22} h={22} />
-                                <Text
-                                  size="sm"
-                                  style={{ flex: 1, minWidth: 0 }}
-                                  truncate
-                                >
-                                  {row.name}
-                                </Text>
-                                {row.stale ? (
-                                  <Badge size="xs" color="orange">
-                                    veraltet
-                                  </Badge>
-                                ) : row.device ? (
-                                  <Badge size="xs" color="green">
-                                    live
-                                  </Badge>
-                                ) : null}
-                              </Group>
-                            </UnstyledButton>
-                            <ActionIcon
-                              variant="subtle"
-                              color="gray"
-                              aria-label={`${row.name} bearbeiten`}
-                              onClick={() => setSelectedId(row.id)}
-                            >
-                              <IconPencil size={18} />
-                            </ActionIcon>
-                          </Group>
+                            name={row.name}
+                            onJump={() => jumpFromPanel(row.lat, row.lng)}
+                            onEdit={() => setSelectedId(row.id)}
+                            icon={
+                              <Image src={row.iconUrl} alt="" w={22} h={22} />
+                            }
+                            meta={
+                              row.stale ? (
+                                <Badge size="xs" color="orange">
+                                  veraltet
+                                </Badge>
+                              ) : row.device ? (
+                                <Badge size="xs" color="green">
+                                  live
+                                </Badge>
+                              ) : null
+                            }
+                          />
                         ))}
                       </Stack>
                     )}
@@ -843,55 +764,31 @@ export function SituationWorkspace({
                     ) : (
                       <Stack gap={4}>
                         {areas.map((area) => (
-                          <Group
+                          <PanelRow
                             key={area.id}
-                            gap="xs"
-                            wrap="nowrap"
-                            className="panel-row"
-                          >
-                            <UnstyledButton
-                              p={6}
-                              onClick={() => {
-                                const center = areaCenter(area.geometry);
-                                jumpFromPanel(center.lat, center.lng);
-                              }}
-                              style={{
-                                flex: 1,
-                                minWidth: 0,
-                                borderRadius: "var(--mantine-radius-sm)",
-                              }}
-                            >
-                              <Group gap="xs" wrap="nowrap">
-                                <Box
-                                  w={14}
-                                  h={14}
-                                  style={{
-                                    background: area.color,
-                                    borderRadius: 3,
-                                    flex: "none",
-                                  }}
-                                />
-                                <Text
-                                  size="sm"
-                                  style={{ flex: 1, minWidth: 0 }}
-                                  truncate
-                                >
-                                  {area.label || "Bereich"}
-                                </Text>
-                                <Text size="xs" c="dimmed">
-                                  {SHAPE_LABEL[area.geometry.shape]}
-                                </Text>
-                              </Group>
-                            </UnstyledButton>
-                            <ActionIcon
-                              variant="subtle"
-                              color="gray"
-                              aria-label={`${area.label || "Bereich"} bearbeiten`}
-                              onClick={() => setSelectedAreaId(area.id)}
-                            >
-                              <IconPencil size={18} />
-                            </ActionIcon>
-                          </Group>
+                            name={area.label || "Bereich"}
+                            onJump={() => {
+                              const center = areaCenter(area.geometry);
+                              jumpFromPanel(center.lat, center.lng);
+                            }}
+                            onEdit={() => setSelectedAreaId(area.id)}
+                            icon={
+                              <Box
+                                w={14}
+                                h={14}
+                                style={{
+                                  background: area.color,
+                                  borderRadius: 3,
+                                  flex: "none",
+                                }}
+                              />
+                            }
+                            meta={
+                              <Text size="xs" c="dimmed">
+                                {SHAPE_LABEL[area.geometry.shape]}
+                              </Text>
+                            }
+                          />
                         ))}
                       </Stack>
                     )}
@@ -900,7 +797,7 @@ export function SituationWorkspace({
                 {openPanel === "layers" && (
                   <Stack>
                     <KmlPanel
-                      overlays={kmlViews}
+                      overlays={kmlOverlays}
                       onAddFile={onAddKmlFile}
                       onAddUrl={onAddKmlUrl}
                       onToggleVisibility={onSetKmlVisibility}
@@ -916,7 +813,7 @@ export function SituationWorkspace({
                         Bild-Overlays
                       </Text>
                       <ImageOverlayPanel
-                        overlays={imageItems}
+                        overlays={imageOverlays}
                         editingId={editingImageId}
                         onAdd={onAddImage}
                         onToggleVisibility={onSetImageVisibility}
@@ -1046,5 +943,53 @@ export function SituationWorkspace({
         </Modal>
       </Stack>
     </LageansichtShell>
+  );
+}
+
+/**
+ * Eine Zeile im Kartenzeichen- bzw. Bereichs-Panel: ein Tap auf die Zeile
+ * springt auf der Karte hin, der Stift öffnet die Bearbeitung.
+ */
+function PanelRow({
+  icon,
+  name,
+  meta,
+  onJump,
+  onEdit,
+}: {
+  icon: ReactNode;
+  name: string;
+  meta: ReactNode;
+  onJump: () => void;
+  onEdit: () => void;
+}) {
+  return (
+    <Group gap="xs" wrap="nowrap" className="panel-row">
+      <UnstyledButton
+        p={6}
+        onClick={onJump}
+        style={{
+          flex: 1,
+          minWidth: 0,
+          borderRadius: "var(--mantine-radius-sm)",
+        }}
+      >
+        <Group gap="xs" wrap="nowrap">
+          {icon}
+          <Text size="sm" style={{ flex: 1, minWidth: 0 }} truncate>
+            {name}
+          </Text>
+          {meta}
+        </Group>
+      </UnstyledButton>
+      <ActionIcon
+        variant="subtle"
+        color="gray"
+        aria-label={`${name} bearbeiten`}
+        onClick={onEdit}
+      >
+        <IconPencil size={18} />
+      </ActionIcon>
+    </Group>
   );
 }

@@ -1,11 +1,6 @@
 import type { AreaGeometry, AreaShape } from "./area";
 import type { ImagePlacement } from "./image-overlay";
-import type { MapView } from "./view";
-
-export interface LatLng {
-  lat: number;
-  lng: number;
-}
+import type { LatLng, MapView } from "./view";
 
 /** Ein Marker auf der Karte (z. B. ein Kartenzeichen), per id verwaltet. */
 export interface MarkerSpec {
@@ -15,8 +10,6 @@ export interface MarkerSpec {
   iconUrl: string;
   /** Bezeichnung, permanent als Label rechts neben dem Marker. */
   label?: string;
-  iconSize?: [number, number];
-  iconAnchor?: [number, number];
   draggable?: boolean;
   /** 0–1; für ausgegraute (veraltete) Kartenzeichen. Default voll deckend. */
   opacity?: number;
@@ -37,7 +30,6 @@ export interface AreaSpec {
   /** 0–1; Füllung bei Polygon/Kreis, Strich bei der Linie. */
   opacity: number;
   label: string;
-  onClick?: () => void;
 }
 
 /** Ein Bild-Overlay (Lageplan aus PDF/PNG) auf der Karte, per id verwaltet. */

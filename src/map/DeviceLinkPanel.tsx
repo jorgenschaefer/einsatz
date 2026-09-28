@@ -10,7 +10,6 @@ export interface DeviceLinkPanelProps {
   positionSource: PositionSource;
   reportedAt: Date | null;
   onGenerate: () => void;
-  busy?: boolean;
 }
 
 const deviceUrl = (token: string): string => {
@@ -23,7 +22,6 @@ export function DeviceLinkPanel({
   positionSource,
   reportedAt,
   onGenerate,
-  busy = false,
 }: DeviceLinkPanelProps) {
   const { status: copyStatus, copy } = useClipboardCopy();
   const url = token ? deviceUrl(token) : "";
@@ -64,17 +62,12 @@ export function DeviceLinkPanel({
           <Group justify="center">
             <QRCode value={url} size={160} />
           </Group>
-          <Button
-            variant="light"
-            color="red"
-            onClick={() => onGenerate()}
-            loading={busy}
-          >
+          <Button variant="light" color="red" onClick={() => onGenerate()}>
             Gerätelink neu generieren
           </Button>
         </>
       ) : (
-        <Button variant="light" onClick={() => onGenerate()} loading={busy}>
+        <Button variant="light" onClick={() => onGenerate()}>
           Gerätelink erzeugen
         </Button>
       )}

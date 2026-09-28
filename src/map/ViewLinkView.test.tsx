@@ -185,6 +185,39 @@ describe("ViewLinkView", () => {
     expect(routerRefresh).toHaveBeenCalled();
   });
 
+  it("listens to the live stream of its token route", () => {
+    const eventsHook = vi.fn(() => ({ connected: true }));
+    renderView({ eventsHook });
+    expect(eventsHook).toHaveBeenCalledWith(
+      "/view/tok/events",
+      expect.any(Function),
+    );
+  });
+
+  it("searches addresses through its token route", async () => {
+    const fetchMock = vi.fn(
+      async (_url: string) =>
+        new Response(
+          JSON.stringify([
+            { label: "Rathaus, Hamburg", lat: 53.55, lng: 9.99 },
+          ]),
+        ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      renderView({ onGeocode: undefined });
+      fireEvent.change(screen.getByLabelText("Suche"), {
+        target: { value: "hamburg" },
+      });
+      expect(
+        await screen.findByRole("button", { name: /Rathaus, Hamburg/ }),
+      ).toBeInTheDocument();
+      expect(fetchMock).toHaveBeenCalledWith("/view/tok/geocode?q=hamburg");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("returns the map to the operation's default view", async () => {
     const { adapter } = renderView({
       operationDefaultView: { lat: 52.5, lng: 13.4, zoom: 12 },

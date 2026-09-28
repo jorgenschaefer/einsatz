@@ -1,18 +1,15 @@
-export interface LatLngPoint {
-  lat: number;
-  lng: number;
-}
+import type { LatLng } from "./view";
 
 export type AreaShape = "polygon" | "line" | "circle";
 
 /** Geometrie eines Bereichs: Fläche/Linienzug über Stützpunkte oder Kreis. */
 export type AreaGeometry =
-  | { shape: "polygon"; points: LatLngPoint[] }
-  | { shape: "line"; points: LatLngPoint[] }
-  | { shape: "circle"; center: LatLngPoint; radius: number };
+  | { shape: "polygon"; points: LatLng[] }
+  | { shape: "line"; points: LatLng[] }
+  | { shape: "circle"; center: LatLng; radius: number };
 
 /** Mittelpunkt eines Bereichs: Kreiszentrum bzw. Mittel der Stützpunkte. */
-export function areaCenter(geometry: AreaGeometry): LatLngPoint {
+export function areaCenter(geometry: AreaGeometry): LatLng {
   if (geometry.shape === "circle") return geometry.center;
   const { points } = geometry;
   const sum = points.reduce(

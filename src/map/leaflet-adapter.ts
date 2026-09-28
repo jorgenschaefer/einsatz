@@ -17,7 +17,6 @@ import {
   type ImagePlacement,
   imageOverlayCorners,
   imageOverlayHandles,
-  type LatLng,
   rotationFromHandle,
   scaleMFromCorner,
 } from "./image-overlay";
@@ -27,7 +26,7 @@ import {
   kmlSignature,
   markerVisualSignature,
 } from "./layer-signature";
-import { MAX_TILE_ZOOM, type MapView } from "./view";
+import { type LatLng, MAX_TILE_ZOOM, type MapView } from "./view";
 
 /** Vom Plugin ergänzt: platziert ein (dreh-/scherbares) Bild über drei Ecken. */
 type RotatedImageOverlayFactory = (
@@ -57,8 +56,6 @@ function applyAreaStyle(layer: L.Path, spec: AreaSpec) {
   );
   if (spec.label)
     layer.bindTooltip(spec.label, { permanent: true, direction: "center" });
-  const { onClick } = spec;
-  if (onClick) layer.on("click", () => onClick());
 }
 
 function areaLayer(spec: AreaSpec): L.Path {
@@ -94,6 +91,9 @@ export function extractGeometry(
       : (latlngs as L.LatLng[])) ?? [];
   return { shape, points: toPoints(ring) };
 }
+
+/** Kantenlänge (px) eines Kartenzeichen-Markers. */
+const MARKER_SIZE = 40;
 
 // Basisgröße (px) eines KML-Symbols bei <scale>1; togeojson liefert nur den
 // Skalierungsfaktor, keine Pixelmaße.
@@ -412,20 +412,17 @@ export const leafletMapAdapterFactory: MapAdapterFactory = {
       };
     };
 
-    const iconFor = (spec: MarkerSpec) => {
-      const size = spec.iconSize ?? [40, 40];
-      const anchor = spec.iconAnchor ?? [20, 20];
-      return L.icon({
+    const iconFor = (spec: MarkerSpec) =>
+      L.icon({
         iconUrl: spec.iconUrl,
-        iconSize: size,
-        iconAnchor: anchor,
-        // Das Bezeichnungs-Tooltip (direction "right") setzt an diesem Punkt an.
-        // Ohne Versatz läge es über dem Symbol; um die halbe rechte Symbolhälfte
-        // (size.x - anchor.x) plus 6 px für den Tooltip-Pfeil nach rechts rücken,
-        // damit die Beschriftung vollständig neben dem Zeichen steht.
-        tooltipAnchor: [size[0] - anchor[0] + 6, 0],
+        iconSize: [MARKER_SIZE, MARKER_SIZE],
+        iconAnchor: [MARKER_SIZE / 2, MARKER_SIZE / 2],
+        // Das Bezeichnungs-Tooltip (direction "right") setzt am Anker an. Ohne
+        // Versatz läge es über dem Symbol; um die rechte Symbolhälfte plus 6 px
+        // für den Tooltip-Pfeil nach rechts rücken, damit die Beschriftung
+        // vollständig neben dem Zeichen steht.
+        tooltipAnchor: [MARKER_SIZE / 2 + 6, 0],
       });
-    };
 
     // Bezeichnung als permanentes Label rechts neben dem Marker (statt im Symbol).
     // Eigene Klasse: kastenlos mit weißem Halo statt weißem Kasten (siehe CSS).

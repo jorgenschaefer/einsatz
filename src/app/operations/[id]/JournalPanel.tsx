@@ -16,6 +16,10 @@ import {
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useState } from "react";
+import type {
+  JournalEntryState,
+  JournalEntryType,
+} from "@/server/journal/journal";
 import type { ActionResult } from "./action-result";
 
 const SAVE_ERROR = "Speichern fehlgeschlagen. Bitte erneut versuchen.";
@@ -31,8 +35,8 @@ export interface JournalEntryView {
   number: number;
   createdAt: string;
   text: string;
-  type: "manuell" | "einsatz-eröffnet" | "einsatz-geschlossen";
-  state: "gueltig" | "annulliert";
+  type: JournalEntryType;
+  state: JournalEntryState;
   author: string | null;
   editedAt: string | null;
   revisions: JournalRevisionView[];
@@ -100,20 +104,6 @@ export function JournalPanel({
       setError(null);
     } catch {
       setError(SAVE_ERROR);
-    }
-  };
-
-  const onDraftKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
-      e.preventDefault();
-      void submitNew();
-    }
-  };
-
-  const onEditKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
-      e.preventDefault();
-      void submitEdit();
     }
   };
 
@@ -247,7 +237,7 @@ export function JournalPanel({
                     aria-label="Korrektur"
                     value={editText}
                     onChange={(e) => setEditText(e.currentTarget.value)}
-                    onKeyDown={onEditKeyDown}
+                    onKeyDown={submitOnCtrlEnter(submitEdit)}
                   />
                   <Group gap="xs">
                     <Button size="xs" onClick={submitEdit}>
@@ -273,7 +263,7 @@ export function JournalPanel({
           aria-label="Neuer Eintrag"
           value={draft}
           onChange={(e) => setDraft(e.currentTarget.value)}
-          onKeyDown={onDraftKeyDown}
+          onKeyDown={submitOnCtrlEnter(submitNew)}
           placeholder="Ereignis festhalten …"
         />
         <Button onClick={submitNew} w="fit-content">
@@ -308,3 +298,12 @@ export function JournalPanel({
     </Stack>
   );
 }
+
+/** Strg/⌘+Enter schickt das Textfeld ab. */
+const submitOnCtrlEnter =
+  (submit: () => Promise<void>) => (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      void submit();
+    }
+  };

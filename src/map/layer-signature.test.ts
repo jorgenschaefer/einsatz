@@ -58,12 +58,6 @@ describe("markerVisualSignature", () => {
 });
 
 describe("areaSignature", () => {
-  it("ignores onClick identity", () => {
-    expect(areaSignature(area({ onClick: () => {} }))).toBe(
-      areaSignature(area({ onClick: () => {} })),
-    );
-  });
-
   it("changes when geometry, colour, opacity or label change", () => {
     expect(areaSignature(area())).not.toBe(
       areaSignature(area({ color: "#0000ff" })),

@@ -9,12 +9,6 @@ import {
 } from "@/server/areas/areas";
 import { type ActionResult, operationAction } from "./operation-action";
 
-// Zugehörigkeit (flaches Trust-Modell): Diese Kind-Objekt-Actions mutieren über
-// die vom Client gelieferte Objekt-`id`, ohne zu prüfen, dass das Objekt zu
-// `operationId` gehört (`operationId` dient hier nur Revalidate/Live-Event). Das
-// ist bewusst unkritisch, solange jeder angemeldete Nutzer jeden Einsatz
-// bearbeiten darf; es ist zugleich der Ansatzpunkt für eine künftige
-// Per-Einsatz-Autorisierung: dann hier vor der Mutation die Zugehörigkeit prüfen.
 const DEFAULT_AREA_STYLE: AreaStyle = {
   color: "#e2001a",
   opacity: 0.4,

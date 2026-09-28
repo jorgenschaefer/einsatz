@@ -2,7 +2,6 @@ import "server-only";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getDb } from "@/server/db/pg";
-import { adminAccess } from "./authorization";
 import { findUserBySessionToken } from "./sessions";
 import type { AuthenticatedUser } from "./users";
 
@@ -43,10 +42,7 @@ export async function requireUser(): Promise<AuthenticatedUser> {
 
 /** Erzwingt Admin-Rechte; Nicht-Admins werden auf die Einsatzübersicht umgeleitet. */
 export async function requireAdmin(): Promise<AuthenticatedUser> {
-  const user = await getCurrentUser();
-  const access = adminAccess(user);
-  if (access === "login") redirect("/login");
-  if (access === "operations") redirect("/operations");
-  if (!user) redirect("/login"); // bei access === "ok" bereits gegeben; macht den Typ non-null
+  const user = await requireUser();
+  if (user.role !== "admin") redirect("/operations");
   return user;
 }

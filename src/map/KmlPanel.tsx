@@ -11,6 +11,7 @@ import {
   TextInput,
 } from "@mantine/core";
 import { useState } from "react";
+import type { ActionResult } from "@/app/operations/[id]/action-result";
 import { extractKml } from "@/kml/kmz";
 import type { KmlSourceType } from "@/server/kml/kml-overlays";
 import { ValidationError } from "@/server/validation";
@@ -22,20 +23,13 @@ export interface KmlOverlayView {
   visible: boolean;
 }
 
-export interface KmlActionResult {
-  error?: string;
-}
-
 export interface KmlPanelProps {
   overlays: KmlOverlayView[];
-  onAddFile: (name: string, content: string) => Promise<KmlActionResult>;
-  onAddUrl: (name: string, url: string) => Promise<KmlActionResult>;
-  onToggleVisibility: (
-    id: string,
-    visible: boolean,
-  ) => Promise<KmlActionResult>;
-  onReload: (id: string) => Promise<KmlActionResult>;
-  onRemove: (id: string) => Promise<KmlActionResult>;
+  onAddFile: (name: string, content: string) => Promise<ActionResult>;
+  onAddUrl: (name: string, url: string) => Promise<ActionResult>;
+  onToggleVisibility: (id: string, visible: boolean) => Promise<ActionResult>;
+  onReload: (id: string) => Promise<ActionResult>;
+  onRemove: (id: string) => Promise<ActionResult>;
 }
 
 export function KmlPanel({
@@ -51,9 +45,7 @@ export function KmlPanel({
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
 
-  const run = async (
-    action: Promise<KmlActionResult>,
-  ): Promise<KmlActionResult> => {
+  const run = async (action: Promise<ActionResult>): Promise<ActionResult> => {
     setBusy(true);
     try {
       const result = await action;

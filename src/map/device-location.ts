@@ -1,12 +1,9 @@
+import type { LatLng } from "./view";
+
 /** Ab dieser Bewegung seit der letzten Meldung wird eine neue gesendet. */
 const MIN_MOVE_M = 10;
 /** Spätestens nach dieser Zeit wird auch ohne Bewegung neu gesendet. */
 const MIN_INTERVAL_MS = 30_000;
-
-export interface LatLng {
-  lat: number;
-  lng: number;
-}
 
 /** Übergabe-URL an die Karten-App des Geräts (geo-URI, kein eigenes Routing). */
 export function navigationUrl(lat: number, lng: number): string {

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { MAX_KML_BYTES } from "@/kml/kmz";
 import { ValidationError } from "@/server/validation";
 import {
   assertFetchableKmlUrl,
@@ -6,7 +7,6 @@ import {
   enforceKmlSizeLimit,
   fetchKmlFromUrl,
   isBlockedIp,
-  MAX_KML_BYTES,
   MAX_NETWORK_LINK_DEPTH,
   normalizeKmlSourceUrl,
   resolveKmlNetworkLinks,

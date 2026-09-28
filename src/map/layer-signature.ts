@@ -13,8 +13,6 @@ export function markerVisualSignature(spec: MarkerSpec): string {
   return JSON.stringify({
     iconUrl: spec.iconUrl,
     label: spec.label,
-    iconSize: spec.iconSize,
-    iconAnchor: spec.iconAnchor,
     opacity: spec.opacity,
   });
 }

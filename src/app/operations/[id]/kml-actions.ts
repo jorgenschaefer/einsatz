@@ -25,13 +25,7 @@ import {
 // `operationAction`-Helfer, nutzen aber dessen `revalidateOperation`/`toFormError`
 // und teilen `requireUser`. Die reinen Mutationen (setKmlVisibility, removeKml)
 // laufen dagegen über `operationAction` wie alle anderen Einsatz-Mutationen.
-//
-// Zugehörigkeit (flaches Trust-Modell): Diese Kind-Objekt-Actions mutieren über
-// die vom Client gelieferte Objekt-`id`, ohne zu prüfen, dass das Objekt zu
-// `operationId` gehört (`operationId` dient hier nur Revalidate/Live-Event). Das
-// ist bewusst unkritisch, solange jeder angemeldete Nutzer jeden Einsatz
-// bearbeiten darf; es ist zugleich der Ansatzpunkt für eine künftige
-// Per-Einsatz-Autorisierung: dann hier vor der Mutation die Zugehörigkeit prüfen.
+// Zur Objekt-Zugehörigkeit (flaches Trust-Modell) siehe `operationAction`.
 export async function addKmlFileAction(
   operationId: string,
   name: string,

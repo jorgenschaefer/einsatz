@@ -7,6 +7,7 @@ import {
   rotationFromHandle,
   scaleMFromCorner,
 } from "./image-overlay";
+import { FALLBACK_VIEW } from "./view";
 
 describe("defaultImagePlacement", () => {
   it("centers a new overlay on the given map view", () => {
@@ -20,12 +21,15 @@ describe("defaultImagePlacement", () => {
     });
   });
 
-  it("falls back to a default center when there is no view", () => {
+  it("falls back to the map's fallback center when there is no view", () => {
     const p = defaultImagePlacement(null);
-    expect(p.rotationDeg).toBe(0);
-    expect(p.opacity).toBe(1);
+    expect(p).toMatchObject({
+      centerLat: FALLBACK_VIEW.lat,
+      centerLng: FALLBACK_VIEW.lng,
+      rotationDeg: 0,
+      opacity: 1,
+    });
     expect(p.scaleM).toBeGreaterThan(0);
-    expect(typeof p.centerLat).toBe("number");
   });
 });
 

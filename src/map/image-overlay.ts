@@ -1,4 +1,4 @@
-import type { MapView } from "./view";
+import { FALLBACK_VIEW, type LatLng, type MapView } from "./view";
 
 /** Platzierung eines Bild-Overlays: per Auge auf die Karte eingepasst. */
 export interface ImagePlacement {
@@ -11,17 +11,11 @@ export interface ImagePlacement {
   opacity: number;
 }
 
-export interface LatLng {
-  lat: number;
-  lng: number;
-}
-
 const DEFAULT_SCALE_M = 1000;
-const FALLBACK_CENTER = { lat: 51.1657, lng: 10.4515 }; // Mitte Deutschlands
 
 /** Startplatzierung eines neuen Bild-Overlays: mittig auf dem aktuellen Kartenausschnitt. */
 export function defaultImagePlacement(view: MapView | null): ImagePlacement {
-  const center = view ?? FALLBACK_CENTER;
+  const center = view ?? FALLBACK_VIEW;
   return {
     centerLat: center.lat,
     centerLng: center.lng,

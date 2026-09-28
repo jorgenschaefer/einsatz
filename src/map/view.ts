@@ -1,7 +1,11 @@
-/** Ein Kartenausschnitt: Mittelpunkt und Zoomstufe. */
-export interface MapView {
+/** Ein Punkt auf der Karte (WGS84). */
+export interface LatLng {
   lat: number;
   lng: number;
+}
+
+/** Ein Kartenausschnitt: Mittelpunkt und Zoomstufe. */
+export interface MapView extends LatLng {
   zoom: number;
 }
 

@@ -23,17 +23,14 @@ export async function POST(
   if (!isValidLatLng(lat, lng)) {
     return new NextResponse("Ungültige Daten", { status: 400 });
   }
-  const db = getDb();
   // isValidLatLng hat lat/lng als endliche Zahlen in Grenzen bestätigt.
-  const { result, operationId } = await reportPosition(
-    db,
+  const access = await reportPosition(
+    getDb(),
     token,
     lat as number,
     lng as number,
   );
-  // operationId kommt direkt aus reportPosition – keine zweite Abfrage nötig.
-  if (result === "ok" && operationId) {
-    publishOperationChanged(operationId); // StandortGemeldet an alle Clients
-  }
-  return new NextResponse(null, { status: result === "ok" ? 204 : 403 });
+  if (!access) return new NextResponse(null, { status: 403 });
+  publishOperationChanged(access.operationId); // StandortGemeldet an alle Clients
+  return new NextResponse(null, { status: 204 });
 }

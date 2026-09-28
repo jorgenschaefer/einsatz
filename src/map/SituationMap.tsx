@@ -3,17 +3,18 @@
 import { Box } from "@mantine/core";
 import {
   type Ref,
+  type RefObject,
   useEffect,
   useImperativeHandle,
   useRef,
   useState,
 } from "react";
-import type { LatLng, MapAdapter, MapAdapterFactory } from "./adapter";
+import type { MapAdapter, MapAdapterFactory } from "./adapter";
 import type { AreaGeometry, AreaShape } from "./area";
 import type { SymbolComposition } from "./composition";
 import type { ImagePlacement } from "./image-overlay";
 import { readLastView, writeLastView } from "./last-view-storage";
-import { chooseInitialView, type MapView } from "./view";
+import { chooseInitialView, type LatLng, type MapView } from "./view";
 
 /** Ein platziertes Kartenzeichen, fertig zum Setzen als Marker. */
 export interface PlacedSymbol {
@@ -181,10 +182,6 @@ export function SituationMap({
         onViewChange: (view) => writeLastView(operationId, view),
         onMapClick: handleMapClick,
       });
-      knownIds.current = new Set();
-      knownAreaIds.current = new Set();
-      knownKmlIds.current = new Set();
-      knownImageIds.current = new Set();
       setReady(true);
     };
     void start();
@@ -205,11 +202,7 @@ export function SituationMap({
   useEffect(() => {
     const adapter = adapterRef.current;
     if (!ready || !adapter) return;
-    const next = new Set(symbols.map((s) => s.id));
-    for (const id of knownIds.current) {
-      if (!next.has(id)) adapter.removeMarker(id);
-    }
-    for (const symbol of symbols) {
+    reconcile(knownIds, symbols, adapter.removeMarker, (symbol) =>
       adapter.setMarker(symbol.id, {
         lat: symbol.lat,
         lng: symbol.lng,
@@ -221,9 +214,8 @@ export function SituationMap({
           ? undefined
           : (pos) => onMoveRef.current?.(symbol.id, pos.lat, pos.lng),
         onClick: () => onSelectRef.current?.(symbol.id),
-      });
-    }
-    knownIds.current = next;
+      }),
+    );
     // `readOnly` ist pro Mount konstant (Workspace immer editierbar, Device-/
     // ViewLink-Ansicht immer nur-lesend) und steht nur der Vollständigkeit halber
     // in den Deps; der Adapter aktualisiert `draggable` an bestehenden Markern
@@ -242,19 +234,14 @@ export function SituationMap({
     const adapter = adapterRef.current;
     if (!ready || !adapter) return;
     const shown = areas.filter((a) => a.id !== movingCircleId);
-    const next = new Set(shown.map((a) => a.id));
-    for (const id of knownAreaIds.current) {
-      if (!next.has(id)) adapter.removeArea(id);
-    }
-    for (const area of shown) {
+    reconcile(knownAreaIds, shown, adapter.removeArea, (area) =>
       adapter.setArea(area.id, {
         geometry: area.geometry,
         color: area.color,
         opacity: area.opacity,
         label: area.label,
-      });
-    }
-    knownAreaIds.current = next;
+      }),
+    );
   }, [ready, areas, movingCircleId]);
 
   // Moving a circle: centre on it once when the mode starts, keeping the zoom.
@@ -299,36 +286,30 @@ export function SituationMap({
   useEffect(() => {
     const adapter = adapterRef.current;
     if (!ready || !adapter) return;
-    const next = new Set(kmlOverlays.map((o) => o.id));
-    for (const id of knownKmlIds.current) {
-      if (!next.has(id)) adapter.removeKmlOverlay(id);
-    }
-    for (const overlay of kmlOverlays) {
+    reconcile(knownKmlIds, kmlOverlays, adapter.removeKmlOverlay, (overlay) =>
       adapter.setKmlOverlay(overlay.id, {
         content: overlay.content,
         visible: overlay.visible,
-      });
-    }
-    knownKmlIds.current = next;
+      }),
+    );
   }, [ready, kmlOverlays]);
 
   // Bild-Overlay-Reconciliation: jede Ebene mit Platzierung und Sichtbarkeit setzen, entfernte lösen.
   useEffect(() => {
     const adapter = adapterRef.current;
     if (!ready || !adapter) return;
-    const next = new Set(imageOverlays.map((o) => o.id));
-    for (const id of knownImageIds.current) {
-      if (!next.has(id)) adapter.removeImageOverlay(id);
-    }
-    for (const overlay of imageOverlays) {
-      adapter.setImageOverlay(overlay.id, {
-        imageUrl: overlay.imageUrl,
-        placement: overlay.placement,
-        aspect: overlay.aspect,
-        visible: overlay.visible,
-      });
-    }
-    knownImageIds.current = next;
+    reconcile(
+      knownImageIds,
+      imageOverlays,
+      adapter.removeImageOverlay,
+      (overlay) =>
+        adapter.setImageOverlay(overlay.id, {
+          imageUrl: overlay.imageUrl,
+          placement: overlay.placement,
+          aspect: overlay.aspect,
+          visible: overlay.visible,
+        }),
+    );
   }, [ready, imageOverlays]);
 
   // Bearbeiten-Modus: Griffe fürs gewählte Overlay zeigen und Platzierungs-Gesten melden.
@@ -352,4 +333,22 @@ export function SituationMap({
   }, [ready, drawShape]);
 
   return <Box ref={containerRef} h="100%" w="100%" />;
+}
+
+/**
+ * Gleicht eine Kartenebene mit dem geladenen Einsatz-Zustand ab: entfernt, was
+ * nicht mehr vorkommt, setzt jedes Element (add/update) und merkt sich die ids.
+ */
+function reconcile<T extends { id: string }>(
+  known: RefObject<Set<string>>,
+  items: T[],
+  remove: (id: string) => void,
+  set: (item: T) => void,
+): void {
+  const next = new Set(items.map((item) => item.id));
+  for (const id of known.current) {
+    if (!next.has(id)) remove(id);
+  }
+  for (const item of items) set(item);
+  known.current = next;
 }

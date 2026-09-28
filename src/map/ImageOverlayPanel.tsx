@@ -11,6 +11,7 @@ import {
 } from "@mantine/core";
 import type { ReactNode } from "react";
 import { useState } from "react";
+import type { ActionResult } from "@/app/operations/[id]/action-result";
 
 export interface ImageOverlayItem {
   id: string;
@@ -18,19 +19,12 @@ export interface ImageOverlayItem {
   visible: boolean;
 }
 
-export interface ImageActionResult {
-  error?: string;
-}
-
 export interface ImageOverlayPanelProps {
   overlays: ImageOverlayItem[];
   /** Overlay, das gerade bearbeitet wird (Inline-Steuerung aufgeklappt). */
   editingId?: string | null;
-  onAdd: (file: File) => Promise<ImageActionResult>;
-  onToggleVisibility: (
-    id: string,
-    visible: boolean,
-  ) => Promise<ImageActionResult>;
+  onAdd: (file: File) => Promise<ActionResult>;
+  onToggleVisibility: (id: string, visible: boolean) => Promise<ActionResult>;
   onEdit: (id: string) => void;
   /** Rendert die Inline-Steuerung unter dem gerade bearbeiteten Overlay. */
   renderEditor?: (overlay: ImageOverlayItem) => ReactNode;
@@ -47,9 +41,7 @@ export function ImageOverlayPanel({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const run = async (
-    action: Promise<ImageActionResult>,
-  ): Promise<ImageActionResult> => {
+  const run = async (action: Promise<ActionResult>): Promise<ActionResult> => {
     setBusy(true);
     try {
       const result = await action;

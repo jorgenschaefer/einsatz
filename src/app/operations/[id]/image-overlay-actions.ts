@@ -35,13 +35,7 @@ import {
 // Bild-Overlay-Actions haben ein eigenes Catch-all (PDF→PNG-Renderer,
 // Datei-IO) plus Datei-Aufräumen, passen daher nicht in den `operationAction`-
 // Helfer; sie nutzen aber dessen `revalidateOperation`/`toFormError`.
-//
-// Zugehörigkeit (flaches Trust-Modell): Diese Kind-Objekt-Actions mutieren über
-// die vom Client gelieferte Objekt-`id`, ohne zu prüfen, dass das Objekt zu
-// `operationId` gehört (`operationId` dient hier nur Revalidate/Live-Event). Das
-// ist bewusst unkritisch, solange jeder angemeldete Nutzer jeden Einsatz
-// bearbeiten darf; es ist zugleich der Ansatzpunkt für eine künftige
-// Per-Einsatz-Autorisierung: dann hier vor der Mutation die Zugehörigkeit prüfen.
+// Zur Objekt-Zugehörigkeit (flaches Trust-Modell) siehe `operationAction`.
 function toError(err: unknown, fallback: string): ActionResult {
   // Unerwartete Fehler (z. B. aus dem PDF→PNG-Renderer oder dem Datei-IO)
   // serverseitig sichtbar machen – der Nutzer bekommt nur `fallback`.
@@ -61,10 +55,7 @@ export async function addImageOverlayAction(
   await requireUser();
   if (!(file instanceof File)) return { error: "Keine Datei ausgewählt." };
   try {
-    const buffer = Buffer.from(await file.arrayBuffer());
-    enforceUploadSize(buffer.byteLength);
-    const kind = classifyUpload(file.type, file.name);
-    const { webp, width, height } = await prepareOverlayImage(kind, buffer);
+    const { webp, width, height } = await prepareUpload(file);
     const db = getDb();
     const operation = await getOperation(db, operationId);
     if (!operation) {
@@ -100,10 +91,7 @@ export async function replaceImageOverlayFileAction(
   await requireUser();
   if (!(file instanceof File)) return { error: "Keine Datei ausgewählt." };
   try {
-    const buffer = Buffer.from(await file.arrayBuffer());
-    enforceUploadSize(buffer.byteLength);
-    const kind = classifyUpload(file.type, file.name);
-    const { webp, width, height } = await prepareOverlayImage(kind, buffer);
+    const { webp, width, height } = await prepareUpload(file);
     const db = getDb();
     const existing = await getImageOverlay(db, id);
     if (!existing)
@@ -180,4 +168,11 @@ export async function deleteImageOverlayAction(
   } catch (err) {
     return toError(err, DELETE_FAILED);
   }
+}
+
+/** Prüft eine hochgeladene PDF-/PNG-Datei und bereitet sie als WebP auf. */
+async function prepareUpload(file: File) {
+  const buffer = Buffer.from(await file.arrayBuffer());
+  enforceUploadSize(buffer.byteLength);
+  return prepareOverlayImage(classifyUpload(file.type, file.name), buffer);
 }

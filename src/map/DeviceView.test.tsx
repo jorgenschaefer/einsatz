@@ -128,6 +128,21 @@ describe("DeviceView", () => {
     expect(screen.getByText(/nicht mehr aktiv/i)).toBeInTheDocument();
   });
 
+  it("closes the live stream when access is lost", () => {
+    const closed = vi.fn();
+    const eventsHook = () => {
+      useEffect(() => closed, []);
+      return { connected: true };
+    };
+    const lostHook = (_t: string, onAccessLost: () => void) => {
+      // biome-ignore lint/correctness/useExhaustiveDependencies: Test-Hook meldet absichtlich genau einmal „kein Zugang".
+      useEffect(() => onAccessLost(), []);
+      return { status: "paused" as const, position: null };
+    };
+    renderDevice({ locationHook: lostHook, eventsHook });
+    expect(closed).toHaveBeenCalled();
+  });
+
   it("grays a device symbol that goes stale while the device view stays open", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     try {
@@ -231,6 +246,39 @@ describe("DeviceView", () => {
     });
     fire();
     expect(routerRefresh).toHaveBeenCalled();
+  });
+
+  it("listens to the live stream of its token route", () => {
+    const eventsHook = vi.fn(() => ({ connected: true }));
+    renderDevice({ eventsHook });
+    expect(eventsHook).toHaveBeenCalledWith(
+      "/device/tok/events",
+      expect.any(Function),
+    );
+  });
+
+  it("searches addresses through its token route", async () => {
+    const fetchMock = vi.fn(
+      async (_url: string) =>
+        new Response(
+          JSON.stringify([
+            { label: "Rathaus, Hamburg", lat: 53.55, lng: 9.99 },
+          ]),
+        ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      renderDevice({ onGeocode: undefined });
+      fireEvent.change(screen.getByLabelText("Suche"), {
+        target: { value: "hamburg" },
+      });
+      expect(
+        await screen.findByRole("button", { name: /Rathaus, Hamburg/ }),
+      ).toBeInTheDocument();
+      expect(fetchMock).toHaveBeenCalledWith("/device/tok/geocode?q=hamburg");
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it("centers the map on the device's own position when the locate button is tapped", async () => {

@@ -7,9 +7,6 @@ import {
 } from "@/kml/kmz";
 import { ValidationError } from "@/server/validation";
 
-// Re-Export, damit bestehende Importe aus diesem Modul (Tests, Aufrufer) bleiben.
-export { MAX_KML_BYTES };
-
 const FETCH_TIMEOUT_MS = 15_000;
 const MAX_REDIRECTS = 5;
 export const MAX_NETWORK_LINK_DEPTH = 3;
