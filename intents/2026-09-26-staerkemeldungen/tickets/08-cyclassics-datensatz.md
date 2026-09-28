@@ -2,8 +2,8 @@
 solution:  02-SOLUTION.md
 satisfies: AC-16
 after:     04-verlauf-der-stelle, 05-summenverlauf
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -64,3 +64,28 @@ AC-8's stale highlight is checked too (the 20:00 reports are fresh, none stale;
 a second assertion at `now` = 21:01 all stale): 4 Stellen × 13 reports
 08:00–20:00 hourly, assert AC-6 latest per Stelle, AC-7 sum, AC-8 oldest, AC-9
 history per Stelle, AC-10 all 52 rows (selected rows spelled out). `npm run check`.
+
+## Record
+
+**Criterion → tests**
+
+- **AC-16** — `src/strength/strength.cyclassics.test.ts` › „the Cyclassics dataset: 4 Stellen, 13 hourly reports each". The dataset has 4 Stellen × 13 reports, 08:00–20:00 CEST (2026-08-23). The 4 reports of an hour follow each other 15 s apart, because real ETB entries never share a timestamp. ETB numbers are 6–57, since entries 1–5 are „Einsatz eröffnet" and the four „Stelle angelegt". Stelle 1 has no notes; the others note „Runde n". Each criterion on this dataset:
+  - AC-6: „shows the 20:00 report as each Stelle's latest (AC-6)" (F/UF/H//Σ, zusätzlich, Gesamtpersonen, Notiz, Uhrzeit).
+  - AC-7: „adds up the 20:00 reports and names the oldest of them (AC-7, AC-8)" (4/10/60//74, +6, 80 Personen, 4 Stellen).
+  - AC-8: the same test for the oldest report (20:00, Stelle 1's exact timestamp); „highlights nothing at 20:30 and everything at 21:01 (AC-8)" for the sum and every card.
+  - AC-9: „lists each Stelle's 13 reports newest first (AC-9)". All 52 rows are spelled out with time, values, Gesamtpersonen and note.
+  - AC-10: „the Summenverlauf (AC-10)": „has a row for each of the 52 reports, newest first" (ETB numbers and all 52 times spelled out), „sums only the first Stelle at the first report", „adds each Stelle as its first report comes in", „mixes this hour's reports with last hour's while the round is under way" (14:00 row: 4/10/35//49, oldest 13:00), „ends with the current sum at the last report".
+- **Red-first was impossible, as the ticket says:** the test was green on its first run because it pins code already built. To prove it can fail, each of these was broken once locally, watched go red, then reverted:
+  - `totalHistory` `<=` → `<`: 4 failures.
+  - `stationHistory` sort reversed: 6 failures.
+  - stale limit doubled: 1 failure.
+  - `totalOf` oldest comparison flipped: 2 failures.
+- The review's should-fix (Gesamtpersonen and Notiz not pinned) was done test-first: the expectations were updated and went red (2 failures), then the dataset and helper were changed to make them green.
+
+**Command:** `docker compose -f docker-compose.test.yml up -d && npm run check`. Green: tsc, biome (264 files), vitest 113 files / 1023 tests. One earlier run had 7 failures in 1 file, while a parallel reviewer run was loading the machine. An immediate re-run of the full suite, and then the final `npm run check`, were both green, so I took it as load-related flakiness. I did not identify the failing file.
+
+**Left standing**
+
+- Review nit not fixed: when a Summenverlauf row is missing, `describeRow` fails with „expected undefined …" rather than naming the ETB number. It still fails, so the only cost is a less helpful message.
+- Review tradeoff, kept as is: in this dataset, ETB number, time and helper count all rise together. So choosing the latest report by time, or filtering `totalHistory` by number instead of time, would still pass here. `strength.test.ts` already pins those cases with out-of-order data. Scrambling this dataset would make it no longer „genau diesem Datensatz".
+- Departure from the plan: none in substance. The test covers the pure functions in `src/strength/strength.ts`, as planned, not the `StrengthPanel` UI. AC-6's „noch keine Meldung" cannot occur in this dataset, where every Stelle reports; it stays pinned by `StrengthPanel.test.tsx`.
