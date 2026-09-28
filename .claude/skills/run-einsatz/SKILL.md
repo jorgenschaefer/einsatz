@@ -32,8 +32,14 @@ curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3000/login   # 200 →
 ```
 
 If nothing is listening, start it in the background: `npm run dev`, then poll
-`/login` until you get a 200. To stop it, `lsof -ti:3000 -sTCP:LISTEN | xargs -r kill`
-(only kill a server you started yourself).
+`/login` until you get a 200. Only stop a server you started yourself. Stop
+it from `einsatz/` by killing the listening `next-server`, but only if it runs
+from this checkout. `next dev` and `npm` then exit on their own:
+
+```bash
+pid=$(ss -ltnpH 'sport = :3000' | grep -oP 'pid=\K[0-9]+')
+[ "$(readlink /proc/$pid/cwd)" = "$PWD" ] && kill "$pid"
+```
 
 ## Run (agent path): the driver
 
@@ -151,6 +157,9 @@ npm run check                                      # tsc + biome + vitest (~2.5 
 
 ## Gotchas
 
+- **`lsof -i:3000` finds nothing here,** even while `next-server` is
+  listening, so `lsof … | xargs kill` silently leaves the server running.
+  Use `ss -ltnp` as shown under Dev server.
 - **A second `next dev` refuses to start.** It prints `Ready`, then
   `⨯ Another next dev server is already running … PID … Run kill <pid>`, even
   on another port (`-p 3100`). The lock lives in `.next/dev/`. If the user's
