@@ -75,6 +75,10 @@ describe("JournalPanel", () => {
   it.each([
     ["stelle-angelegt", "Stelle angelegt: UHSt 3"],
     ["stelle-umbenannt", "Stelle umbenannt: UHSt 3 → UHSt 3 Nord"],
+    [
+      "stärkemeldung",
+      "Stärkemeldung UHSt 3: 0/1/6//7, +2 zusätzlich, 9 Personen",
+    ],
   ] as const)(
     "shows a %s entry as neither automatic nor changeable, and keeps it when automatic ones are hidden",
     async (type, text) => {

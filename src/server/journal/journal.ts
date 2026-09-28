@@ -8,7 +8,8 @@ export type JournalEntryType =
   | "einsatz-eröffnet"
   | "einsatz-geschlossen"
   | "stelle-angelegt"
-  | "stelle-umbenannt";
+  | "stelle-umbenannt"
+  | "stärkemeldung";
 export type JournalEntryState = "gueltig" | "annulliert";
 
 /** Eine frühere Fassung eines Eintrags mit eigenem Urheber und Zeitstempel. */

@@ -30,6 +30,7 @@ import type { KmlSourceType } from "@/server/kml/kml-overlays";
 import type { PositionSource } from "@/server/mapsymbols/map-symbols";
 import type { OperationStatus } from "@/server/operations/operations";
 import { type StationView, StrengthPanel } from "@/strength/StrengthPanel";
+import type { StrengthValues } from "@/strength/strength";
 import { AdvancedSymbolForm } from "./AdvancedSymbolForm";
 import { AreaEditor } from "./AreaEditor";
 import type { MapAdapterFactory } from "./adapter";
@@ -165,6 +166,10 @@ export interface SituationWorkspaceProps {
   stations: StationView[];
   onCreateStation: (name: string) => Promise<ActionResult>;
   onRenameStation: (id: string, name: string) => Promise<ActionResult>;
+  onRecordStrengthReport: (
+    stationId: string,
+    values: StrengthValues,
+  ) => Promise<ActionResult>;
   /** Für Tests injizierbar. */
   factory?: MapAdapterFactory;
   /** Für Tests injizierbar; sonst der echte SSE-Hook. */
@@ -220,6 +225,7 @@ export function SituationWorkspace({
   stations,
   onCreateStation,
   onRenameStation,
+  onRecordStrengthReport,
   factory,
   eventsHook = useOperationEvents,
 }: SituationWorkspaceProps) {
@@ -885,6 +891,7 @@ export function SituationWorkspace({
             stations={stations}
             onCreateStation={onCreateStation}
             onRenameStation={onRenameStation}
+            onRecordStrengthReport={onRecordStrengthReport}
           />
         </Box>
 

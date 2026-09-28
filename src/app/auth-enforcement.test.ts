@@ -86,6 +86,7 @@ import {
 import { GET as operationOverlayGET } from "@/app/operations/[id]/overlays/[overlayId]/route";
 import {
   createStationAction,
+  recordStrengthReportAction,
   renameStationAction,
 } from "@/app/operations/[id]/strength-actions";
 import {
@@ -243,6 +244,17 @@ const userGuardedActions: Invocation[] = [
   {
     name: "renameStationAction",
     run: () => renameStationAction("st-1", "UHSt 3 Nord"),
+  },
+  {
+    name: "recordStrengthReportAction",
+    run: () =>
+      recordStrengthReportAction("st-1", {
+        leaders: 0,
+        subLeaders: 1,
+        helpers: 6,
+        additionalPersonnel: 2,
+        note: null,
+      }),
   },
   { name: "closeOperationAction", run: () => closeOperationAction("op-1") },
   { name: "reopenOperationAction", run: () => reopenOperationAction("op-1") },

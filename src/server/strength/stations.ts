@@ -59,7 +59,9 @@ export async function renameStation(
   const name = requireStationName(input.name);
   return db.transaction(async (tx) => {
     const { rows } = await tx.query<StationRow>(
-      `SELECT ${COLUMNS} FROM stations WHERE id = $1 FOR UPDATE`,
+      // NO KEY: eine parallele Stärkemeldung belegt die Stelle per FOR KEY
+      // SHARE (Fremdschlüssel), nachdem sie die Einsatz-Zeile gesperrt hat.
+      `SELECT ${COLUMNS} FROM stations WHERE id = $1 FOR NO KEY UPDATE`,
       [input.stationId],
     );
     if (!rows[0]) throw new ValidationError("Stelle nicht gefunden.");

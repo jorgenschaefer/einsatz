@@ -156,6 +156,7 @@ function buildProps(over: Partial<SituationWorkspaceProps> = {}) {
     stations: [],
     onCreateStation: vi.fn(async () => ({})),
     onRenameStation: vi.fn(async () => ({})),
+    onRecordStrengthReport: vi.fn(async () => ({})),
     factory: fake.factory,
     ...over,
   };
@@ -395,7 +396,7 @@ describe("SituationWorkspace", () => {
 
     it("lists the Stellen and creates one", async () => {
       const { props } = renderWorkspace({
-        stations: [{ id: "st1", name: "UHSt 3" }],
+        stations: [{ id: "st1", name: "UHSt 3", reports: [] }],
       });
       await selectMainView("Stärke");
 
@@ -412,7 +413,7 @@ describe("SituationWorkspace", () => {
 
     it("renames a Stelle", async () => {
       const { props } = renderWorkspace({
-        stations: [{ id: "st1", name: "UHSt 3" }],
+        stations: [{ id: "st1", name: "UHSt 3", reports: [] }],
       });
       await selectMainView("Stärke");
 
@@ -424,6 +425,45 @@ describe("SituationWorkspace", () => {
         " Nord{Enter}",
       );
       expect(props.onRenameStation).toHaveBeenCalledWith("st1", "UHSt 3 Nord");
+    });
+
+    it("records a Stärkemeldung of a Stelle", async () => {
+      const { props } = renderWorkspace({
+        stations: [{ id: "st1", name: "UHSt 3", reports: [] }],
+      });
+      await selectMainView("Stärke");
+
+      await userEvent.click(screen.getByRole("button", { name: "UHSt 3" }));
+      await userEvent.type(
+        screen.getByRole("textbox", { name: "Helfer" }),
+        "6",
+      );
+      await userEvent.click(screen.getByRole("button", { name: "Melden" }));
+
+      expect(props.onRecordStrengthReport).toHaveBeenCalledWith("st1", {
+        leaders: 0,
+        subLeaders: 0,
+        helpers: 6,
+        additionalPersonnel: 0,
+        note: null,
+      });
+    });
+
+    it("keeps a half-filled Stärkemeldung when switching to the Lagekarte and back", async () => {
+      renderWorkspace({
+        stations: [{ id: "st1", name: "UHSt 3", reports: [] }],
+      });
+      await selectMainView("Stärke");
+      await userEvent.click(screen.getByRole("button", { name: "UHSt 3" }));
+      await userEvent.type(
+        screen.getByRole("textbox", { name: "Helfer" }),
+        "6",
+      );
+
+      await selectMainView("Lagekarte");
+      await selectMainView("Stärke");
+
+      expect(screen.getByRole("textbox", { name: "Helfer" })).toHaveValue("6");
     });
 
     it("keeps a started Stelle name when switching to the ETB and back", async () => {

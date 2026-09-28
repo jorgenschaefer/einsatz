@@ -1,21 +1,46 @@
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@/test/render";
-import { StrengthPanel, type StrengthPanelProps } from "./StrengthPanel";
+import type { ActionResult } from "@/app/operations/[id]/action-result";
+import { act, render, screen, within } from "@/test/render";
+import {
+  StrengthPanel,
+  type StrengthPanelProps,
+  type StrengthReportView,
+} from "./StrengthPanel";
 
 function setup(over: Partial<StrengthPanelProps> = {}) {
   const props: StrengthPanelProps = {
     stations: [
-      { id: "s1", name: "UHSt 3" },
-      { id: "s2", name: "Ziel" },
+      { id: "s1", name: "UHSt 3", reports: [] },
+      { id: "s2", name: "Ziel", reports: [] },
     ],
     onCreateStation: vi.fn(async () => ({})),
     onRenameStation: vi.fn(async () => ({})),
+    onRecordStrengthReport: vi.fn(async () => ({})),
     ...over,
   };
-  render(<StrengthPanel {...props} />);
-  return props;
+  const { rerender } = render(<StrengthPanel {...props} />);
+  return {
+    ...props,
+    rerender: (next: Partial<StrengthPanelProps>) =>
+      rerender(<StrengthPanel {...props} {...next} />),
+  };
 }
+
+const report = (
+  over: Partial<StrengthReportView> = {},
+): StrengthReportView => ({
+  leaders: 0,
+  subLeaders: 1,
+  helpers: 6,
+  additionalPersonnel: 2,
+  note: "2 einsatzbereite Streifen",
+  // 11:01 in Berlin (Sommerzeit)
+  reportedAt: "2026-09-26T09:01:00.000Z",
+  state: "gueltig",
+  number: 5,
+  ...over,
+});
 
 const card = (name: string) =>
   screen.getByText(name).closest("[data-station]") as HTMLElement;
@@ -151,6 +176,396 @@ describe("StrengthPanel", () => {
       expect(onRenameStation).not.toHaveBeenCalled();
       expect(screen.queryByRole("textbox", { name: "Neuer Name" })).toBeNull();
       expect(card("UHSt 3")).toBeInTheDocument();
+    });
+  });
+
+  describe("the card of a Stelle", () => {
+    it("shows its latest valid report with time and note", () => {
+      setup({
+        stations: [
+          {
+            id: "s1",
+            name: "UHSt 3",
+            reports: [
+              report(),
+              report({
+                helpers: 9,
+                number: 3,
+                reportedAt: "2026-09-26T08:00:00.000Z",
+              }),
+            ],
+          },
+        ],
+      });
+
+      const item = card("UHSt 3");
+      expect(within(item).getByText("0/1/6//7")).toBeInTheDocument();
+      expect(within(item).getByText("+2 zusätzlich")).toBeInTheDocument();
+      expect(within(item).getByText("9 Personen")).toBeInTheDocument();
+      expect(
+        within(item).getByText("2 einsatzbereite Streifen"),
+      ).toBeInTheDocument();
+      expect(within(item).getByText("11:01")).toBeInTheDocument();
+    });
+
+    it("skips an annulled latest report", () => {
+      setup({
+        stations: [
+          {
+            id: "s1",
+            name: "UHSt 3",
+            reports: [
+              report({ helpers: 4, number: 3 }),
+              report({ helpers: 9, number: 4, state: "annulliert" }),
+            ],
+          },
+        ],
+      });
+
+      expect(within(card("UHSt 3")).getByText("0/1/4//5")).toBeInTheDocument();
+    });
+
+    it("shows „noch keine Meldung“ without a valid report", () => {
+      setup({
+        stations: [
+          {
+            id: "s1",
+            name: "UHSt 3",
+            reports: [report({ state: "annulliert" })],
+          },
+          { id: "s2", name: "Ziel", reports: [] },
+        ],
+      });
+
+      expect(
+        within(card("UHSt 3")).getByText("noch keine Meldung"),
+      ).toBeInTheDocument();
+      expect(
+        within(card("Ziel")).getByText("noch keine Meldung"),
+      ).toBeInTheDocument();
+    });
+  });
+
+  describe("reporting", () => {
+    const field = (label: string) =>
+      screen.getByRole("textbox", { name: label });
+
+    async function openReport(name: string) {
+      await userEvent.click(within(card(name)).getByText(name));
+    }
+
+    it("opens the form of a Stelle from its card and goes back", async () => {
+      setup();
+
+      await openReport("UHSt 3");
+
+      expect(
+        screen.getByRole("heading", { name: "UHSt 3 · neue Meldung" }),
+      ).toBeInTheDocument();
+      expect(document.querySelector("[data-station]")).toBeNull();
+
+      await userEvent.click(screen.getByRole("button", { name: "Zurück" }));
+
+      expect(card("UHSt 3")).toBeInTheDocument();
+    });
+
+    it("opens the form from anywhere on the card, but not from the pencil", async () => {
+      setup({
+        stations: [{ id: "s1", name: "UHSt 3", reports: [report()] }],
+      });
+
+      await openRenameField("UHSt 3");
+      expect(screen.queryByText("UHSt 3 · neue Meldung")).toBeNull();
+      await userEvent.click(screen.getByRole("button", { name: "Abbrechen" }));
+
+      await userEvent.click(within(card("UHSt 3")).getByText("9 Personen"));
+      expect(screen.getByText("UHSt 3 · neue Meldung")).toBeInTheDocument();
+    });
+
+    it("does not look clickable while the Stelle is being renamed", async () => {
+      setup();
+      const item = card("UHSt 3");
+      expect(item.style.cursor).toBe("pointer");
+
+      await openRenameField("UHSt 3");
+
+      expect(item.style.cursor).toBe("");
+    });
+
+    it("starts at zero for the first report and has no „Unverändert melden“", async () => {
+      setup();
+
+      await openReport("UHSt 3");
+
+      for (const label of [
+        "Führer",
+        "Unterführer",
+        "Helfer",
+        "Zusätzliches Personal",
+      ]) {
+        expect(field(label)).toHaveValue("0");
+        expect(field(label)).toHaveAttribute("inputmode", "numeric");
+      }
+      expect(field("Notiz")).toHaveValue("");
+      expect(
+        screen.queryByRole("button", { name: "Unverändert melden" }),
+      ).toBeNull();
+    });
+
+    it("prefills the latest valid report, note included", async () => {
+      setup({
+        stations: [
+          {
+            id: "s1",
+            name: "UHSt 3",
+            reports: [
+              report({ helpers: 4, number: 3, note: "vorher" }),
+              report({ helpers: 9, number: 4, state: "annulliert" }),
+            ],
+          },
+        ],
+      });
+
+      await openReport("UHSt 3");
+
+      expect(field("Führer")).toHaveValue("0");
+      expect(field("Unterführer")).toHaveValue("1");
+      expect(field("Helfer")).toHaveValue("4");
+      expect(field("Zusätzliches Personal")).toHaveValue("2");
+      expect(field("Notiz")).toHaveValue("vorher");
+    });
+
+    it("shows Σ and Gesamtpersonen computed as you type", async () => {
+      setup({
+        stations: [{ id: "s1", name: "UHSt 3", reports: [report()] }],
+      });
+      await openReport("UHSt 3");
+
+      expect(screen.getByLabelText("Σ")).toHaveTextContent("7");
+      expect(screen.getByLabelText("Personen")).toHaveTextContent("9");
+
+      await userEvent.clear(field("Helfer"));
+      await userEvent.type(field("Helfer"), "12");
+
+      expect(screen.getByLabelText("Σ")).toHaveTextContent("13");
+      expect(screen.getByLabelText("Personen")).toHaveTextContent("15");
+    });
+
+    it("replaces a prefilled number when typing into it", async () => {
+      setup({
+        stations: [{ id: "s1", name: "UHSt 3", reports: [report()] }],
+      });
+      await openReport("UHSt 3");
+
+      await userEvent.type(field("Helfer"), "5");
+
+      expect(field("Helfer")).toHaveValue("5");
+    });
+
+    it("takes at most four digits", async () => {
+      setup();
+      await openReport("UHSt 3");
+
+      await userEvent.type(field("Helfer"), "123456");
+
+      expect(field("Helfer")).toHaveValue("1234");
+    });
+
+    it("accepts neither negatives nor decimals", async () => {
+      setup();
+      await openReport("UHSt 3");
+
+      await userEvent.clear(field("Helfer"));
+      await userEvent.type(field("Helfer"), "-3.5");
+
+      expect(field("Helfer")).toHaveValue("35");
+    });
+
+    it("reports the typed values and returns to the Stellen", async () => {
+      const { onRecordStrengthReport } = setup();
+      await openReport("UHSt 3");
+
+      await userEvent.clear(field("Unterführer"));
+      await userEvent.type(field("Unterführer"), "1");
+      await userEvent.clear(field("Helfer"));
+      await userEvent.type(field("Helfer"), "6");
+      await userEvent.clear(field("Zusätzliches Personal"));
+      await userEvent.type(field("Zusätzliches Personal"), "2");
+      await userEvent.type(field("Notiz"), "2 einsatzbereite Streifen");
+      await userEvent.click(screen.getByRole("button", { name: "Melden" }));
+
+      expect(onRecordStrengthReport).toHaveBeenCalledWith("s1", {
+        leaders: 0,
+        subLeaders: 1,
+        helpers: 6,
+        additionalPersonnel: 2,
+        note: "2 einsatzbereite Streifen",
+      });
+      expect(card("UHSt 3")).toBeInTheDocument();
+    });
+
+    it("reports an emptied number as 0 and an empty note as none", async () => {
+      const { onRecordStrengthReport } = setup({
+        stations: [
+          { id: "s1", name: "UHSt 3", reports: [report({ note: "alt" })] },
+        ],
+      });
+      await openReport("UHSt 3");
+
+      await userEvent.clear(field("Helfer"));
+      await userEvent.clear(field("Notiz"));
+      await userEvent.click(screen.getByRole("button", { name: "Melden" }));
+
+      expect(onRecordStrengthReport).toHaveBeenCalledWith("s1", {
+        leaders: 0,
+        subLeaders: 1,
+        helpers: 0,
+        additionalPersonnel: 2,
+        note: null,
+      });
+    });
+
+    it("„Unverändert melden“ reports the latest valid report in one tap, whatever was typed", async () => {
+      const { onRecordStrengthReport } = setup({
+        stations: [
+          {
+            id: "s1",
+            name: "UHSt 3",
+            reports: [
+              report({ number: 3 }),
+              report({ helpers: 9, number: 4, state: "annulliert" }),
+            ],
+          },
+        ],
+      });
+      await openReport("UHSt 3");
+      await userEvent.type(field("Helfer"), "5");
+
+      await userEvent.click(
+        screen.getByRole("button", { name: "Unverändert melden" }),
+      );
+
+      expect(onRecordStrengthReport).toHaveBeenCalledTimes(1);
+      expect(onRecordStrengthReport).toHaveBeenCalledWith("s1", {
+        leaders: 0,
+        subLeaders: 1,
+        helpers: 6,
+        additionalPersonnel: 2,
+        note: "2 einsatzbereite Streifen",
+      });
+      expect(card("UHSt 3")).toBeInTheDocument();
+    });
+
+    it("shows a returned error and keeps the typed values", async () => {
+      setup({
+        onRecordStrengthReport: vi.fn(async () => ({
+          error: "Die Stärke muss aus ganzen Zahlen von 0 bis 9999 bestehen.",
+        })),
+      });
+      await openReport("UHSt 3");
+      await userEvent.clear(field("Helfer"));
+      await userEvent.type(field("Helfer"), "6");
+
+      await userEvent.click(screen.getByRole("button", { name: "Melden" }));
+
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "Die Stärke muss aus ganzen Zahlen von 0 bis 9999 bestehen.",
+      );
+      expect(field("Helfer")).toHaveValue("6");
+    });
+
+    it("shows a failed save as an error", async () => {
+      setup({
+        onRecordStrengthReport: vi.fn(async () => {
+          throw new Error("offline");
+        }),
+      });
+      await openReport("UHSt 3");
+
+      await userEvent.click(screen.getByRole("button", { name: "Melden" }));
+
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "Speichern fehlgeschlagen. Bitte erneut versuchen.",
+      );
+      expect(
+        screen.getByRole("heading", { name: "UHSt 3 · neue Meldung" }),
+      ).toBeInTheDocument();
+    });
+
+    it("keeps another Stelle's form open when an earlier report finishes saving", async () => {
+      let finish = (_: ActionResult) => {};
+      const { onRecordStrengthReport } = setup({
+        onRecordStrengthReport: vi.fn(
+          () =>
+            new Promise<ActionResult>((resolve) => {
+              finish = resolve;
+            }),
+        ),
+      });
+      await openReport("UHSt 3");
+      await userEvent.click(screen.getByRole("button", { name: "Melden" }));
+      await userEvent.click(screen.getByRole("button", { name: "Zurück" }));
+      await openReport("Ziel");
+      await userEvent.type(field("Helfer"), "4");
+
+      await act(async () => finish({}));
+
+      expect(onRecordStrengthReport).toHaveBeenCalledTimes(1);
+      expect(screen.getByText("Ziel · neue Meldung")).toBeInTheDocument();
+      expect(field("Helfer")).toHaveValue("4");
+    });
+
+    it("keeps a report form open when a rename finishes saving", async () => {
+      let finish = (_: ActionResult) => {};
+      setup({
+        onRenameStation: vi.fn(
+          () =>
+            new Promise<ActionResult>((resolve) => {
+              finish = resolve;
+            }),
+        ),
+      });
+      await userEvent.type(await openRenameField("Ziel"), " Nord{Enter}");
+      await openReport("UHSt 3");
+
+      await act(async () => finish({}));
+
+      expect(screen.getByText("UHSt 3 · neue Meldung")).toBeInTheDocument();
+    });
+
+    it("keeps typed values when a new report arrives live", async () => {
+      const { rerender } = setup({
+        stations: [{ id: "s1", name: "UHSt 3", reports: [report()] }],
+      });
+      await openReport("UHSt 3");
+      await userEvent.clear(field("Helfer"));
+      await userEvent.type(field("Helfer"), "3");
+
+      rerender({
+        stations: [
+          {
+            id: "s1",
+            name: "UHSt 3",
+            reports: [report(), report({ helpers: 8, number: 9 })],
+          },
+        ],
+      });
+
+      expect(field("Helfer")).toHaveValue("3");
+    });
+
+    it("prefills afresh when the form is opened again", async () => {
+      setup({
+        stations: [{ id: "s1", name: "UHSt 3", reports: [report()] }],
+      });
+      await openReport("UHSt 3");
+      await userEvent.clear(field("Helfer"));
+      await userEvent.type(field("Helfer"), "3");
+      await userEvent.click(screen.getByRole("button", { name: "Zurück" }));
+
+      await openReport("UHSt 3");
+
+      expect(field("Helfer")).toHaveValue("6");
     });
   });
 });

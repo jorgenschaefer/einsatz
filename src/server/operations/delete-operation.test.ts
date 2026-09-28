@@ -12,6 +12,10 @@ import {
   listMapSymbols,
 } from "@/server/mapsymbols/map-symbols";
 import { createStation, listStations } from "@/server/strength/stations";
+import {
+  listStrengthReports,
+  recordStrengthReport,
+} from "@/server/strength/strength-reports";
 import { freshDb } from "@/test/db";
 import { createOperation } from "./create-operation";
 import { deleteOperation } from "./delete-operation";
@@ -53,18 +57,35 @@ describe("deleteOperation (domain)", () => {
     expect(await listMapSymbols(db, op.id)).toHaveLength(0);
   });
 
-  it("cascades the operation's Stellen", async () => {
+  it("cascades the operation's Stellen, their Stärkemeldungen and ETB entries", async () => {
     const db = await freshDb();
     const op = await createOperation(db, { name: "Cyclassics" });
-    await createStation(db, {
+    const station = await createStation(db, {
       operationId: op.id,
       name: "UHSt 3",
       author: "anna",
     });
+    await db.transaction((tx) =>
+      recordStrengthReport(tx, {
+        stationId: station.id,
+        values: {
+          leaders: 0,
+          subLeaders: 1,
+          helpers: 6,
+          additionalPersonnel: 2,
+          note: null,
+        },
+        author: "anna",
+      }),
+    );
 
     await deleteOperation(db, op.id);
 
     expect(await listStations(db, op.id)).toHaveLength(0);
+    expect(await listStrengthReports(db, op.id)).toHaveLength(0);
+    expect(await listEntries(db, op.id)).toHaveLength(0);
+    const { rows } = await db.query("SELECT id FROM strength_reports");
+    expect(rows).toHaveLength(0);
   });
 
   it("removes the operation's overlay files along with the row", async () => {

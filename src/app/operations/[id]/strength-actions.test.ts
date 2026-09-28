@@ -19,6 +19,7 @@ vi.mock("next/headers", () => ({
 
 import {
   createStationAction,
+  recordStrengthReportAction,
   renameStationAction,
 } from "@/app/operations/[id]/strength-actions";
 import { hashPassword } from "@/server/auth/password";
@@ -27,6 +28,7 @@ import { insertUser } from "@/server/auth/users";
 import { listEntries } from "@/server/journal/journal";
 import { insertOperation } from "@/server/operations/operations";
 import { listStations } from "@/server/strength/stations";
+import { listStrengthReports } from "@/server/strength/strength-reports";
 import { freshDb } from "@/test/db";
 
 async function loginAs(username: string): Promise<void> {
@@ -112,6 +114,50 @@ describe("strength actions", () => {
 
     expect(await renameStationAction(station.id, " ")).toEqual({
       error: "Der Name der Stelle darf nicht leer sein.",
+    });
+  });
+
+  it("records a Stärkemeldung in the name of the logged-in user", async () => {
+    await loginAs("bernd");
+    const op = await anOperation();
+    await createStationAction(op.id, "UHSt 3");
+    const db = state.db as Db;
+    const [station] = await listStations(db, op.id);
+    const values = {
+      leaders: 0,
+      subLeaders: 1,
+      helpers: 6,
+      additionalPersonnel: 2,
+      note: null,
+    };
+
+    expect(await recordStrengthReportAction(station.id, values)).toEqual({});
+
+    expect(await listStrengthReports(db, op.id)).toEqual([
+      expect.objectContaining(values),
+    ]);
+    expect((await listEntries(db, op.id)).at(-1)).toMatchObject({
+      text: "Stärkemeldung UHSt 3: 0/1/6//7, +2 zusätzlich, 9 Personen",
+      author: "bernd",
+    });
+  });
+
+  it("reports a negative number as a form error", async () => {
+    await loginAs("bernd");
+    const op = await anOperation();
+    await createStationAction(op.id, "UHSt 3");
+    const [station] = await listStations(state.db as Db, op.id);
+
+    expect(
+      await recordStrengthReportAction(station.id, {
+        leaders: -1,
+        subLeaders: 0,
+        helpers: 0,
+        additionalPersonnel: 0,
+        note: null,
+      }),
+    ).toEqual({
+      error: "Die Stärke muss aus ganzen Zahlen von 0 bis 9999 bestehen.",
     });
   });
 });

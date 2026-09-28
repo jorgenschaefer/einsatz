@@ -18,7 +18,9 @@ import { listKmlOverlays } from "@/server/kml/kml-overlays";
 import { listMapSymbols } from "@/server/mapsymbols/map-symbols";
 import { getOperation } from "@/server/operations/operations";
 import { listStations } from "@/server/strength/stations";
+import { listStrengthReports } from "@/server/strength/strength-reports";
 import { listViewLinks } from "@/server/viewlinks/view-links";
+import type { StationView } from "@/strength/StrengthPanel";
 import { setDefaultViewAction } from "./actions";
 import {
   createAreaAction,
@@ -54,7 +56,11 @@ import {
   placeMapSymbolAction,
   updateMapSymbolCompositionAction,
 } from "./map-symbol-actions";
-import { createStationAction, renameStationAction } from "./strength-actions";
+import {
+  createStationAction,
+  recordStrengthReportAction,
+  renameStationAction,
+} from "./strength-actions";
 import {
   createViewLinkAction,
   deleteViewLinkAction,
@@ -132,10 +138,25 @@ export default async function LageansichtPage({
     label: l.label,
     token: l.token,
   }));
-  const stations = (await listStations(db, operation.id)).map((s) => ({
-    id: s.id,
-    name: s.name,
-  }));
+  const reports = await listStrengthReports(db, operation.id);
+  const stations: StationView[] = (await listStations(db, operation.id)).map(
+    (s) => ({
+      id: s.id,
+      name: s.name,
+      reports: reports
+        .filter((r) => r.stationId === s.id)
+        .map((r) => ({
+          leaders: r.leaders,
+          subLeaders: r.subLeaders,
+          helpers: r.helpers,
+          additionalPersonnel: r.additionalPersonnel,
+          note: r.note,
+          reportedAt: r.reportedAt.toISOString(),
+          state: r.state,
+          number: r.number,
+        })),
+    }),
+  );
   const { tileUrl, attribution } = mapTileConfig();
 
   return (
@@ -189,6 +210,7 @@ export default async function LageansichtPage({
       stations={stations}
       onCreateStation={createStationAction.bind(null, operation.id)}
       onRenameStation={renameStationAction}
+      onRecordStrengthReport={recordStrengthReportAction}
     />
   );
 }
