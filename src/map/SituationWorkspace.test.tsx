@@ -981,8 +981,10 @@ describe("SituationWorkspace", () => {
         { lat: 5, lng: 6 },
       ],
     };
-    onComplete(geometry);
-    await waitFor(() => expect(onCreateArea).toHaveBeenCalledWith(geometry));
+    await act(async () => {
+      onComplete(geometry);
+    });
+    expect(onCreateArea).toHaveBeenCalledWith(geometry);
   });
 
   it("surfaces a returned {error} from completing a draw", async () => {
@@ -1903,12 +1905,12 @@ describe("SituationWorkspace", () => {
       ),
     );
     const geometry = { shape: "polygon", points: [{ lat: 9, lng: 9 }] };
-    (adapter.startDrawing.mock.calls.at(-1)![1] as (g: unknown) => void)(
-      geometry,
-    );
-    await waitFor(() =>
-      expect(onUpdateAreaGeometry).toHaveBeenCalledWith("a1", geometry),
-    );
+    await act(async () => {
+      (adapter.startDrawing.mock.calls.at(-1)![1] as (g: unknown) => void)(
+        geometry,
+      );
+    });
+    expect(onUpdateAreaGeometry).toHaveBeenCalledWith("a1", geometry);
   });
 
   it.each([

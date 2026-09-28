@@ -13,7 +13,7 @@ export default defineConfig({
   plugins: [react()],
   test: {
     globals: true,
-    setupFiles: ["./src/test/fast-bcrypt.ts"],
+    setupFiles: ["./src/test/fast-bcrypt.ts", "./src/test/fail-on-console.ts"],
     // jsdom kostet ~3 s Aufbau je Testdatei; nur Tests, die ein DOM brauchen
     // (Komponenten, Browser-Hooks, Leaflet), bekommen es. Alles andere läuft
     // unter Node.

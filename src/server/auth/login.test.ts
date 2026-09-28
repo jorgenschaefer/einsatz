@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { freshDb } from "@/test/db";
 import { authenticate, createSession, SESSION_TTL_MS } from "./login";
 import { hashPassword } from "./password";
@@ -83,17 +83,25 @@ describe("createSession", () => {
 
   it("still logs in when the best-effort purge fails", async () => {
     // A db whose INSERT succeeds but whose purge DELETE rejects.
+    const purgeBoom = new Error("purge boom");
     const inserted: string[] = [];
     const db = {
       query: async (text: string, params?: readonly unknown[]) => {
-        if (text.startsWith("DELETE")) throw new Error("purge boom");
+        if (text.startsWith("DELETE")) throw purgeBoom;
         if (text.startsWith("INSERT")) inserted.push(String(params?.[0] ?? ""));
         return { rows: [] };
       },
     } as unknown as Parameters<typeof createSession>[0];
 
+    const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
+
     const { token } = await createSession(db, "user-1");
     expect(token).toBeTruthy();
     expect(inserted).toHaveLength(1); // the session was written despite the purge failure
+    expect(errorLog).toHaveBeenCalledWith(
+      "Aufräumen abgelaufener Sessions fehlgeschlagen:",
+      purgeBoom,
+    );
+    errorLog.mockRestore();
   });
 });

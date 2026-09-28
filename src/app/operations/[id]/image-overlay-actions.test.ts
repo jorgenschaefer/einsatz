@@ -178,9 +178,9 @@ describe("replaceImageOverlayFileAction", () => {
       description: null,
     });
     const { overlay, oldPath } = await anOverlayWithStoredFile(op.id);
-    vi.spyOn(repo, "replaceImageOverlayFile").mockRejectedValueOnce(
-      new Error("db down"),
-    );
+    const dbDown = new Error("db down");
+    vi.spyOn(repo, "replaceImageOverlayFile").mockRejectedValueOnce(dbDown);
+    const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
 
     const result = await replaceImageOverlayFileAction(
       op.id,
@@ -192,6 +192,10 @@ describe("replaceImageOverlayFileAction", () => {
     // Nur die alte Datei bleibt übrig – die neu geschriebene wurde aufgeräumt.
     const files = await readdir(join(dir, op.id));
     expect(files).toEqual([oldPath.split(/[/\\]/)[1]]);
+    expect(errorLog).toHaveBeenCalledWith(
+      "Bild-Overlay-Verarbeitung fehlgeschlagen:",
+      dbDown,
+    );
   });
 });
 
@@ -217,9 +221,11 @@ describe("deleteImageOverlayAction", () => {
       description: null,
     });
     const { overlay } = await anOverlayWithStoredFile(op.id);
+    const volumeUnavailable = new Error("volume unavailable");
     vi.spyOn(storage, "deleteOverlayFiles").mockRejectedValueOnce(
-      new Error("volume unavailable"),
+      volumeUnavailable,
     );
+    const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
 
     // Die Zeile ist weg – die Löschung ist vollzogen. Ein reiner Aufräum-Fehler
     // (verwaiste Datei) darf weder einen irreführenden Nutzerfehler zeigen noch
@@ -230,6 +236,11 @@ describe("deleteImageOverlayAction", () => {
     expect(await getImageOverlay(state.db as Db, overlay.id)).toBeNull();
     expect(state.revalidatePath).toHaveBeenCalledWith(`/operations/${op.id}`);
     expect(state.publishOperationChanged).toHaveBeenCalledWith(op.id);
+    // Die verwaiste Datei bleibt über das Log im Volume auffindbar.
+    expect(errorLog).toHaveBeenCalledWith(
+      `Overlay-Datei konnte nicht aufgeräumt werden (${overlay.filePath}):`,
+      volumeUnavailable,
+    );
   });
 
   it("returns a friendly {error} when the deletion itself fails", async () => {
@@ -239,9 +250,9 @@ describe("deleteImageOverlayAction", () => {
       description: null,
     });
     const { overlay } = await anOverlayWithStoredFile(op.id);
-    vi.spyOn(repo, "deleteImageOverlay").mockRejectedValueOnce(
-      new Error("db down"),
-    );
+    const dbDown = new Error("db down");
+    vi.spyOn(repo, "deleteImageOverlay").mockRejectedValueOnce(dbDown);
+    const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
 
     await expect(deleteImageOverlayAction(op.id, overlay.id)).resolves.toEqual({
       error: "Das Bild-Overlay konnte nicht gelöscht werden.",
@@ -249,5 +260,9 @@ describe("deleteImageOverlayAction", () => {
     expect(state.revalidatePath).not.toHaveBeenCalled();
     // Prämisse: die Löschung ist wirklich gescheitert, die Zeile lebt noch.
     expect(await getImageOverlay(state.db as Db, overlay.id)).not.toBeNull();
+    expect(errorLog).toHaveBeenCalledWith(
+      "Bild-Overlay-Verarbeitung fehlgeschlagen:",
+      dbDown,
+    );
   });
 });

@@ -18,7 +18,7 @@ tsconfig.tsbuildinfo
 docs
 *.md
 biome.json
-vitest.config.ts
+vitest.config.mts
 
 # Editor-/OS-Kram
 .vscode
