@@ -18,6 +18,7 @@ vi.mock("next/headers", () => ({
 }));
 
 import {
+  correctStrengthReportAction,
   createStationAction,
   recordStrengthReportAction,
   renameStationAction,
@@ -193,6 +194,36 @@ describe("strength actions", () => {
 
     expect(await reportTotalStrengthAction(op.id)).toEqual({
       error: "Es gibt noch keine gültige Stärkemeldung.",
+    });
+  });
+
+  it("corrects a Stärkemeldung in the name of the logged-in user", async () => {
+    await loginAs("clara");
+    const op = await anOperation();
+    await createStationAction(op.id, "UHSt 3");
+    const db = state.db as Db;
+    const [station] = await listStations(db, op.id);
+    const values = {
+      leaders: 0,
+      subLeaders: 1,
+      helpers: 6,
+      additionalPersonnel: 2,
+      note: null,
+    };
+    await recordStrengthReportAction(station.id, values);
+    const [report] = await listStrengthReports(db, op.id);
+
+    expect(
+      await correctStrengthReportAction(report.id, station.id, {
+        ...values,
+        helpers: 5,
+      }),
+    ).toEqual({});
+
+    expect((await listStrengthReports(db, op.id))[0].helpers).toBe(5);
+    expect((await listEntries(db, op.id)).at(-1)).toMatchObject({
+      text: "Stärkemeldung UHSt 3: 0/1/5//6, +2 zusätzlich, 8 Personen",
+      author: "clara",
     });
   });
 });

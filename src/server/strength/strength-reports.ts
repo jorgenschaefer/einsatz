@@ -1,6 +1,10 @@
 import { randomUUID } from "node:crypto";
-import type { Queryable } from "@/server/db/db";
-import { appendEntry, type JournalEntryState } from "@/server/journal/journal";
+import type { Db, Queryable } from "@/server/db/db";
+import {
+  appendEntry,
+  type JournalEntryState,
+  reviseEntry,
+} from "@/server/journal/journal";
 import { lockOperation } from "@/server/operations/operations";
 import { ValidationError } from "@/server/validation";
 import {
@@ -65,6 +69,66 @@ async function loadStation(
   );
   if (!rows[0]) throw new ValidationError("Stelle nicht gefunden.");
   return { operationId: rows[0].operation_id, name: rows[0].name };
+}
+
+/**
+ * Korrigiert Stelle, Werte und Notiz einer Meldung; ihre Uhrzeit bleibt. Liefert
+ * die `operationId` ihres Gesamteinsatzes.
+ */
+export async function correctStrengthReport(
+  db: Db,
+  input: {
+    reportId: string;
+    stationId: string;
+    values: StrengthValues;
+    author: string;
+  },
+): Promise<string> {
+  const values = requireStrengthValues(input.values);
+  return db.transaction(async (tx) => {
+    const {
+      rows: [report],
+    } = await tx.query<{ operation_id: string; journal_entry_id: string }>(
+      `SELECT s.operation_id, r.journal_entry_id
+         FROM strength_reports r
+         JOIN stations s ON s.id = r.station_id
+        WHERE r.id = $1`,
+      [input.reportId],
+    );
+    if (!report) throw new ValidationError("Meldung nicht gefunden.");
+    const operationId = report.operation_id;
+    // Wie bei der Erfassung: erst die Einsatz-Sperre, dann der Name der Stelle.
+    await lockOperation(tx, operationId);
+    const {
+      rows: [station],
+    } = await tx.query<{ name: string }>(
+      "SELECT name FROM stations WHERE id = $1 AND operation_id = $2",
+      [input.stationId, operationId],
+    );
+    if (!station) throw new ValidationError("Stelle nicht gefunden.");
+    await tx.query(
+      `UPDATE strength_reports
+          SET station_id = $2, leaders = $3, sub_leaders = $4, helpers = $5,
+              additional_personnel = $6, note = $7
+        WHERE id = $1`,
+      [
+        input.reportId,
+        input.stationId,
+        values.leaders,
+        values.subLeaders,
+        values.helpers,
+        values.additionalPersonnel,
+        values.note,
+      ],
+    );
+    await reviseEntry(
+      tx,
+      report.journal_entry_id,
+      formatStrengthReportText(station.name, values),
+      input.author,
+    );
+    return operationId;
+  });
 }
 
 /** Alle Meldungen der Stellen eines Gesamteinsatzes, in ETB-Reihenfolge. */

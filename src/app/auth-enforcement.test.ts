@@ -85,6 +85,7 @@ import {
 } from "@/app/operations/[id]/map-symbol-actions";
 import { GET as operationOverlayGET } from "@/app/operations/[id]/overlays/[overlayId]/route";
 import {
+  correctStrengthReportAction,
   createStationAction,
   recordStrengthReportAction,
   renameStationAction,
@@ -250,6 +251,17 @@ const userGuardedActions: Invocation[] = [
     name: "recordStrengthReportAction",
     run: () =>
       recordStrengthReportAction("st-1", {
+        leaders: 0,
+        subLeaders: 1,
+        helpers: 6,
+        additionalPersonnel: 2,
+        note: null,
+      }),
+  },
+  {
+    name: "correctStrengthReportAction",
+    run: () =>
+      correctStrengthReportAction("r-1", "st-1", {
         leaders: 0,
         subLeaders: 1,
         helpers: 6,

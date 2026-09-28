@@ -158,6 +158,7 @@ function buildProps(over: Partial<SituationWorkspaceProps> = {}) {
     onRenameStation: vi.fn(async () => ({})),
     onRecordStrengthReport: vi.fn(async () => ({})),
     onReportTotalStrength: vi.fn(async () => ({})),
+    onCorrectStrengthReport: vi.fn(async () => ({})),
     factory: fake.factory,
     ...over,
   };
@@ -458,6 +459,7 @@ describe("SituationWorkspace", () => {
             name: "UHSt 3",
             reports: [
               {
+                id: "r1",
                 leaders: 0,
                 subLeaders: 1,
                 helpers: 6,

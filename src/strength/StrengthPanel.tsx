@@ -3,8 +3,11 @@
 import {
   ActionIcon,
   Alert,
+  Box,
   Button,
   Group,
+  Menu,
+  NativeSelect,
   Paper,
   SimpleGrid,
   Stack,
@@ -35,6 +38,7 @@ import {
 const SAVE_ERROR = "Speichern fehlgeschlagen. Bitte erneut versuchen.";
 
 export interface StrengthReportView extends StrengthValues {
+  id: string;
   reportedAt: string;
   state: "gueltig" | "annulliert";
   number: number;
@@ -55,6 +59,11 @@ export interface StrengthPanelProps {
     values: StrengthValues,
   ) => Promise<ActionResult>;
   onReportTotalStrength: () => Promise<ActionResult>;
+  onCorrectStrengthReport: (
+    reportId: string,
+    stationId: string,
+    values: StrengthValues,
+  ) => Promise<ActionResult>;
   /** Tickender Zeitstempel für die Veraltung der Meldungen. */
   now: number;
 }
@@ -65,6 +74,7 @@ export function StrengthPanel({
   onRenameStation,
   onRecordStrengthReport,
   onReportTotalStrength,
+  onCorrectStrengthReport,
   now,
 }: StrengthPanelProps) {
   const [creating, setCreating] = useState(false);
@@ -73,8 +83,16 @@ export function StrengthPanel({
     null,
   );
   const [showTotalHistory, setShowTotalHistory] = useState(false);
+  const [correctingReportId, setCorrectingReportId] = useState<string | null>(
+    null,
+  );
+  /** Neu vorbelegen: nach einer Korrektur gilt eine andere letzte Meldung. */
+  const [reportFormKey, setReportFormKey] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const selectedStation = stations.find((s) => s.id === selectedStationId);
+  const correctingReport = selectedStation?.reports.find(
+    (r) => r.id === correctingReportId,
+  );
 
   /** Führt die Action aus; nur bei Erfolg wird `done` aufgerufen. */
   const save = async (
@@ -95,6 +113,7 @@ export function StrengthPanel({
     setRenamingId(null);
     setSelectedStationId(null);
     setShowTotalHistory(false);
+    setCorrectingReportId(null);
     setError(null);
   };
 
@@ -118,18 +137,57 @@ export function StrengthPanel({
 
       {selectedStation ? (
         <>
-          <ReportForm
+          {correctingReport && (
+            <CorrectionForm
+              key={correctingReport.id}
+              station={selectedStation}
+              report={correctingReport}
+              stations={stations}
+              onCorrect={(stationId, values) =>
+                save(
+                  () =>
+                    onCorrectStrengthReport(
+                      correctingReport.id,
+                      stationId,
+                      values,
+                    ),
+                  () => {
+                    closeIfStillOpen(
+                      setCorrectingReportId,
+                      correctingReport.id,
+                    );
+                    setReportFormKey((k) => k + 1);
+                  },
+                )
+              }
+              onCancel={() => {
+                setCorrectingReportId(null);
+                setError(null);
+              }}
+            />
+          )}
+          {/* Bleibt beim Korrigieren eingehängt: eine begonnene Meldung übersteht das Abbrechen. */}
+          <Box display={correctingReport ? "none" : undefined}>
+            <ReportForm
+              key={reportFormKey}
+              station={selectedStation}
+              onReport={(values) =>
+                save(
+                  () => onRecordStrengthReport(selectedStation.id, values),
+                  () =>
+                    closeIfStillOpen(setSelectedStationId, selectedStation.id),
+                )
+              }
+              onBack={closeForms}
+            />
+          </Box>
+          <StationHistory
             station={selectedStation}
-            onReport={(values) =>
-              save(
-                () => onRecordStrengthReport(selectedStation.id, values),
-                () =>
-                  closeIfStillOpen(setSelectedStationId, selectedStation.id),
-              )
-            }
-            onBack={closeForms}
+            onCorrect={(reportId) => {
+              setCorrectingReportId(reportId);
+              setError(null);
+            }}
           />
-          <StationHistory station={selectedStation} />
         </>
       ) : showTotalHistory ? (
         <TotalHistory stations={stations} onBack={closeForms} />
@@ -396,23 +454,8 @@ function ReportForm({
   onBack: () => void;
 }) {
   const latest = latestValidReport(station.reports);
-  const [counts, setCounts] = useState<Record<Count, string>>(() => ({
-    leaders: String(latest?.leaders ?? 0),
-    subLeaders: String(latest?.subLeaders ?? 0),
-    helpers: String(latest?.helpers ?? 0),
-    additionalPersonnel: String(latest?.additionalPersonnel ?? 0),
-  }));
-  const [note, setNote] = useState(latest?.note ?? "");
+  const { values, fields } = useStrengthFields(latest);
   const [busy, setBusy] = useState(false);
-
-  const count = (field: Count) => Number(counts[field]);
-  const values: StrengthValues = {
-    leaders: count("leaders"),
-    subLeaders: count("subLeaders"),
-    helpers: count("helpers"),
-    additionalPersonnel: count("additionalPersonnel"),
-    note: note.trim() || null,
-  };
 
   const report = async (reported: StrengthValues) => {
     setBusy(true);
@@ -422,20 +465,6 @@ function ReportForm({
       setBusy(false);
     }
   };
-
-  const countInput = (field: Count, label: string) => (
-    <TextInput
-      label={label}
-      value={counts[field]}
-      onChange={(e) => {
-        const digits = e.currentTarget.value.replace(/\D/g, "");
-        setCounts((c) => ({ ...c, [field]: digits }));
-      }}
-      onFocus={(e) => e.currentTarget.select()}
-      inputMode="numeric"
-      maxLength={4}
-    />
-  );
 
   return (
     <form
@@ -458,21 +487,7 @@ function ReportForm({
             {`${station.name} · neue Meldung`}
           </Title>
         </Group>
-        <SimpleGrid cols={4} spacing="xs">
-          {countInput("leaders", "Führer")}
-          {countInput("subLeaders", "Unterführer")}
-          {countInput("helpers", "Helfer")}
-          <Computed label="Σ" value={sumOf(values)} />
-        </SimpleGrid>
-        <SimpleGrid cols={2} spacing="xs">
-          {countInput("additionalPersonnel", "Zusätzliches Personal")}
-          <Computed label="Personen" value={totalPersonsOf(values)} />
-        </SimpleGrid>
-        <TextInput
-          label="Notiz"
-          value={note}
-          onChange={(e) => setNote(e.currentTarget.value)}
-        />
+        {fields}
         <Group gap="xs">
           <Button type="submit" loading={busy}>
             Melden
@@ -492,6 +507,116 @@ function ReportForm({
   );
 }
 
+/** Korrigiert Stelle, Werte und Notiz einer Meldung; ihre Uhrzeit bleibt. */
+function CorrectionForm({
+  station,
+  report,
+  stations,
+  onCorrect,
+  onCancel,
+}: {
+  station: StationView;
+  report: StrengthReportView;
+  stations: StationView[];
+  onCorrect: (stationId: string, values: StrengthValues) => Promise<void>;
+  onCancel: () => void;
+}) {
+  const { values, fields } = useStrengthFields(report);
+  const [stationId, setStationId] = useState(station.id);
+  const [busy, setBusy] = useState(false);
+
+  return (
+    <form
+      onSubmit={async (e) => {
+        e.preventDefault();
+        setBusy(true);
+        try {
+          await onCorrect(stationId, values);
+        } finally {
+          setBusy(false);
+        }
+      }}
+    >
+      <Stack gap="sm">
+        <Title order={3} size="h5">
+          {`${station.name} · Meldung ${berlinTimeOfDay(report.reportedAt)} korrigieren`}
+        </Title>
+        <NativeSelect
+          label="Stelle"
+          value={stationId}
+          onChange={(e) => setStationId(e.currentTarget.value)}
+          data={stations.map((s) => ({ value: s.id, label: s.name }))}
+        />
+        {fields}
+        <Group gap="xs">
+          <Button type="submit" loading={busy}>
+            Speichern
+          </Button>
+          <Button variant="subtle" onClick={onCancel}>
+            Abbrechen
+          </Button>
+        </Group>
+      </Stack>
+    </form>
+  );
+}
+
+/** Eingaben für Führer, Unterführer, Helfer, zusätzliches Personal und Notiz. */
+function useStrengthFields(initial: StrengthValues | undefined) {
+  const [counts, setCounts] = useState<Record<Count, string>>(() => ({
+    leaders: String(initial?.leaders ?? 0),
+    subLeaders: String(initial?.subLeaders ?? 0),
+    helpers: String(initial?.helpers ?? 0),
+    additionalPersonnel: String(initial?.additionalPersonnel ?? 0),
+  }));
+  const [note, setNote] = useState(initial?.note ?? "");
+
+  const count = (field: Count) => Number(counts[field]);
+  const values: StrengthValues = {
+    leaders: count("leaders"),
+    subLeaders: count("subLeaders"),
+    helpers: count("helpers"),
+    additionalPersonnel: count("additionalPersonnel"),
+    note: note.trim() || null,
+  };
+
+  const countInput = (field: Count, label: string) => (
+    <TextInput
+      label={label}
+      value={counts[field]}
+      onChange={(e) => {
+        const digits = e.currentTarget.value.replace(/\D/g, "");
+        setCounts((c) => ({ ...c, [field]: digits }));
+      }}
+      onFocus={(e) => e.currentTarget.select()}
+      inputMode="numeric"
+      maxLength={4}
+    />
+  );
+
+  const fields = (
+    <>
+      <SimpleGrid cols={4} spacing="xs">
+        {countInput("leaders", "Führer")}
+        {countInput("subLeaders", "Unterführer")}
+        {countInput("helpers", "Helfer")}
+        <Computed label="Σ" value={sumOf(values)} />
+      </SimpleGrid>
+      <SimpleGrid cols={2} spacing="xs">
+        {countInput("additionalPersonnel", "Zusätzliches Personal")}
+        <Computed label="Personen" value={totalPersonsOf(values)} />
+      </SimpleGrid>
+      <TextInput
+        label="Notiz"
+        value={note}
+        onChange={(e) => setNote(e.currentTarget.value)}
+      />
+    </>
+  );
+
+  return { values, fields };
+}
+
 const valuesOf = (report: StrengthValues): StrengthValues => ({
   leaders: report.leaders,
   subLeaders: report.subLeaders,
@@ -500,7 +625,13 @@ const valuesOf = (report: StrengthValues): StrengthValues => ({
   note: report.note,
 });
 
-function StationHistory({ station }: { station: StationView }) {
+function StationHistory({
+  station,
+  onCorrect,
+}: {
+  station: StationView;
+  onCorrect: (reportId: string) => void;
+}) {
   const history = stationHistory(station.reports);
   const titleId = useId();
   if (history.length === 0) return null;
@@ -515,6 +646,7 @@ function StationHistory({ station }: { station: StationView }) {
           <Table.Tr>
             <StrengthHeads />
             <Table.Th>Notiz</Table.Th>
+            <Table.Th />
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
@@ -522,6 +654,24 @@ function StationHistory({ station }: { station: StationView }) {
             <Table.Tr key={report.number}>
               <StrengthCells reportedAt={report.reportedAt} counts={report} />
               <Table.Td>{report.note}</Table.Td>
+              <Table.Td>
+                <Menu position="bottom-end" withinPortal>
+                  <Menu.Target>
+                    <ActionIcon
+                      variant="subtle"
+                      color="gray"
+                      aria-label={`Aktionen für Meldung ${berlinTimeOfDay(report.reportedAt)} (#${report.number})`}
+                    >
+                      ⋯
+                    </ActionIcon>
+                  </Menu.Target>
+                  <Menu.Dropdown>
+                    <Menu.Item onClick={() => onCorrect(report.id)}>
+                      Korrigieren
+                    </Menu.Item>
+                  </Menu.Dropdown>
+                </Menu>
+              </Table.Td>
             </Table.Tr>
           ))}
         </Table.Tbody>

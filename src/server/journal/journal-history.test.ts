@@ -69,6 +69,19 @@ describe("correctEntry", () => {
     ).rejects.toBeInstanceOf(ValidationError);
   });
 
+  it("rejects correcting an unknown entry", async () => {
+    const db = await freshDb();
+
+    await expect(
+      correctEntry(
+        db,
+        "00000000-0000-0000-0000-000000000000",
+        "Deich hält",
+        "bernd",
+      ),
+    ).rejects.toThrow(new ValidationError("Eintrag nicht gefunden."));
+  });
+
   it("rejects an empty correction and changes nothing", async () => {
     const db = await freshDb();
     const { entry } = await manualEntry(db);

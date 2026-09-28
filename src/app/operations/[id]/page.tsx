@@ -57,6 +57,7 @@ import {
   updateMapSymbolCompositionAction,
 } from "./map-symbol-actions";
 import {
+  correctStrengthReportAction,
   createStationAction,
   recordStrengthReportAction,
   renameStationAction,
@@ -147,6 +148,7 @@ export default async function LageansichtPage({
       reports: reports
         .filter((r) => r.stationId === s.id)
         .map((r) => ({
+          id: r.id,
           leaders: r.leaders,
           subLeaders: r.subLeaders,
           helpers: r.helpers,
@@ -213,6 +215,7 @@ export default async function LageansichtPage({
       onRenameStation={renameStationAction}
       onRecordStrengthReport={recordStrengthReportAction}
       onReportTotalStrength={reportTotalStrengthAction.bind(null, operation.id)}
+      onCorrectStrengthReport={correctStrengthReportAction}
     />
   );
 }

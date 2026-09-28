@@ -18,6 +18,7 @@ function setup(over: Partial<StrengthPanelProps> = {}) {
     onRenameStation: vi.fn(async () => ({})),
     onRecordStrengthReport: vi.fn(async () => ({})),
     onReportTotalStrength: vi.fn(async () => ({})),
+    onCorrectStrengthReport: vi.fn(async () => ({})),
     now: minutesAfterReport(5),
     ...over,
   };
@@ -32,6 +33,7 @@ function setup(over: Partial<StrengthPanelProps> = {}) {
 const report = (
   over: Partial<StrengthReportView> = {},
 ): StrengthReportView => ({
+  id: "r1",
   leaders: 0,
   subLeaders: 1,
   helpers: 6,
@@ -807,10 +809,10 @@ describe("StrengthPanel", () => {
       ]);
 
       expect(historyRows()).toEqual([
-        ["Zeit", "F/UF/H//Σ", "+", "Pers.", "Notiz"],
-        ["10:10", "1/1/5//7", "3", "10", "Streife unterwegs"],
-        ["09:04", "1/1/5//7", "2", "9", "Übergabe"],
-        ["08:02", "1/1/6//8", "2", "10", ""],
+        ["Zeit", "F/UF/H//Σ", "+", "Pers.", "Notiz", ""],
+        ["10:10", "1/1/5//7", "3", "10", "Streife unterwegs", "⋯"],
+        ["09:04", "1/1/5//7", "2", "9", "Übergabe", "⋯"],
+        ["08:02", "1/1/6//8", "2", "10", "", "⋯"],
       ]);
     });
 
@@ -821,8 +823,8 @@ describe("StrengthPanel", () => {
       ]);
 
       expect(historyRows()).toEqual([
-        ["Zeit", "F/UF/H//Σ", "+", "Pers.", "Notiz"],
-        ["11:01", "0/1/4//5", "2", "7", "2 einsatzbereite Streifen"],
+        ["Zeit", "F/UF/H//Σ", "+", "Pers.", "Notiz", ""],
+        ["11:01", "0/1/4//5", "2", "7", "2 einsatzbereite Streifen", "⋯"],
       ]);
     });
 
@@ -830,6 +832,176 @@ describe("StrengthPanel", () => {
       await openHistory([report({ state: "annulliert" })]);
 
       expect(screen.queryByRole("table")).toBeNull();
+    });
+  });
+
+  describe("correcting a report", () => {
+    const field = (label: string) =>
+      screen.getByRole("textbox", { name: label });
+
+    const stations = () => [
+      {
+        id: "s1",
+        name: "UHSt 3",
+        reports: [
+          report({ id: "r1", number: 3, helpers: 4, note: null }),
+          report({
+            id: "r2",
+            number: 7,
+            reportedAt: "2026-09-26T09:30:00.000Z",
+            helpers: 9,
+            note: "Streife unterwegs",
+          }),
+        ],
+      },
+      { id: "s2", name: "Ziel", reports: [] },
+    ];
+
+    async function openCorrection(row: string) {
+      await userEvent.click(within(card("UHSt 3")).getByText("UHSt 3"));
+      await userEvent.click(
+        screen.getByRole("button", { name: `Aktionen für Meldung ${row}` }),
+      );
+      await userEvent.click(
+        await screen.findByRole("menuitem", { name: "Korrigieren" }),
+      );
+    }
+
+    it("prefills the chosen report and its Stelle", async () => {
+      setup({ stations: stations() });
+
+      await openCorrection("11:01 (#3)");
+
+      expect(
+        screen.getByRole("heading", {
+          name: "UHSt 3 · Meldung 11:01 korrigieren",
+        }),
+      ).toBeInTheDocument();
+      expect(field("Helfer")).toHaveValue("4");
+      expect(field("Zusätzliches Personal")).toHaveValue("2");
+      expect(field("Notiz")).toHaveValue("");
+      expect(screen.getByRole("combobox", { name: "Stelle" })).toHaveValue(
+        "s1",
+      );
+    });
+
+    it("saves the corrected values and Stelle and goes back to the new report", async () => {
+      const { onCorrectStrengthReport } = setup({ stations: stations() });
+      await openCorrection("11:30 (#7)");
+
+      await userEvent.clear(field("Helfer"));
+      await userEvent.type(field("Helfer"), "8");
+      await userEvent.selectOptions(
+        screen.getByRole("combobox", { name: "Stelle" }),
+        "Ziel",
+      );
+      await userEvent.click(screen.getByRole("button", { name: "Speichern" }));
+
+      expect(onCorrectStrengthReport).toHaveBeenCalledWith("r2", "s2", {
+        leaders: 0,
+        subLeaders: 1,
+        helpers: 8,
+        additionalPersonnel: 2,
+        note: "Streife unterwegs",
+      });
+      expect(
+        screen.getByRole("heading", { name: "UHSt 3 · neue Meldung" }),
+      ).toBeInTheDocument();
+    });
+
+    it("cancels without saving", async () => {
+      const { onCorrectStrengthReport } = setup({ stations: stations() });
+      await openCorrection("11:01 (#3)");
+
+      await userEvent.click(screen.getByRole("button", { name: "Abbrechen" }));
+
+      expect(onCorrectStrengthReport).not.toHaveBeenCalled();
+      expect(
+        screen.getByRole("heading", { name: "UHSt 3 · neue Meldung" }),
+      ).toBeInTheDocument();
+    });
+
+    it("keeps a started new report while correcting", async () => {
+      setup({ stations: stations() });
+      await userEvent.click(within(card("UHSt 3")).getByText("UHSt 3"));
+      await userEvent.clear(field("Helfer"));
+      await userEvent.type(field("Helfer"), "3");
+
+      await userEvent.click(
+        screen.getByRole("button", { name: "Aktionen für Meldung 11:01 (#3)" }),
+      );
+      await userEvent.click(
+        await screen.findByRole("menuitem", { name: "Korrigieren" }),
+      );
+      expect(field("Helfer")).toHaveValue("4");
+      await userEvent.click(screen.getByRole("button", { name: "Abbrechen" }));
+
+      expect(field("Helfer")).toHaveValue("3");
+    });
+
+    it("prefills the new report afresh after a correction", async () => {
+      const corrected = stations();
+      corrected[0].reports[1] = { ...corrected[0].reports[1], helpers: 8 };
+      const { rerender } = setup({
+        stations: stations(),
+        // Wie in der App: die aktualisierten Daten kommen mit der Antwort der Action.
+        onCorrectStrengthReport: vi.fn(async () => {
+          rerender({ stations: corrected });
+          return {};
+        }),
+      });
+      await openCorrection("11:30 (#7)");
+      await userEvent.clear(field("Helfer"));
+      await userEvent.type(field("Helfer"), "8");
+
+      await userEvent.click(screen.getByRole("button", { name: "Speichern" }));
+
+      expect(
+        screen.getByRole("heading", { name: "UHSt 3 · neue Meldung" }),
+      ).toBeInTheDocument();
+      expect(field("Helfer")).toHaveValue("8");
+    });
+
+    it("tells apart two reports of the same minute", async () => {
+      setup({
+        stations: [
+          {
+            id: "s1",
+            name: "UHSt 3",
+            reports: [
+              report({ id: "r1", number: 3 }),
+              report({ id: "r2", number: 4 }),
+            ],
+          },
+        ],
+      });
+      await userEvent.click(within(card("UHSt 3")).getByText("UHSt 3"));
+
+      expect(
+        screen.getByRole("button", { name: "Aktionen für Meldung 11:01 (#3)" }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Aktionen für Meldung 11:01 (#4)" }),
+      ).toBeInTheDocument();
+    });
+
+    it("shows a returned error and keeps the correction open", async () => {
+      setup({
+        stations: stations(),
+        onCorrectStrengthReport: vi.fn(async () => ({
+          error: "Annullierte Einträge können nicht geändert werden.",
+        })),
+      });
+      await openCorrection("11:01 (#3)");
+      await userEvent.clear(field("Helfer"));
+      await userEvent.type(field("Helfer"), "8");
+
+      await userEvent.click(screen.getByRole("button", { name: "Speichern" }));
+
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "Annullierte Einträge können nicht geändert werden.",
+      );
+      expect(field("Helfer")).toHaveValue("8");
     });
   });
 

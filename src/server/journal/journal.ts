@@ -195,37 +195,57 @@ export async function correctEntry(
   newText: string,
   author: string,
 ): Promise<JournalEntry> {
-  const text = requireEntryText(newText);
-
   return db.transaction(async (tx) => {
-    const entry = await loadEntry(tx, entryId, true);
-    assertValid(entry);
+    const {
+      rows: [entry],
+    } = await tx.query<{ type: JournalEntryType }>(
+      "SELECT type FROM journal_entries WHERE id = $1",
+      [entryId],
+    );
+    if (!entry) throw new ValidationError("Eintrag nicht gefunden.");
     if (entry.type !== "manuell") {
       throw new ValidationError(
         "Nur manuelle Einträge können geändert werden.",
       );
     }
-
-    await tx.query(
-      `INSERT INTO journal_entry_revisions (id, entry_id, text, author, created_at)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [
-        randomUUID(),
-        entryId,
-        entry.text,
-        entry.author,
-        (entry.editedAt ?? entry.createdAt).toISOString(),
-      ],
-    );
-    await tx.query(
-      "UPDATE journal_entries SET text = $2, author = $3, edited_at = now() WHERE id = $1",
-      [entryId, text, author],
-    );
-    const updated = await loadEntry(tx, entryId);
-    if (!updated)
-      throw new Error("Eintrag nach Aktualisierung nicht gefunden.");
-    return updated;
+    return reviseEntry(tx, entryId, newText, author);
   });
+}
+
+/**
+ * Macht `text` zur aktuellen Fassung des Eintrags und erhält die bisherige als
+ * frühere Fassung mit ihrem Urheber und Zeitstempel. Muss innerhalb einer
+ * Transaktion laufen; sperrt die Eintrags-Zeile, damit parallele Korrekturen
+ * nacheinander laufen. Annullierte Einträge sind unantastbar.
+ */
+export async function reviseEntry(
+  tx: Queryable,
+  entryId: string,
+  newText: string,
+  author: string,
+): Promise<JournalEntry> {
+  const text = requireEntryText(newText);
+  const entry = await loadEntry(tx, entryId, true);
+  assertValid(entry);
+
+  await tx.query(
+    `INSERT INTO journal_entry_revisions (id, entry_id, text, author, created_at)
+       VALUES ($1, $2, $3, $4, $5)`,
+    [
+      randomUUID(),
+      entryId,
+      entry.text,
+      entry.author,
+      (entry.editedAt ?? entry.createdAt).toISOString(),
+    ],
+  );
+  await tx.query(
+    "UPDATE journal_entries SET text = $2, author = $3, edited_at = now() WHERE id = $1",
+    [entryId, text, author],
+  );
+  const updated = await loadEntry(tx, entryId);
+  if (!updated) throw new Error("Eintrag nach Aktualisierung nicht gefunden.");
+  return updated;
 }
 
 const ANNULLABLE_TYPES: JournalEntryType[] = [
