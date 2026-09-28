@@ -72,6 +72,8 @@ export function JournalPanel({
   const [annulTarget, setAnnulTarget] = useState<JournalEntryView | null>(null);
   const [annulConfirmationOpen, annulConfirmation] = useDisclosure(false);
   const [annulPending, setAnnulPending] = useState(false);
+  // Im Modal statt oben im ETB: annulliert wird oft weit unten in der Liste.
+  const [annulError, setAnnulError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const visible = hideAuto ? entries.filter((e) => !isAutomatic(e)) : entries;
@@ -115,6 +117,7 @@ export function JournalPanel({
 
   const openAnnulConfirmation = (entry: JournalEntryView) => {
     setAnnulTarget(entry);
+    setAnnulError(null);
     annulConfirmation.open();
   };
 
@@ -127,17 +130,18 @@ export function JournalPanel({
     setAnnulPending(true);
     try {
       const { error: err } = await onAnnul(annulTarget.id);
-      setError(err ?? null);
+      setAnnulError(err ?? null);
+      if (!err) annulConfirmation.close();
     } catch {
-      setError(SAVE_ERROR);
+      setAnnulError(SAVE_ERROR);
     } finally {
       setAnnulPending(false);
-      annulConfirmation.close();
     }
   };
 
   return (
-    <Stack>
+    // Lange Wörter umbrechen statt waagerecht zu scrollen (360 px).
+    <Stack style={{ overflowWrap: "break-word" }}>
       {error && (
         <Alert
           color="red"
@@ -285,6 +289,11 @@ export function JournalPanel({
         title={`Eintrag #${annulTarget?.number} annullieren`}
       >
         <Stack>
+          {annulError && (
+            <Alert color="red" role="alert">
+              {annulError}
+            </Alert>
+          )}
           <Text>
             Der Eintrag bleibt durchgestrichen im Einsatztagebuch stehen. Das
             lässt sich nicht rückgängig machen.

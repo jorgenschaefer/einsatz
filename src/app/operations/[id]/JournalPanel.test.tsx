@@ -2,7 +2,7 @@ import { MantineProvider } from "@mantine/core";
 import { render as rtlRender } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, within } from "@/test/render";
+import { fireEvent, render, screen, waitFor, within } from "@/test/render";
 import {
   type JournalEntryView,
   JournalPanel,
@@ -419,28 +419,64 @@ describe("JournalPanel", () => {
     ).toBeInTheDocument();
   });
 
-  it("surfaces a save error when annulling fails", async () => {
+  it("surfaces a save error in the still open confirmation when annulling fails", async () => {
     const onAnnul = vi
       .fn<JournalPanelProps["onAnnul"]>()
       .mockRejectedValue(new Error("boom"));
     setup({ onAnnul });
     await chooseAction(1, "Annullieren …");
-    await userEvent.click(screen.getByRole("button", { name: "Annullieren" }));
-    expect(await screen.findByRole("alert")).toBeInTheDocument();
-    expect(screen.queryByRole("dialog")).toBeNull();
+    const dialog = await screen.findByRole("dialog", {
+      name: "Eintrag #1 annullieren",
+    });
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Annullieren" }),
+    );
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+      "Speichern fehlgeschlagen. Bitte erneut versuchen.",
+    );
   });
 
-  it("closes the confirmation and shows the reason when annulling is rejected", async () => {
+  it("shows the reason in the still open confirmation when annulling is rejected", async () => {
     const onAnnul = vi
       .fn<JournalPanelProps["onAnnul"]>()
       .mockResolvedValue({ error: "Eintrag nicht gefunden." });
     setup({ onAnnul });
     await chooseAction(1, "Annullieren …");
-    await userEvent.click(screen.getByRole("button", { name: "Annullieren" }));
-    expect(
-      await screen.findByText("Eintrag nicht gefunden."),
-    ).toBeInTheDocument();
-    expect(screen.queryByRole("dialog")).toBeNull();
+    const dialog = await screen.findByRole("dialog", {
+      name: "Eintrag #1 annullieren",
+    });
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Annullieren" }),
+    );
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+      "Eintrag nicht gefunden.",
+    );
+  });
+
+  it("opens the next confirmation without the previous error", async () => {
+    const onAnnul = vi
+      .fn<JournalPanelProps["onAnnul"]>()
+      .mockResolvedValue({ error: "Eintrag nicht gefunden." });
+    setup({
+      entries: [entry({ id: "e1", number: 1 }), entry({ id: "e2", number: 2 })],
+      onAnnul,
+    });
+    await chooseAction(1, "Annullieren …");
+    await userEvent.click(
+      within(
+        await screen.findByRole("dialog", { name: "Eintrag #1 annullieren" }),
+      ).getByRole("button", { name: "Annullieren" }),
+    );
+    await screen.findByText("Eintrag nicht gefunden.");
+    await userEvent.click(screen.getByRole("button", { name: "Abbrechen" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+
+    await chooseAction(2, "Annullieren …");
+
+    const dialog = await screen.findByRole("dialog", {
+      name: "Eintrag #2 annullieren",
+    });
+    expect(within(dialog).queryByRole("alert")).toBeNull();
   });
 
   it("shows a correction timestamp on a corrected entry", () => {

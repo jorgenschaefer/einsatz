@@ -1,7 +1,7 @@
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { ActionResult } from "@/app/operations/[id]/action-result";
-import { act, render, screen, within } from "@/test/render";
+import { act, render, screen, waitFor, within } from "@/test/render";
 import {
   StrengthPanel,
   type StrengthPanelProps,
@@ -99,7 +99,7 @@ describe("StrengthPanel", () => {
       expect(onCreateStation).toHaveBeenCalledWith("UHSt 4");
     });
 
-    it("shows a returned error and keeps the typed name", async () => {
+    it("shows a returned error at the field and keeps the typed name", async () => {
       setup({
         onCreateStation: vi.fn(async () => ({
           error: "Eine Stelle mit diesem Namen gibt es schon.",
@@ -109,15 +109,17 @@ describe("StrengthPanel", () => {
       await userEvent.type(await openCreateField(), "uhst 3");
       await userEvent.click(screen.getByRole("button", { name: "Anlegen" }));
 
+      const field = screen.getByRole("textbox", { name: "Name der Stelle" });
+      expect(field).toHaveAccessibleDescription(
+        "Eine Stelle mit diesem Namen gibt es schon.",
+      );
       expect(screen.getByRole("alert")).toHaveTextContent(
         "Eine Stelle mit diesem Namen gibt es schon.",
       );
-      expect(
-        screen.getByRole("textbox", { name: "Name der Stelle" }),
-      ).toHaveValue("uhst 3");
+      expect(field).toHaveValue("uhst 3");
     });
 
-    it("shows a failed save as an error", async () => {
+    it("shows a failed save as an error at the field", async () => {
       setup({
         onCreateStation: vi.fn(async () => {
           throw new Error("offline");
@@ -127,7 +129,9 @@ describe("StrengthPanel", () => {
       await userEvent.type(await openCreateField(), "UHSt 4");
       await userEvent.click(screen.getByRole("button", { name: "Anlegen" }));
 
-      expect(screen.getByRole("alert")).toHaveTextContent(
+      expect(
+        screen.getByRole("textbox", { name: "Name der Stelle" }),
+      ).toHaveAccessibleDescription(
         "Speichern fehlgeschlagen. Bitte erneut versuchen.",
       );
     });
@@ -156,7 +160,7 @@ describe("StrengthPanel", () => {
       expect(screen.queryByRole("textbox", { name: "Neuer Name" })).toBeNull();
     });
 
-    it("shows a returned error and keeps the field open", async () => {
+    it("shows a returned error at the field and keeps it open", async () => {
       setup({
         onRenameStation: vi.fn(async () => ({
           error: "Eine Stelle mit diesem Namen gibt es schon.",
@@ -168,12 +172,10 @@ describe("StrengthPanel", () => {
       await userEvent.type(field, "Ziel");
       await userEvent.click(screen.getByRole("button", { name: "Speichern" }));
 
-      expect(screen.getByRole("alert")).toHaveTextContent(
+      expect(field).toHaveAccessibleDescription(
         "Eine Stelle mit diesem Namen gibt es schon.",
       );
-      expect(screen.getByRole("textbox", { name: "Neuer Name" })).toHaveValue(
-        "Ziel",
-      );
+      expect(field).toHaveValue("Ziel");
     });
 
     it("keeps the name on Abbrechen", async () => {
@@ -781,7 +783,7 @@ describe("StrengthPanel", () => {
           Array.from(row.querySelectorAll("th, td")).map((c) => c.textContent),
         );
 
-    it("lists every valid report newest first, with time, all values and note", async () => {
+    it("lists every valid report newest first, with time, all values and its note below", async () => {
       await openHistory([
         report({
           number: 3,
@@ -813,10 +815,12 @@ describe("StrengthPanel", () => {
       ]);
 
       expect(historyRows()).toEqual([
-        ["Zeit", "F/UF/H//Σ", "+", "Pers.", "Notiz", ""],
-        ["10:10", "1/1/5//7", "3", "10", "Streife unterwegs", "⋯"],
-        ["09:04", "1/1/5//7", "2", "9", "Übergabe", "⋯"],
-        ["08:02", "1/1/6//8", "2", "10", "", "⋯"],
+        ["Zeit", "F/UF/H//Σ", "+", "Pers.", ""],
+        ["10:10", "1/1/5//7", "3", "10", "⋯"],
+        ["Streife unterwegs"],
+        ["09:04", "1/1/5//7", "2", "9", "⋯"],
+        ["Übergabe"],
+        ["08:02", "1/1/6//8", "2", "10", "⋯"],
       ]);
     });
 
@@ -827,8 +831,9 @@ describe("StrengthPanel", () => {
       ]);
 
       expect(historyRows()).toEqual([
-        ["Zeit", "F/UF/H//Σ", "+", "Pers.", "Notiz", ""],
-        ["11:01", "0/1/4//5", "2", "7", "2 einsatzbereite Streifen", "⋯"],
+        ["Zeit", "F/UF/H//Σ", "+", "Pers.", ""],
+        ["11:01", "0/1/4//5", "2", "7", "⋯"],
+        ["2 einsatzbereite Streifen"],
       ]);
     });
 
@@ -853,9 +858,11 @@ describe("StrengthPanel", () => {
       });
 
       expect(historyRows()).toEqual([
-        ["Zeit", "F/UF/H//Σ", "+", "Pers.", "Notiz", ""],
-        ["11:30", "0/1/9//10", "2", "12", "2 einsatzbereite Streifen", "⋯"],
-        ["11:01", "0/1/6//7", "2", "9", "2 einsatzbereite Streifen", "⋯"],
+        ["Zeit", "F/UF/H//Σ", "+", "Pers.", ""],
+        ["11:30", "0/1/9//10", "2", "12", "⋯"],
+        ["2 einsatzbereite Streifen"],
+        ["11:01", "0/1/6//7", "2", "9", "⋯"],
+        ["2 einsatzbereite Streifen"],
       ]);
     });
 
@@ -897,6 +904,14 @@ describe("StrengthPanel", () => {
         await screen.findByRole("menuitem", { name: "Korrigieren" }),
       );
     }
+
+    it("moves the focus to the correction, which may start above the tapped row", async () => {
+      setup({ stations: stations() });
+
+      await openCorrection("11:01 (#3)");
+
+      expect(screen.getByRole("combobox", { name: "Stelle" })).toHaveFocus();
+    });
 
     it("prefills the chosen report and its Stelle", async () => {
       setup({ stations: stations() });
@@ -1149,7 +1164,7 @@ describe("StrengthPanel", () => {
       expect(onAnnulStrengthReport).toHaveBeenCalledTimes(1);
     });
 
-    it("shows a returned error", async () => {
+    it("shows a returned error in the still open confirmation", async () => {
       setup({
         stations: stations(),
         onAnnulStrengthReport: vi.fn(async () => ({
@@ -1157,20 +1172,19 @@ describe("StrengthPanel", () => {
         })),
       });
       await openAnnulment();
+      const dialog = await screen.findByRole("dialog");
 
       await userEvent.click(
-        within(await screen.findByRole("dialog")).getByRole("button", {
-          name: "Annullieren",
-        }),
+        within(dialog).getByRole("button", { name: "Annullieren" }),
       );
 
-      expect(screen.getByRole("alert")).toHaveTextContent(
+      expect(within(dialog).getByRole("alert")).toHaveTextContent(
         "Annullierte Einträge können nicht geändert werden.",
       );
-      expect(screen.queryByRole("dialog")).toBeNull();
+      expect(screen.getByRole("dialog")).toBe(dialog);
     });
 
-    it("shows a failed annulment as an error", async () => {
+    it("shows a failed annulment in the still open confirmation", async () => {
       setup({
         stations: stations(),
         onAnnulStrengthReport: vi.fn(async () => {
@@ -1178,16 +1192,41 @@ describe("StrengthPanel", () => {
         }),
       });
       await openAnnulment();
+      const dialog = await screen.findByRole("dialog");
 
+      await userEvent.click(
+        within(dialog).getByRole("button", { name: "Annullieren" }),
+      );
+
+      expect(within(dialog).getByRole("alert")).toHaveTextContent(
+        "Speichern fehlgeschlagen. Bitte erneut versuchen.",
+      );
+    });
+
+    it("opens the next confirmation without the previous error", async () => {
+      setup({
+        stations: stations(),
+        onAnnulStrengthReport: vi.fn(async () => ({
+          error: "Annullierte Einträge können nicht geändert werden.",
+        })),
+      });
+      await openAnnulment();
       await userEvent.click(
         within(await screen.findByRole("dialog")).getByRole("button", {
           name: "Annullieren",
         }),
       );
-
-      expect(screen.getByRole("alert")).toHaveTextContent(
-        "Speichern fehlgeschlagen. Bitte erneut versuchen.",
+      await screen.findByText(
+        "Annullierte Einträge können nicht geändert werden.",
       );
+      await userEvent.click(screen.getByRole("button", { name: "Abbrechen" }));
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+
+      await chooseAction("11:01 (#3)", "Annullieren …");
+
+      expect(
+        within(await screen.findByRole("dialog")).queryByRole("alert"),
+      ).toBeNull();
     });
 
     it("closes the correction of a report once it is annulled", async () => {

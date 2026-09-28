@@ -20,7 +20,13 @@ import {
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { IconArrowLeft, IconPencil } from "@tabler/icons-react";
-import { type Dispatch, type SetStateAction, useId, useState } from "react";
+import {
+  type Dispatch,
+  Fragment,
+  type SetStateAction,
+  useId,
+  useState,
+} from "react";
 import type { ActionResult } from "@/app/operations/[id]/action-result";
 import {
   berlinTimeOfDay,
@@ -97,6 +103,8 @@ export function StrengthPanel({
   );
   const [annulConfirmationOpen, annulConfirmation] = useDisclosure(false);
   const [annulPending, setAnnulPending] = useState(false);
+  // Im Modal statt oben im Bereich: annulliert wird oft weit unten im Verlauf.
+  const [annulError, setAnnulError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const selectedStation = stations.find((s) => s.id === selectedStationId);
   // Nur gültige: eine annullierte Meldung lässt sich nicht mehr korrigieren.
@@ -106,19 +114,8 @@ export function StrengthPanel({
       (r) => r.id === correctingReportId,
     );
 
-  /** Führt die Action aus; nur bei Erfolg wird `done` aufgerufen. */
-  const save = async (
-    action: () => Promise<ActionResult>,
-    done: () => void,
-  ) => {
-    try {
-      const { error: err } = await action();
-      setError(err ?? null);
-      if (!err) done();
-    } catch {
-      setError(SAVE_ERROR);
-    }
-  };
+  const save = (action: () => Promise<ActionResult>, done: () => void) =>
+    runAction(action, setError, done);
 
   const closeForms = () => {
     setCreating(false);
@@ -131,6 +128,7 @@ export function StrengthPanel({
 
   const openAnnulConfirmation = (report: StrengthReportView) => {
     setAnnulTarget(report);
+    setAnnulError(null);
     annulConfirmation.open();
   };
 
@@ -141,12 +139,15 @@ export function StrengthPanel({
   const annul = async () => {
     if (!annulTarget || !annulConfirmationOpen) return;
     setAnnulPending(true);
-    await save(
+    await runAction(
       () => onAnnulStrengthReport(annulTarget.id),
-      () => setReportFormKey((k) => k + 1),
+      setAnnulError,
+      () => {
+        setReportFormKey((k) => k + 1);
+        annulConfirmation.close();
+      },
     );
     setAnnulPending(false);
-    annulConfirmation.close();
   };
 
   const openReport = (stationId: string) => {
@@ -155,7 +156,8 @@ export function StrengthPanel({
   };
 
   return (
-    <Stack>
+    // Lange Wörter umbrechen statt waagerecht zu scrollen (360 px).
+    <Stack style={{ overflowWrap: "break-word" }}>
       {error && (
         <Alert
           color="red"
@@ -258,12 +260,8 @@ export function StrengthPanel({
                   label="Neuer Name"
                   initial={station.name}
                   submitLabel="Speichern"
-                  onSubmit={(name) =>
-                    save(
-                      () => onRenameStation(station.id, name),
-                      () => closeIfStillOpen(setRenamingId, station.id),
-                    )
-                  }
+                  onSubmit={(name) => onRenameStation(station.id, name)}
+                  onSaved={() => closeIfStillOpen(setRenamingId, station.id)}
                   onCancel={closeForms}
                 />
               ) : (
@@ -285,12 +283,8 @@ export function StrengthPanel({
                 label="Name der Stelle"
                 initial=""
                 submitLabel="Anlegen"
-                onSubmit={(name) =>
-                  save(
-                    () => onCreateStation(name),
-                    () => setCreating(false),
-                  )
-                }
+                onSubmit={onCreateStation}
+                onSaved={() => setCreating(false)}
                 onCancel={closeForms}
               />
             </Paper>
@@ -312,12 +306,18 @@ export function StrengthPanel({
       <Modal
         opened={annulConfirmationOpen}
         onClose={closeAnnulConfirmation}
+        styles={{ title: { minWidth: 0, overflowWrap: "anywhere" } }}
         title={
           annulTarget &&
           `${selectedStation?.name} · Meldung ${berlinTimeOfDay(annulTarget.reportedAt)} (#${annulTarget.number}) annullieren`
         }
       >
         <Stack>
+          {annulError && (
+            <Alert color="red" role="alert">
+              {annulError}
+            </Alert>
+          )}
           <Text>
             Die Meldung zählt nicht mehr und bleibt durchgestrichen im
             Einsatztagebuch stehen. Das lässt sich nicht rückgängig machen.
@@ -338,6 +338,21 @@ export function StrengthPanel({
       </Modal>
     </Stack>
   );
+}
+
+/** Führt die Action aus und zeigt ihren Fehler; nur bei Erfolg wird `done` aufgerufen. */
+async function runAction(
+  action: () => Promise<ActionResult>,
+  setError: (error: string | null) => void,
+  done: () => void,
+) {
+  try {
+    const { error } = await action();
+    setError(error ?? null);
+    if (!error) done();
+  } catch {
+    setError(SAVE_ERROR);
+  }
 }
 
 /** Eine Speicherung, die spät fertig wird, schließt nur ihr eigenes Formular. */
@@ -459,7 +474,7 @@ function StationCard({
   return (
     <Stack gap={4}>
       <Group justify="space-between" wrap="nowrap">
-        <Title order={3} size="h5">
+        <Title order={3} size="h5" miw={0} style={{ overflowWrap: "anywhere" }}>
           {/* Ohne eigenen Handler: der Klick (auch per Tastatur) erreicht die Karte. */}
           <UnstyledButton fw="inherit" fz="inherit">
             {station.name}
@@ -539,12 +554,13 @@ function ReportForm({
           <Button
             variant="subtle"
             size="xs"
+            flex="none"
             leftSection={<IconArrowLeft size={16} />}
             onClick={onBack}
           >
             Zurück
           </Button>
-          <Title order={3} size="h5">
+          <Title order={3} size="h5" miw={0}>
             {`${station.name} · neue Meldung`}
           </Title>
         </Group>
@@ -604,6 +620,7 @@ function CorrectionForm({
         </Title>
         <NativeSelect
           label="Stelle"
+          autoFocus
           value={stationId}
           onChange={(e) => setStationId(e.currentTarget.value)}
           data={stations.map((s) => ({ value: s.id, label: s.name }))}
@@ -708,37 +725,50 @@ function StationHistory({
         <Table.Thead>
           <Table.Tr>
             <StrengthHeads />
-            <Table.Th>Notiz</Table.Th>
             <Table.Th />
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
           {history.map((report) => (
-            <Table.Tr key={report.number}>
-              <StrengthCells reportedAt={report.reportedAt} counts={report} />
-              <Table.Td>{report.note}</Table.Td>
-              <Table.Td>
-                <Menu position="bottom-end" withinPortal>
-                  <Menu.Target>
-                    <ActionIcon
-                      variant="subtle"
-                      color="gray"
-                      aria-label={`Aktionen für Meldung ${berlinTimeOfDay(report.reportedAt)} (#${report.number})`}
-                    >
-                      ⋯
-                    </ActionIcon>
-                  </Menu.Target>
-                  <Menu.Dropdown>
-                    <Menu.Item onClick={() => onCorrect(report.id)}>
-                      Korrigieren
-                    </Menu.Item>
-                    <Menu.Item color="red" onClick={() => onAnnul(report)}>
-                      Annullieren …
-                    </Menu.Item>
-                  </Menu.Dropdown>
-                </Menu>
-              </Table.Td>
-            </Table.Tr>
+            <Fragment key={report.number}>
+              <Table.Tr style={report.note ? { borderBottom: 0 } : undefined}>
+                <StrengthCells reportedAt={report.reportedAt} counts={report} />
+                <Table.Td>
+                  {/* Kein Fokus zurück auf „⋯": Korrigieren fokussiert das Formular oben im Bereich. */}
+                  <Menu position="bottom-end" withinPortal returnFocus={false}>
+                    <Menu.Target>
+                      <ActionIcon
+                        variant="subtle"
+                        color="gray"
+                        aria-label={`Aktionen für Meldung ${berlinTimeOfDay(report.reportedAt)} (#${report.number})`}
+                      >
+                        ⋯
+                      </ActionIcon>
+                    </Menu.Target>
+                    <Menu.Dropdown>
+                      <Menu.Item onClick={() => onCorrect(report.id)}>
+                        Korrigieren
+                      </Menu.Item>
+                      <Menu.Item color="red" onClick={() => onAnnul(report)}>
+                        Annullieren …
+                      </Menu.Item>
+                    </Menu.Dropdown>
+                  </Menu>
+                </Table.Td>
+              </Table.Tr>
+              {/* Eigene Zeile über die volle Breite, damit die Werte auf 360 px nebeneinander passen. */}
+              {report.note && (
+                <Table.Tr>
+                  <Table.Td
+                    colSpan={5}
+                    pt={0}
+                    style={{ overflowWrap: "anywhere" }}
+                  >
+                    {report.note}
+                  </Table.Td>
+                </Table.Tr>
+              )}
+            </Fragment>
           ))}
         </Table.Tbody>
       </Table>
@@ -839,16 +869,20 @@ function NameForm({
   initial,
   submitLabel,
   onSubmit,
+  onSaved,
   onCancel,
 }: {
   label: string;
   initial: string;
   submitLabel: string;
-  onSubmit: (name: string) => Promise<void>;
+  onSubmit: (name: string) => Promise<ActionResult>;
+  onSaved: () => void;
   onCancel: () => void;
 }) {
   const [name, setName] = useState(initial);
   const [busy, setBusy] = useState(false);
+  // Am Feld statt oben im Bereich: auf dem Smartphone steht das Formular oft weit unten.
+  const [error, setError] = useState<string | null>(null);
 
   return (
     <form
@@ -856,7 +890,7 @@ function NameForm({
         e.preventDefault();
         setBusy(true);
         try {
-          await onSubmit(name);
+          await runAction(() => onSubmit(name), setError, onSaved);
         } finally {
           setBusy(false);
         }
@@ -867,6 +901,8 @@ function NameForm({
           label={label}
           value={name}
           onChange={(e) => setName(e.currentTarget.value)}
+          error={error}
+          errorProps={{ role: "alert" }}
           autoFocus
         />
         <Group gap="xs">
