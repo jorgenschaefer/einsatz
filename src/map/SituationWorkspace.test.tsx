@@ -1728,18 +1728,21 @@ describe("SituationWorkspace", () => {
     it.each([
       ["Polygon", POLYGON],
       ["Linie", LINE],
-    ] as const)("does not open the editor after drawing a %s", async (label, geometry) => {
-      const { adapter, props } = buildProps({
-        onCreateArea: vi.fn(async () => ({ id: "a9" })),
-      });
-      const { rerender } = render(<SituationWorkspace {...props} />);
-      await draw(adapter, label, geometry);
+    ] as const)(
+      "does not open the editor after drawing a %s",
+      async (label, geometry) => {
+        const { adapter, props } = buildProps({
+          onCreateArea: vi.fn(async () => ({ id: "a9" })),
+        });
+        const { rerender } = render(<SituationWorkspace {...props} />);
+        await draw(adapter, label, geometry);
 
-      arrive(rerender, props, geometry);
+        arrive(rerender, props, geometry);
 
-      await act(async () => {});
-      expect(editor()).not.toBeInTheDocument();
-    });
+        await act(async () => {});
+        expect(editor()).not.toBeInTheDocument();
+      },
+    );
 
     it("does not open the editor after redrawing a circle", async () => {
       const { adapter, props } = buildProps({ areas: [AREA] });

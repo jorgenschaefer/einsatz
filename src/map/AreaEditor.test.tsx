@@ -108,17 +108,20 @@ describe("AreaEditor", () => {
     ["empty", ""],
     ["0", "0"],
     ["negative", "-5"],
-  ])("rejects a %s radius with an error and does not save", async (_, typed) => {
-    const { props } = setup({ radius: 463.27 });
-    const radius = screen.getByLabelText(/Radius/);
-    await userEvent.clear(radius);
-    if (typed) await userEvent.type(radius, typed);
-    await userEvent.click(screen.getByRole("button", { name: "Speichern" }));
-    expect(screen.getByRole("alert")).toHaveTextContent(
-      "Der Radius muss größer als 0 sein.",
-    );
-    expect(props.onSave).not.toHaveBeenCalled();
-  });
+  ])(
+    "rejects a %s radius with an error and does not save",
+    async (_, typed) => {
+      const { props } = setup({ radius: 463.27 });
+      const radius = screen.getByLabelText(/Radius/);
+      await userEvent.clear(radius);
+      if (typed) await userEvent.type(radius, typed);
+      await userEvent.click(screen.getByRole("button", { name: "Speichern" }));
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "Der Radius muss größer als 0 sein.",
+      );
+      expect(props.onSave).not.toHaveBeenCalled();
+    },
+  );
 
   it("saves edited style", async () => {
     const { props } = setup();
