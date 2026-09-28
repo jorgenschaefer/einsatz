@@ -19,6 +19,7 @@ function setup(over: Partial<StrengthPanelProps> = {}) {
     onRecordStrengthReport: vi.fn(async () => ({})),
     onReportTotalStrength: vi.fn(async () => ({})),
     onCorrectStrengthReport: vi.fn(async () => ({})),
+    onAnnulStrengthReport: vi.fn(async () => ({})),
     now: minutesAfterReport(5),
     ...over,
   };
@@ -1002,6 +1003,174 @@ describe("StrengthPanel", () => {
         "Annullierte Einträge können nicht geändert werden.",
       );
       expect(field("Helfer")).toHaveValue("8");
+    });
+  });
+
+  describe("annulling a report", () => {
+    const stations = (state: "gueltig" | "annulliert" = "gueltig") => [
+      {
+        id: "s1",
+        name: "UHSt 3",
+        reports: [
+          report({ id: "r1", number: 3, helpers: 4 }),
+          report({
+            id: "r2",
+            number: 7,
+            reportedAt: "2026-09-26T09:30:00.000Z",
+            helpers: 9,
+            state,
+          }),
+        ],
+      },
+    ];
+
+    async function chooseAction(row: string, action: string) {
+      await userEvent.click(
+        screen.getByRole("button", { name: `Aktionen für Meldung ${row}` }),
+      );
+      await userEvent.click(
+        await screen.findByRole("menuitem", { name: action }),
+      );
+    }
+
+    async function openAnnulment() {
+      await userEvent.click(within(card("UHSt 3")).getByText("UHSt 3"));
+      await chooseAction("11:30 (#7)", "Annullieren …");
+    }
+
+    it("offers it after Korrigieren in the report's menu", async () => {
+      setup({ stations: stations() });
+      await userEvent.click(within(card("UHSt 3")).getByText("UHSt 3"));
+
+      await userEvent.click(
+        screen.getByRole("button", { name: "Aktionen für Meldung 11:30 (#7)" }),
+      );
+
+      expect(
+        (await screen.findAllByRole("menuitem")).map((i) => i.textContent),
+      ).toEqual(["Korrigieren", "Annullieren …"]);
+    });
+
+    it("asks for confirmation and annuls only once confirmed", async () => {
+      const { onAnnulStrengthReport } = setup({ stations: stations() });
+      await openAnnulment();
+
+      const dialog = await screen.findByRole("dialog", {
+        name: "UHSt 3 · Meldung 11:30 (#7) annullieren",
+      });
+      expect(within(dialog).getByText(/nicht rückgängig/)).toBeInTheDocument();
+      expect(onAnnulStrengthReport).not.toHaveBeenCalled();
+      await userEvent.click(
+        within(dialog).getByRole("button", { name: "Annullieren" }),
+      );
+
+      expect(onAnnulStrengthReport).toHaveBeenCalledWith("r2");
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
+
+    it("prefills the new report afresh after an annulment", async () => {
+      const { rerender } = setup({
+        stations: stations(),
+        // Wie in der App: die aktualisierten Daten kommen mit der Antwort der Action.
+        onAnnulStrengthReport: vi.fn(async () => {
+          rerender({ stations: stations("annulliert") });
+          return {};
+        }),
+      });
+      await openAnnulment();
+      expect(screen.getByRole("textbox", { name: "Helfer" })).toHaveValue("9");
+
+      await userEvent.click(
+        within(await screen.findByRole("dialog")).getByRole("button", {
+          name: "Annullieren",
+        }),
+      );
+
+      expect(screen.getByRole("textbox", { name: "Helfer" })).toHaveValue("4");
+    });
+
+    it("keeps the report when the confirmation is cancelled", async () => {
+      const { onAnnulStrengthReport } = setup({ stations: stations() });
+      await openAnnulment();
+
+      await userEvent.click(
+        within(await screen.findByRole("dialog")).getByRole("button", {
+          name: "Abbrechen",
+        }),
+      );
+
+      expect(onAnnulStrengthReport).not.toHaveBeenCalled();
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
+
+    it("annuls only once on a double click", async () => {
+      const { onAnnulStrengthReport } = setup({
+        stations: stations(),
+        onAnnulStrengthReport: vi.fn(() => new Promise<ActionResult>(() => {})),
+      });
+      await openAnnulment();
+
+      await userEvent.dblClick(
+        within(await screen.findByRole("dialog")).getByRole("button", {
+          name: "Annullieren",
+        }),
+      );
+
+      expect(onAnnulStrengthReport).toHaveBeenCalledTimes(1);
+    });
+
+    it("shows a returned error", async () => {
+      setup({
+        stations: stations(),
+        onAnnulStrengthReport: vi.fn(async () => ({
+          error: "Annullierte Einträge können nicht geändert werden.",
+        })),
+      });
+      await openAnnulment();
+
+      await userEvent.click(
+        within(await screen.findByRole("dialog")).getByRole("button", {
+          name: "Annullieren",
+        }),
+      );
+
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "Annullierte Einträge können nicht geändert werden.",
+      );
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
+
+    it("shows a failed annulment as an error", async () => {
+      setup({
+        stations: stations(),
+        onAnnulStrengthReport: vi.fn(async () => {
+          throw new Error("offline");
+        }),
+      });
+      await openAnnulment();
+
+      await userEvent.click(
+        within(await screen.findByRole("dialog")).getByRole("button", {
+          name: "Annullieren",
+        }),
+      );
+
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "Speichern fehlgeschlagen. Bitte erneut versuchen.",
+      );
+    });
+
+    it("closes the correction of a report once it is annulled", async () => {
+      const { rerender } = setup({ stations: stations() });
+      await userEvent.click(within(card("UHSt 3")).getByText("UHSt 3"));
+      await chooseAction("11:30 (#7)", "Korrigieren");
+
+      rerender({ stations: stations("annulliert") });
+
+      expect(screen.queryByRole("heading", { name: /korrigieren/ })).toBeNull();
+      expect(
+        screen.getByRole("heading", { name: "UHSt 3 · neue Meldung" }),
+      ).toBeInTheDocument();
     });
   });
 

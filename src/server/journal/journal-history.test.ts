@@ -184,6 +184,13 @@ describe("annulEntry", () => {
     expect(annulled.text).toBe("Deich hält");
   });
 
+  it("rejects annulling an unknown entry", async () => {
+    const db = await freshDb();
+    await expect(
+      annulEntry(db, "00000000-0000-0000-0000-000000000000"),
+    ).rejects.toThrow(new ValidationError("Eintrag nicht gefunden."));
+  });
+
   it("rejects annulling an automatic entry (unantastbar)", async () => {
     const db = await freshDb();
     const op = await createOperation(db, { name: "Sturm" });

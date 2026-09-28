@@ -263,19 +263,36 @@ export async function annulEntry(
   entryId: string,
 ): Promise<JournalEntry> {
   return db.transaction(async (tx) => {
-    const entry = await loadEntry(tx, entryId, true);
-    assertValid(entry);
+    const {
+      rows: [entry],
+    } = await tx.query<{ type: JournalEntryType }>(
+      "SELECT type FROM journal_entries WHERE id = $1",
+      [entryId],
+    );
+    if (!entry) throw new ValidationError("Eintrag nicht gefunden.");
     if (!ANNULLABLE_TYPES.includes(entry.type)) {
       throw new ValidationError("Dieser Eintrag kann nicht annulliert werden.");
     }
-
-    await tx.query(
-      "UPDATE journal_entries SET state = 'annulliert' WHERE id = $1",
-      [entryId],
-    );
-    const updated = await loadEntry(tx, entryId);
-    if (!updated)
-      throw new Error("Eintrag nach Aktualisierung nicht gefunden.");
-    return updated;
+    return markEntryAnnulled(tx, entryId);
   });
+}
+
+/**
+ * Markiert den Eintrag als `annulliert`; Nummer und Text bleiben. Muss
+ * innerhalb einer Transaktion laufen; sperrt die Eintrags-Zeile. Bereits
+ * annullierte Einträge sind unantastbar.
+ */
+export async function markEntryAnnulled(
+  tx: Queryable,
+  entryId: string,
+): Promise<JournalEntry> {
+  const entry = await loadEntry(tx, entryId, true);
+  assertValid(entry);
+  await tx.query(
+    "UPDATE journal_entries SET state = 'annulliert' WHERE id = $1",
+    [entryId],
+  );
+  const updated = await loadEntry(tx, entryId);
+  if (!updated) throw new Error("Eintrag nach Aktualisierung nicht gefunden.");
+  return updated;
 }

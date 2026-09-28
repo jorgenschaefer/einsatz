@@ -7,6 +7,7 @@ import {
   Button,
   Group,
   Menu,
+  Modal,
   NativeSelect,
   Paper,
   SimpleGrid,
@@ -17,6 +18,7 @@ import {
   Title,
   UnstyledButton,
 } from "@mantine/core";
+import { useDisclosure } from "@mantine/hooks";
 import { IconArrowLeft, IconPencil } from "@tabler/icons-react";
 import { type Dispatch, type SetStateAction, useId, useState } from "react";
 import type { ActionResult } from "@/app/operations/[id]/action-result";
@@ -64,6 +66,7 @@ export interface StrengthPanelProps {
     stationId: string,
     values: StrengthValues,
   ) => Promise<ActionResult>;
+  onAnnulStrengthReport: (reportId: string) => Promise<ActionResult>;
   /** Tickender Zeitstempel für die Veraltung der Meldungen. */
   now: number;
 }
@@ -75,6 +78,7 @@ export function StrengthPanel({
   onRecordStrengthReport,
   onReportTotalStrength,
   onCorrectStrengthReport,
+  onAnnulStrengthReport,
   now,
 }: StrengthPanelProps) {
   const [creating, setCreating] = useState(false);
@@ -86,13 +90,21 @@ export function StrengthPanel({
   const [correctingReportId, setCorrectingReportId] = useState<string | null>(
     null,
   );
-  /** Neu vorbelegen: nach einer Korrektur gilt eine andere letzte Meldung. */
+  /** Neu vorbelegen: nach einer Korrektur oder Annullierung gilt eine andere letzte Meldung. */
   const [reportFormKey, setReportFormKey] = useState(0);
+  const [annulTarget, setAnnulTarget] = useState<StrengthReportView | null>(
+    null,
+  );
+  const [annulConfirmationOpen, annulConfirmation] = useDisclosure(false);
+  const [annulPending, setAnnulPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const selectedStation = stations.find((s) => s.id === selectedStationId);
-  const correctingReport = selectedStation?.reports.find(
-    (r) => r.id === correctingReportId,
-  );
+  // Nur gültige: eine annullierte Meldung lässt sich nicht mehr korrigieren.
+  const correctingReport =
+    selectedStation &&
+    stationHistory(selectedStation.reports).find(
+      (r) => r.id === correctingReportId,
+    );
 
   /** Führt die Action aus; nur bei Erfolg wird `done` aufgerufen. */
   const save = async (
@@ -115,6 +127,26 @@ export function StrengthPanel({
     setShowTotalHistory(false);
     setCorrectingReportId(null);
     setError(null);
+  };
+
+  const openAnnulConfirmation = (report: StrengthReportView) => {
+    setAnnulTarget(report);
+    annulConfirmation.open();
+  };
+
+  const closeAnnulConfirmation = () => {
+    if (!annulPending) annulConfirmation.close();
+  };
+
+  const annul = async () => {
+    if (!annulTarget || !annulConfirmationOpen) return;
+    setAnnulPending(true);
+    await save(
+      () => onAnnulStrengthReport(annulTarget.id),
+      () => setReportFormKey((k) => k + 1),
+    );
+    setAnnulPending(false);
+    annulConfirmation.close();
   };
 
   const openReport = (stationId: string) => {
@@ -187,6 +219,7 @@ export function StrengthPanel({
               setCorrectingReportId(reportId);
               setError(null);
             }}
+            onAnnul={openAnnulConfirmation}
           />
         </>
       ) : showTotalHistory ? (
@@ -275,6 +308,34 @@ export function StrengthPanel({
           )}
         </>
       )}
+
+      <Modal
+        opened={annulConfirmationOpen}
+        onClose={closeAnnulConfirmation}
+        title={
+          annulTarget &&
+          `${selectedStation?.name} · Meldung ${berlinTimeOfDay(annulTarget.reportedAt)} (#${annulTarget.number}) annullieren`
+        }
+      >
+        <Stack>
+          <Text>
+            Die Meldung zählt nicht mehr und bleibt durchgestrichen im
+            Einsatztagebuch stehen. Das lässt sich nicht rückgängig machen.
+          </Text>
+          <Group justify="flex-end">
+            <Button
+              variant="default"
+              disabled={annulPending}
+              onClick={closeAnnulConfirmation}
+            >
+              Abbrechen
+            </Button>
+            <Button color="red" loading={annulPending} onClick={annul}>
+              Annullieren
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
     </Stack>
   );
 }
@@ -628,9 +689,11 @@ const valuesOf = (report: StrengthValues): StrengthValues => ({
 function StationHistory({
   station,
   onCorrect,
+  onAnnul,
 }: {
   station: StationView;
   onCorrect: (reportId: string) => void;
+  onAnnul: (report: StrengthReportView) => void;
 }) {
   const history = stationHistory(station.reports);
   const titleId = useId();
@@ -668,6 +731,9 @@ function StationHistory({
                   <Menu.Dropdown>
                     <Menu.Item onClick={() => onCorrect(report.id)}>
                       Korrigieren
+                    </Menu.Item>
+                    <Menu.Item color="red" onClick={() => onAnnul(report)}>
+                      Annullieren …
                     </Menu.Item>
                   </Menu.Dropdown>
                 </Menu>

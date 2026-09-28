@@ -2,6 +2,7 @@
 
 import { createStation, renameStation } from "@/server/strength/stations";
 import {
+  annulStrengthReport,
   correctStrengthReport,
   recordStrengthReport,
 } from "@/server/strength/strength-reports";
@@ -52,6 +53,12 @@ export async function correctStrengthReportAction(
       author: user.username,
     }),
   );
+}
+
+export async function annulStrengthReportAction(
+  reportId: string,
+): Promise<ActionResult> {
+  return operationAction((db) => annulStrengthReport(db, reportId));
 }
 
 export async function reportTotalStrengthAction(

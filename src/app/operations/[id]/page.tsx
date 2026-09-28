@@ -57,6 +57,7 @@ import {
   updateMapSymbolCompositionAction,
 } from "./map-symbol-actions";
 import {
+  annulStrengthReportAction,
   correctStrengthReportAction,
   createStationAction,
   recordStrengthReportAction,
@@ -216,6 +217,7 @@ export default async function LageansichtPage({
       onRecordStrengthReport={recordStrengthReportAction}
       onReportTotalStrength={reportTotalStrengthAction.bind(null, operation.id)}
       onCorrectStrengthReport={correctStrengthReportAction}
+      onAnnulStrengthReport={annulStrengthReportAction}
     />
   );
 }

@@ -176,6 +176,7 @@ export interface SituationWorkspaceProps {
     stationId: string,
     values: StrengthValues,
   ) => Promise<ActionResult>;
+  onAnnulStrengthReport: (reportId: string) => Promise<ActionResult>;
   /** Für Tests injizierbar. */
   factory?: MapAdapterFactory;
   /** Für Tests injizierbar; sonst der echte SSE-Hook. */
@@ -234,6 +235,7 @@ export function SituationWorkspace({
   onRecordStrengthReport,
   onReportTotalStrength,
   onCorrectStrengthReport,
+  onAnnulStrengthReport,
   factory,
   eventsHook = useOperationEvents,
 }: SituationWorkspaceProps) {
@@ -902,6 +904,7 @@ export function SituationWorkspace({
             onRecordStrengthReport={onRecordStrengthReport}
             onReportTotalStrength={onReportTotalStrength}
             onCorrectStrengthReport={onCorrectStrengthReport}
+            onAnnulStrengthReport={onAnnulStrengthReport}
             now={now}
           />
         </Box>

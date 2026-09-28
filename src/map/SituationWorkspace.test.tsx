@@ -159,6 +159,7 @@ function buildProps(over: Partial<SituationWorkspaceProps> = {}) {
     onRecordStrengthReport: vi.fn(async () => ({})),
     onReportTotalStrength: vi.fn(async () => ({})),
     onCorrectStrengthReport: vi.fn(async () => ({})),
+    onAnnulStrengthReport: vi.fn(async () => ({})),
     factory: fake.factory,
     ...over,
   };

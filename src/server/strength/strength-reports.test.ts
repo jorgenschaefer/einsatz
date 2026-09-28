@@ -10,6 +10,7 @@ import {
 import { freshDb } from "@/test/db";
 import { createStation, renameStation } from "./stations";
 import {
+  annulStrengthReport,
   correctStrengthReport,
   listStrengthReports,
   recordStrengthReport,
@@ -363,10 +364,7 @@ describe("correctStrengthReport", () => {
   it("rejects an annulled report without writing anything", async () => {
     const db = await freshDb();
     const { op, station, report } = await aReport(db);
-    await db.query(
-      "UPDATE journal_entries SET state = 'annulliert' WHERE number = $1",
-      [report.number],
-    );
+    await annulStrengthReport(db, report.id);
     const [annulled] = await listStrengthReports(db, op.id);
     const entriesBefore = await listEntries(db, op.id);
 
@@ -497,17 +495,69 @@ describe("correctStrengthReport", () => {
   });
 });
 
+describe("annulStrengthReport", () => {
+  async function aReport(db: TestDb) {
+    const { op, station } = await aStation(db);
+    await record(db, station.id);
+    const [report] = await listStrengthReports(db, op.id);
+    return { op, station, report };
+  }
+
+  it("annuls the report and keeps its ETB entry with number and text", async () => {
+    const db = await freshDb();
+    const { op, report } = await aReport(db);
+    const entryBefore = (await listEntries(db, op.id)).at(-1);
+
+    const operationId = await annulStrengthReport(db, report.id);
+
+    expect(operationId).toBe(op.id);
+    expect(await listStrengthReports(db, op.id)).toEqual([
+      { ...report, state: "annulliert" },
+    ]);
+    expect((await listEntries(db, op.id)).at(-1)).toEqual({
+      ...entryBefore,
+      state: "annulliert",
+    });
+  });
+
+  it("rejects an annulled report without writing anything", async () => {
+    const db = await freshDb();
+    const { op, report } = await aReport(db);
+    await annulStrengthReport(db, report.id);
+    const entriesBefore = await listEntries(db, op.id);
+
+    await expect(annulStrengthReport(db, report.id)).rejects.toThrow(
+      new ValidationError("Annullierte Einträge können nicht geändert werden."),
+    );
+    expect(await listEntries(db, op.id)).toEqual(entriesBefore);
+  });
+
+  it("rejects an unknown report", async () => {
+    const db = await freshDb();
+
+    await expect(
+      annulStrengthReport(db, "00000000-0000-0000-0000-000000000000"),
+    ).rejects.toThrow(new ValidationError("Meldung nicht gefunden."));
+  });
+
+  it("still annuls once the Gesamteinsatz is closed", async () => {
+    const db = await freshDb();
+    const { op, report } = await aReport(db);
+    await closeOperation(db, op.id);
+
+    await annulStrengthReport(db, report.id);
+
+    expect((await listStrengthReports(db, op.id))[0].state).toBe("annulliert");
+  });
+});
+
 describe("listStrengthReports", () => {
   it("shows an annulled entry's report as annulled", async () => {
     const db = await freshDb();
     const { op, station } = await aStation(db);
     await record(db, station.id);
-    const entry = (await listEntries(db, op.id)).at(-1);
-    // Annullieren aus der Ansicht „Stärke“ baut ein eigenes Ticket; hier direkt.
-    await db.query(
-      "UPDATE journal_entries SET state = 'annulliert' WHERE id = $1",
-      [entry?.id],
-    );
+    const [report] = await listStrengthReports(db, op.id);
+    await annulStrengthReport(db, report.id);
 
     expect((await listStrengthReports(db, op.id))[0].state).toBe("annulliert");
   });

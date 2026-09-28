@@ -18,6 +18,7 @@ vi.mock("next/headers", () => ({
 }));
 
 import {
+  annulStrengthReportAction,
   correctStrengthReportAction,
   createStationAction,
   recordStrengthReportAction,
@@ -225,5 +226,25 @@ describe("strength actions", () => {
       text: "Stärkemeldung UHSt 3: 0/1/5//6, +2 zusätzlich, 8 Personen",
       author: "clara",
     });
+  });
+
+  it("annuls a Stärkemeldung", async () => {
+    await loginAs("clara");
+    const op = await anOperation();
+    await createStationAction(op.id, "UHSt 3");
+    const db = state.db as Db;
+    const [station] = await listStations(db, op.id);
+    await recordStrengthReportAction(station.id, {
+      leaders: 0,
+      subLeaders: 1,
+      helpers: 6,
+      additionalPersonnel: 2,
+      note: null,
+    });
+    const [report] = await listStrengthReports(db, op.id);
+
+    expect(await annulStrengthReportAction(report.id)).toEqual({});
+
+    expect((await listStrengthReports(db, op.id))[0].state).toBe("annulliert");
   });
 });

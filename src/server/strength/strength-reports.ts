@@ -3,6 +3,7 @@ import type { Db, Queryable } from "@/server/db/db";
 import {
   appendEntry,
   type JournalEntryState,
+  markEntryAnnulled,
   reviseEntry,
 } from "@/server/journal/journal";
 import { lockOperation } from "@/server/operations/operations";
@@ -128,6 +129,30 @@ export async function correctStrengthReport(
       input.author,
     );
     return operationId;
+  });
+}
+
+/**
+ * Annulliert eine Meldung über ihren ETB-Eintrag. Liefert die `operationId`
+ * ihres Gesamteinsatzes.
+ */
+export async function annulStrengthReport(
+  db: Db,
+  reportId: string,
+): Promise<string> {
+  return db.transaction(async (tx) => {
+    const {
+      rows: [report],
+    } = await tx.query<{ operation_id: string; journal_entry_id: string }>(
+      `SELECT s.operation_id, r.journal_entry_id
+         FROM strength_reports r
+         JOIN stations s ON s.id = r.station_id
+        WHERE r.id = $1`,
+      [reportId],
+    );
+    if (!report) throw new ValidationError("Meldung nicht gefunden.");
+    await markEntryAnnulled(tx, report.journal_entry_id);
+    return report.operation_id;
   });
 }
 
