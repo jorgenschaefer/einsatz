@@ -20,6 +20,7 @@ const stubRouter: AppRouterInstance = {
   back: vi.fn(),
   forward: vi.fn(),
   prefetch: vi.fn(),
+  bfcacheId: "stub",
 };
 
 export function Providers({ children }: { children: ReactNode }) {

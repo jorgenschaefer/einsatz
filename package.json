@@ -25,7 +25,7 @@
     "fflate": "0.8.3",
     "leaflet": "1.9.4",
     "leaflet-imageoverlay-rotated": "^0.2.1",
-    "next": "16.2.10",
+    "next": "16.3.6",
     "pdf-to-png-converter": "^4.1.1",
     "pg": "8.23.0",
     "react": "19.3.0",
