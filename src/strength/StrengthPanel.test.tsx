@@ -1,3 +1,5 @@
+import { MantineProvider } from "@mantine/core";
+import { render as rtlRender } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { ActionResult } from "@/app/operations/[id]/action-result";
@@ -9,7 +11,17 @@ import {
 } from "./StrengthPanel";
 
 function setup(over: Partial<StrengthPanelProps> = {}) {
-  const props: StrengthPanelProps = {
+  const props = setupProps(over);
+  const { rerender } = render(<StrengthPanel {...props} />);
+  return {
+    ...props,
+    rerender: (next: Partial<StrengthPanelProps>) =>
+      rerender(<StrengthPanel {...props} {...next} />),
+  };
+}
+
+function setupProps(over: Partial<StrengthPanelProps>): StrengthPanelProps {
+  return {
     stations: [
       { id: "s1", name: "UHSt 3", reports: [] },
       { id: "s2", name: "Ziel", reports: [] },
@@ -22,12 +34,6 @@ function setup(over: Partial<StrengthPanelProps> = {}) {
     onAnnulStrengthReport: vi.fn(async () => ({})),
     now: minutesAfterReport(5),
     ...over,
-  };
-  const { rerender } = render(<StrengthPanel {...props} />);
-  return {
-    ...props,
-    rerender: (next: Partial<StrengthPanelProps>) =>
-      rerender(<StrengthPanel {...props} {...next} />),
   };
 }
 
@@ -301,6 +307,17 @@ describe("StrengthPanel", () => {
     const reportTotal = () =>
       within(sum()).getByRole("button", { name: "Gesamtstärke melden" });
 
+    async function confirmReportTotal() {
+      await userEvent.click(reportTotal());
+      const dialog = await screen.findByRole("dialog", {
+        name: "Gesamtstärke melden",
+      });
+      await userEvent.click(
+        within(dialog).getByRole("button", { name: "Melden" }),
+      );
+      return dialog;
+    }
+
     const threeStations = () => [
       {
         id: "s1",
@@ -405,12 +422,103 @@ describe("StrengthPanel", () => {
       expect(reportTotal()).toBeDisabled();
     });
 
-    it("reports the Gesamtstärke", async () => {
+    it("asks for confirmation and reports the Gesamtstärke only once confirmed", async () => {
       const { onReportTotalStrength } = setup({ stations: threeStations() });
 
       await userEvent.click(reportTotal());
 
+      const dialog = await screen.findByRole("dialog", {
+        name: "Gesamtstärke melden",
+      });
+      expect(onReportTotalStrength).not.toHaveBeenCalled();
+      await userEvent.click(
+        within(dialog).getByRole("button", { name: "Melden" }),
+      );
+
       expect(onReportTotalStrength).toHaveBeenCalledTimes(1);
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
+
+    it("names the sum to be entered into the ETB in the confirmation", async () => {
+      setup({ stations: threeStations() });
+
+      await userEvent.click(reportTotal());
+
+      const dialog = await screen.findByRole("dialog");
+      expect(within(dialog).getByText("2/6/25//33")).toBeInTheDocument();
+      expect(within(dialog).getByText("+6 zusätzlich")).toBeInTheDocument();
+      expect(within(dialog).getByText("39 Personen")).toBeInTheDocument();
+      expect(within(dialog).getByText(/Einsatztagebuch/)).toBeInTheDocument();
+    });
+
+    it("reports nothing when the confirmation is cancelled", async () => {
+      const { onReportTotalStrength } = setup({ stations: threeStations() });
+      await userEvent.click(reportTotal());
+
+      await userEvent.click(
+        within(await screen.findByRole("dialog")).getByRole("button", {
+          name: "Abbrechen",
+        }),
+      );
+
+      expect(onReportTotalStrength).not.toHaveBeenCalled();
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
+
+    it("reports only once on a double click", async () => {
+      const { onReportTotalStrength } = setup({
+        stations: threeStations(),
+        onReportTotalStrength: vi.fn(() => new Promise<ActionResult>(() => {})),
+      });
+      await userEvent.click(reportTotal());
+
+      await userEvent.dblClick(
+        within(await screen.findByRole("dialog")).getByRole("button", {
+          name: "Melden",
+        }),
+      );
+
+      expect(onReportTotalStrength).toHaveBeenCalledTimes(1);
+    });
+
+    it("reports only once when the second click lands on the closing dialog", async () => {
+      const onReportTotalStrength = vi.fn(async () => ({}));
+      // Ohne env="test": der Dialog blendet sich wie in der App erst aus.
+      rtlRender(
+        <MantineProvider>
+          <StrengthPanel
+            {...setupProps({
+              stations: threeStations(),
+              onReportTotalStrength,
+            })}
+          />
+        </MantineProvider>,
+      );
+      await userEvent.click(reportTotal());
+      const melden = within(await screen.findByRole("dialog")).getByRole(
+        "button",
+        { name: "Melden" },
+      );
+
+      await userEvent.click(melden);
+      await userEvent.click(melden);
+
+      expect(onReportTotalStrength).toHaveBeenCalledTimes(1);
+    });
+
+    it("stays open while the report is being sent", async () => {
+      setup({
+        stations: threeStations(),
+        onReportTotalStrength: vi.fn(() => new Promise<ActionResult>(() => {})),
+      });
+
+      const dialog = await confirmReportTotal();
+      await userEvent.keyboard("{Escape}");
+
+      expect(
+        within(dialog).getByRole("button", { name: "Abbrechen" }),
+      ).toBeDisabled();
+      expect(screen.getByRole("dialog")).toBe(dialog);
     });
 
     it("shows a returned error", async () => {
@@ -421,11 +529,32 @@ describe("StrengthPanel", () => {
         })),
       });
 
-      await userEvent.click(reportTotal());
+      const dialog = await confirmReportTotal();
 
-      expect(screen.getByRole("alert")).toHaveTextContent(
+      expect(within(dialog).getByRole("alert")).toHaveTextContent(
         "Es gibt noch keine gültige Stärkemeldung.",
       );
+      expect(screen.getByRole("dialog")).toBe(dialog);
+    });
+
+    it("opens the next confirmation without the previous error", async () => {
+      setup({
+        stations: threeStations(),
+        onReportTotalStrength: vi.fn(async () => ({
+          error: "Es gibt noch keine gültige Stärkemeldung.",
+        })),
+      });
+      const dialog = await confirmReportTotal();
+      await userEvent.click(
+        within(dialog).getByRole("button", { name: "Abbrechen" }),
+      );
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+
+      await userEvent.click(reportTotal());
+
+      expect(
+        within(await screen.findByRole("dialog")).queryByRole("alert"),
+      ).toBeNull();
     });
 
     it("shows a failed report as an error", async () => {
@@ -436,9 +565,9 @@ describe("StrengthPanel", () => {
         }),
       });
 
-      await userEvent.click(reportTotal());
+      const dialog = await confirmReportTotal();
 
-      expect(screen.getByRole("alert")).toHaveTextContent(
+      expect(within(dialog).getByRole("alert")).toHaveTextContent(
         "Speichern fehlgeschlagen. Bitte erneut versuchen.",
       );
     });

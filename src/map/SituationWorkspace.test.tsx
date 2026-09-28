@@ -482,6 +482,11 @@ describe("SituationWorkspace", () => {
       await userEvent.click(
         screen.getByRole("button", { name: "Gesamtstärke melden" }),
       );
+      await userEvent.click(
+        within(await screen.findByRole("dialog")).getByRole("button", {
+          name: "Melden",
+        }),
+      );
       expect(props.onReportTotalStrength).toHaveBeenCalledTimes(1);
     });
 

@@ -23,6 +23,7 @@ import { IconArrowLeft, IconPencil } from "@tabler/icons-react";
 import {
   type Dispatch,
   Fragment,
+  type ReactNode,
   type SetStateAction,
   useId,
   useState,
@@ -100,9 +101,6 @@ export function StrengthPanel({
     null,
   );
   const [annulConfirmationOpen, annulConfirmation] = useDisclosure(false);
-  const [annulPending, setAnnulPending] = useState(false);
-  // Im Modal statt oben im Bereich: annulliert wird oft weit unten im Verlauf.
-  const [annulError, setAnnulError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const selectedStation = stations.find((s) => s.id === selectedStationId);
   // Nur gültige: eine annullierte Meldung lässt sich nicht mehr korrigieren.
@@ -126,23 +124,7 @@ export function StrengthPanel({
 
   const openAnnulConfirmation = (report: StrengthReportView) => {
     setAnnulTarget(report);
-    setAnnulError(null);
     annulConfirmation.open();
-  };
-
-  const closeAnnulConfirmation = () => {
-    if (!annulPending) annulConfirmation.close();
-  };
-
-  const annul = async () => {
-    if (!annulTarget || !annulConfirmationOpen) return;
-    setAnnulPending(true);
-    await runAction(
-      () => onAnnulStrengthReport(annulTarget.id),
-      setAnnulError,
-      annulConfirmation.close,
-    );
-    setAnnulPending(false);
   };
 
   const openReport = (stationId: string) => {
@@ -225,7 +207,7 @@ export function StrengthPanel({
             <TotalCard
               stations={stations}
               now={now}
-              onReport={() => save(onReportTotalStrength, () => {})}
+              onReport={onReportTotalStrength}
               onShowHistory={() => {
                 closeForms();
                 setShowTotalHistory(true);
@@ -296,39 +278,21 @@ export function StrengthPanel({
         </>
       )}
 
-      <Modal
-        opened={annulConfirmationOpen}
-        onClose={closeAnnulConfirmation}
-        styles={{ title: { minWidth: 0, overflowWrap: "anywhere" } }}
-        title={
-          annulTarget &&
-          `${selectedStation?.name} · Meldung ${berlinTimeOfDay(annulTarget.reportedAt)} (#${annulTarget.number}) annullieren`
-        }
-      >
-        <Stack>
-          {annulError && (
-            <Alert color="red" role="alert">
-              {annulError}
-            </Alert>
-          )}
+      {annulTarget && (
+        <ConfirmationModal
+          opened={annulConfirmationOpen}
+          onClose={annulConfirmation.close}
+          title={`${selectedStation?.name} · Meldung ${berlinTimeOfDay(annulTarget.reportedAt)} (#${annulTarget.number}) annullieren`}
+          confirmLabel="Annullieren"
+          confirmColor="red"
+          onConfirm={() => onAnnulStrengthReport(annulTarget.id)}
+        >
           <Text>
             Die Meldung zählt nicht mehr und bleibt durchgestrichen im
             Einsatztagebuch stehen. Das lässt sich nicht rückgängig machen.
           </Text>
-          <Group justify="flex-end">
-            <Button
-              variant="default"
-              disabled={annulPending}
-              onClick={closeAnnulConfirmation}
-            >
-              Abbrechen
-            </Button>
-            <Button color="red" loading={annulPending} onClick={annul}>
-              Annullieren
-            </Button>
-          </Group>
-        </Stack>
-      </Modal>
+        </ConfirmationModal>
+      )}
     </Stack>
   );
 }
@@ -369,16 +333,28 @@ function TotalCard({
 }: {
   stations: StationView[];
   now: number;
-  onReport: () => Promise<void>;
+  onReport: () => Promise<ActionResult>;
   onShowHistory: () => void;
 }) {
   const total = totalOf(stations.map((s) => s.reports));
   const hasValidReport = stations.some((s) => latestValidReport(s.reports));
-  const [busy, setBusy] = useState(false);
+  const [confirmationOpen, confirmation] = useDisclosure(false);
   const titleId = useId();
 
   return (
     <Paper component="section" aria-labelledby={titleId} withBorder p="sm">
+      <ConfirmationModal
+        opened={confirmationOpen}
+        onClose={confirmation.close}
+        title="Gesamtstärke melden"
+        confirmLabel="Melden"
+        onConfirm={onReport}
+      >
+        <Counts counts={total} />
+        <Text>
+          Die Summe wird als Gesamtstärke ins Einsatztagebuch eingetragen.
+        </Text>
+      </ConfirmationModal>
       <Stack gap={4}>
         <Group justify="space-between" wrap="nowrap">
           <Title id={titleId} order={3} size="h5">
@@ -394,18 +370,7 @@ function TotalCard({
         </Group>
         <Counts counts={total} />
         <Group gap="xs">
-          <Button
-            disabled={!hasValidReport}
-            loading={busy}
-            onClick={async () => {
-              setBusy(true);
-              try {
-                await onReport();
-              } finally {
-                setBusy(false);
-              }
-            }}
-          >
+          <Button disabled={!hasValidReport} onClick={confirmation.open}>
             Gesamtstärke melden
           </Button>
           <Button
@@ -418,6 +383,72 @@ function TotalCard({
         </Group>
       </Stack>
     </Paper>
+  );
+}
+
+/**
+ * Bestätigt eine Action, bevor sie läuft; ihr Fehler erscheint im offenen
+ * Dialog statt oben im Bereich, der oft weit weggescrollt ist. Bei Erfolg
+ * schließt er sich.
+ */
+function ConfirmationModal({
+  opened,
+  onClose,
+  title,
+  confirmLabel,
+  confirmColor,
+  onConfirm,
+  children,
+}: {
+  opened: boolean;
+  onClose: () => void;
+  title: string;
+  confirmLabel: string;
+  confirmColor?: string;
+  onConfirm: () => Promise<ActionResult>;
+  children: ReactNode;
+}) {
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const close = () => {
+    if (pending) return;
+    setError(null);
+    onClose();
+  };
+
+  const confirm = async () => {
+    // Beim Ausblenden bleibt der Knopf noch klickbar.
+    if (!opened) return;
+    setPending(true);
+    await runAction(onConfirm, setError, onClose);
+    setPending(false);
+  };
+
+  return (
+    <Modal
+      opened={opened}
+      onClose={close}
+      styles={{ title: { minWidth: 0, overflowWrap: "anywhere" } }}
+      title={title}
+    >
+      <Stack>
+        {error && (
+          <Alert color="red" role="alert">
+            {error}
+          </Alert>
+        )}
+        {children}
+        <Group justify="flex-end">
+          <Button variant="default" disabled={pending} onClick={close}>
+            Abbrechen
+          </Button>
+          <Button color={confirmColor} loading={pending} onClick={confirm}>
+            {confirmLabel}
+          </Button>
+        </Group>
+      </Stack>
+    </Modal>
   );
 }
 
