@@ -17,9 +17,14 @@ import { IconArrowLeft, IconPencil } from "@tabler/icons-react";
 import { type Dispatch, type SetStateAction, useId, useState } from "react";
 import type { ActionResult } from "@/app/operations/[id]/action-result";
 import {
+  berlinTimeOfDay,
+  isReportStale,
+  isTotalStale,
   latestValidReport,
+  type StrengthCounts,
   type StrengthValues,
   sumOf,
+  totalOf,
   totalPersonsOf,
 } from "./strength";
 
@@ -45,6 +50,9 @@ export interface StrengthPanelProps {
     stationId: string,
     values: StrengthValues,
   ) => Promise<ActionResult>;
+  onReportTotalStrength: () => Promise<ActionResult>;
+  /** Tickender Zeitstempel für die Veraltung der Meldungen. */
+  now: number;
 }
 
 export function StrengthPanel({
@@ -52,6 +60,8 @@ export function StrengthPanel({
   onCreateStation,
   onRenameStation,
   onRecordStrengthReport,
+  onReportTotalStrength,
+  now,
 }: StrengthPanelProps) {
   const [creating, setCreating] = useState(false);
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -113,6 +123,14 @@ export function StrengthPanel({
         />
       ) : (
         <>
+          {stations.length > 0 && (
+            <TotalCard
+              stations={stations}
+              now={now}
+              onReport={() => save(onReportTotalStrength, () => {})}
+            />
+          )}
+
           {stations.map((station) => (
             <Paper
               key={station.id}
@@ -144,6 +162,7 @@ export function StrengthPanel({
               ) : (
                 <StationCard
                   station={station}
+                  now={now}
                   onRename={() => {
                     closeForms();
                     setRenamingId(station.id);
@@ -194,11 +213,101 @@ function closeIfStillOpen(
   setOpenId((openId) => (openId === id ? null : openId));
 }
 
+function TotalCard({
+  stations,
+  now,
+  onReport,
+}: {
+  stations: StationView[];
+  now: number;
+  onReport: () => Promise<void>;
+}) {
+  const total = totalOf(stations.map((s) => s.reports));
+  const hasValidReport = stations.some((s) => latestValidReport(s.reports));
+  const [busy, setBusy] = useState(false);
+  const titleId = useId();
+
+  return (
+    <Paper component="section" aria-labelledby={titleId} withBorder p="sm">
+      <Stack gap={4}>
+        <Group justify="space-between" wrap="nowrap">
+          <Title id={titleId} order={3} size="h5">
+            Summe
+          </Title>
+          {total.oldestReportedAt && (
+            <ReportTime
+              label="älteste Meldung "
+              time={total.oldestReportedAt}
+              stale={isTotalStale(total, now)}
+            />
+          )}
+        </Group>
+        <Counts counts={total} />
+        <Button
+          w="fit-content"
+          disabled={!hasValidReport}
+          loading={busy}
+          onClick={async () => {
+            setBusy(true);
+            try {
+              await onReport();
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          Gesamtstärke melden
+        </Button>
+      </Stack>
+    </Paper>
+  );
+}
+
+/** Uhrzeit einer Meldung; veraltete hervorgehoben. */
+function ReportTime({
+  label = "",
+  time,
+  stale,
+}: {
+  label?: string;
+  time: Date | string;
+  stale: boolean;
+}) {
+  return (
+    <Text
+      size="xs"
+      c={stale ? "red" : "dimmed"}
+      fw={stale ? 700 : undefined}
+      data-stale={stale || undefined}
+    >
+      {`${label}${berlinTimeOfDay(time)}`}
+    </Text>
+  );
+}
+
+function Counts({ counts }: { counts: StrengthCounts }) {
+  return (
+    <Group gap="xs" align="baseline">
+      <Text fw={700} size="lg">
+        {`${counts.leaders}/${counts.subLeaders}/${counts.helpers}//${sumOf(counts)}`}
+      </Text>
+      <Text size="sm" c="dimmed">
+        {`+${counts.additionalPersonnel} zusätzlich`}
+      </Text>
+      <Text size="sm" c="dimmed">
+        {`${totalPersonsOf(counts)} Personen`}
+      </Text>
+    </Group>
+  );
+}
+
 function StationCard({
   station,
+  now,
   onRename,
 }: {
   station: StationView;
+  now: number;
   onRename: () => void;
 }) {
   const latest = latestValidReport(station.reports);
@@ -213,9 +322,10 @@ function StationCard({
         </Title>
         <Group gap="xs" wrap="nowrap">
           {latest && (
-            <Text size="xs" c="dimmed">
-              {berlinTimeOfDay(latest.reportedAt)}
-            </Text>
+            <ReportTime
+              time={latest.reportedAt}
+              stale={isReportStale(latest, now)}
+            />
           )}
           <ActionIcon
             variant="subtle"
@@ -232,17 +342,7 @@ function StationCard({
       </Group>
       {latest ? (
         <>
-          <Group gap="xs" align="baseline">
-            <Text fw={700} size="lg">
-              {`${latest.leaders}/${latest.subLeaders}/${latest.helpers}//${sumOf(latest)}`}
-            </Text>
-            <Text size="sm" c="dimmed">
-              {`+${latest.additionalPersonnel} zusätzlich`}
-            </Text>
-            <Text size="sm" c="dimmed">
-              {`${totalPersonsOf(latest)} Personen`}
-            </Text>
-          </Group>
+          <Counts counts={latest} />
           {latest.note && <Text size="sm">{latest.note}</Text>}
         </>
       ) : (
@@ -253,13 +353,6 @@ function StationCard({
     </Stack>
   );
 }
-
-const berlinTimeOfDay = (iso: string) =>
-  new Intl.DateTimeFormat("de-DE", {
-    timeZone: "Europe/Berlin",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(iso));
 
 type Count = "leaders" | "subLeaders" | "helpers" | "additionalPersonnel";
 

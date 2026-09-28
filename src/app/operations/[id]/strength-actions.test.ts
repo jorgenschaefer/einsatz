@@ -21,6 +21,7 @@ import {
   createStationAction,
   recordStrengthReportAction,
   renameStationAction,
+  reportTotalStrengthAction,
 } from "@/app/operations/[id]/strength-actions";
 import { hashPassword } from "@/server/auth/password";
 import { insertSession } from "@/server/auth/sessions";
@@ -158,6 +159,40 @@ describe("strength actions", () => {
       }),
     ).toEqual({
       error: "Die Stärke muss aus ganzen Zahlen von 0 bis 9999 bestehen.",
+    });
+  });
+
+  it("reports the Gesamtstärke in the name of the logged-in user", async () => {
+    await loginAs("clara");
+    const op = await anOperation();
+    await createStationAction(op.id, "UHSt 3");
+    const db = state.db as Db;
+    const [station] = await listStations(db, op.id);
+    await recordStrengthReportAction(station.id, {
+      leaders: 0,
+      subLeaders: 1,
+      helpers: 6,
+      additionalPersonnel: 2,
+      note: null,
+    });
+
+    expect(await reportTotalStrengthAction(op.id)).toEqual({});
+
+    expect((await listEntries(db, op.id)).at(-1)).toMatchObject({
+      type: "gesamtstärke-gemeldet",
+      text: expect.stringMatching(
+        /^Gesamtstärke gemeldet: 0\/1\/6\/\/7, \+2 zusätzlich, 9 Personen \(1 Stelle, älteste Meldung \d\d:\d\d\)$/,
+      ),
+      author: "clara",
+    });
+  });
+
+  it("reports a Gesamtstärke without any report as a form error", async () => {
+    await loginAs("clara");
+    const op = await anOperation();
+
+    expect(await reportTotalStrengthAction(op.id)).toEqual({
+      error: "Es gibt noch keine gültige Stärkemeldung.",
     });
   });
 });

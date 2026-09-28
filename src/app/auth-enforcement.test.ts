@@ -88,6 +88,7 @@ import {
   createStationAction,
   recordStrengthReportAction,
   renameStationAction,
+  reportTotalStrengthAction,
 } from "@/app/operations/[id]/strength-actions";
 import {
   createViewLinkAction,
@@ -255,6 +256,10 @@ const userGuardedActions: Invocation[] = [
         additionalPersonnel: 2,
         note: null,
       }),
+  },
+  {
+    name: "reportTotalStrengthAction",
+    run: () => reportTotalStrengthAction("op-1"),
   },
   { name: "closeOperationAction", run: () => closeOperationAction("op-1") },
   { name: "reopenOperationAction", run: () => reopenOperationAction("op-1") },

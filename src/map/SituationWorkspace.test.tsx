@@ -157,6 +157,7 @@ function buildProps(over: Partial<SituationWorkspaceProps> = {}) {
     onCreateStation: vi.fn(async () => ({})),
     onRenameStation: vi.fn(async () => ({})),
     onRecordStrengthReport: vi.fn(async () => ({})),
+    onReportTotalStrength: vi.fn(async () => ({})),
     factory: fake.factory,
     ...over,
   };
@@ -447,6 +448,38 @@ describe("SituationWorkspace", () => {
         additionalPersonnel: 0,
         note: null,
       });
+    });
+
+    it("reports the Gesamtstärke and marks a report older than 60 minutes", async () => {
+      const { props } = renderWorkspace({
+        stations: [
+          {
+            id: "st1",
+            name: "UHSt 3",
+            reports: [
+              {
+                leaders: 0,
+                subLeaders: 1,
+                helpers: 6,
+                additionalPersonnel: 2,
+                note: null,
+                reportedAt: new Date(Date.now() - 61 * 60_000).toISOString(),
+                state: "gueltig",
+                number: 1,
+              },
+            ],
+          },
+        ],
+      });
+      await selectMainView("Stärke");
+
+      expect(screen.getByText(/^älteste Meldung/)).toHaveAttribute(
+        "data-stale",
+      );
+      await userEvent.click(
+        screen.getByRole("button", { name: "Gesamtstärke melden" }),
+      );
+      expect(props.onReportTotalStrength).toHaveBeenCalledTimes(1);
     });
 
     it("keeps a half-filled Stärkemeldung when switching to the Lagekarte and back", async () => {

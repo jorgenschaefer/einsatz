@@ -113,7 +113,51 @@ describe.each([
   it("cannot be annulled", async () => {
     const db = await freshDb();
     const entry = await stationEntry(db);
-    await expect(annulEntry(db, entry.id)).rejects.toThrow(onlyManual);
+    await expect(annulEntry(db, entry.id)).rejects.toThrow(
+      new ValidationError("Dieser Eintrag kann nicht annulliert werden."),
+    );
+  });
+});
+
+describe("a gesamtstärke-gemeldet entry", () => {
+  async function totalStrengthEntry(db: Awaited<ReturnType<typeof freshDb>>) {
+    const op = await insertOperation(db, {
+      name: "Cyclassics",
+      description: null,
+    });
+    return appendEntry(db, {
+      operationId: op.id,
+      text: "Gesamtstärke gemeldet: 0/0/0//0, +0 zusätzlich, 0 Personen (0 Stellen)",
+      type: "gesamtstärke-gemeldet",
+      author: "anna",
+    });
+  }
+
+  it("can be annulled", async () => {
+    const db = await freshDb();
+    const entry = await totalStrengthEntry(db);
+    const annulled = await annulEntry(db, entry.id);
+    expect(annulled.state).toBe("annulliert");
+    expect(annulled.text).toBe(entry.text);
+  });
+
+  it("cannot be annulled twice", async () => {
+    const db = await freshDb();
+    const entry = await totalStrengthEntry(db);
+    await annulEntry(db, entry.id);
+    await expect(annulEntry(db, entry.id)).rejects.toThrow(
+      new ValidationError("Annullierte Einträge können nicht geändert werden."),
+    );
+  });
+
+  it("cannot be corrected", async () => {
+    const db = await freshDb();
+    const entry = await totalStrengthEntry(db);
+    await expect(
+      correctEntry(db, entry.id, "manipuliert", "bernd"),
+    ).rejects.toThrow(
+      new ValidationError("Nur manuelle Einträge können geändert werden."),
+    );
   });
 });
 

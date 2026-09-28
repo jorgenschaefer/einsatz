@@ -60,6 +60,7 @@ import {
   createStationAction,
   recordStrengthReportAction,
   renameStationAction,
+  reportTotalStrengthAction,
 } from "./strength-actions";
 import {
   createViewLinkAction,
@@ -211,6 +212,7 @@ export default async function LageansichtPage({
       onCreateStation={createStationAction.bind(null, operation.id)}
       onRenameStation={renameStationAction}
       onRecordStrengthReport={recordStrengthReportAction}
+      onReportTotalStrength={reportTotalStrengthAction.bind(null, operation.id)}
     />
   );
 }

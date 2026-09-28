@@ -2,8 +2,8 @@
 solution:  02-SOLUTION.md
 satisfies: AC-7, AC-8, AC-13, AC-19
 after:     02-meldung-erfassen
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -105,3 +105,47 @@ Meldung …" („(0 Stellen)"); bei genau einer heißt es „1 Stelle"." - tests
 ## Not here
 Summenverlauf (05); correction/annul of reports (06, 07). Non-goals: no
 recipient recorded, nothing transmitted to the EL.
+
+## Record
+
+**Criteria → tests**
+
+- **AC-7** (sum of F/UF/H/Σ/zusätzlich/Gesamtpersonen over each Stelle's latest valid report; Stellen without one don't count)
+  - `src/strength/strength.test.ts` › totalOf: „is 0 without Stellen, with no oldest report", „adds up the latest valid report of each Stelle and names the oldest of them" (an older and an annulled newer report of the same Stelle are ignored), „leaves out a Stelle without a valid report".
+  - UI: `src/strength/StrengthPanel.test.tsx` › the sum: „adds up the latest valid reports and names the oldest of them" (Stelle without report included), „is not shown without Stellen" (**Keine Stellen**), „is not shown while a Stelle's form is open".
+- **AC-8** (oldest time next to the sum; stale highlight on the sum and on each card after 60 minutes)
+  - `strength.test.ts` › isReportStale / isTotalStale: „is not stale at exactly 60 minutes, but a millisecond later", „never calls a total without an oldest report stale", „calls a report with only zusätzliches Personal stale".
+  - `StrengthPanel.test.tsx`: the sum › „highlights the oldest report once it is older than 60 minutes"; the card of a Stelle › „highlights its time once the report is older than 60 minutes". The highlight is red bold text with a `data-stale` attribute.
+  - `src/map/SituationWorkspace.test.tsx` „reports the Gesamtstärke and marks a report older than 60 minutes" (pins that the workspace's ticking `useStalenessClock` reaches the panel).
+- **AC-13** (ETB text, „1 Stelle" / „(0 Stellen)", sum computed under the operation lock, button disabled without a valid report, annullable in the ETB)
+  - `strength.test.ts` › formatTotalStrengthText: „formats the sum with the Stellen and the oldest report in Berlin time" (the AC example), „says „1 Stelle" for exactly one" (winter time), „leaves out the oldest report when no Stelle counts".
+  - `src/server/strength/total-strength.test.ts`: „records the sum over the Stellen in the ETB with its author", „reports 0 Stellen when every Stelle reports 0", „rejects a sum without any valid report, writing nothing", „still reports once the Gesamteinsatz is closed", „can be annulled", „includes a report numbered before it that it had to wait for". The last one is the planned lock-order test: it waits for a `pg_stat_activity` lock wait, and it was red (assertion) against a version that summed before locking.
+  - Action: `src/app/operations/[id]/strength-actions.test.ts` „reports the Gesamtstärke in the name of the logged-in user", „reports a Gesamtstärke without any report as a form error"; `reportTotalStrengthAction` is in `src/app/auth-enforcement.test.ts`.
+  - UI: `StrengthPanel.test.tsx` › the sum: „cannot be reported without a valid report", „reports the Gesamtstärke", „shows a returned error", „shows a failed report as an error".
+  - ETB: `src/server/journal/journal-history.test.ts` › a gesamtstärke-gemeldet entry: „can be annulled", „cannot be annulled twice", „cannot be corrected". `src/app/operations/[id]/JournalPanel.test.tsx` „offers only „Annullieren …" for a gesamtstärke-gemeldet entry, which is neither automatic nor hidden" (goes through the confirmation modal), „offers no actions for an annulled gesamtstärke-gemeldet entry".
+- **AC-19** (0 Gesamtpersonen: never stale, not in the oldest time, not in the Stellen count; normal again after a later non-zero report)
+  - `strength.test.ts`: „never calls a report of 0 Personen stale" (proven by removing the guard: red), totalOf › „counts a Stelle reporting 0 Personen neither as Stelle nor for the oldest report", „counts a Stelle normally again once it reports Personen after 0".
+  - `StrengthPanel.test.tsx` „never highlights the time of a report of 0 Personen".
+- **Alle Stellen auf 0**: `strength.test.ts` „is 0 without an oldest report when every Stelle reports 0"; `StrengthPanel.test.tsx` „shows 0 without an oldest report when every Stelle reports 0" (button stays enabled); `total-strength.test.ts` „reports 0 Stellen when every Stelle reports 0".
+- **Stelle ohne Meldung**: see AC-7 „leaves out a Stelle without a valid report".
+
+**Command**: `docker compose -f docker-compose.test.yml up -d && npm run check`. The first full run was green (112 files, 959 tests). Three later full runs, all at load average 11–14 on 4 cores, each timed out a different 2–8 tests after 5 s. All of them were in `src/map/SituationWorkspace.test.tsx` map tests (panels, circles, image overlays), which this change doesn't touch. The file passes alone (131/131). Timed back to back, it took 152–154 s on a HEAD worktree and 112–121 s with this change, so the change doesn't slow it. The last run, `tsc --noEmit && npm run lint && vitest run --maxWorkers=2`, was green: 112 files, 959 tests.
+
+**Departures from the plan**
+
+- **The server rejects a Gesamtstärke without any valid report** with „Es gibt noch keine gültige Stärkemeldung." and writes nothing. The plan only disabled the button. Without the check, a stale page or a report annulled in the meantime (ticket 07) would write a „0 Stellen" entry that no report backs.
+- **`reportTotalStrength(db, {operationId, author})`** opens its own transaction and takes `lockOperation` itself before `listStrengthReports`. `appendEntry` takes the same lock again, which is harmless.
+- **Annul rule split in `journal.ts`**: `annulEntry` accepts `manuell` and `gesamtstärke-gemeldet` and otherwise refuses with the new message „Dieser Eintrag kann nicht annulliert werden.". Before, it said „Nur manuelle Einträge können geändert werden.", which would now be wrong. `correctEntry` keeps the old message. The already-annulled check now runs before the type check, which only changes the message for an annulled non-manual entry.
+- **`now` is a prop of `StrengthPanel`**, fed by the `useStalenessClock` that `SituationWorkspace` already runs (30 s tick). The panel doesn't start a second clock.
+- **`berlinTimeOfDay` moved from `StrengthPanel.tsx` to `strength.ts`**, so the server's ETB text and the view format times the same way. `StrengthCounts` (the four numbers without the note) was split out of `StrengthValues`, so `sumOf`/`totalPersonsOf` also take a `Total`.
+- **`totalOf` takes the reports grouped per Stelle** (`ReportedStrength[][]`). The server groups `listStrengthReports` by `stationId`; the client passes `stations.map(s => s.reports)`. Whether any Stelle has a valid report (for the button) is checked next to it, not stored in `Total`.
+- **The sum card is hidden while a Stelle's form is open.** The pane shows either the list with the sum, or one form.
+- Some tests passed on their first run because a stub already returned the right value: „never calls a report of 0 Personen stale" and „never calls a total without an oldest report stale" against a stub returning `false`. The first was proven by removing the guard afterwards (red); the second is a null check that TypeScript enforces.
+
+**Left standing**
+
+- Review nit, not fixed: the rule for which entry types can be annulled exists twice, as `ANNULLABLE_TYPES` in `journal.ts` and `canAnnul` in `JournalPanel.tsx`. The client can't import `journal.ts` (`node:crypto`), and the `JournalEntryType` union is already duplicated the same way by design.
+- Review note: after a successful „Gesamtstärke melden" the Stärke view doesn't change, apart from the button's loading state. On a phone without the ETB visible, a user might tap twice and write two entries; the second can be annulled. No AC asks for feedback. This fits ticket 10's mobile check.
+- Not checked in a real browser: whether the „Summe · älteste Meldung HH:mm" header fits on one line at 360 px, and the contrast of the red highlight (ticket 10). `page.tsx` wiring is covered only by `tsc`.
+- The load-dependent timeouts in `SituationWorkspace.test.tsx` described under Command are pre-existing, as in tickets 01 and 02.
+

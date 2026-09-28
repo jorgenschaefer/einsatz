@@ -2,6 +2,7 @@
 
 import { createStation, renameStation } from "@/server/strength/stations";
 import { recordStrengthReport } from "@/server/strength/strength-reports";
+import { reportTotalStrength } from "@/server/strength/total-strength";
 import type { StrengthValues } from "@/strength/strength";
 import { type ActionResult, operationAction } from "./operation-action";
 
@@ -33,4 +34,13 @@ export async function recordStrengthReportAction(
       recordStrengthReport(tx, { stationId, values, author: user.username }),
     ),
   );
+}
+
+export async function reportTotalStrengthAction(
+  operationId: string,
+): Promise<ActionResult> {
+  return operationAction(async (db, user) => {
+    await reportTotalStrength(db, { operationId, author: user.username });
+    return operationId;
+  });
 }

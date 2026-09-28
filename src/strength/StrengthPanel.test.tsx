@@ -17,6 +17,8 @@ function setup(over: Partial<StrengthPanelProps> = {}) {
     onCreateStation: vi.fn(async () => ({})),
     onRenameStation: vi.fn(async () => ({})),
     onRecordStrengthReport: vi.fn(async () => ({})),
+    onReportTotalStrength: vi.fn(async () => ({})),
+    now: minutesAfterReport(5),
     ...over,
   };
   const { rerender } = render(<StrengthPanel {...props} />);
@@ -41,6 +43,11 @@ const report = (
   number: 5,
   ...over,
 });
+
+/** Zeitpunkt `minutes` Minuten nach dem Standard-Meldezeitpunkt von {@link report}. */
+function minutesAfterReport(minutes: number) {
+  return new Date("2026-09-26T09:01:00.000Z").getTime() + minutes * 60_000;
+}
 
 const card = (name: string) =>
   screen.getByText(name).closest("[data-station]") as HTMLElement;
@@ -225,6 +232,43 @@ describe("StrengthPanel", () => {
       expect(within(card("UHSt 3")).getByText("0/1/4//5")).toBeInTheDocument();
     });
 
+    it("highlights its time once the report is older than 60 minutes", () => {
+      const { rerender } = setup({
+        stations: [{ id: "s1", name: "UHSt 3", reports: [report()] }],
+        now: minutesAfterReport(60),
+      });
+      const time = () => within(card("UHSt 3")).getByText("11:01");
+      expect(time()).not.toHaveAttribute("data-stale");
+
+      rerender({ now: minutesAfterReport(60) + 1 });
+
+      expect(time()).toHaveAttribute("data-stale");
+    });
+
+    it("never highlights the time of a report of 0 Personen", () => {
+      setup({
+        stations: [
+          {
+            id: "s1",
+            name: "UHSt 3",
+            reports: [
+              report({
+                leaders: 0,
+                subLeaders: 0,
+                helpers: 0,
+                additionalPersonnel: 0,
+              }),
+            ],
+          },
+        ],
+        now: minutesAfterReport(600),
+      });
+
+      expect(within(card("UHSt 3")).getByText("11:01")).not.toHaveAttribute(
+        "data-stale",
+      );
+    });
+
     it("shows „noch keine Meldung“ without a valid report", () => {
       setup({
         stations: [
@@ -243,6 +287,155 @@ describe("StrengthPanel", () => {
       expect(
         within(card("Ziel")).getByText("noch keine Meldung"),
       ).toBeInTheDocument();
+    });
+  });
+
+  describe("the sum", () => {
+    const sum = () => screen.getByRole("region", { name: "Summe" });
+    const oldest = () => within(sum()).getByText(/^älteste Meldung/);
+    const reportTotal = () =>
+      within(sum()).getByRole("button", { name: "Gesamtstärke melden" });
+
+    const threeStations = () => [
+      {
+        id: "s1",
+        name: "UHSt 3",
+        reports: [
+          report({
+            leaders: 1,
+            subLeaders: 2,
+            helpers: 10,
+            additionalPersonnel: 4,
+          }),
+        ],
+      },
+      {
+        id: "s2",
+        name: "Ziel",
+        reports: [
+          report({
+            leaders: 1,
+            subLeaders: 4,
+            helpers: 15,
+            additionalPersonnel: 2,
+            // 10:10 in Berlin
+            reportedAt: "2026-09-26T08:10:00.000Z",
+          }),
+        ],
+      },
+      { id: "s3", name: "Start", reports: [] },
+    ];
+
+    it("is not shown without Stellen", () => {
+      setup({ stations: [] });
+
+      expect(screen.queryByRole("region", { name: "Summe" })).toBeNull();
+      expect(screen.getByRole("button", { name: "+ Stelle" })).toBeVisible();
+    });
+
+    it("adds up the latest valid reports and names the oldest of them", () => {
+      setup({ stations: threeStations() });
+
+      expect(within(sum()).getByText("2/6/25//33")).toBeInTheDocument();
+      expect(within(sum()).getByText("+6 zusätzlich")).toBeInTheDocument();
+      expect(within(sum()).getByText("39 Personen")).toBeInTheDocument();
+      expect(oldest()).toHaveTextContent("älteste Meldung 10:10");
+    });
+
+    it("shows 0 without an oldest report when every Stelle reports 0", () => {
+      setup({
+        stations: [
+          {
+            id: "s1",
+            name: "UHSt 3",
+            reports: [
+              report({
+                leaders: 0,
+                subLeaders: 0,
+                helpers: 0,
+                additionalPersonnel: 0,
+              }),
+            ],
+          },
+        ],
+      });
+
+      expect(within(sum()).getByText("0/0/0//0")).toBeInTheDocument();
+      expect(within(sum()).queryByText(/^älteste Meldung/)).toBeNull();
+      expect(reportTotal()).toBeEnabled();
+    });
+
+    it("highlights the oldest report once it is older than 60 minutes", () => {
+      const { rerender } = setup({
+        stations: threeStations(),
+        now: new Date("2026-09-26T09:10:00.000Z").getTime(),
+      });
+      expect(oldest()).not.toHaveAttribute("data-stale");
+
+      rerender({ now: new Date("2026-09-26T09:10:00.001Z").getTime() });
+
+      expect(oldest()).toHaveAttribute("data-stale");
+    });
+
+    it("is not shown while a Stelle's form is open", async () => {
+      setup({ stations: threeStations() });
+
+      await userEvent.click(within(card("Ziel")).getByText("Ziel"));
+
+      expect(screen.queryByRole("region", { name: "Summe" })).toBeNull();
+    });
+
+    it("cannot be reported without a valid report", () => {
+      setup({
+        stations: [
+          {
+            id: "s1",
+            name: "UHSt 3",
+            reports: [report({ state: "annulliert" })],
+          },
+        ],
+      });
+
+      expect(within(sum()).getByText("0/0/0//0")).toBeInTheDocument();
+      expect(reportTotal()).toBeDisabled();
+    });
+
+    it("reports the Gesamtstärke", async () => {
+      const { onReportTotalStrength } = setup({ stations: threeStations() });
+
+      await userEvent.click(reportTotal());
+
+      expect(onReportTotalStrength).toHaveBeenCalledTimes(1);
+    });
+
+    it("shows a returned error", async () => {
+      setup({
+        stations: threeStations(),
+        onReportTotalStrength: vi.fn(async () => ({
+          error: "Es gibt noch keine gültige Stärkemeldung.",
+        })),
+      });
+
+      await userEvent.click(reportTotal());
+
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "Es gibt noch keine gültige Stärkemeldung.",
+      );
+    });
+
+    it("shows a failed report as an error", async () => {
+      setup({
+        stations: threeStations(),
+        onReportTotalStrength: vi.fn(async () => {
+          throw new Error("offline");
+        }),
+      });
+
+      await userEvent.click(reportTotal());
+
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "Speichern fehlgeschlagen. Bitte erneut versuchen.",
+      );
     });
   });
 

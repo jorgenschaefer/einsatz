@@ -96,6 +96,48 @@ describe("JournalPanel", () => {
     },
   );
 
+  it("offers only „Annullieren …“ for a gesamtstärke-gemeldet entry, which is neither automatic nor hidden", async () => {
+    const text =
+      "Gesamtstärke gemeldet: 2/6/25//33, +6 zusätzlich, 39 Personen (4 Stellen, älteste Meldung 10:10)";
+    const props = setup({
+      entries: [
+        entry({ id: "g", number: 1, type: "gesamtstärke-gemeldet", text }),
+      ],
+    });
+    const item = screen.getByText(text).closest("[data-entry]") as HTMLElement;
+    expect(within(item).queryByText(/automatisch/i)).toBeNull();
+
+    await userEvent.click(
+      within(item).getByRole("button", { name: "Aktionen für Eintrag #1" }),
+    );
+    expect(
+      (await screen.findAllByRole("menuitem")).map((i) => i.textContent),
+    ).toEqual(["Annullieren …"]);
+    await userEvent.click(screen.getByRole("menuitem"));
+    await screen.findByRole("dialog", { name: "Eintrag #1 annullieren" });
+    await userEvent.click(screen.getByRole("button", { name: "Annullieren" }));
+    expect(props.onAnnul).toHaveBeenCalledWith("g");
+
+    await userEvent.click(screen.getByLabelText(/automatische ausblenden/i));
+    expect(screen.getByText(text)).toBeInTheDocument();
+  });
+
+  it("offers no actions for an annulled gesamtstärke-gemeldet entry", () => {
+    setup({
+      entries: [
+        entry({
+          type: "gesamtstärke-gemeldet",
+          state: "annulliert",
+          text: "Gesamtstärke gemeldet: 0/0/0//0, +0 zusätzlich, 0 Personen (0 Stellen)",
+        }),
+      ],
+    });
+
+    expect(
+      screen.queryByRole("button", { name: /Aktionen für Eintrag/ }),
+    ).toBeNull();
+  });
+
   it("adds a new manual entry from the input row", async () => {
     const props = setup();
     fireEvent.change(screen.getByLabelText(/Neuer Eintrag/), {

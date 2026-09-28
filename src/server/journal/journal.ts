@@ -9,7 +9,8 @@ export type JournalEntryType =
   | "einsatz-geschlossen"
   | "stelle-angelegt"
   | "stelle-umbenannt"
-  | "stärkemeldung";
+  | "stärkemeldung"
+  | "gesamtstärke-gemeldet";
 export type JournalEntryState = "gueltig" | "annulliert";
 
 /** Eine frühere Fassung eines Eintrags mit eigenem Urheber und Zeitstempel. */
@@ -171,14 +172,11 @@ async function loadEntry(
   return toEntry(rows[0], revisions);
 }
 
-/** Wirft, wenn der Eintrag nicht manuell oder bereits annulliert ist. */
-function assertManualAndValid(
+/** Wirft, wenn der Eintrag fehlt oder bereits annulliert ist. */
+function assertValid(
   entry: JournalEntry | null,
 ): asserts entry is JournalEntry {
   if (!entry) throw new ValidationError("Eintrag nicht gefunden.");
-  if (entry.type !== "manuell") {
-    throw new ValidationError("Nur manuelle Einträge können geändert werden.");
-  }
   if (entry.state !== "gueltig") {
     throw new ValidationError(
       "Annullierte Einträge können nicht geändert werden.",
@@ -201,7 +199,12 @@ export async function correctEntry(
 
   return db.transaction(async (tx) => {
     const entry = await loadEntry(tx, entryId, true);
-    assertManualAndValid(entry);
+    assertValid(entry);
+    if (entry.type !== "manuell") {
+      throw new ValidationError(
+        "Nur manuelle Einträge können geändert werden.",
+      );
+    }
 
     await tx.query(
       `INSERT INTO journal_entry_revisions (id, entry_id, text, author, created_at)
@@ -225,10 +228,15 @@ export async function correctEntry(
   });
 }
 
+const ANNULLABLE_TYPES: JournalEntryType[] = [
+  "manuell",
+  "gesamtstärke-gemeldet",
+];
+
 /**
- * Annulliert einen manuellen Eintrag: er bleibt mit seiner Nummer und seinem
- * Text erhalten (durchgestrichen), wird aber als `annulliert` markiert.
- * Alle anderen Einträge sind unantastbar.
+ * Annulliert einen manuellen Eintrag oder eine gemeldete Gesamtstärke: er bleibt
+ * mit seiner Nummer und seinem Text erhalten (durchgestrichen), wird aber als
+ * `annulliert` markiert. Alle anderen Einträge sind unantastbar.
  */
 export async function annulEntry(
   db: Db,
@@ -236,7 +244,10 @@ export async function annulEntry(
 ): Promise<JournalEntry> {
   return db.transaction(async (tx) => {
     const entry = await loadEntry(tx, entryId, true);
-    assertManualAndValid(entry);
+    assertValid(entry);
+    if (!ANNULLABLE_TYPES.includes(entry.type)) {
+      throw new ValidationError("Dieser Eintrag kann nicht annulliert werden.");
+    }
 
     await tx.query(
       "UPDATE journal_entries SET state = 'annulliert' WHERE id = $1",

@@ -157,7 +157,12 @@ export function JournalPanel({
       <Stack gap="sm">
         {visible.map((entry) => {
           const isAuto = isAutomatic(entry);
-          const canEdit = entry.type === "manuell" && entry.state === "gueltig";
+          const isValid = entry.state === "gueltig";
+          const canCorrect = isValid && entry.type === "manuell";
+          const canAnnul =
+            isValid &&
+            (entry.type === "manuell" ||
+              entry.type === "gesamtstärke-gemeldet");
           return (
             <Paper key={entry.id} data-entry withBorder p="sm">
               <Group justify="space-between" wrap="nowrap">
@@ -178,7 +183,7 @@ export function JournalPanel({
                       {entry.author}
                     </Text>
                   )}
-                  {canEdit && editingId !== entry.id && (
+                  {canAnnul && editingId !== entry.id && (
                     <Menu position="bottom-end" withinPortal>
                       <Menu.Target>
                         <ActionIcon
@@ -190,9 +195,11 @@ export function JournalPanel({
                         </ActionIcon>
                       </Menu.Target>
                       <Menu.Dropdown>
-                        <Menu.Item onClick={() => startCorrection(entry)}>
-                          Korrigieren
-                        </Menu.Item>
+                        {canCorrect && (
+                          <Menu.Item onClick={() => startCorrection(entry)}>
+                            Korrigieren
+                          </Menu.Item>
+                        )}
                         <Menu.Item
                           color="red"
                           onClick={() => openAnnulConfirmation(entry)}
