@@ -96,8 +96,6 @@ export function StrengthPanel({
   const [correctingReportId, setCorrectingReportId] = useState<string | null>(
     null,
   );
-  /** Neu vorbelegen: nach einer Korrektur oder Annullierung gilt eine andere letzte Meldung. */
-  const [reportFormKey, setReportFormKey] = useState(0);
   const [annulTarget, setAnnulTarget] = useState<StrengthReportView | null>(
     null,
   );
@@ -142,10 +140,7 @@ export function StrengthPanel({
     await runAction(
       () => onAnnulStrengthReport(annulTarget.id),
       setAnnulError,
-      () => {
-        setReportFormKey((k) => k + 1);
-        annulConfirmation.close();
-      },
+      annulConfirmation.close,
     );
     setAnnulPending(false);
   };
@@ -185,13 +180,11 @@ export function StrengthPanel({
                       stationId,
                       values,
                     ),
-                  () => {
+                  () =>
                     closeIfStillOpen(
                       setCorrectingReportId,
                       correctingReport.id,
-                    );
-                    setReportFormKey((k) => k + 1);
-                  },
+                    ),
                 )
               }
               onCancel={() => {
@@ -203,7 +196,7 @@ export function StrengthPanel({
           {/* Bleibt beim Korrigieren eingehängt: eine begonnene Meldung übersteht das Abbrechen. */}
           <Box display={correctingReport ? "none" : undefined}>
             <ReportForm
-              key={reportFormKey}
+              key={prefillKey(latestValidReport(selectedStation.reports))}
               station={selectedStation}
               onReport={(values) =>
                 save(
@@ -353,6 +346,11 @@ async function runAction(
   } catch {
     setError(SAVE_ERROR);
   }
+}
+
+/** Ändert sich, sobald eine andere Meldung oder andere Werte als letzte gültige gelten. */
+function prefillKey(latest: StrengthReportView | undefined) {
+  return latest ? JSON.stringify([latest.id, valuesOf(latest)]) : "";
 }
 
 /** Eine Speicherung, die spät fertig wird, schließt nur ihr eigenes Formular. */
@@ -516,10 +514,7 @@ function StationCard({
 
 type Count = "leaders" | "subLeaders" | "helpers" | "additionalPersonnel";
 
-/**
- * Neue Meldung einer Stelle. Vorbelegt wird einmal beim Öffnen; eine live
- * eintreffende Meldung überschreibt Getipptes nicht.
- */
+/** Neue Meldung einer Stelle, vorbelegt mit ihrer letzten gültigen Meldung. */
 function ReportForm({
   station,
   onReport,

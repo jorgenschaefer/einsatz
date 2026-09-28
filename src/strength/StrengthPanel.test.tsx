@@ -731,7 +731,7 @@ describe("StrengthPanel", () => {
       expect(screen.getByText("UHSt 3 · neue Meldung")).toBeInTheDocument();
     });
 
-    it("keeps typed values when a new report arrives live", async () => {
+    it("prefills afresh when a new report arrives live", async () => {
       const { rerender } = setup({
         stations: [{ id: "s1", name: "UHSt 3", reports: [report()] }],
       });
@@ -744,7 +744,40 @@ describe("StrengthPanel", () => {
           {
             id: "s1",
             name: "UHSt 3",
-            reports: [report(), report({ helpers: 8, number: 9 })],
+            reports: [
+              report(),
+              report({
+                id: "r9",
+                number: 9,
+                reportedAt: "2026-09-26T09:30:00.000Z",
+                helpers: 8,
+              }),
+            ],
+          },
+        ],
+      });
+
+      expect(field("Helfer")).toHaveValue("8");
+    });
+
+    it("keeps typed values when the data refreshes without a new latest report", async () => {
+      const { rerender } = setup({
+        stations: [
+          { id: "s1", name: "UHSt 3", reports: [report()] },
+          { id: "s2", name: "Ziel", reports: [] },
+        ],
+      });
+      await openReport("UHSt 3");
+      await userEvent.clear(field("Helfer"));
+      await userEvent.type(field("Helfer"), "3");
+
+      rerender({
+        stations: [
+          { id: "s1", name: "UHSt 3", reports: [report()] },
+          {
+            id: "s2",
+            name: "Ziel",
+            reports: [report({ id: "r9", number: 9, helpers: 8 })],
           },
         ],
       });
@@ -988,24 +1021,40 @@ describe("StrengthPanel", () => {
     it("prefills the new report afresh after a correction", async () => {
       const corrected = stations();
       corrected[0].reports[1] = { ...corrected[0].reports[1], helpers: 8 };
-      const { rerender } = setup({
-        stations: stations(),
-        // Wie in der App: die aktualisierten Daten kommen mit der Antwort der Action.
-        onCorrectStrengthReport: vi.fn(async () => {
-          rerender({ stations: corrected });
-          return {};
-        }),
-      });
+      const { rerender } = setup({ stations: stations() });
       await openCorrection("11:30 (#7)");
       await userEvent.clear(field("Helfer"));
       await userEvent.type(field("Helfer"), "8");
-
       await userEvent.click(screen.getByRole("button", { name: "Speichern" }));
+
+      rerender({ stations: corrected });
 
       expect(
         screen.getByRole("heading", { name: "UHSt 3 · neue Meldung" }),
       ).toBeInTheDocument();
       expect(field("Helfer")).toHaveValue("8");
+    });
+
+    it("keeps a started new report when an older report is corrected", async () => {
+      const corrected = stations();
+      corrected[0].reports[0] = { ...corrected[0].reports[0], helpers: 5 };
+      const { rerender } = setup({ stations: stations() });
+      await userEvent.click(within(card("UHSt 3")).getByText("UHSt 3"));
+      await userEvent.clear(field("Helfer"));
+      await userEvent.type(field("Helfer"), "3");
+      await userEvent.click(
+        screen.getByRole("button", { name: "Aktionen für Meldung 11:01 (#3)" }),
+      );
+      await userEvent.click(
+        await screen.findByRole("menuitem", { name: "Korrigieren" }),
+      );
+      await userEvent.clear(field("Helfer"));
+      await userEvent.type(field("Helfer"), "5");
+      await userEvent.click(screen.getByRole("button", { name: "Speichern" }));
+
+      rerender({ stations: corrected });
+
+      expect(field("Helfer")).toHaveValue("3");
     });
 
     it("tells apart two reports of the same minute", async () => {
@@ -1114,22 +1163,16 @@ describe("StrengthPanel", () => {
     });
 
     it("prefills the new report afresh after an annulment", async () => {
-      const { rerender } = setup({
-        stations: stations(),
-        // Wie in der App: die aktualisierten Daten kommen mit der Antwort der Action.
-        onAnnulStrengthReport: vi.fn(async () => {
-          rerender({ stations: stations("annulliert") });
-          return {};
-        }),
-      });
+      const { rerender } = setup({ stations: stations() });
       await openAnnulment();
       expect(screen.getByRole("textbox", { name: "Helfer" })).toHaveValue("9");
-
       await userEvent.click(
         within(await screen.findByRole("dialog")).getByRole("button", {
           name: "Annullieren",
         }),
       );
+
+      rerender({ stations: stations("annulliert") });
 
       expect(screen.getByRole("textbox", { name: "Helfer" })).toHaveValue("4");
     });
