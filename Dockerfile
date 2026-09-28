@@ -1,11 +1,13 @@
-FROM node:24-alpine AS builder
+ARG NODE_VERSION=24.21.0
+
+FROM node:${NODE_VERSION}-alpine AS builder
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
 RUN npm run build
 
-FROM node:24-alpine AS runner
+FROM node:${NODE_VERSION}-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 COPY package.json package-lock.json ./
