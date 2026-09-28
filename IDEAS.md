@@ -1,148 +1,141 @@
 # Ideen
 
-Rückmeldungen aus dem Einsatz (u. a. Cyclassics 2026), als Probleme gefasst
-zum Priorisieren. Lösungen sind bewusst offen.
+Rückmeldungen aus dem Einsatz (u. a. Cyclassics 2026), gebündelt zu vier
+Themen. Jedes Thema wird als Ganzes umgesetzt. Die Lösung steht jeweils fest;
+sie ist nicht mehr zu hinterfragen, sondern umzusetzen. Offene Detailfragen
+entscheidet die Umsetzung im Sinne von „Einfachheit vor Funktionsfülle".
 
-Nach Priorität, die Nummern bleiben stabil:
-
-**Zuerst**
-- 4. Kreise lassen sich nicht in einer vorgegebenen Größe zeichnen
-- 3. Nach der Adresssuche ist die gesuchte Stelle nicht zu finden
-- 5. Text lässt sich nicht frei auf der Karte platzieren
-- 7. Bereichsbeschriftungen verdecken Beschriftungen von Kartenzeichen
-
-**Danach**
-- 9. Absender, Empfänger und Weg im ETB müssen jedes Mal getippt werden
-- 8. Stärkemeldungen stehen nur als Text im ETB, ohne Überblick
-- 2. Häufige Zeichen müssen im Einsatz jedes Mal zusammengebaut werden
-
-**Später**
-- 1. Die Karte läuft voll mit Einheiten, die gerade nicht im Einsatz sind
-- 6. Die Reihenfolge überlappender Bereiche ist nicht steuerbar
-- 10. Kein Überblick, welche Einheiten an welchem Einsatz sind
-
-Querschnitt: Viele dieser Probleme betreffen Dinge, die es unabhängig von der
-Karte gibt – siehe [Einheiten, Stellen und Einsätze jenseits der
-Karte](#einheiten-stellen-und-einsätze-jenseits-der-karte).
+Erledigt: Kreise in vorgegebener Größe (früher #4). In Arbeit: Stärkemeldungen
+(früher #8), siehe `intents/2026-09-26-staerkemeldungen/`.
 
 **Begriff „Einsatz".** In der Domäne doppelt belegt: das Ereignis, zu dem
-Einheiten geschickt werden, und die ganze Lage (z. B. „Cyclassics 2026"). Zur
-Trennung hier: **Einsatz** für das Ereignis, **Gesamteinsatz** für die Lage,
-**Einsatzstelle** für den Ort eines Einsatzes. Im Code und im Glossar heißt
-der Gesamteinsatz heute noch „Einsatz" (`Operation`).
+Einheiten geschickt werden, und die ganze Lage (z. B. „Cyclassics 2026"). Hier
+steht **Gesamteinsatz** für die Lage (im Code `Operation`, im Glossar heute
+noch „Einsatz"), **Einsatz** für das Ereignis.
 
-## 1. Die Karte läuft voll mit Einheiten, die gerade nicht im Einsatz sind
+## Thema 1: Bereiche auf der Karte
 
-**Problem.** Eine Einheit (z. B. eine Streife) wechselt im Lauf eines
-Gesamteinsatzes mehrfach zwischen zwei Zuständen: *im Einsatz*, dann zählt
-ihre Position, und *wartend*, meist an ihrer UHSt, dann interessiert die
-Position nicht. Die Karte kennt nur den ersten Zustand. Wartende Einheiten
-stehen als Kartenzeichen irgendwo herum und machen die Karte unübersichtlich.
+Löst die früheren Punkte 5 (Text frei platzieren), 6 (Reihenfolge
+überlappender Bereiche) und 7 (Bereichsbeschriftungen verdecken Kartenzeichen).
 
-**Beobachtet.** Der Einsatzleiter bei den Cyclassics hat neben dem
-Einsatzgebiet Bereiche „Ablage Streifen" und „Ablage weitere Einsatzmittel"
-angelegt, die Einheiten vorab dort erstellt, bei Bedarf auf die Karte gezogen
-und danach zurückgelegt.
+**Beschriftung von Bereichen nicht mehr auf der Karte.** Ein Bereich behält
+seinen Namen, er wird aber nicht mehr auf der Karte gezeichnet – weder in der
+Führungsansicht noch in Ansichts- und Geräteansicht. Sichtbar bleibt er in der
+Bereichsliste und im Bereich-Editor. Text auf der Karte übernimmt die neue
+Form „Text".
 
-**Was zählt.** Kritisch ist das Aufräumen: wartende Einheiten aus dem Weg.
-Sie sollen aber noch auffindbar sein (aufklappbar reicht), um zu sehen, was
-verfügbar ist. Nett wäre ein Hinweis an der UHSt wie „2 Streifen verfügbar".
-Von welcher UHSt eine Streife kommt, weiß die Führungskraft auch so.
+**Neue Bereich-Form „Text".** Eine vierte Form neben Polygon, Linie und Kreis:
+ein Ankerpunkt, ein Text und eine Farbe. Sie läuft über dieselben Wege wie die
+anderen Formen: Bereichs-Panel, Bereich-Editor, Speicherung als Bereich. Bei
+dieser Form *ist* der Name der Text, und er wird gezeichnet.
 
-**Ausgenommen.** Einheiten mit meldendem Gerätelink – erstmal nicht betrachtet.
+- Der Text skaliert mit dem Zoom wie Schrift auf einer gedruckten Karte: Seine
+  Größe ist eine Größe in der Welt (Meter), nicht in Pixeln.
+- Die Größe stellt man über einen Anfasser direkt auf der Karte ein, so wie
+  man einen Kreis aufzieht. Ein Zahlenfeld im Editor gibt es nicht. Ein neuer
+  Text startet in einer Größe, die beim aktuellen Zoom gut lesbar ist.
 
-## 2. Häufige Zeichen müssen im Einsatz jedes Mal zusammengebaut werden
+**Feste Stapelreihenfolge.** Die Reihenfolge ergibt sich aus dem Objekttyp
+und lässt sich nicht einstellen. Von oben nach unten:
 
-**Problem.** Die Schnellauswahl ist eine feste Liste. Zeichen, die in einem
-Gesamteinsatz immer wieder gebraucht werden, aber nicht darin stehen (z. B.
-„Einsatz", „Einsatz (vermutlich)", „besondere Lage"), muss die Führungskraft
-unter Zeitdruck von Hand zusammenstellen.
+1. Kartenzeichen samt Bezeichnung
+2. Text
+3. Linien
+4. Kreise und Polygone, kleinere (nach Fläche) über größeren
 
-**Beobachtet.** Der Einsatzleiter hat sie vorab gebaut und in einem Bereich
-„Ablage Ereignis" geparkt, um sie bei Bedarf zu kopieren.
+Oben liegt auch vorn beim Anklicken: Liegt ein kleiner Kreis in einem großen,
+trifft ein Klick auf den kleinen den kleinen.
 
-**Was zählt.** Einmal pro Gesamteinsatz anlegen reicht; über Gesamteinsätze
-hinweg wiederverwendbar wäre schön, ist aber nicht nötig.
+**Einheitliche Auswahl.** Jedes Objekt (Kartenzeichen und alle Bereich-Formen
+einschließlich Text) wird gleich behandelt:
 
-## 3. Nach der Adresssuche ist die gesuchte Stelle nicht zu finden
+- Antippen wählt es aus, hebt es auf der Karte deutlich hervor und öffnet
+  seinen Editor. Es ist immer höchstens ein Objekt ausgewählt. Antippen der
+  leeren Karte hebt die Auswahl auf. Wie die Hervorhebung aussieht, ist offen.
+  Sie muss aber für alle Formen gleich gut funktionieren, etwa als
+  kontrastierende Kontur oder Glühen, bei Kartenzeichen als Ring.
+- Verschoben wird ein Bereich jeder Form über die Aktion „Verschieben" im
+  Editor, wie heute der Kreis: Das Objekt wird unter dem festen Fadenkreuz
+  positioniert und mit „Hier setzen" abgelegt. Polygone und Linien werden
+  dabei als Ganzes versetzt. Direktes Ziehen von Bereichen gibt es nicht.
+- Kartenzeichen bleiben wie heute direkt ziehbar.
 
-**Problem.** Die Suche bewegt den Kartenausschnitt, zeigt aber nicht, wo der
-Treffer genau liegt. Wer z. B. eine Kreuzung sucht, sucht eine der beiden
-Straßen und findet sie dann im Kartenbild nicht.
+## Thema 2: Absender, Empfänger und Weg im ETB
 
-**Was zählt.** Ziel ist, an genau dieser Stelle ein Kartenzeichen zu setzen.
+Löst den früheren Punkt 9.
 
-## 4. Kreise lassen sich nicht in einer vorgegebenen Größe zeichnen
+Ein ETB-Eintrag bekommt drei optionale, getrennt gespeicherte Felder: **Von**,
+**An** und **Weg**. Der Freitext bleibt der Inhalt des Eintrags. Im ETB
+erscheinen die Felder als Zeile über dem Text, z. B. „Von UHSt 2 an EAL ·
+Funk". Leere Felder werden weggelassen. Alte Einträge haben keine Werte.
 
-**Problem.** Vorgaben kommen in Metern („500 m Evakuierungsradius"). Die
-Führungskraft kann einen Kreis weder in dieser Größe anlegen noch sehen, wie
-groß er ist. Sie zeichnet ihn, verschiebt ihn, bis er richtig steht, und passt
-ihn bei neuen Informationen erneut an – ohne jedes Mal neu messen zu wollen.
+- **Von/An** sind bei jedem neuen Eintrag leer. Beim Tippen werden Werte
+  vorgeschlagen: die Stellen des Gesamteinsatzes (aus den Stärkemeldungen) und
+  alle bisher in diesem Gesamteinsatz verwendeten Von/An-Werte. Freitext ist
+  immer erlaubt.
+- **Weg** ist eine feste Auswahl aus *Funk*, *Telefon* und *Persönlich*, mit
+  Freitext als Ausweichmöglichkeit. Vorbelegt ist der Weg des letzten Eintrags,
+  den dieselbe Führungskraft angelegt hat.
+- Die Felder gehören zum Eintrag, deshalb deckt Korrigieren sie mit ab: Die
+  Vorfassung bleibt samt Von/An/Weg durchgestrichen sichtbar.
 
-**Nicht gefragt.** Allgemeines Entfernungsmessen: kam nur auf, weil andere
-Karten es können; kein konkreter Anwendungsfall.
+## Thema 3: Eigene Vorlagen für Taktische Zeichen
 
-## 5. Text lässt sich nicht frei auf der Karte platzieren
+Löst den früheren Punkt 2.
 
-**Problem.** Beschriften lassen sich nur Kartenzeichen und Bereiche, und die
-Bereichsbeschriftung sitzt fest in der Mitte. Bei Evakuierungs- und Warnradius
-um denselben Ort liegen beide Texte übereinander. Die Führungskraft würde die
-Kreise lieber unbeschriftet lassen und den Text selbst passend hinsetzen.
+Neben der festen Schnellauswahl kann die Führungskraft **Vorlagen** anlegen.
+Eine Vorlage hat einen Namen, eine DV-102-Komposition und optional eine
+Standard-Bezeichnung.
 
-## 6. Die Reihenfolge überlappender Bereiche ist nicht steuerbar
+- Vorlagen gehören zu genau einem Gesamteinsatz und sind nur dort sichtbar.
+- Angelegt, bearbeitet und gelöscht werden sie in einem Abschnitt „Vorlagen"
+  im Kartenzeichen-Panel. Zusammengestellt wird die Komposition mit dem
+  bestehenden erweiterten Zeichenformular (`AdvancedSymbolForm`), ohne vorher
+  etwas zu platzieren.
+- In der Schnellauswahl stehen die Vorlagen hinter den festen Einträgen und
+  werden genauso platziert. Die Standard-Bezeichnung ist dabei vorbelegt.
+- Ändern oder Löschen einer Vorlage betrifft bereits platzierte Kartenzeichen
+  nicht.
+- Andere Nutzer desselben Gesamteinsatzes sehen neue und geänderte Vorlagen
+  live über den bestehenden SSE-Event-Bus.
 
-**Problem.** Liegt ein größerer Bereich über einem kleineren (z. B. Warnradius
-über Evakuierungsradius), ist der kleinere schlechter zu sehen und schlechter
-anzuklicken. Bisher nicht akut, wird aber relevant.
+## Thema 4: Desktop-Layout mit Seitenleiste
 
-## 7. Bereichsbeschriftungen verdecken Beschriftungen von Kartenzeichen
+Baut auf den Stärkemeldungen auf (`intents/2026-09-26-staerkemeldungen/`).
 
-**Problem.** Kartenzeichen werden überallhin gezogen; landet ihre Beschriftung
-unter der eines Bereichs, ist sie verdeckt. Die Beschriftung des
-Kartenzeichens ist die wichtigere.
+Am Desktop füllt die Lagekarte immer den Bildschirm. Rechts sitzt eine
+Seitenleiste in Smartphone-Breite, im Grunde der Smartphone-Bildschirm: oben
+zwei Knöpfe **ETB** und **Stärke**, darunter die gewählte Ansicht. Die
+Hauptansichtsleiste links (`MainViewBar`) entfällt am Desktop. Die Karte ist
+dort keine umschaltbare Ansicht mehr. Die Stärkemeldungs-Lösung, die „Stärke"
+als dritten Punkt dieser Leiste vorsieht, gilt am Desktop dann nicht mehr.
 
-## 8. Stärkemeldungen stehen nur als Text im ETB, ohne Überblick
+- Beide Ansichten der Seitenleiste bleiben beim Umschalten eingehängt,
+  angefangene Eingaben bleiben also erhalten.
+- Zeigt die Seitenleiste „Stärke", zählt der ETB-Knopf neue Einträge wie
+  heute die Hauptansichtsleiste.
+- Am Smartphone bleibt alles wie es ist: Leiste unten mit Lagekarte, ETB und
+  Stärke.
 
-**Problem.** Jede UHSt meldet stündlich ihre Stärke: `x/y/z//Σ`, Anzahl
-einsatzbereiter Streifen, zuzüglich Praktikanten. Das gehört ins ETB, aber dort
-steht es nur als Text. Wie stark jede UHSt gerade ist und wie stark alle
-zusammen sind, muss die Führungskraft aus den Einträgen zusammensuchen und
-selbst addieren.
+## Später
 
-**Was zählt.** Eine aktuelle Übersicht je UHSt mit Summe; jede Änderung
-dokumentiert im ETB. Eine Verbindung zu den Kartenzeichen ist nicht nötig –
-Stärke aus den Einheiten auf der Karte abzuleiten wäre aufwändig und
-fehleranfällig.
+Offen und keinem Thema zugeordnet. Die Nummern sind die alten.
 
-## 9. Absender, Empfänger und Weg im ETB müssen jedes Mal getippt werden
+- **1. Wartende Einheiten verstopfen die Karte.** Einheiten wechseln zwischen
+  *im Einsatz* (Position zählt) und *wartend*, meist an ihrer UHSt (Position
+  egal). Wartende sollen aus dem Weg, aber auffindbar bleiben (aufklappbar
+  reicht). Nett wäre ein Hinweis an der UHSt wie „2 Streifen verfügbar". Heute
+  behilft man sich mit „Ablage"-Bereichen neben dem Einsatzgebiet. Einheiten
+  mit meldendem Gerätelink sind vorerst ausgenommen.
+- **3. Nach der Adresssuche ist die Stelle nicht zu finden.** Die Suche
+  verschiebt nur den Kartenausschnitt und markiert den Treffer nicht. Ziel
+  ist, genau dort ein Kartenzeichen zu setzen.
+- **10. Kein Überblick, welche Einheiten an welchem Einsatz sind.** Bei
+  mehreren gleichzeitigen Einsätzen mit je einer Einsatzstelle. Eher Vision
+  als akuter Bedarf, nicht primär ein Kartenproblem.
 
-**Problem.** Viele Einträge haben die Form „Von UHSt-2 an EAL: benötigen RTW
-für 42/m mit KoPlaWu, an Gustav-Schleswig-Str. 23". Absender und Empfänger
-stammen aus einem kleinen, sich ständig wiederholenden Kreis von Stellen, werden
-aber jedes Mal frei getippt. Dasselbe gilt für den Übermittlungsweg (Funk,
-Draht …), der meist derselbe ist wie beim vorigen Eintrag.
-
-**Was zählt.** Freitext muss immer möglich bleiben.
-
-## 10. Kein Überblick, welche Einheiten an welchem Einsatz sind
-
-**Problem.** Bei mehreren gleichzeitigen Einsätzen (jeder mit Einsatzstelle)
-fehlt der Überblick, welche Einheiten welchem Einsatz zugeordnet sind und wo
-diese sich befinden. Ein anderes Tool löst das, aber schlecht.
-
-**Stand.** Langfristig, eher Vision als akuter Bedarf. Nicht primär ein
-Kartenproblem.
-
-## Einheiten, Stellen und Einsätze jenseits der Karte
-
-Heute ist alles ein Kartenzeichen; „Einheit" ist laut Glossar nur ein Wort,
-kein eigenes Objekt. Die Rückmeldungen zeigen aber Dinge, die unabhängig von
-der Karte existieren und nur manchmal darauf erscheinen:
-
-- **Einheiten** (Streifen, RTW, KTW …) – mit Zustand wartend/im Einsatz (1, 10)
-- **Stellen** wie UHSt oder EAL – melden Stärke (8), sind Absender und
-  Empfänger im ETB (9)
-- **Einsätze** mit ihrer Einsatzstelle – bekommen Einheiten zugeordnet (10)
-
-Das ist keine Lösung, sondern ein Hinweis, dass mehrere Probleme vielleicht
-dieselbe Ursache haben: Das Werkzeug kennt nur die Karte.
+**Querschnitt: Dinge jenseits der Karte.** Heute ist alles ein Kartenzeichen;
+„Einheit" ist nur ein Wort. Einheiten (Zustand wartend/im Einsatz, 1, 10),
+Stellen (Stärke, Von/An im ETB) und Einsätze mit Einsatzstelle (10) existieren
+aber unabhängig von der Karte. Mit den Stellen aus den Stärkemeldungen ist der
+erste davon angelegt.
