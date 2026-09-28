@@ -147,7 +147,8 @@ Mockup: `specimens/B-stellen-mit-meldungen.html`.
   „Gesamtstärke gemeldet: 2/6/25//33, +6 zusätzlich, 39 Personen (4 Stellen,
   älteste Meldung 10:10)" mit den Werten von AC-7 und AC-8 zu diesem Zeitpunkt;
   gezählt werden die Stellen, die in die Summe eingehen (AC-7), außer denen
-  nach AC-19. Die Summe wird erst unter der Einsatzsperre von `appendEntry`
+  nach AC-19. Zählt keine Stelle, entfällt „, älteste Meldung …"
+  („(0 Stellen)"); bei genau einer heißt es „1 Stelle". Die Summe wird erst unter der Einsatzsperre von `appendEntry`
   berechnet, damit keine parallel eingehende Meldung vor dem Eintrag im ETB
   steht, ohne in ihm enthalten zu sein. Ohne gültige Meldung ist der Knopf
   deaktiviert. Ein versehentlich geschriebener Eintrag lässt sich im ETB
