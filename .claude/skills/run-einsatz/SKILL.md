@@ -40,6 +40,8 @@ If nothing is listening, start it in the background: `npm run dev`, then poll
 Each command prints `ok <cmd> → result` or `ERR <cmd>: …`. Screenshots go to
 `/tmp/einsatz-shots/NN-<name>.png` (`SHOTS_DIR` overrides this; `BASE_URL`
 defaults to `http://localhost:3000`). Always open the PNGs and check them.
+`TOUCH=1 node --env-file=.env …driver.mjs` starts a phone context instead
+(390×844, touch events, mobile behaviour); the touch commands need it.
 Everything below writes to the dev DB, so delete any Einsatz you create.
 
 ### Step by step: `--serve` plus a blocking `curl`
@@ -119,6 +121,13 @@ timeout 300 node --env-file=.env .claude/skills/run-einsatz/driver.mjs < "${TMPD
 | `nav <path>` | goes to the path, relative to `BASE_URL` |
 | `click <sel>` / `wait-for <sel>` | acts on or waits for the first match (30 s timeout) |
 | `fill <sel> <text>` | fills an input. Quote the selector as `'…'` if it contains spaces |
+| `click-xy <x> <y>` | clicks at viewport coordinates, e.g. on the map |
+| `box <sel>` | prints the first match's bounding box as JSON `{x, y, width, height, cx, cy}`, to find coordinates for the `-xy`/drag commands |
+| `mouse-drag <x1> <y1> <x2> <y2>` | drags with the left button held, in 15 steps |
+| `mouse-down <x> <y>` / `mouse-move <x> <y>` / `mouse-up` | the same drag split up, so you can `ss` while the button is held |
+| `tap <sel>` / `tap-xy <x> <y>` | taps an element or a point. Needs `TOUCH=1` |
+| `touch-drag <x1> <y1> <x2> <y2>` | drags one finger. Needs `TOUCH=1` |
+| `pinch <cx> <cy> <from> <to>` | two fingers around `cx,cy` move from `from` to `to` px apart (`to > from` zooms in). Needs `TOUCH=1` |
 | `upload <sel> <path>` | sets the file on an `<input type=file>`, e.g. `upload 'label=Bild-Overlay einbinden' /abs/plan.png` (panel "Ebenen") |
 | `press <key>` | presses a key, e.g. `press Control+Enter` (submits the ETB draft) |
 | `wait-url <glob>` | waits for navigation |

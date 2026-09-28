@@ -14,12 +14,40 @@ const SHOTS = process.env.SHOTS_DIR ?? "/tmp/einsatz-shots";
 const PORT = Number(process.env.DRIVER_PORT ?? 9223);
 mkdirSync(SHOTS, { recursive: true });
 
+// TOUCH=1 starts a phone context (390×844, touch events, mobile UA
+// behaviour) for the tap/touch-drag/pinch commands.
+const TOUCH = Boolean(process.env.TOUCH);
+
 const browser = await chromium.launch({ args: ["--no-sandbox"] });
 const context = await browser.newContext({
-  viewport: { width: 1280, height: 800 },
+  viewport: TOUCH ? { width: 390, height: 844 } : { width: 1280, height: 800 },
   locale: "de-DE",
+  hasTouch: TOUCH,
+  isMobile: TOUCH,
 });
 const page = await context.newPage();
+const cdp = TOUCH ? await context.newCDPSession(page) : null;
+const touch = (type, points) =>
+  cdp.send("Input.dispatchTouchEvent", {
+    type,
+    touchPoints: points.map(([x, y], id) => ({ x, y, id })),
+  });
+// Moves each finger from its start to its end point in `steps` steps.
+async function gesture(starts, ends, steps = 15) {
+  const at = (t) =>
+    starts.map(([x, y], i) => [
+      x + (ends[i][0] - x) * t,
+      y + (ends[i][1] - y) * t,
+    ]);
+  await touch("touchStart", starts);
+  for (let s = 1; s <= steps; s++) {
+    await touch("touchMove", at(s / steps));
+    await page.waitForTimeout(16);
+  }
+  await touch("touchEnd", []);
+  await page.waitForTimeout(400);
+}
+const nums = (rest) => rest.trim().split(/\s+/).map(Number);
 const errors = [];
 const watch = (p) => {
   p.on("console", (m) => m.type() === "error" && errors.push(m.text()));
@@ -64,6 +92,64 @@ const commands = {
   },
   async click(sel) {
     await loc(sel).click();
+  },
+  async tap(sel) {
+    await loc(sel).tap();
+  },
+  // Screen coordinates, e.g. on the map; `box` finds them.
+  async "tap-xy"(rest) {
+    const [x, y] = nums(rest);
+    await page.touchscreen.tap(x, y);
+  },
+  async "click-xy"(rest) {
+    const [x, y] = nums(rest);
+    await page.mouse.click(x, y);
+  },
+  async "touch-drag"(rest) {
+    const [x1, y1, x2, y2] = nums(rest);
+    await gesture([[x1, y1]], [[x2, y2]]);
+  },
+  // pinch <cx> <cy> <from> <to>: two fingers, horizontal distance from→to
+  // (to > from zooms in).
+  async pinch(rest) {
+    const [cx, cy, from, to] = nums(rest);
+    await gesture(
+      [
+        [cx - from / 2, cy],
+        [cx + from / 2, cy],
+      ],
+      [
+        [cx - to / 2, cy],
+        [cx + to / 2, cy],
+      ],
+    );
+  },
+  async "mouse-drag"(rest) {
+    const [x1, y1, x2, y2] = nums(rest);
+    await page.mouse.move(x1, y1);
+    await page.mouse.down();
+    await page.mouse.move(x2, y2, { steps: 15 });
+    await page.mouse.up();
+  },
+  // Split mouse drag, to look at the page while the button is held.
+  async "mouse-down"(rest) {
+    const [x, y] = nums(rest);
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+  },
+  async "mouse-move"(rest) {
+    const [x, y] = nums(rest);
+    await page.mouse.move(x, y, { steps: 15 });
+  },
+  async "mouse-up"() {
+    await page.mouse.up();
+  },
+  // Bounding box of the first match: {x, y, width, height, cx, cy}.
+  async box(sel) {
+    const b = await loc(sel).boundingBox();
+    return JSON.stringify(
+      b && { ...b, cx: b.x + b.width / 2, cy: b.y + b.height / 2 },
+    );
   },
   async fill(rest) {
     const [sel, value] = splitSel(rest);
