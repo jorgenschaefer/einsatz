@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  formatStrength,
   formatStrengthReportText,
   formatTotalStrengthText,
   isReportStale,
   isTotalStale,
   latestValidReport,
   type StrengthValues,
+  stationHistory,
   sumOf,
   totalOf,
   totalPersonsOf,
@@ -35,6 +37,14 @@ describe("sumOf / totalPersonsOf", () => {
     });
     expect(sumOf(zero)).toBe(0);
     expect(totalPersonsOf(zero)).toBe(0);
+  });
+});
+
+describe("formatStrength", () => {
+  it("writes Führer/Unterführer/Helfer//Σ", () => {
+    expect(formatStrength(values({ leaders: 1, helpers: 12 }))).toBe(
+      "1/1/12//14",
+    );
   });
 });
 
@@ -86,6 +96,47 @@ describe("latestValidReport", () => {
 
   it("is undefined when every report is annulled", () => {
     expect(latestValidReport([report(3, "annulliert")])).toBeUndefined();
+  });
+});
+
+describe("stationHistory", () => {
+  const report = (number: number, state: "gueltig" | "annulliert") => ({
+    number,
+    state,
+  });
+
+  it("is empty without reports", () => {
+    expect(stationHistory([])).toEqual([]);
+  });
+
+  it("lists the valid reports newest first by ETB number, whatever the order", () => {
+    expect(
+      stationHistory([
+        report(3, "gueltig"),
+        report(12, "gueltig"),
+        report(7, "gueltig"),
+      ]),
+    ).toEqual([
+      report(12, "gueltig"),
+      report(7, "gueltig"),
+      report(3, "gueltig"),
+    ]);
+  });
+
+  it("leaves out annulled reports", () => {
+    expect(
+      stationHistory([
+        report(3, "gueltig"),
+        report(7, "annulliert"),
+        report(9, "gueltig"),
+      ]),
+    ).toEqual([report(9, "gueltig"), report(3, "gueltig")]);
+  });
+
+  it("does not reorder the reports it was given", () => {
+    const reports = [report(3, "gueltig"), report(7, "gueltig")];
+    stationHistory(reports);
+    expect(reports).toEqual([report(3, "gueltig"), report(7, "gueltig")]);
   });
 });
 

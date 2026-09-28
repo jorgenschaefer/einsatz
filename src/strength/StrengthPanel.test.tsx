@@ -761,4 +761,75 @@ describe("StrengthPanel", () => {
       expect(field("Helfer")).toHaveValue("6");
     });
   });
+
+  describe("the Verlauf of a Stelle", () => {
+    async function openHistory(reports: StrengthReportView[]) {
+      setup({ stations: [{ id: "s1", name: "UHSt 3", reports }] });
+      await userEvent.click(within(card("UHSt 3")).getByText("UHSt 3"));
+    }
+
+    const historyRows = () =>
+      within(screen.getByRole("table", { name: "Verlauf UHSt 3" }))
+        .getAllByRole("row")
+        .map((row) =>
+          Array.from(row.querySelectorAll("th, td")).map((c) => c.textContent),
+        );
+
+    it("lists every valid report newest first, with time, all values and note", async () => {
+      await openHistory([
+        report({
+          number: 3,
+          reportedAt: "2026-09-26T06:02:00.000Z",
+          leaders: 1,
+          subLeaders: 1,
+          helpers: 6,
+          additionalPersonnel: 2,
+          note: null,
+        }),
+        report({
+          number: 17,
+          reportedAt: "2026-09-26T08:10:00.000Z",
+          leaders: 1,
+          subLeaders: 1,
+          helpers: 5,
+          additionalPersonnel: 3,
+          note: "Streife unterwegs",
+        }),
+        report({
+          number: 9,
+          reportedAt: "2026-09-26T07:04:00.000Z",
+          leaders: 1,
+          subLeaders: 1,
+          helpers: 5,
+          additionalPersonnel: 2,
+          note: "Übergabe",
+        }),
+      ]);
+
+      expect(historyRows()).toEqual([
+        ["Zeit", "F/UF/H//Σ", "+", "Pers.", "Notiz"],
+        ["10:10", "1/1/5//7", "3", "10", "Streife unterwegs"],
+        ["09:04", "1/1/5//7", "2", "9", "Übergabe"],
+        ["08:02", "1/1/6//8", "2", "10", ""],
+      ]);
+    });
+
+    it("leaves out annulled reports", async () => {
+      await openHistory([
+        report({ number: 3, helpers: 4 }),
+        report({ number: 7, helpers: 9, state: "annulliert" }),
+      ]);
+
+      expect(historyRows()).toEqual([
+        ["Zeit", "F/UF/H//Σ", "+", "Pers.", "Notiz"],
+        ["11:01", "0/1/4//5", "2", "7", "2 einsatzbereite Streifen"],
+      ]);
+    });
+
+    it("is not shown without a valid report", async () => {
+      await openHistory([report({ state: "annulliert" })]);
+
+      expect(screen.queryByRole("table")).toBeNull();
+    });
+  });
 });

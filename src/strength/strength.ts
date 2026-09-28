@@ -19,28 +19,36 @@ export function totalPersonsOf(values: StrengthCounts): number {
   return sumOf(values) + values.additionalPersonnel;
 }
 
+/** Die Stärke-Schreibweise F/UF/H//Σ, z. B. „0/1/6//7". */
+export function formatStrength(counts: StrengthCounts): string {
+  return `${counts.leaders}/${counts.subLeaders}/${counts.helpers}//${sumOf(counts)}`;
+}
+
 export function formatStrengthReportText(
   stationName: string,
   values: StrengthValues,
 ): string {
-  const { leaders, subLeaders, helpers, additionalPersonnel } = values;
   const text =
-    `Stärkemeldung ${stationName}: ${leaders}/${subLeaders}/${helpers}//${sumOf(values)}, ` +
-    `+${additionalPersonnel} zusätzlich, ${totalPersonsOf(values)} Personen`;
+    `Stärkemeldung ${stationName}: ${formatStrength(values)}, ` +
+    `+${values.additionalPersonnel} zusätzlich, ${totalPersonsOf(values)} Personen`;
   const note = values.note?.trim();
   return note ? `${text} – ${note}` : text;
 }
 
-/** Die gültige Meldung mit der höchsten ETB-Nummer. */
-export function latestValidReport<
-  R extends { number: number; state: "gueltig" | "annulliert" },
->(reports: R[]): R | undefined {
-  let latest: R | undefined;
-  for (const report of reports) {
-    if (report.state !== "gueltig") continue;
-    if (!latest || report.number > latest.number) latest = report;
-  }
-  return latest;
+type NumberedReport = { number: number; state: "gueltig" | "annulliert" };
+
+/** Die gültige Meldung mit der höchsten ETB-Nummer: die neueste im Verlauf. */
+export function latestValidReport<R extends NumberedReport>(
+  reports: R[],
+): R | undefined {
+  return stationHistory(reports)[0];
+}
+
+/** Verlauf einer Stelle: ihre gültigen Meldungen, neueste zuerst. */
+export function stationHistory<R extends NumberedReport>(reports: R[]): R[] {
+  return reports
+    .filter((report) => report.state === "gueltig")
+    .sort((a, b) => b.number - a.number);
 }
 
 /** Eine Meldung mit der Zeit, dem Zustand und der Nummer ihres ETB-Eintrags. */
@@ -107,15 +115,14 @@ const isOlderThanLimit = (reportedAt: Date | string, now: number) =>
   now - new Date(reportedAt).getTime() > REPORT_STALE_AFTER_MS;
 
 export function formatTotalStrengthText(total: Total): string {
-  const { leaders, subLeaders, helpers, additionalPersonnel } = total;
   const stations =
     total.stationCount === 1 ? "1 Stelle" : `${total.stationCount} Stellen`;
   const oldest = total.oldestReportedAt
     ? `, älteste Meldung ${berlinTimeOfDay(total.oldestReportedAt)}`
     : "";
   return (
-    `Gesamtstärke gemeldet: ${leaders}/${subLeaders}/${helpers}//${sumOf(total)}, ` +
-    `+${additionalPersonnel} zusätzlich, ${totalPersonsOf(total)} Personen (${stations}${oldest})`
+    `Gesamtstärke gemeldet: ${formatStrength(total)}, ` +
+    `+${total.additionalPersonnel} zusätzlich, ${totalPersonsOf(total)} Personen (${stations}${oldest})`
   );
 }
 

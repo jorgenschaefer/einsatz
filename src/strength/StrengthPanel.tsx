@@ -8,6 +8,7 @@ import {
   Paper,
   SimpleGrid,
   Stack,
+  Table,
   Text,
   TextInput,
   Title,
@@ -18,11 +19,13 @@ import { type Dispatch, type SetStateAction, useId, useState } from "react";
 import type { ActionResult } from "@/app/operations/[id]/action-result";
 import {
   berlinTimeOfDay,
+  formatStrength,
   isReportStale,
   isTotalStale,
   latestValidReport,
   type StrengthCounts,
   type StrengthValues,
+  stationHistory,
   sumOf,
   totalOf,
   totalPersonsOf,
@@ -111,16 +114,20 @@ export function StrengthPanel({
       )}
 
       {selectedStation ? (
-        <ReportForm
-          station={selectedStation}
-          onReport={(values) =>
-            save(
-              () => onRecordStrengthReport(selectedStation.id, values),
-              () => closeIfStillOpen(setSelectedStationId, selectedStation.id),
-            )
-          }
-          onBack={closeForms}
-        />
+        <>
+          <ReportForm
+            station={selectedStation}
+            onReport={(values) =>
+              save(
+                () => onRecordStrengthReport(selectedStation.id, values),
+                () =>
+                  closeIfStillOpen(setSelectedStationId, selectedStation.id),
+              )
+            }
+            onBack={closeForms}
+          />
+          <StationHistory station={selectedStation} />
+        </>
       ) : (
         <>
           {stations.length > 0 && (
@@ -289,7 +296,7 @@ function Counts({ counts }: { counts: StrengthCounts }) {
   return (
     <Group gap="xs" align="baseline">
       <Text fw={700} size="lg">
-        {`${counts.leaders}/${counts.subLeaders}/${counts.helpers}//${sumOf(counts)}`}
+        {formatStrength(counts)}
       </Text>
       <Text size="sm" c="dimmed">
         {`+${counts.additionalPersonnel} zusätzlich`}
@@ -473,6 +480,42 @@ const valuesOf = (report: StrengthValues): StrengthValues => ({
   additionalPersonnel: report.additionalPersonnel,
   note: report.note,
 });
+
+function StationHistory({ station }: { station: StationView }) {
+  const history = stationHistory(station.reports);
+  const titleId = useId();
+  if (history.length === 0) return null;
+
+  return (
+    <Stack gap="xs">
+      <Title id={titleId} order={4} size="h6">
+        {`Verlauf ${station.name}`}
+      </Title>
+      <Table aria-labelledby={titleId} fz="sm" horizontalSpacing={4}>
+        <Table.Thead>
+          <Table.Tr>
+            <Table.Th>Zeit</Table.Th>
+            <Table.Th>{"F/UF/H//Σ"}</Table.Th>
+            <Table.Th>+</Table.Th>
+            <Table.Th>Pers.</Table.Th>
+            <Table.Th>Notiz</Table.Th>
+          </Table.Tr>
+        </Table.Thead>
+        <Table.Tbody>
+          {history.map((report) => (
+            <Table.Tr key={report.number}>
+              <Table.Td>{berlinTimeOfDay(report.reportedAt)}</Table.Td>
+              <Table.Td>{formatStrength(report)}</Table.Td>
+              <Table.Td>{report.additionalPersonnel}</Table.Td>
+              <Table.Td>{totalPersonsOf(report)}</Table.Td>
+              <Table.Td>{report.note}</Table.Td>
+            </Table.Tr>
+          ))}
+        </Table.Tbody>
+      </Table>
+    </Stack>
+  );
+}
 
 function Computed({ label, value }: { label: string; value: number }) {
   const id = useId();
