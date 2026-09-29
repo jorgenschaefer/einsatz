@@ -58,7 +58,9 @@ const berlinTime = (iso: string) =>
   }).format(new Date(iso));
 
 const isAutomatic = (entry: JournalEntryView) =>
-  entry.type === "einsatz-eröffnet" || entry.type === "einsatz-geschlossen";
+  entry.type === "einsatz-eröffnet" ||
+  entry.type === "einsatz-geschlossen" ||
+  entry.type === "stelle-angelegt";
 
 export function JournalPanel({
   entries,

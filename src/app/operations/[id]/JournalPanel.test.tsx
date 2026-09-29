@@ -73,8 +73,26 @@ describe("JournalPanel", () => {
     ).toBeNull();
   });
 
+  it("shows a stelle-angelegt entry as automatic, unchangeable and hidden with the automatic ones", async () => {
+    const text = "Stelle angelegt: UHSt 3";
+    setup({
+      entries: [
+        entry({ id: "s", number: 1, type: "stelle-angelegt", text }),
+        entry({ id: "m", number: 2 }),
+      ],
+    });
+    const item = screen.getByText(text).closest("[data-entry]") as HTMLElement;
+
+    expect(within(item).getByText(/automatisch/i)).toBeInTheDocument();
+    expect(
+      within(item).queryByRole("button", { name: /Aktionen für Eintrag/ }),
+    ).toBeNull();
+    await userEvent.click(screen.getByLabelText(/automatische ausblenden/i));
+    expect(screen.queryByText(text)).toBeNull();
+    expect(screen.getByText("Deich hält")).toBeInTheDocument();
+  });
+
   it.each([
-    ["stelle-angelegt", "Stelle angelegt: UHSt 3"],
     ["stelle-umbenannt", "Stelle umbenannt: UHSt 3 → UHSt 3 Nord"],
     [
       "stärkemeldung",
