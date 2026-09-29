@@ -3,7 +3,7 @@
   "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
   "files": {
     "ignoreUnknown": false,
-    "includes": ["**", "!public", "!intents", "!**/*.svg"]
+    "includes": ["**", "!public", "!changes", "!**/*.svg"]
   },
   "formatter": { "enabled": true, "indentStyle": "space" },
   "linter": {
