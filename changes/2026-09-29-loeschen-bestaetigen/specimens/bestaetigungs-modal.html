@@ -1,0 +1,108 @@
+<title>Löschen bestätigen</title>
+<style>
+/* Layout: drei Handy-Rahmen nebeneinander (umbrechend), je eine Variante, klickbar. Mantine-nahe Optik wie in der App. */
+:root {
+  --bg: #f4f5f7; --surface: #ffffff; --fg: #1f2328; --dim: #667085;
+  --border: #d6d9de; --primary: #228be6; --red: #e03131; --red-light: #fdecec;
+  --overlay: rgba(20, 24, 31, .45); --map: #dfe7d8; --toast: #25262b; --toast-fg: #f1f3f5;
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #141517; --surface: #25262b; --fg: #e9ecef; --dim: #9aa0a6; --border: #3a3b40;
+  --primary: #4dabf7; --red: #ff6b6b; --red-light: #3b2224; --overlay: rgba(0,0,0,.6);
+  --map: #2c3528; --toast: #e9ecef; --toast-fg: #1f2328; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #141517; --surface: #25262b; --fg: #e9ecef; --dim: #9aa0a6; --border: #3a3b40;
+  --primary: #4dabf7; --red: #ff6b6b; --red-light: #3b2224; --overlay: rgba(0,0,0,.6);
+  --map: #2c3528; --toast: #e9ecef; --toast-fg: #1f2328; color-scheme: dark }
+body { background: var(--bg); color: var(--fg); font-family: var(--font); }
+main { padding-inline: 16px; padding-block: 24px 40px; max-width: 1200px; margin: 0 auto; display: grid; gap: 24px; }
+h1 { font-size: 1.5rem; margin: 0; text-wrap: balance; }
+.lead { color: var(--dim); max-width: 65ch; margin: 0; line-height: 1.5; }
+.variants { display: flex; flex-wrap: wrap; gap: 24px; }
+.variant { flex: 1 1 320px; min-width: 0; display: grid; gap: 10px; align-content: start; }
+.variant h2 { font-size: 1.05rem; margin: 0; }
+.variant p { margin: 0; color: var(--dim); line-height: 1.45; font-size: .92rem; }
+.phone { position: relative; width: 100%; max-width: 360px; height: 560px; border: 1px solid var(--border);
+  border-radius: 22px; overflow: hidden; background: var(--map); }
+.phone .map-label { position: absolute; top: 12px; left: 12px; font-size: 12px; color: var(--dim); }
+.overlay { position: absolute; inset: 0; background: var(--overlay); display: flex; align-items: flex-start; justify-content: center; padding: 48px 12px 0; }
+.modal { background: var(--surface); border-radius: 8px; width: 100%; padding: 16px; display: grid; gap: 12px; box-shadow: 0 8px 24px rgba(0,0,0,.25); }
+.modal h3 { margin: 0; font-size: 1rem; }
+.field { display: grid; gap: 4px; font-size: 13px; }
+.input { border: 1px solid var(--border); border-radius: 4px; padding: 6px 8px; background: var(--surface); color: var(--fg); }
+.row { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+button { font: inherit; font-size: 14px; border-radius: 4px; padding: 7px 14px; cursor: pointer; border: 1px solid transparent; }
+button:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.btn-primary { background: var(--primary); color: #fff; }
+.btn-default { background: var(--surface); color: var(--fg); border-color: var(--border); }
+.btn-red { background: var(--red); color: #fff; }
+.btn-red-light { background: var(--red-light); color: var(--red); }
+.full { width: 100%; }
+.stack-top { z-index: 2; }
+.toast { position: absolute; left: 12px; right: 12px; bottom: 16px; background: var(--toast); color: var(--toast-fg);
+  border-radius: 8px; padding: 10px 12px; display: flex; align-items: center; gap: 10px; font-size: 14px; }
+.toast span { flex: 1; min-width: 0; }
+.toast button { background: transparent; color: var(--primary); padding: 4px 6px; font-weight: 600; }
+.bar { position: absolute; left: 0; bottom: 0; height: 3px; background: var(--primary); animation: shrink 6s linear forwards; }
+@keyframes shrink { from { width: 100%; } to { width: 0; } }
+@media (prefers-reduced-motion: reduce) { .bar { animation: none; width: 100%; } }
+.state { font-size: 12px; color: var(--dim); }
+.marker { position: absolute; top: 240px; left: 160px; width: 34px; height: 22px; border: 2px solid var(--red); background: var(--surface); font-size: 10px; display: grid; place-items: center; color: var(--red); font-weight: 700; }
+.reset { justify-self: start; }
+</style>
+
+<main>
+  <h1>Löschen bestätigen</h1>
+  <p class="lead">Ein Kartenzeichen löschen, am Handy, aus dem Kartenzeichen-Dialog heraus. Vereinbarte Variante A, klickbar. „Zurücksetzen“ stellt den Anfang wieder her.</p>
+
+  <div class="variants">
+    <section class="variant" data-v="a">
+      <h2>A · Bestätigungs-Modal</h2>
+      <p>„Löschen“ öffnet einen zweiten Dialog über dem ersten. Erst „Endgültig löschen“ wirkt. Ein Fehler erscheint im Dialog.</p>
+      <div class="phone"></div>
+      <button class="btn-default reset">Zurücksetzen</button>
+    </section>
+  </div>
+</main>
+
+<script>
+const detail = (deleteBtn) => `
+  <div class="overlay"><div class="modal" role="dialog" aria-label="Kartenzeichen">
+    <h3>Kartenzeichen</h3>
+    <label class="field">Name<input class="input" id="n-${Math.random().toString(36).slice(2)}" value="RTW 1/83-1"></label>
+    <button class="btn-primary full">Speichern</button>
+    ${deleteBtn}
+    <button class="btn-default full">Gerätelink neu generieren</button>
+  </div></div>`;
+
+const empty = (msg) => `<div class="map-label">Lagekarte</div><div class="state" style="position:absolute;top:32px;left:12px">${msg}</div>`;
+const withMarker = `<div class="map-label">Lagekarte</div><div class="marker">RTW</div>`;
+
+const variants = {
+  a(phone) {
+    phone.innerHTML = withMarker + detail(`<button class="btn-red-light full" data-act="ask">Löschen</button>`);
+    phone.onclick = (e) => {
+      const act = e.target.dataset.act;
+      if (act === "ask") {
+        phone.insertAdjacentHTML("beforeend", `<div class="overlay stack-top"><div class="modal" role="dialog" aria-label="Kartenzeichen löschen">
+          <h3>Kartenzeichen „RTW 1/83-1“ löschen</h3>
+          <p style="margin:0;line-height:1.45">Das Kartenzeichen verschwindet von der Lagekarte. Das lässt sich nicht rückgängig machen.</p>
+          <div class="row"><button class="btn-default" data-act="cancel">Abbrechen</button><button class="btn-red" data-act="del">Endgültig löschen</button></div>
+        </div></div>`);
+      } else if (act === "cancel") {
+        phone.lastElementChild.remove();
+      } else if (act === "del") {
+        phone.innerHTML = empty("Kartenzeichen gelöscht, Dialoge geschlossen.");
+      }
+    };
+  },
+};
+
+document.querySelectorAll(".variant").forEach((section) => {
+  const phone = section.querySelector(".phone");
+  const start = () => variants[section.dataset.v](phone);
+  section.querySelector(".reset").onclick = start;
+  start();
+});
+</script>
