@@ -763,6 +763,53 @@ describe("SituationWorkspace", () => {
     });
   });
 
+  describe("the cursor in the ETB on the desktop", () => {
+    beforeEach(() => {
+      stubMatchMedia(true);
+    });
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    const selectInSidebar = (name: "Lagekarte" | "ETB" | "Stärke") =>
+      userEvent.click(within(screen.getByRole("main")).getByText(name));
+
+    it("puts the cursor into Neuer Eintrag when ETB is chosen from the Lagekarte", async () => {
+      renderWorkspace();
+      await selectInSidebar("Lagekarte");
+      await selectInSidebar("ETB");
+      expect(screen.getByLabelText("Neuer Eintrag")).toHaveFocus();
+    });
+
+    it("puts the cursor into Neuer Eintrag when ETB is chosen from the Stärke", async () => {
+      renderWorkspace();
+      await selectInSidebar("Stärke");
+      await selectInSidebar("ETB");
+      expect(screen.getByLabelText("Neuer Eintrag")).toHaveFocus();
+    });
+
+    it("puts the cursor back into Neuer Eintrag when ETB is chosen while the ETB is shown", async () => {
+      renderWorkspace();
+      await selectInSidebar("ETB");
+      act(() => screen.getByLabelText("Neuer Eintrag").blur());
+
+      await selectInSidebar("ETB");
+      expect(screen.getByLabelText("Neuer Eintrag")).toHaveFocus();
+    });
+  });
+
+  it("leaves the cursor where it is when ETB is chosen on a phone", async () => {
+    stubMatchMedia(false);
+    try {
+      renderWorkspace();
+      await selectMainView("Lagekarte");
+      await selectMainView("ETB");
+      expect(screen.getByLabelText("Neuer Eintrag")).not.toHaveFocus();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   describe("working beside the Lagekarte on the desktop", () => {
     beforeEach(() => {
       stubMatchMedia(true);

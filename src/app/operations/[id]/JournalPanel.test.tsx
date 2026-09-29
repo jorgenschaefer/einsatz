@@ -1,6 +1,7 @@
 import { MantineProvider } from "@mantine/core";
 import { render as rtlRender } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { createRef } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@/test/render";
 import {
@@ -506,5 +507,25 @@ describe("JournalPanel", () => {
     await userEvent.click(screen.getByLabelText(/automatische ausblenden/i));
     expect(screen.queryByText("Einsatz eröffnet")).toBeNull();
     expect(screen.getByText("Deich hält")).toBeInTheDocument();
+  });
+
+  it("hands out the Neuer Eintrag field through newEntryRef", () => {
+    const newEntryRef = createRef<HTMLTextAreaElement>();
+    setup({ newEntryRef });
+    expect(newEntryRef.current).toBe(screen.getByLabelText("Neuer Eintrag"));
+  });
+
+  // Am Desktop scrollt nur die Liste; das Feld steht fest darunter
+  // (situation-workspace.css).
+  it("keeps Neuer Eintrag and its button outside the scrolling list", () => {
+    setup();
+    const list = screen
+      .getByText("Deich hält")
+      .closest(".journal-entries") as HTMLElement | null;
+    expect(list).not.toBeNull();
+    expect(list).not.toContainElement(screen.getByLabelText("Neuer Eintrag"));
+    expect(list).not.toContainElement(
+      screen.getByRole("button", { name: "Eintrag hinzufügen" }),
+    );
   });
 });

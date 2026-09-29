@@ -243,6 +243,8 @@ export function SituationWorkspace({
   const mapRef = useRef<SituationMapHandle>(null);
   const [mainView, setMainView] = useState<MainView>("etb");
   const isDesktop = useIsDesktop();
+  const newEntryRef = useRef<HTMLTextAreaElement>(null);
+  const [newEntryFocusRequests, setNewEntryFocusRequests] = useState(0);
   const latestEntryNumber = Math.max(
     0,
     ...journalEntries.map((entry) => entry.number),
@@ -559,6 +561,16 @@ export function SituationWorkspace({
     if (view === "etb" || mainView === "etb") setSeenUpTo(latestEntryNumber);
     endMode();
   };
+  // Am Desktop setzt jeder Klick auf „ETB" den Cursor ins Eingabefeld, auch
+  // wenn das ETB schon gezeigt wird. Der Effekt fokussiert erst nach dem
+  // Rendern, wenn das Feld sichtbar ist.
+  const selectMainView = (view: MainView) => {
+    switchMainView(view);
+    if (view === "etb" && isDesktop) setNewEntryFocusRequests((n) => n + 1);
+  };
+  useEffect(() => {
+    if (newEntryFocusRequests > 0) newEntryRef.current?.focus();
+  }, [newEntryFocusRequests]);
   const saveImagePlacement = (id: string, placement: ImagePlacement) =>
     persistImage(() => onUpdateImagePlacement(id, placement));
   const changeImageOpacity = (opacity: number) => {
@@ -589,7 +601,7 @@ export function SituationWorkspace({
   const mainViewBar = (
     <MainViewBar
       activeView={mainView}
-      onSelect={switchMainView}
+      onSelect={selectMainView}
       newEtbEntries={newEtbEntries}
     />
   );
@@ -883,7 +895,6 @@ export function SituationWorkspace({
           style={{
             flex: 1,
             minHeight: 0,
-            overflow: "auto",
             display: mainView === "etb" ? undefined : "none",
           }}
           py="sm"
@@ -893,6 +904,7 @@ export function SituationWorkspace({
             onAdd={onAddJournalEntry}
             onCorrect={onCorrectJournalEntry}
             onAnnul={onAnnulJournalEntry}
+            newEntryRef={newEntryRef}
           />
         </Box>
 

@@ -40,6 +40,12 @@
   padding-inline: 16px;
 }
 
+/* Am Handy scrollt das ETB als Ganzes; am Desktop nur die Liste, das Feld für
+   einen neuen Eintrag steht fest darunter. */
+.etb-pane {
+  overflow: auto;
+}
+
 /* Lagekarte mit Kartenpanel. Am Handy liegt das Panel als Blatt über der
    unteren Hälfte der Karte (nicht ziehbar, der Inhalt scrollt); am Desktop steht
    es in der Seitenleiste. Ein Container für beide Formen, damit der Inhalt beim
@@ -114,6 +120,29 @@
     min-height: 0;
     border-top: none;
     box-shadow: none;
+  }
+
+  /* Nur die Liste scrollt, das Feld für einen neuen Eintrag steht fest
+     darunter. Die Klassen setzt JournalPanel. */
+  .etb-pane {
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .journal-panel {
+    flex: 1;
+    min-height: 0;
+  }
+
+  .journal-entries {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+  }
+
+  .journal-new-entry {
+    flex: none;
   }
 }
 

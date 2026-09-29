@@ -15,7 +15,7 @@ import {
   Textarea,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { useState } from "react";
+import { type Ref, useState } from "react";
 import type {
   JournalEntryState,
   JournalEntryType,
@@ -47,6 +47,7 @@ export interface JournalPanelProps {
   onAdd: (text: string) => Promise<ActionResult>;
   onCorrect: (id: string, text: string) => Promise<ActionResult>;
   onAnnul: (id: string) => Promise<ActionResult>;
+  newEntryRef?: Ref<HTMLTextAreaElement>;
 }
 
 const berlinTime = (iso: string) =>
@@ -64,6 +65,7 @@ export function JournalPanel({
   onAdd,
   onCorrect,
   onAnnul,
+  newEntryRef,
 }: JournalPanelProps) {
   const [hideAuto, setHideAuto] = useState(false);
   const [draft, setDraft] = useState("");
@@ -139,9 +141,11 @@ export function JournalPanel({
     }
   };
 
+  // Die journal-*-Klassen tragen das Desktop-Layout der Seitenleiste
+  // (situation-workspace.css): nur die Liste scrollt, das Feld steht fest.
   return (
     // Lange Wörter umbrechen statt waagerecht zu scrollen (360 px).
-    <Stack style={{ overflowWrap: "break-word" }}>
+    <Stack className="journal-panel" style={{ overflowWrap: "break-word" }}>
       {error && (
         <Alert
           color="red"
@@ -158,7 +162,7 @@ export function JournalPanel({
         onChange={(e) => setHideAuto(e.currentTarget.checked)}
       />
 
-      <Stack gap="sm">
+      <Stack gap="sm" className="journal-entries">
         {visible.map((entry) => {
           const isAuto = isAutomatic(entry);
           const isValid = entry.state === "gueltig";
@@ -270,8 +274,9 @@ export function JournalPanel({
         })}
       </Stack>
 
-      <Stack gap="xs">
+      <Stack gap="xs" className="journal-new-entry">
         <Textarea
+          ref={newEntryRef}
           aria-label="Neuer Eintrag"
           value={draft}
           onChange={(e) => setDraft(e.currentTarget.value)}
