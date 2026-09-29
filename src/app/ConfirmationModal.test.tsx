@@ -1,4 +1,6 @@
+import { Button, Modal } from "@mantine/core";
 import userEvent from "@testing-library/user-event";
+import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import type { ActionResult } from "@/app/operations/[id]/action-result";
 import { buttonColor } from "@/test/button-color";
@@ -144,6 +146,62 @@ describe("ConfirmationModal", () => {
       });
 
       expect(onConfirm).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("on top of another dialog in a Modal.Stack", () => {
+    function Stacked({
+      onCloseBelow,
+      onClose,
+    }: {
+      onCloseBelow: () => void;
+      onClose: () => void;
+    }) {
+      const [asking, setAsking] = useState(false);
+      return (
+        <Modal.Stack>
+          <Modal
+            stackId="unten"
+            opened
+            onClose={onCloseBelow}
+            title="Kartenzeichen"
+          >
+            <Button onClick={() => setAsking(true)}>Löschen</Button>
+            <ConfirmationModal
+              stackId="oben"
+              opened={asking}
+              onClose={() => {
+                setAsking(false);
+                onClose();
+              }}
+              title="Kartenzeichen löschen"
+              confirmLabel="Endgültig löschen"
+              confirmColor="red"
+              onConfirm={vi.fn(async () => ({}))}
+            >
+              Das lässt sich nicht rückgängig machen.
+            </ConfirmationModal>
+          </Modal>
+        </Modal.Stack>
+      );
+    }
+
+    async function setupStacked() {
+      const onCloseBelow = vi.fn();
+      const onClose = vi.fn();
+      render(<Stacked onCloseBelow={onCloseBelow} onClose={onClose} />);
+      await userEvent.click(screen.getByRole("button", { name: "Löschen" }));
+      await screen.findByRole("dialog", { name: "Kartenzeichen löschen" });
+      return { onCloseBelow, onClose };
+    }
+
+    it("closes only itself on Escape", async () => {
+      const { onCloseBelow, onClose } = await setupStacked();
+
+      await userEvent.keyboard("{Escape}");
+
+      expect(onClose).toHaveBeenCalledTimes(1);
+      expect(onCloseBelow).not.toHaveBeenCalled();
     });
   });
 

@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:    AC-8
 advances:  AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-10
 after:     01-bestaetigungs-modal
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -85,3 +85,29 @@ Entschieden, was spätere Tickets übernehmen: `ConfirmationModal.stackId`; der 
 - Lage und Auffälligkeit der Lösch-Knöpfe: Sie bleiben, wo und wie sie sind.
 - Verhalten, wenn das Objekt anderswo gelöscht wird, während seine Rückfrage offen ist. Es wird nicht eigens gebaut oder getestet.
 - `SituationWorkspace.test.tsx` aufteilen (Punkt 10 in `REFACTORING.md`): nicht hier; die bestehenden Tests werden an Ort und Stelle geändert.
+
+## Record
+Schließt:
+- **AC-8**: `src/map/DeviceLinkPanel.test.tsx` „offers to generate a device link when there is none“ (ruft `onGenerate` sofort, kein Dialog); im Workspace unverändert `SituationWorkspace.test.tsx` „generates a device link from the Kartenzeichen detail“.
+
+Bringt voran (für Kartenzeichen löschen und Gerätelink neu generieren):
+- **AC-1, AC-6**: `SituationWorkspace.test.tsx`, Block „confirming in the Kartenzeichen detail“, je Rückfrage „keeps the detail and its unsaved input after cancelling with Abbrechen / Escape / a click beside the confirmation“ (Action nicht gerufen, Kartenzeichen-Dialog offen, geänderte „Bezeichnung“ noch da); „deletes the Kartenzeichen only once confirmed and closes both dialogs“; `DeviceLinkPanel.test.tsx` „asks for confirmation first and regenerates only once confirmed“ und „does not regenerate when cancelled / on Escape / on a click beside the confirmation“.
+- **AC-2**: „deletes the Kartenzeichen only once confirmed …“ (Titel, Text, „Endgültig löschen“ rot); `DeviceLinkPanel.test.tsx` „asks for confirmation first …“ (Titel, Text, „Neu generieren“ rot).
+- **AC-3**: je Rückfrage „keeps both dialogs open on Escape or a click beside while running“ (Workspace); `DeviceLinkPanel.test.tsx` „stays locked while regenerating“ (Abbrechen gesperrt, zweiter Tap ruft nicht erneut); `ConfirmationModal.test.tsx` „on top of another dialog in a Modal.Stack › closes only itself on Escape“ für `stackId`.
+- **AC-4**: „shows a returned error / a thrown failure in the open confirmation and keeps the Kartenzeichen“ (Workspace, Löschen); `DeviceLinkPanel.test.tsx` „shows a returned error / a thrown failure in the open confirmation“.
+- **AC-5**: „deletes the Kartenzeichen only once confirmed and closes both dialogs“; „keeps the detail open after regenerating and shows the new link“.
+- **AC-10**: im Browser mit `run-einsatz` bei 390×844 (Touch) und 1280×800 geprüft: beide Rückfragen vollständig sichtbar, beide Knöpfe im Viewport, `scrollWidth <= innerWidth` in jedem Zustand; Escape, Overlay-Klick und „Abbrechen“ schließen nur die Rückfrage, ungespeicherte Bezeichnung bleibt; „Neu generieren“ zeigt neuen Token und QR-Code im offenen Dialog; „Endgültig löschen“ schließt beide Dialoge, Marker weg.
+
+Zusätzlich aus dem Review: „does not ask again for another Kartenzeichen after the asked one vanished“ – die Lösch-Rückfrage merkt sich die id des Kartenzeichens statt eines Booleans, damit eine offene Rückfrage nicht über einem anderen Kartenzeichen wieder auftaucht, wenn ihr Kartenzeichen per Live-Aktualisierung verschwindet.
+
+Kommando: `docker compose -f docker-compose.test.yml up -d && npm run check` – 117 Dateien, 1136 Tests grün, tsc und Biome ohne Befund.
+
+### Left standing
+- Abweichung vom Plan, Schritt 1: Der Test öffnet die Rückfrage per Klick, statt beide Modals gleich offen zu rendern. Öffnen beide im selben Render, registriert Mantine das innere zuerst (Kind-Effekte laufen zuerst), und der Stapel steht verkehrt herum; in der App öffnet die Rückfrage immer später.
+- Abweichung vom Plan, Schritt 5: „Löschen“ behält `loading={detailBusy}`, damit es wie bisher sperrt, während „Speichern“ läuft.
+- Review-Nit, nicht geändert: Unter `Modal.Stack` ist der Kartenzeichen-Dialog unsichtbar, solange die Rückfrage offen ist. So im Ticket entschieden.
+- Review-Hinweis, kein Befund: Mantine nimmt ein beim Unmount noch offenes Modal nicht aus dem Stapel (nach erfolgreichem Löschen bleibt `kartenzeichen-loeschen` stehen). Das heilt sich, weil die Rückfrage beim nächsten Öffnen geschlossen mountet und den Eintrag entfernt; hängt daran, dass sie immer im Kartenzeichen-Dialog gerendert wird.
+- Nicht behoben, außerhalb des Tickets (Browser-Check): Nach „Neu generieren“ gibt es kaum Rückmeldung außer neuem Token und QR-Code; Link und QR-Code liegen im langen Dialog oft unterhalb des sichtbaren Bereichs; nach dem Schließen der Rückfrage landet der Fokus auf dem Schließen-X statt auf dem auslösenden Knopf; „Gerätelink erzeugen“ ist hellrot wie „Löschen“ (Aussehen der Knöpfe gehört nicht hierher); Löschen und Neu-Generieren schreiben keinen ETB-Eintrag.
+- „Gerätelink erzeugen“ verwirft sein Ergebnis wie bisher; eine geworfene Ausnahme dort bleibt unbehandelt (schon vorher so).
+- Nicht gemacht: `SituationWorkspace.tsx` (≈1100 Zeilen) vor dem Ändern aufteilen, wie es der Coding-Standard verlangt. Die Test-Datei aufzuteilen schließt das Ticket aus; die Quelldatei allein zu zerlegen wäre ein eigener Umbau.
+- Die Browserprüfung hat `npm run db:migrate` gegen die Dev-Datenbank laufen lassen (ohne ausstehende Änderungen sichtbar) und ein Test-Einsatz „QA-Rueckfrage“ angelegt und wieder gelöscht.

@@ -1,7 +1,9 @@
 import userEvent from "@testing-library/user-event";
 import { renderToString } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { ActionResult } from "@/app/operations/[id]/action-result";
 import type { JournalEntryView } from "@/app/operations/[id]/JournalPanel";
+import { buttonColor } from "@/test/button-color";
 import { stubMatchMedia } from "@/test/match-media";
 import {
   act,
@@ -3218,27 +3220,239 @@ describe("SituationWorkspace", () => {
     );
   });
 
-  it("deletes the selected Kartenzeichen from the detail panel", async () => {
-    const onDelete = vi.fn();
-    const { adapter } = renderWorkspace({
-      symbols: [
-        {
-          id: "s1",
-          lat: 1,
-          lng: 2,
-          composition: {
-            grundzeichen: "ortsfeste-stelle",
-            organisation: "hilfsorganisation",
-          },
-        },
-      ],
-      onDelete,
+  describe("confirming in the Kartenzeichen detail", () => {
+    const token = "secret-token-123";
+    const aSymbol = (deviceLinkToken?: string) => ({
+      id: "s1",
+      lat: 1,
+      lng: 2,
+      composition: {
+        grundzeichen: "ortsfeste-stelle" as const,
+        organisation: "hilfsorganisation" as const,
+      },
+      deviceLinkToken,
     });
-    await waitFor(() => expect(adapter.setMarker).toHaveBeenCalled());
-    const spec = adapter.setMarker.mock.calls.at(-1)![1] as MarkerSpec;
-    act(() => spec.onClick!());
 
-    await userEvent.click(await screen.findByText("Löschen"));
-    expect(onDelete).toHaveBeenCalledWith("s1");
+    async function openDetail(over: Partial<SituationWorkspaceProps> = {}) {
+      const built = buildProps({ symbols: [aSymbol(token)], ...over });
+      const { rerender } = render(<SituationWorkspace {...built.props} />);
+      await waitFor(() => expect(built.adapter.setMarker).toHaveBeenCalled());
+      const spec = built.adapter.setMarker.mock.calls.at(-1)![1] as MarkerSpec;
+      act(() => spec.onClick!());
+      await screen.findByRole("dialog", { name: "Kartenzeichen" });
+      return { ...built, rerender };
+    }
+
+    const editLabel = async () => {
+      const label = screen.getByLabelText("Bezeichnung");
+      await userEvent.clear(label);
+      await userEvent.type(label, "RK 9");
+    };
+
+    const detailDialog = () =>
+      screen.queryByRole("dialog", { name: "Kartenzeichen" });
+
+    const clickConfirmationOverlay = () => {
+      const overlay = [
+        ...document.querySelectorAll(".mantine-Modal-overlay"),
+      ].at(-1);
+      if (!overlay) throw new Error("no overlay");
+      return userEvent.click(overlay);
+    };
+
+    const hanging = () => new Promise<ActionResult>(() => {});
+
+    const cancelWays = [
+      [
+        "Abbrechen",
+        (dialog: HTMLElement) =>
+          userEvent.click(
+            within(dialog).getByRole("button", { name: "Abbrechen" }),
+          ),
+      ],
+      ["Escape", () => userEvent.keyboard("{Escape}")],
+      ["a click beside the confirmation", () => clickConfirmationOverlay()],
+    ] as const;
+
+    const confirmations = [
+      {
+        name: "deleting",
+        title: "Kartenzeichen löschen",
+        ask: () => userEvent.click(screen.getByText("Löschen")),
+        confirmLabel: "Endgültig löschen",
+        action: "onDelete",
+      },
+      {
+        name: "regenerating the device link",
+        title: "Gerätelink neu generieren",
+        ask: () =>
+          userEvent.click(
+            screen.getByRole("button", { name: "Gerätelink neu generieren" }),
+          ),
+        confirmLabel: "Neu generieren",
+        action: "onGenerateDeviceLink",
+      },
+    ] as const;
+
+    describe.each(confirmations)("when $name", (confirmation) => {
+      const ask = async () => {
+        await confirmation.ask();
+        return screen.findByRole("dialog", { name: confirmation.title });
+      };
+
+      it.each(cancelWays)(
+        "keeps the detail and its unsaved input after cancelling with %s",
+        async (_, cancel) => {
+          const action = vi.fn(async () => ({}));
+          await openDetail({ [confirmation.action]: action });
+          await editLabel();
+          const dialog = await ask();
+
+          await cancel(dialog);
+
+          await waitFor(() =>
+            expect(
+              screen.queryByRole("dialog", { name: confirmation.title }),
+            ).toBeNull(),
+          );
+          expect(action).not.toHaveBeenCalled();
+          expect(detailDialog()).toBeInTheDocument();
+          expect(screen.getByLabelText("Bezeichnung")).toHaveValue("RK 9");
+        },
+      );
+
+      it("keeps both dialogs open on Escape or a click beside while running", async () => {
+        const action = vi.fn(hanging);
+        await openDetail({ [confirmation.action]: action });
+        const dialog = await ask();
+
+        await userEvent.click(
+          within(dialog).getByRole("button", {
+            name: confirmation.confirmLabel,
+          }),
+        );
+        await userEvent.keyboard("{Escape}");
+        await clickConfirmationOverlay();
+
+        expect(
+          screen.getByRole("dialog", { name: confirmation.title }),
+        ).toBeInTheDocument();
+        expect(detailDialog()).toBeInTheDocument();
+        expect(action).toHaveBeenCalledTimes(1);
+      });
+    });
+
+    it("deletes the Kartenzeichen only once confirmed and closes both dialogs", async () => {
+      const onDelete = vi.fn(async () => ({}));
+      await openDetail({ onDelete });
+
+      await userEvent.click(screen.getByText("Löschen"));
+      const dialog = await screen.findByRole("dialog", {
+        name: "Kartenzeichen löschen",
+      });
+
+      expect(onDelete).not.toHaveBeenCalled();
+      expect(dialog).toHaveTextContent(
+        "Das Kartenzeichen verschwindet von der Lagekarte, ein Gerätelink wird ungültig. Das lässt sich nicht rückgängig machen.",
+      );
+      const confirm = within(dialog).getByRole("button", {
+        name: "Endgültig löschen",
+      });
+      expect(buttonColor(confirm)).toBe("red");
+
+      await userEvent.click(confirm);
+
+      expect(onDelete).toHaveBeenCalledWith("s1");
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    });
+
+    it.each([
+      [
+        "a returned error",
+        async () => ({ error: "Kartenzeichen gesperrt." }),
+        "Kartenzeichen gesperrt.",
+      ],
+      [
+        "a thrown failure",
+        async (): Promise<ActionResult> => {
+          throw new Error("offline");
+        },
+        "Das hat nicht geklappt. Bitte erneut versuchen.",
+      ],
+    ])(
+      "shows %s in the open confirmation and keeps the Kartenzeichen",
+      async (_, onDelete, message) => {
+        const { adapter } = await openDetail({ onDelete });
+        await userEvent.click(screen.getByText("Löschen"));
+        const dialog = await screen.findByRole("dialog", {
+          name: "Kartenzeichen löschen",
+        });
+
+        await userEvent.click(
+          within(dialog).getByRole("button", { name: "Endgültig löschen" }),
+        );
+
+        expect(within(dialog).getByRole("alert")).toHaveTextContent(message);
+        expect(detailDialog()).toBeInTheDocument();
+        expect(adapter.removeMarker).not.toHaveBeenCalled();
+        expect(
+          within(dialog).getByRole("button", { name: "Endgültig löschen" }),
+        ).toBeEnabled();
+        expect(
+          within(dialog).getByRole("button", { name: "Abbrechen" }),
+        ).toBeEnabled();
+      },
+    );
+
+    it("does not ask again for another Kartenzeichen after the asked one vanished", async () => {
+      const other = { ...aSymbol(), id: "s2", lat: 3, lng: 4 };
+      const { props, adapter, rerender } = await openDetail({
+        symbols: [other, aSymbol()],
+      });
+      await userEvent.click(screen.getByText("Löschen"));
+      await screen.findByRole("dialog", { name: "Kartenzeichen löschen" });
+
+      rerender(<SituationWorkspace {...props} symbols={[other]} />);
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+      const spec = adapter.setMarker.mock.calls.findLast(
+        ([id]) => id === "s2",
+      )![1] as MarkerSpec;
+      act(() => spec.onClick!());
+
+      await screen.findByRole("dialog", { name: "Kartenzeichen" });
+      expect(
+        screen.queryByRole("dialog", { name: "Kartenzeichen löschen" }),
+      ).toBeNull();
+    });
+
+    it("keeps the detail open after regenerating and shows the new link", async () => {
+      const { props, rerender } = await openDetail();
+      await userEvent.click(
+        screen.getByRole("button", { name: "Gerätelink neu generieren" }),
+      );
+      const dialog = await screen.findByRole("dialog", {
+        name: "Gerätelink neu generieren",
+      });
+
+      await userEvent.click(
+        within(dialog).getByRole("button", { name: "Neu generieren" }),
+      );
+
+      expect(props.onGenerateDeviceLink).toHaveBeenCalledWith("s1");
+      await waitFor(() =>
+        expect(
+          screen.queryByRole("dialog", { name: "Gerätelink neu generieren" }),
+        ).toBeNull(),
+      );
+      expect(detailDialog()).toBeInTheDocument();
+
+      rerender(
+        <SituationWorkspace {...props} symbols={[aSymbol("fresh-token")]} />,
+      );
+
+      expect(screen.getByLabelText("Gerätelink")).toHaveValue(
+        `${window.location.origin}/device/fresh-token`,
+      );
+    });
   });
 });

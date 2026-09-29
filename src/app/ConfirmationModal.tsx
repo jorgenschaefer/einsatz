@@ -19,6 +19,7 @@ export function ConfirmationModal({
   confirmLabel,
   confirmColor = "blue",
   onConfirm,
+  stackId,
   children,
 }: {
   opened: boolean;
@@ -27,6 +28,7 @@ export function ConfirmationModal({
   confirmLabel: string;
   confirmColor?: string;
   onConfirm: () => Promise<ActionResult>;
+  stackId?: string;
   children: ReactNode;
 }) {
   const [pending, setPending] = useState(false);
@@ -54,6 +56,7 @@ export function ConfirmationModal({
 
   return (
     <Modal
+      stackId={stackId}
       opened={opened}
       onClose={close}
       styles={{ title: { minWidth: 0, overflowWrap: "anywhere" } }}

@@ -19,6 +19,7 @@ import { useDisclosure } from "@mantine/hooks";
 import { IconPencil } from "@tabler/icons-react";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { ConfirmationModal } from "@/app/ConfirmationModal";
 import type { ActionResult } from "@/app/operations/[id]/action-result";
 import {
   type JournalEntryView,
@@ -276,6 +277,7 @@ export function SituationWorkspace({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [detailBusy, setDetailBusy] = useState(false);
+  const [deleteAskedFor, setDeleteAskedFor] = useState<string | null>(null);
   // Fehlerkanal für die Karten-Interaktionen ohne eigenes Panel (Platzieren,
   // Zeichnen); wird als Alert über der Karte gezeigt.
   const [mapError, setMapError] = useState<string | null>(null);
@@ -303,15 +305,22 @@ export function SituationWorkspace({
     setDetailError(null);
   };
 
+  const deleteSymbol = async (id: string) => {
+    const result = await onDelete(id);
+    if (!result.error) closeDetail();
+    return result;
+  };
+
   // Fehler-Politik der Action-Ergebnisse: Panel-Bearbeitungen (Kartenzeichen-
   // Detail, Bereich, ETB) reichen ihren `{error}` über runDetail/runArea bzw.
   // JournalPanel sichtbar durch. Platzieren und Zeichnen haben kein Panel,
   // können aber sehr wohl scheitern (eine überlange Bezeichnung aus dem
   // Erweitert-Formular, eine entartete Geometrie), daher zeigen sie ihren
-  // `{error}` über den `mapError`-Kanal; „Standard-Ausschnitt festlegen" zeigt
-  // seinen in der Rückfrage (MapControls). Nur die strukturell stets gültigen
-  // Interaktionen bleiben bewusst fire-and-forget: onMove (Drag auf gültige
-  // Koordinaten) und onGenerateDeviceLink (nur eine Objekt-id).
+  // `{error}` über den `mapError`-Kanal. Was eine Rückfrage hat – „Kartenzeichen
+  // löschen", „Gerätelink neu generieren", „Standard-Ausschnitt festlegen"
+  // (MapControls) –, zeigt seinen Fehler in der Rückfrage. Nur die strukturell
+  // stets gültigen Interaktionen bleiben bewusst fire-and-forget: onMove (Drag
+  // auf gültige Koordinaten) und „Gerätelink erzeugen" (nur eine Objekt-id).
   const runDetail = async (op: () => Promise<ActionResult>) => {
     setDetailBusy(true);
     try {
@@ -984,43 +993,59 @@ export function SituationWorkspace({
           <AdvancedSymbolForm submitLabel="Platzieren" onSubmit={armAdvanced} />
         </Modal>
 
-        <Modal
-          opened={selected !== null}
-          onClose={closeDetail}
-          title="Kartenzeichen"
-        >
-          {selected && (
-            <Stack>
-              {detailError && (
-                <Alert color="red" role="alert">
-                  {detailError}
-                </Alert>
-              )}
-              <AdvancedSymbolForm
-                initial={selected.composition}
-                submitLabel="Speichern"
-                busy={detailBusy}
-                onSubmit={(composition) =>
-                  runDetail(() => onUpdate(selected.id, composition))
-                }
-              />
-              <Button
-                color="red"
-                variant="light"
-                loading={detailBusy}
-                onClick={() => runDetail(() => onDelete(selected.id))}
-              >
-                Löschen
-              </Button>
-              <DeviceLinkPanel
-                token={selected.deviceLinkToken ?? null}
-                positionSource={selected.positionSource ?? "manual"}
-                reportedAt={selected.reportedAt ?? null}
-                onGenerate={() => onGenerateDeviceLink(selected.id)}
-              />
-            </Stack>
-          )}
-        </Modal>
+        <Modal.Stack>
+          <Modal
+            stackId="kartenzeichen"
+            opened={selected !== null}
+            onClose={closeDetail}
+            title="Kartenzeichen"
+          >
+            {selected && (
+              <Stack>
+                {detailError && (
+                  <Alert color="red" role="alert">
+                    {detailError}
+                  </Alert>
+                )}
+                <AdvancedSymbolForm
+                  initial={selected.composition}
+                  submitLabel="Speichern"
+                  busy={detailBusy}
+                  onSubmit={(composition) =>
+                    runDetail(() => onUpdate(selected.id, composition))
+                  }
+                />
+                <Button
+                  color="red"
+                  variant="light"
+                  loading={detailBusy}
+                  onClick={() => setDeleteAskedFor(selected.id)}
+                >
+                  Löschen
+                </Button>
+                <ConfirmationModal
+                  stackId="kartenzeichen-loeschen"
+                  opened={deleteAskedFor === selected.id}
+                  onClose={() => setDeleteAskedFor(null)}
+                  title="Kartenzeichen löschen"
+                  confirmLabel="Endgültig löschen"
+                  confirmColor="red"
+                  onConfirm={() => deleteSymbol(selected.id)}
+                >
+                  Das Kartenzeichen verschwindet von der Lagekarte, ein
+                  Gerätelink wird ungültig. Das lässt sich nicht rückgängig
+                  machen.
+                </ConfirmationModal>
+                <DeviceLinkPanel
+                  token={selected.deviceLinkToken ?? null}
+                  positionSource={selected.positionSource ?? "manual"}
+                  reportedAt={selected.reportedAt ?? null}
+                  onGenerate={() => onGenerateDeviceLink(selected.id)}
+                />
+              </Stack>
+            )}
+          </Modal>
+        </Modal.Stack>
       </Box>
     </LageansichtShell>
   );
