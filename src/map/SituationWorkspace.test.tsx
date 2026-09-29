@@ -397,10 +397,7 @@ describe("SituationWorkspace", () => {
       await selectMainView("Stärke");
 
       await userEvent.click(screen.getByRole("button", { name: "UHSt 3" }));
-      await userEvent.type(
-        screen.getByRole("textbox", { name: "Einsatzkräfte" }),
-        "6",
-      );
+      await userEvent.type(screen.getByRole("textbox", { name: "EK" }), "6");
       await userEvent.click(screen.getByRole("button", { name: "Melden" }));
 
       expect(props.onRecordStrengthReport).toHaveBeenCalledWith("st1", {
@@ -502,17 +499,12 @@ describe("SituationWorkspace", () => {
       });
       await selectMainView("Stärke");
       await userEvent.click(screen.getByRole("button", { name: "UHSt 3" }));
-      await userEvent.type(
-        screen.getByRole("textbox", { name: "Einsatzkräfte" }),
-        "6",
-      );
+      await userEvent.type(screen.getByRole("textbox", { name: "EK" }), "6");
 
       await selectMainView("Lagekarte");
       await selectMainView("Stärke");
 
-      expect(
-        screen.getByRole("textbox", { name: "Einsatzkräfte" }),
-      ).toHaveValue("6");
+      expect(screen.getByRole("textbox", { name: "EK" })).toHaveValue("6");
     });
 
     it("keeps a started Stelle name when switching to the ETB and back", async () => {
@@ -921,19 +913,14 @@ describe("SituationWorkspace", () => {
       });
       await selectMainView("Stärke");
       await userEvent.click(screen.getByRole("button", { name: "UHSt 3" }));
-      await userEvent.type(
-        screen.getByRole("textbox", { name: "Einsatzkräfte" }),
-        "6",
-      );
+      await userEvent.type(screen.getByRole("textbox", { name: "EK" }), "6");
 
       await userEvent.click(
         screen.getByLabelText("Ebenen", { selector: "button" }),
       );
       await selectMainView("Stärke");
 
-      expect(
-        screen.getByRole("textbox", { name: "Einsatzkräfte" }),
-      ).toHaveValue("6");
+      expect(screen.getByRole("textbox", { name: "EK" })).toHaveValue("6");
     });
   });
 

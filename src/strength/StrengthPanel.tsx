@@ -6,6 +6,7 @@ import {
   Box,
   Button,
   Group,
+  Input,
   Menu,
   Modal,
   NativeSelect,
@@ -702,7 +703,7 @@ function useStrengthFields(initial: StrengthValues | undefined) {
       <SimpleGrid cols={4} spacing="xs">
         {countInput("leaders", "Führer")}
         {countInput("subLeaders", "Unterführer")}
-        {countInput("crew", "Einsatzkräfte")}
+        {countInput("crew", "EK")}
         <Computed label="G" value={sumOf(values)} />
       </SimpleGrid>
       <SimpleGrid cols={2} spacing="xs">
@@ -891,15 +892,13 @@ function Strength({ counts }: { counts: StrengthCounts }) {
 
 function Computed({ label, value }: { label: string; value: number }) {
   const id = useId();
+  // Input.Wrapper: dasselbe Label wie an den Eingabefeldern daneben.
   return (
-    <Stack gap={0}>
-      <Text id={id} size="sm" fw={500}>
-        {label}
-      </Text>
-      <Text component="output" aria-labelledby={id} fw={700} py={6}>
+    <Input.Wrapper label={label} id={id}>
+      <Text component="output" id={id} display="block" fw={700} py={6}>
         {value}
       </Text>
-    </Stack>
+    </Input.Wrapper>
   );
 }
 
