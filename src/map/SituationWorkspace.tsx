@@ -553,13 +553,19 @@ export function SituationWorkspace({
     setImageError(null);
     resetMode();
   };
-  // Ein Wechsel der Hauptansicht beendet jeden Karten-Modus, sonst platziert
-  // ein späterer Tap auf die wieder gezeigte Karte unerwartet ein Zeichen.
+  // Verschwindet die Karte (Wechsel am Handy, Fenster schmaler als 48 em),
+  // endet jeder Karten-Modus, sonst platziert ein späterer Tap auf die wieder
+  // gezeigte Karte unerwartet ein Zeichen.
+  const mapShown = isMapShown(isDesktop, mainView);
+  const [mapWasShown, setMapWasShown] = useState(mapShown);
+  if (mapShown !== mapWasShown) {
+    setMapWasShown(mapShown);
+    if (!mapShown) endMode();
+  }
   const switchMainView = (view: MainView) => {
     if (view === mainView) return;
     setMainView(view);
     if (view === "etb" || mainView === "etb") setSeenUpTo(latestEntryNumber);
-    endMode();
   };
   // Am Desktop setzt jeder Klick auf „ETB" den Cursor ins Eingabefeld, auch
   // wenn das ETB schon gezeigt wird. Der Effekt fokussiert erst nach dem
@@ -626,8 +632,7 @@ export function SituationWorkspace({
           data-panel-open={shownPanel ? "" : undefined}
           // Inline, damit es jede Klasse schlägt (auch die Regel für unbekannte Breite).
           style={{
-            display:
-              isDesktop !== false || mainView === "map" ? undefined : "none",
+            display: mapShown ? undefined : "none",
           }}
         >
           <Box className="map-area">
@@ -1018,6 +1023,14 @@ export function SituationWorkspace({
       </Box>
     </LageansichtShell>
   );
+}
+
+/**
+ * Am Desktop steht die Karte immer neben der Seitenleiste, am Handy nur unter
+ * „Lagekarte". Bei unbekannter Breite (vor dem Mount) entscheidet das CSS.
+ */
+function isMapShown(isDesktop: boolean | null, mainView: MainView) {
+  return isDesktop !== false || mainView === "map";
 }
 
 /**

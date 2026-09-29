@@ -2,8 +2,8 @@
 solution:  02-SOLUTION.md
 satisfies: AC-5
 after:     01-seitenleiste-am-desktop
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -87,3 +87,26 @@ Modi kommen aus `useMapMode()` (`armedQuickId`, `armedCustom`, `drawShape`,
   Formwahl) bleiben unsichtbar, solange die Seitenleiste ETB oder Stärke
   zeigt; das ist in der Lösung als Tradeoff hingenommen und wird hier nicht
   geändert.
+
+## Record
+
+**Criteria → tests** (all in `src/map/SituationWorkspace.test.tsx`)
+
+- **AC-5, desktop, mode kept** — „a map mode beside the sidebar on the desktop" › „keeps an armed symbol across the ETB and places it with the next map click" (the band stays, a map click calls `onPlace`, `adapter.setView` is not called), „keeps an armed symbol across the Stärke and back via a map button" (the same, returning through the „Bereiche" map button), „keeps drawing across the ETB" (`cancelDrawing` not called), „keeps image editing across the ETB" (`stopImageOverlayEdit` not called). „moving a circle" › „switching to the ETB keeps moving beside the sidebar".
+- **AC-5, phone, mode ends** — „cancels an armed symbol when switching to the ETB on a phone", „cancels drawing when switching to the ETB on a phone", „ends image editing when switching the main view on a phone", „moving a circle" › „switching to the ETB ends moving on a phone". The first three are the existing tests, renamed. They run under the default phone `matchMedia` from the test setup.
+- **Edge case, narrowing below 48 em** — „ends an armed symbol when the window narrows to a phone while the ETB is shown". The counter-check is the existing „keeps an armed symbol when the width crosses 768 px" (Lagekarte shown, so the mode stays).
+- A mutation check confirmed that the new rule carries the phone behaviour. Removing its `endMode()` makes all five phone and narrowing tests go red.
+
+**Command**: `npm run check` (test Postgres container up): green, 116 files, 1093 tests.
+
+**Departures from the plan**
+
+- Steps 2 and 3 are one rule. There is no `useEffect`: `SituationWorkspace` derives `mapShown` (`isMapShown(isDesktop, mainView)`), keeps the previous value in state, and calls `endMode()` during render when it drops from shown to hidden. This is React's "adjust state when a prop changes" pattern. A `useEffect` would have needed the unstable `endMode` as a dependency. `switchMainView` no longer calls `endMode()`, so desktop switches through the bar and through the map buttons leave the mode alone.
+- `isMapShown` treats `isDesktop === null` as shown (`!== false`), not `=== true` as the plan wrote. That is the existing rule for the map's inline `display`, which now uses the same helper, so there is one definition of "map shown". No mode can be active before mount.
+- The existing desktop test „moving a circle" › „switching to the ETB ends moving" pinned the old rule, which AC-5 reverses. It became a desktop „keeps moving" test plus a phone „ends moving" test.
+
+**Left standing**
+
+- Review (1 round): no blockers, no should-fix. Both nits are fixed: a misplaced JSDoc, and the phone-only switch tests now say „on a phone". No second round was run, because the first came back clean.
+- Not checked in the browser. The change has no CSS or layout part, and everything it does is visible to the Vitest tests above.
+- The ticket-01 Record item („a desktop test that an active map mode survives adding an ETB entry / a Stärkemeldung") is covered here: „keeps an armed symbol across the ETB …" arms a mode, switches to the ETB and places with the next click. It does not submit an ETB entry in between; submitting does not touch the map mode.

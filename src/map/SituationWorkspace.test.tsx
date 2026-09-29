@@ -2198,7 +2198,16 @@ describe("SituationWorkspace", () => {
       expect(modeBand("Bereich zeichnen")).toBeInTheDocument();
     });
 
-    it("switching to the ETB ends moving", async () => {
+    it("switching to the ETB keeps moving beside the sidebar", async () => {
+      renderWorkspace({ areas: [AREA] });
+      await startMoving();
+      await selectMainView("ETB");
+
+      expect(movingBand()).not.toBeNull();
+    });
+
+    it("switching to the ETB ends moving on a phone", async () => {
+      stubMatchMedia(false);
       renderWorkspace({ areas: [AREA] });
       await startMoving();
       await selectMainView("ETB");
@@ -2521,7 +2530,7 @@ describe("SituationWorkspace", () => {
     expect(screen.queryByRole("toolbar")).toBeNull();
   });
 
-  it("cancels an armed symbol when switching to the ETB", async () => {
+  it("cancels an armed symbol when switching to the ETB on a phone", async () => {
     const onPlace = vi.fn(async () => ({}));
     const { captured } = renderWorkspace({ onPlace });
     await openPanel("Kartenzeichen");
@@ -2537,7 +2546,7 @@ describe("SituationWorkspace", () => {
     expect(onPlace).not.toHaveBeenCalled();
   });
 
-  it("cancels drawing when switching to the ETB", async () => {
+  it("cancels drawing when switching to the ETB on a phone", async () => {
     const { adapter } = renderWorkspace();
     await openPanel("Bereiche");
     await userEvent.click(screen.getByText("Polygon"));
@@ -2569,6 +2578,95 @@ describe("SituationWorkspace", () => {
     } finally {
       vi.unstubAllGlobals();
     }
+  });
+
+  describe("a map mode beside the sidebar on the desktop", () => {
+    let fireChange: (matches: boolean) => void;
+    beforeEach(() => {
+      ({ fireChange } = stubMatchMedia(true));
+    });
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    const clickMap = async (
+      captured: ReturnType<typeof fakeFactory>["captured"],
+    ) => {
+      await act(async () => {
+        captured.options!.onMapClick!({ lat: 50, lng: 8 });
+      });
+    };
+
+    it("keeps an armed symbol across the ETB and places it with the next map click", async () => {
+      const onPlace = vi.fn(async () => ({}));
+      const { captured, adapter } = renderWorkspace({ onPlace });
+      await openPanel("Kartenzeichen");
+      await userEvent.click(screen.getByText(/KTW/));
+      adapter.setView.mockClear();
+
+      await selectMainView("ETB");
+
+      expect(modeBand("Kartenzeichen platzieren")).toBeInTheDocument();
+      await clickMap(captured);
+      expect(onPlace).toHaveBeenCalledWith(expect.anything(), 50, 8);
+      expect(adapter.setView).not.toHaveBeenCalled();
+    });
+
+    it("keeps an armed symbol across the Stärke and back via a map button", async () => {
+      const onPlace = vi.fn(async () => ({}));
+      const { captured, adapter } = renderWorkspace({ onPlace });
+      await openPanel("Kartenzeichen");
+      await userEvent.click(screen.getByText(/KTW/));
+      adapter.setView.mockClear();
+
+      await selectMainView("Stärke");
+      expect(modeBand("Kartenzeichen platzieren")).toBeInTheDocument();
+      await userEvent.click(
+        screen.getByLabelText("Bereiche", { selector: "button" }),
+      );
+
+      expect(modeBand("Kartenzeichen platzieren")).toBeInTheDocument();
+      await clickMap(captured);
+      expect(onPlace).toHaveBeenCalledWith(expect.anything(), 50, 8);
+      expect(adapter.setView).not.toHaveBeenCalled();
+    });
+
+    it("keeps drawing across the ETB", async () => {
+      const { adapter } = renderWorkspace();
+      await openPanel("Bereiche");
+      await userEvent.click(screen.getByText("Polygon"));
+      await waitFor(() => expect(adapter.startDrawing).toHaveBeenCalled());
+
+      await selectMainView("ETB");
+
+      expect(modeBand("Bereich zeichnen")).toBeInTheDocument();
+      expect(adapter.cancelDrawing).not.toHaveBeenCalled();
+    });
+
+    it("keeps image editing across the ETB", async () => {
+      const { adapter } = renderWorkspace({ imageOverlays: [anImageOverlay] });
+      await startEditingImage();
+
+      await selectMainView("ETB");
+
+      expect(modeBand("Bild-Overlay bearbeiten")).toBeInTheDocument();
+      expect(adapter.stopImageOverlayEdit).not.toHaveBeenCalled();
+    });
+
+    it("ends an armed symbol when the window narrows to a phone while the ETB is shown", async () => {
+      const onPlace = vi.fn(async () => ({}));
+      const { captured } = renderWorkspace({ onPlace });
+      await openPanel("Kartenzeichen");
+      await userEvent.click(screen.getByText(/KTW/));
+      await selectMainView("ETB");
+
+      act(() => fireChange(false));
+
+      await selectMainView("Lagekarte");
+      expect(screen.queryByRole("toolbar")).toBeNull();
+      await clickMap(captured);
+      expect(onPlace).not.toHaveBeenCalled();
+    });
   });
 
   it("shows no mode band while nothing is armed", async () => {
@@ -2999,7 +3097,7 @@ describe("SituationWorkspace", () => {
     expect(adapter.stopImageOverlayEdit).not.toHaveBeenCalled();
   });
 
-  it("ends image editing when switching the main view", async () => {
+  it("ends image editing when switching the main view on a phone", async () => {
     const { adapter } = renderWorkspace({ imageOverlays: [anImageOverlay] });
     await startEditingImage();
     await selectMainView("ETB");
