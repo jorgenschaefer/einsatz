@@ -31,7 +31,9 @@ Ausgangspunkt ist Punkt 1 in `REFACTORING.md` (Vereinfachungs-Durchgang vom
 ## Agreed design
 Jede der zwölf Aktionen öffnet ein gemeinsames Bestätigungs-Modal. Wo die
 Aktion aus einem Dialog heraus ausgelöst wird (Kartenzeichen, Bereich), liegt
-die Rückfrage über diesem Dialog.
+die Rückfrage über diesem Dialog. Solange sie offen ist, ist der Dialog
+darunter ausgeblendet (Mantine `Modal.Stack`); nach dem Abbrechen erscheint er
+unverändert wieder. Das Specimen zeigt ihn noch sichtbar; das ist überholt.
 
 Titel, Texte und Knöpfe der sechs neuen Rückfragen und von „Standard-Ausschnitt festlegen“. Maßgeblich für die Texte ist diese Tabelle; das Specimen zeigt nur Ablauf und Aufbau.
 
