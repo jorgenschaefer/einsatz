@@ -27,7 +27,7 @@ Form „Text".
 **Neue Bereich-Form „Text".** Eine vierte Form neben Polygon, Linie und Kreis:
 ein Ankerpunkt, ein Text und eine Farbe. Sie läuft über dieselben Wege wie die
 anderen Formen: Bereichs-Panel, Bereich-Editor, Speicherung als Bereich. Bei
-dieser Form *ist* der Name der Text, und er wird gezeichnet.
+dieser Form _ist_ der Name der Text, und er wird gezeichnet.
 
 - Der Text skaliert mit dem Zoom wie Schrift auf einer gedruckten Karte: Seine
   Größe ist eine Größe in der Welt (Meter), nicht in Pixeln.
@@ -49,11 +49,10 @@ trifft ein Klick auf den kleinen den kleinen.
 **Einheitliche Auswahl.** Jedes Objekt (Kartenzeichen und alle Bereich-Formen
 einschließlich Text) wird gleich behandelt:
 
-- Antippen wählt es aus, hebt es auf der Karte deutlich hervor und öffnet
-  seinen Editor. Es ist immer höchstens ein Objekt ausgewählt. Antippen der
-  leeren Karte hebt die Auswahl auf. Wie die Hervorhebung aussieht, ist offen.
-  Sie muss aber für alle Formen gleich gut funktionieren, etwa als
-  kontrastierende Kontur oder Glühen, bei Kartenzeichen als Ring.
+- Wenn der Editor geöffnet ist, wird der Bereich auf der Karte hervorgehoben.
+  Wie die Hervorhebung aussieht, ist offen. Sie muss aber für alle Formen
+  gleich gut funktionieren, etwa als kontrastierende Kontur oder Glühen, bei
+  Kartenzeichen als Ring.
 - Verschoben wird ein Bereich jeder Form über die Aktion „Verschieben" im
   Editor, wie heute der Kreis: Das Objekt wird unter dem festen Fadenkreuz
   positioniert und mit „Hier setzen" abgelegt. Polygone und Linien werden
@@ -73,7 +72,7 @@ Funk". Leere Felder werden weggelassen. Alte Einträge haben keine Werte.
   vorgeschlagen: die Stellen des Gesamteinsatzes (aus den Stärkemeldungen) und
   alle bisher in diesem Gesamteinsatz verwendeten Von/An-Werte. Freitext ist
   immer erlaubt.
-- **Weg** ist eine feste Auswahl aus *Funk*, *Telefon* und *Persönlich*, mit
+- **Weg** ist eine feste Auswahl aus _Funk_, _Telefon_ und _Persönlich_, mit
   Freitext als Ausweichmöglichkeit. Vorbelegt ist der Weg des letzten Eintrags,
   den dieselbe Führungskraft angelegt hat.
 - Die Felder gehören zum Eintrag, deshalb deckt Korrigieren sie mit ab: Die
@@ -122,7 +121,7 @@ als dritten Punkt dieser Leiste vorsieht, gilt am Desktop dann nicht mehr.
 Offen und keinem Thema zugeordnet. Die Nummern sind die alten.
 
 - **1. Wartende Einheiten verstopfen die Karte.** Einheiten wechseln zwischen
-  *im Einsatz* (Position zählt) und *wartend*, meist an ihrer UHSt (Position
+  _im Einsatz_ (Position zählt) und _wartend_, meist an ihrer UHSt (Position
   egal). Wartende sollen aus dem Weg, aber auffindbar bleiben (aufklappbar
   reicht). Nett wäre ein Hinweis an der UHSt wie „2 Streifen verfügbar". Heute
   behilft man sich mit „Ablage"-Bereichen neben dem Einsatzgebiet. Einheiten
