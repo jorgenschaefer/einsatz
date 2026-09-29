@@ -1,0 +1,57 @@
+<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Seitenleiste Desktop</title>
+<style>
+:root{--bg:#f4f2ee;--fg:#1d1d1f;--muted:#6b6b70;--line:#d8d4cc;--card:#fff;--accent:#228be6;--map:#dfe8d8;--red:#e03131}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161618;--fg:#eee;--muted:#9a9aa0;--line:#38383c;--card:#222226;--map:#2c3a2c}}
+:root[data-theme="dark"]{--bg:#161618;--fg:#eee;--muted:#9a9aa0;--line:#38383c;--card:#222226;--map:#2c3a2c}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.45 system-ui,sans-serif;padding:24px 16px}
+h1{font-size:20px;margin:0 0 4px}p.lead{color:var(--muted);margin:0 0 20px;max-width:75ch}
+figure{margin:0 0 28px}figcaption{font-size:13px;color:var(--muted);margin-top:8px;max-width:75ch}figcaption b{color:var(--fg)}
+.desk{border:2px solid var(--line);border-radius:8px;overflow:hidden;background:var(--card);font-size:13px;max-width:980px}
+.head{display:flex;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--line)}
+.body{display:grid;grid-template-columns:1fr 300px;height:380px}
+.map{background:var(--map);position:relative}
+.search{position:absolute;top:10px;left:10px;width:220px;background:var(--card);border:1px solid var(--line);border-radius:4px;padding:5px 8px;color:var(--muted)}
+.ctrls{position:absolute;right:10px;bottom:40px;display:flex;flex-direction:column;gap:6px}
+.ctrls span{width:28px;height:28px;border:1px solid var(--line);border-radius:4px;background:var(--card);display:grid;place-items:center;font-size:11px}
+.ctrls span.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.sym{position:absolute;width:26px;height:18px;border:2px solid var(--red);background:var(--card)}
+.side{border-left:1px solid var(--line);display:flex;flex-direction:column;min-width:0}
+.bar{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--line);font-size:12px}
+.bar span{padding:8px 4px;text-align:center;color:var(--muted);position:relative}
+.bar span.on{color:var(--accent);font-weight:600}
+.badge{background:var(--red);color:#fff;border-radius:9px;font-size:10px;padding:0 5px;margin-left:3px}
+.pad{padding:10px 12px;overflow:auto;flex:1}
+.entry{border-bottom:1px solid var(--line);padding:6px 0}.t{color:var(--muted)}
+.field{border:1px solid var(--line);border-radius:4px;padding:6px 8px;min-height:44px;margin-top:8px}
+.field.focus{border-color:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 30%,transparent)}
+.btn{display:inline-block;margin-top:6px;padding:4px 10px;border-radius:4px;background:var(--accent);color:#fff;font-size:12px}
+.row{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--line)}
+</style></head><body>
+<h1>Seitenleiste am Desktop</h1>
+<p class="lead">Die Lagekarte füllt die Fläche links immer. Rechts steht eine Seitenleiste in Smartphone-Breite mit derselben Leiste unten wie am Smartphone: Lagekarte, ETB und Stärke. Unter „Lagekarte“ steht das Kartenpanel (Kartenzeichen, Bereiche, Ebenen), das heute neben der Karte liegt. Die Leiste links entfällt.</p>
+
+<figure><div class="desk">
+<div class="head"><b>← Cyclassics 2026</b><span>Teilen · <span class="t">aktiv</span></span></div>
+<div class="body">
+<div class="map"><div class="search">Suchen …</div><div class="sym" style="left:40%;top:45%"></div><div class="sym" style="left:60%;top:30%"></div>
+<div class="ctrls"><span>KZ</span><span>BE</span><span>EB</span></div></div>
+<div class="side">
+<div class="pad">
+<div class="entry"><span class="t">#41 · 11:02 · eal4</span><br>UHSt 2 meldet Patient an Zielort übergeben.</div>
+<div class="entry"><span class="t">#42 · 11:07 · eal4</span><br>Streife 3 zur Einsatzstelle Rothenbaumchaussee.</div>
+<div class="field focus">RTW 1 frei an UHSt 1▌</div><span class="btn">Eintrag hinzufügen</span> <span class="t">Strg+Enter</span>
+</div><div class="bar"><span>Lagekarte</span><span class="on">ETB</span><span>Stärke</span></div></div></div></div>
+<figcaption><b>ETB neben der Karte.</b> Das ist der Fall aus C-1: ins Feld klicken, tippen, Strg+Enter. Die Karte ist die ganze Zeit sichtbar und reagiert auf den nächsten Klick. Wer von „Lagekarte“ oder „Stärke“ auf „ETB“ klickt, hat den Cursor sofort im Textfeld.</figcaption></figure>
+
+<figure><div class="desk">
+<div class="head"><b>← Cyclassics 2026</b><span>Teilen · <span class="t">aktiv</span></span></div>
+<div class="body">
+<div class="map"><div class="search">Suchen …</div><div class="sym" style="left:40%;top:45%"></div><div class="sym" style="left:60%;top:30%"></div>
+<div class="ctrls"><span class="on">KZ</span><span>BE</span><span>EB</span></div></div>
+<div class="side">
+<div class="pad"><b>Kartenzeichen</b>
+<div class="row"><span>RTW 1</span><span class="t">⌖</span></div><div class="row"><span>Streife 3</span><span class="t">⌖</span></div><div class="row"><span>UHSt 1</span><span class="t">⌖</span></div>
+</div><div class="bar"><span class="on">Lagekarte</span><span>ETB<span class="badge">2</span></span><span>Stärke</span></div></div></div></div>
+<figcaption><b>Kartenpanel in der Seitenleiste.</b> Ein Klick auf einen Kartenknopf (hier Kartenzeichen) stellt die Seitenleiste auf „Lagekarte“ und zeigt dort das Panel. Solange das ETB nicht zu sehen ist, zählt sein Knopf die neuen Einträge anderer.</figcaption></figure>
+</body></html>
