@@ -152,7 +152,7 @@ export default async function LageansichtPage({
           id: r.id,
           leaders: r.leaders,
           subLeaders: r.subLeaders,
-          helpers: r.helpers,
+          crew: r.crew,
           additionalPersonnel: r.additionalPersonnel,
           note: r.note,
           reportedAt: r.reportedAt.toISOString(),

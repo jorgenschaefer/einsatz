@@ -21,13 +21,13 @@ type TestDb = Awaited<ReturnType<typeof freshDb>>;
 const valuesOf = ({
   leaders,
   subLeaders,
-  helpers,
+  crew,
   additionalPersonnel,
   note,
 }: StrengthValues): StrengthValues => ({
   leaders,
   subLeaders,
-  helpers,
+  crew,
   additionalPersonnel,
   note,
 });
@@ -48,7 +48,7 @@ async function aStation(db: TestDb, name = "UHSt 3") {
 const values = (over: Partial<StrengthValues> = {}): StrengthValues => ({
   leaders: 0,
   subLeaders: 1,
-  helpers: 6,
+  crew: 6,
   additionalPersonnel: 2,
   note: "2 einsatzbereite Streifen",
   ...over,
@@ -126,7 +126,7 @@ describe("recordStrengthReport", () => {
     const zero = values({
       leaders: 0,
       subLeaders: 0,
-      helpers: 0,
+      crew: 0,
       additionalPersonnel: 0,
       note: null,
     });
@@ -150,11 +150,11 @@ describe("recordStrengthReport", () => {
   });
 
   it.each([
-    ["a negative number", { helpers: -1 }],
+    ["a negative number", { crew: -1 }],
     ["a fraction", { leaders: 1.5 }],
     ["not a number", { subLeaders: Number.NaN }],
     ["a string", { additionalPersonnel: "3" as unknown as number }],
-    ["more than 9999", { helpers: 10000 }],
+    ["more than 9999", { crew: 10000 }],
   ])("rejects %s without writing anything", async (_, over) => {
     const db = await freshDb();
     const { op, station } = await aStation(db);
@@ -191,11 +191,11 @@ describe("recordStrengthReport", () => {
     const db = await freshDb();
     const { op, station } = await aStation(db);
 
-    await record(db, station.id, values({ helpers: 5 }));
-    await record(db, station.id, values({ helpers: 4 }));
+    await record(db, station.id, values({ crew: 5 }));
+    await record(db, station.id, values({ crew: 4 }));
 
     const reports = await listStrengthReports(db, op.id);
-    expect(reports.map((r) => r.helpers)).toEqual([5, 4]);
+    expect(reports.map((r) => r.crew)).toEqual([5, 4]);
     expect(reports[1].number).toBeGreaterThan(reports[0].number);
   });
 
@@ -272,7 +272,7 @@ describe("correctStrengthReport", () => {
     db: TestDb,
     reportId: string,
     stationId: string,
-    correctedValues: StrengthValues = values({ helpers: 5, note: null }),
+    correctedValues: StrengthValues = values({ crew: 5, note: null }),
   ) {
     return correctStrengthReport(db, {
       reportId,
@@ -292,7 +292,7 @@ describe("correctStrengthReport", () => {
     expect(await listStrengthReports(db, op.id)).toEqual([
       {
         ...report,
-        ...values({ helpers: 5, note: null }),
+        ...values({ crew: 5, note: null }),
       },
     ]);
   });
@@ -376,8 +376,8 @@ describe("correctStrengthReport", () => {
   });
 
   it.each([
-    ["a negative number", { helpers: -1 }],
-    ["more than 9999", { helpers: 10000 }],
+    ["a negative number", { crew: -1 }],
+    ["more than 9999", { crew: 10000 }],
   ])("rejects %s without writing anything", async (_, over) => {
     const db = await freshDb();
     const { op, station, report } = await aReport(db);
@@ -415,7 +415,7 @@ describe("correctStrengthReport", () => {
 
     await correct(db, report.id, station.id);
 
-    expect((await listStrengthReports(db, op.id))[0].helpers).toBe(5);
+    expect((await listStrengthReports(db, op.id))[0].crew).toBe(5);
   });
 
   it("runs concurrent corrections one after the other; both leave a fassung and the later wins", async () => {
@@ -440,8 +440,8 @@ describe("correctStrengthReport", () => {
     await entryHolds;
 
     const correcting = Promise.all([
-      correct(db, report.id, station.id, values({ helpers: 5, note: null })),
-      correct(db, report.id, station.id, values({ helpers: 4, note: null })),
+      correct(db, report.id, station.id, values({ crew: 5, note: null })),
+      correct(db, report.id, station.id, values({ crew: 4, note: null })),
     ]);
     // Beide Korrekturen sollen laufen, bevor der Eintrag frei wird.
     await new Promise((r) => setTimeout(r, 300));
@@ -452,7 +452,7 @@ describe("correctStrengthReport", () => {
     const [corrected] = await listStrengthReports(db, op.id);
     expect(entry?.revisions.map((r) => r.text)).toEqual([
       "Stärkemeldung UHSt 3: 0/1/6//7, +2 zusätzlich, 9 Personen – 2 einsatzbereite Streifen",
-      corrected.helpers === 4
+      corrected.crew === 4
         ? "Stärkemeldung UHSt 3: 0/1/5//6, +2 zusätzlich, 8 Personen"
         : "Stärkemeldung UHSt 3: 0/1/4//5, +2 zusätzlich, 7 Personen",
     ]);

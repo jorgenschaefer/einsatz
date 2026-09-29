@@ -31,7 +31,6 @@ import {
 import type { ActionResult } from "@/app/operations/[id]/action-result";
 import {
   berlinTimeOfDay,
-  formatStrength,
   isReportStale,
   isTotalStale,
   latestValidReport,
@@ -478,7 +477,7 @@ function Counts({ counts }: { counts: StrengthCounts }) {
   return (
     <Group gap="xs" align="baseline">
       <Text fw={700} size="lg">
-        {formatStrength(counts)}
+        <Strength counts={counts} />
       </Text>
       <Text size="sm" c="dimmed">
         {`+${counts.additionalPersonnel} zusätzlich`}
@@ -543,7 +542,7 @@ function StationCard({
   );
 }
 
-type Count = "leaders" | "subLeaders" | "helpers" | "additionalPersonnel";
+type Count = "leaders" | "subLeaders" | "crew" | "additionalPersonnel";
 
 /** Neue Meldung einer Stelle, vorbelegt mit ihrer letzten gültigen Meldung. */
 function ReportForm({
@@ -665,12 +664,12 @@ function CorrectionForm({
   );
 }
 
-/** Eingaben für Führer, Unterführer, Helfer, zusätzliches Personal und Notiz. */
+/** Eingaben für Führer, Unterführer, Einsatzkräfte, zusätzliches Personal und Notiz. */
 function useStrengthFields(initial: StrengthValues | undefined) {
   const [counts, setCounts] = useState<Record<Count, string>>(() => ({
     leaders: String(initial?.leaders ?? 0),
     subLeaders: String(initial?.subLeaders ?? 0),
-    helpers: String(initial?.helpers ?? 0),
+    crew: String(initial?.crew ?? 0),
     additionalPersonnel: String(initial?.additionalPersonnel ?? 0),
   }));
   const [note, setNote] = useState(initial?.note ?? "");
@@ -679,7 +678,7 @@ function useStrengthFields(initial: StrengthValues | undefined) {
   const values: StrengthValues = {
     leaders: count("leaders"),
     subLeaders: count("subLeaders"),
-    helpers: count("helpers"),
+    crew: count("crew"),
     additionalPersonnel: count("additionalPersonnel"),
     note: note.trim() || null,
   };
@@ -703,8 +702,8 @@ function useStrengthFields(initial: StrengthValues | undefined) {
       <SimpleGrid cols={4} spacing="xs">
         {countInput("leaders", "Führer")}
         {countInput("subLeaders", "Unterführer")}
-        {countInput("helpers", "Helfer")}
-        <Computed label="Σ" value={sumOf(values)} />
+        {countInput("crew", "Einsatzkräfte")}
+        <Computed label="G" value={sumOf(values)} />
       </SimpleGrid>
       <SimpleGrid cols={2} spacing="xs">
         {countInput("additionalPersonnel", "Zusätzliches Personal")}
@@ -724,7 +723,7 @@ function useStrengthFields(initial: StrengthValues | undefined) {
 const valuesOf = (report: StrengthValues): StrengthValues => ({
   leaders: report.leaders,
   subLeaders: report.subLeaders,
-  helpers: report.helpers,
+  crew: report.crew,
   additionalPersonnel: report.additionalPersonnel,
   note: report.note,
 });
@@ -847,12 +846,14 @@ function TotalHistory({
   );
 }
 
-/** Die Spalten Zeit, F/UF/H//Σ, + und Pers. beider Verläufe. */
+/** Die Spalten Zeit, F/UF/E/G, + und Pers. beider Verläufe. */
 function StrengthHeads() {
   return (
     <>
       <Table.Th>Zeit</Table.Th>
-      <Table.Th>{"F/UF/H//Σ"}</Table.Th>
+      <Table.Th>
+        F/UF/E/<u>G</u>
+      </Table.Th>
       <Table.Th>+</Table.Th>
       <Table.Th>Pers.</Table.Th>
     </>
@@ -869,9 +870,21 @@ function StrengthCells({
   return (
     <>
       <Table.Td>{berlinTimeOfDay(reportedAt)}</Table.Td>
-      <Table.Td>{formatStrength(counts)}</Table.Td>
+      <Table.Td>
+        <Strength counts={counts} />
+      </Table.Td>
       <Table.Td>{counts.additionalPersonnel}</Table.Td>
       <Table.Td>{totalPersonsOf(counts)}</Table.Td>
+    </>
+  );
+}
+
+/** Die Stärke F/UF/E/G in der Ansicht: G unterstrichen statt „//" davor. */
+function Strength({ counts }: { counts: StrengthCounts }) {
+  return (
+    <>
+      {`${counts.leaders}/${counts.subLeaders}/${counts.crew}/`}
+      <u>{sumOf(counts)}</u>
     </>
   );
 }

@@ -26,7 +26,7 @@ type CyclassicsReport = ReportedStrength & { note: string | null };
 const report = (station: number, hour: number): CyclassicsReport => ({
   leaders: 1,
   subLeaders: station + 1,
-  helpers: hour + 2 * station,
+  crew: hour + 2 * station,
   additionalPersonnel: station,
   note: station === 0 ? null : `Runde ${hour + 1}`,
   reportedAt: new Date(

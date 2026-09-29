@@ -398,7 +398,7 @@ describe("SituationWorkspace", () => {
 
       await userEvent.click(screen.getByRole("button", { name: "UHSt 3" }));
       await userEvent.type(
-        screen.getByRole("textbox", { name: "Helfer" }),
+        screen.getByRole("textbox", { name: "Einsatzkräfte" }),
         "6",
       );
       await userEvent.click(screen.getByRole("button", { name: "Melden" }));
@@ -406,7 +406,7 @@ describe("SituationWorkspace", () => {
       expect(props.onRecordStrengthReport).toHaveBeenCalledWith("st1", {
         leaders: 0,
         subLeaders: 0,
-        helpers: 6,
+        crew: 6,
         additionalPersonnel: 0,
         note: null,
       });
@@ -423,7 +423,7 @@ describe("SituationWorkspace", () => {
                 id: "r1",
                 leaders: 0,
                 subLeaders: 1,
-                helpers: 6,
+                crew: 6,
                 additionalPersonnel: 2,
                 note: null,
                 reportedAt: new Date(Date.now() - 61 * 60_000).toISOString(),
@@ -469,7 +469,7 @@ describe("SituationWorkspace", () => {
                   id: "r1",
                   leaders: 0,
                   subLeaders: 1,
-                  helpers: 6,
+                  crew: 6,
                   additionalPersonnel: 2,
                   note: null,
                   reportedAt: new Date().toISOString(),
@@ -487,12 +487,10 @@ describe("SituationWorkspace", () => {
       const stationCard = strength
         .getByRole("heading", { name: "UHSt 3" })
         .closest("[data-station]") as HTMLElement;
-      expect(within(stationCard).getByText("0/1/6//7")).toBeInTheDocument();
-      expect(
-        within(strength.getByRole("region", { name: "Summe" })).getByText(
-          "0/1/6//7",
-        ),
-      ).toBeInTheDocument();
+      expect(stationCard).toHaveTextContent("0/1/6/7");
+      expect(strength.getByRole("region", { name: "Summe" })).toHaveTextContent(
+        "0/1/6/7",
+      );
       expect(
         strength.getByRole("heading", { name: "Ziel" }),
       ).toBeInTheDocument();
@@ -505,14 +503,16 @@ describe("SituationWorkspace", () => {
       await selectMainView("Stärke");
       await userEvent.click(screen.getByRole("button", { name: "UHSt 3" }));
       await userEvent.type(
-        screen.getByRole("textbox", { name: "Helfer" }),
+        screen.getByRole("textbox", { name: "Einsatzkräfte" }),
         "6",
       );
 
       await selectMainView("Lagekarte");
       await selectMainView("Stärke");
 
-      expect(screen.getByRole("textbox", { name: "Helfer" })).toHaveValue("6");
+      expect(
+        screen.getByRole("textbox", { name: "Einsatzkräfte" }),
+      ).toHaveValue("6");
     });
 
     it("keeps a started Stelle name when switching to the ETB and back", async () => {
@@ -822,7 +822,7 @@ describe("SituationWorkspace", () => {
       id: "r1",
       leaders: 0,
       subLeaders: 1,
-      helpers: 6,
+      crew: 6,
       additionalPersonnel: 2,
       note: null,
       reportedAt: new Date().toISOString(),
@@ -922,7 +922,7 @@ describe("SituationWorkspace", () => {
       await selectMainView("Stärke");
       await userEvent.click(screen.getByRole("button", { name: "UHSt 3" }));
       await userEvent.type(
-        screen.getByRole("textbox", { name: "Helfer" }),
+        screen.getByRole("textbox", { name: "Einsatzkräfte" }),
         "6",
       );
 
@@ -931,7 +931,9 @@ describe("SituationWorkspace", () => {
       );
       await selectMainView("Stärke");
 
-      expect(screen.getByRole("textbox", { name: "Helfer" })).toHaveValue("6");
+      expect(
+        screen.getByRole("textbox", { name: "Einsatzkräfte" }),
+      ).toHaveValue("6");
     });
   });
 

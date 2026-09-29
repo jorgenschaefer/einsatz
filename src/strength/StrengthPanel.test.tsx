@@ -43,7 +43,7 @@ const report = (
   id: "r1",
   leaders: 0,
   subLeaders: 1,
-  helpers: 6,
+  crew: 6,
   additionalPersonnel: 2,
   note: "2 einsatzbereite Streifen",
   // 11:01 in Berlin (Sommerzeit)
@@ -52,6 +52,14 @@ const report = (
   number: 5,
   ...over,
 });
+
+/** Die Stärke „F/UF/E/G" in der Ansicht: G unterstrichen statt „//" davor. */
+const strength =
+  (text: string) =>
+  (_: string, element: Element | null): boolean =>
+    element?.textContent === text &&
+    element.lastElementChild?.tagName === "U" &&
+    element.lastElementChild.textContent === text.split("/").at(-1);
 
 /** Zeitpunkt `minutes` Minuten nach dem Standard-Meldezeitpunkt von {@link report}. */
 function minutesAfterReport(minutes: number) {
@@ -207,7 +215,7 @@ describe("StrengthPanel", () => {
             reports: [
               report(),
               report({
-                helpers: 9,
+                crew: 9,
                 number: 3,
                 reportedAt: "2026-09-26T08:00:00.000Z",
               }),
@@ -217,7 +225,7 @@ describe("StrengthPanel", () => {
       });
 
       const item = card("UHSt 3");
-      expect(within(item).getByText("0/1/6//7")).toBeInTheDocument();
+      expect(within(item).getByText(strength("0/1/6/7"))).toBeInTheDocument();
       expect(within(item).getByText("+2 zusätzlich")).toBeInTheDocument();
       expect(within(item).getByText("9 Personen")).toBeInTheDocument();
       expect(
@@ -233,14 +241,16 @@ describe("StrengthPanel", () => {
             id: "s1",
             name: "UHSt 3",
             reports: [
-              report({ helpers: 4, number: 3 }),
-              report({ helpers: 9, number: 4, state: "annulliert" }),
+              report({ crew: 4, number: 3 }),
+              report({ crew: 9, number: 4, state: "annulliert" }),
             ],
           },
         ],
       });
 
-      expect(within(card("UHSt 3")).getByText("0/1/4//5")).toBeInTheDocument();
+      expect(
+        within(card("UHSt 3")).getByText(strength("0/1/4/5")),
+      ).toBeInTheDocument();
     });
 
     it("highlights its time once the report is older than 60 minutes", () => {
@@ -266,7 +276,7 @@ describe("StrengthPanel", () => {
               report({
                 leaders: 0,
                 subLeaders: 0,
-                helpers: 0,
+                crew: 0,
                 additionalPersonnel: 0,
               }),
             ],
@@ -326,7 +336,7 @@ describe("StrengthPanel", () => {
           report({
             leaders: 1,
             subLeaders: 2,
-            helpers: 10,
+            crew: 10,
             additionalPersonnel: 4,
           }),
         ],
@@ -338,7 +348,7 @@ describe("StrengthPanel", () => {
           report({
             leaders: 1,
             subLeaders: 4,
-            helpers: 15,
+            crew: 15,
             additionalPersonnel: 2,
             // 10:10 in Berlin
             reportedAt: "2026-09-26T08:10:00.000Z",
@@ -358,7 +368,9 @@ describe("StrengthPanel", () => {
     it("adds up the latest valid reports and names the oldest of them", () => {
       setup({ stations: threeStations() });
 
-      expect(within(sum()).getByText("2/6/25//33")).toBeInTheDocument();
+      expect(
+        within(sum()).getByText(strength("2/6/25/33")),
+      ).toBeInTheDocument();
       expect(within(sum()).getByText("+6 zusätzlich")).toBeInTheDocument();
       expect(within(sum()).getByText("39 Personen")).toBeInTheDocument();
       expect(oldest()).toHaveTextContent("älteste Meldung 10:10");
@@ -374,7 +386,7 @@ describe("StrengthPanel", () => {
               report({
                 leaders: 0,
                 subLeaders: 0,
-                helpers: 0,
+                crew: 0,
                 additionalPersonnel: 0,
               }),
             ],
@@ -382,7 +394,7 @@ describe("StrengthPanel", () => {
         ],
       });
 
-      expect(within(sum()).getByText("0/0/0//0")).toBeInTheDocument();
+      expect(within(sum()).getByText(strength("0/0/0/0"))).toBeInTheDocument();
       expect(within(sum()).queryByText(/^älteste Meldung/)).toBeNull();
       expect(reportTotal()).toBeEnabled();
     });
@@ -418,7 +430,7 @@ describe("StrengthPanel", () => {
         ],
       });
 
-      expect(within(sum()).getByText("0/0/0//0")).toBeInTheDocument();
+      expect(within(sum()).getByText(strength("0/0/0/0"))).toBeInTheDocument();
       expect(reportTotal()).toBeDisabled();
     });
 
@@ -445,7 +457,9 @@ describe("StrengthPanel", () => {
       await userEvent.click(reportTotal());
 
       const dialog = await screen.findByRole("dialog");
-      expect(within(dialog).getByText("2/6/25//33")).toBeInTheDocument();
+      expect(
+        within(dialog).getByText(strength("2/6/25/33")),
+      ).toBeInTheDocument();
       expect(within(dialog).getByText("+6 zusätzlich")).toBeInTheDocument();
       expect(within(dialog).getByText("39 Personen")).toBeInTheDocument();
       expect(within(dialog).getByText(/Einsatztagebuch/)).toBeInTheDocument();
@@ -627,7 +641,7 @@ describe("StrengthPanel", () => {
       for (const label of [
         "Führer",
         "Unterführer",
-        "Helfer",
+        "Einsatzkräfte",
         "Zusätzliches Personal",
       ]) {
         expect(field(label)).toHaveValue("0");
@@ -646,8 +660,8 @@ describe("StrengthPanel", () => {
             id: "s1",
             name: "UHSt 3",
             reports: [
-              report({ helpers: 4, number: 3, note: "vorher" }),
-              report({ helpers: 9, number: 4, state: "annulliert" }),
+              report({ crew: 4, number: 3, note: "vorher" }),
+              report({ crew: 9, number: 4, state: "annulliert" }),
             ],
           },
         ],
@@ -657,24 +671,24 @@ describe("StrengthPanel", () => {
 
       expect(field("Führer")).toHaveValue("0");
       expect(field("Unterführer")).toHaveValue("1");
-      expect(field("Helfer")).toHaveValue("4");
+      expect(field("Einsatzkräfte")).toHaveValue("4");
       expect(field("Zusätzliches Personal")).toHaveValue("2");
       expect(field("Notiz")).toHaveValue("vorher");
     });
 
-    it("shows Σ and Gesamtpersonen computed as you type", async () => {
+    it("shows G and Gesamtpersonen computed as you type", async () => {
       setup({
         stations: [{ id: "s1", name: "UHSt 3", reports: [report()] }],
       });
       await openReport("UHSt 3");
 
-      expect(screen.getByLabelText("Σ")).toHaveTextContent("7");
+      expect(screen.getByLabelText("G")).toHaveTextContent("7");
       expect(screen.getByLabelText("Personen")).toHaveTextContent("9");
 
-      await userEvent.clear(field("Helfer"));
-      await userEvent.type(field("Helfer"), "12");
+      await userEvent.clear(field("Einsatzkräfte"));
+      await userEvent.type(field("Einsatzkräfte"), "12");
 
-      expect(screen.getByLabelText("Σ")).toHaveTextContent("13");
+      expect(screen.getByLabelText("G")).toHaveTextContent("13");
       expect(screen.getByLabelText("Personen")).toHaveTextContent("15");
     });
 
@@ -684,28 +698,28 @@ describe("StrengthPanel", () => {
       });
       await openReport("UHSt 3");
 
-      await userEvent.type(field("Helfer"), "5");
+      await userEvent.type(field("Einsatzkräfte"), "5");
 
-      expect(field("Helfer")).toHaveValue("5");
+      expect(field("Einsatzkräfte")).toHaveValue("5");
     });
 
     it("takes at most four digits", async () => {
       setup();
       await openReport("UHSt 3");
 
-      await userEvent.type(field("Helfer"), "123456");
+      await userEvent.type(field("Einsatzkräfte"), "123456");
 
-      expect(field("Helfer")).toHaveValue("1234");
+      expect(field("Einsatzkräfte")).toHaveValue("1234");
     });
 
     it("accepts neither negatives nor decimals", async () => {
       setup();
       await openReport("UHSt 3");
 
-      await userEvent.clear(field("Helfer"));
-      await userEvent.type(field("Helfer"), "-3.5");
+      await userEvent.clear(field("Einsatzkräfte"));
+      await userEvent.type(field("Einsatzkräfte"), "-3.5");
 
-      expect(field("Helfer")).toHaveValue("35");
+      expect(field("Einsatzkräfte")).toHaveValue("35");
     });
 
     it("reports the typed values and returns to the Stellen", async () => {
@@ -714,8 +728,8 @@ describe("StrengthPanel", () => {
 
       await userEvent.clear(field("Unterführer"));
       await userEvent.type(field("Unterführer"), "1");
-      await userEvent.clear(field("Helfer"));
-      await userEvent.type(field("Helfer"), "6");
+      await userEvent.clear(field("Einsatzkräfte"));
+      await userEvent.type(field("Einsatzkräfte"), "6");
       await userEvent.clear(field("Zusätzliches Personal"));
       await userEvent.type(field("Zusätzliches Personal"), "2");
       await userEvent.type(field("Notiz"), "2 einsatzbereite Streifen");
@@ -724,7 +738,7 @@ describe("StrengthPanel", () => {
       expect(onRecordStrengthReport).toHaveBeenCalledWith("s1", {
         leaders: 0,
         subLeaders: 1,
-        helpers: 6,
+        crew: 6,
         additionalPersonnel: 2,
         note: "2 einsatzbereite Streifen",
       });
@@ -739,14 +753,14 @@ describe("StrengthPanel", () => {
       });
       await openReport("UHSt 3");
 
-      await userEvent.clear(field("Helfer"));
+      await userEvent.clear(field("Einsatzkräfte"));
       await userEvent.clear(field("Notiz"));
       await userEvent.click(screen.getByRole("button", { name: "Melden" }));
 
       expect(onRecordStrengthReport).toHaveBeenCalledWith("s1", {
         leaders: 0,
         subLeaders: 1,
-        helpers: 0,
+        crew: 0,
         additionalPersonnel: 2,
         note: null,
       });
@@ -760,13 +774,13 @@ describe("StrengthPanel", () => {
             name: "UHSt 3",
             reports: [
               report({ number: 3 }),
-              report({ helpers: 9, number: 4, state: "annulliert" }),
+              report({ crew: 9, number: 4, state: "annulliert" }),
             ],
           },
         ],
       });
       await openReport("UHSt 3");
-      await userEvent.type(field("Helfer"), "5");
+      await userEvent.type(field("Einsatzkräfte"), "5");
 
       await userEvent.click(
         screen.getByRole("button", { name: "Unverändert melden" }),
@@ -776,7 +790,7 @@ describe("StrengthPanel", () => {
       expect(onRecordStrengthReport).toHaveBeenCalledWith("s1", {
         leaders: 0,
         subLeaders: 1,
-        helpers: 6,
+        crew: 6,
         additionalPersonnel: 2,
         note: "2 einsatzbereite Streifen",
       });
@@ -790,15 +804,15 @@ describe("StrengthPanel", () => {
         })),
       });
       await openReport("UHSt 3");
-      await userEvent.clear(field("Helfer"));
-      await userEvent.type(field("Helfer"), "6");
+      await userEvent.clear(field("Einsatzkräfte"));
+      await userEvent.type(field("Einsatzkräfte"), "6");
 
       await userEvent.click(screen.getByRole("button", { name: "Melden" }));
 
       expect(screen.getByRole("alert")).toHaveTextContent(
         "Die Stärke muss aus ganzen Zahlen von 0 bis 9999 bestehen.",
       );
-      expect(field("Helfer")).toHaveValue("6");
+      expect(field("Einsatzkräfte")).toHaveValue("6");
     });
 
     it("shows a failed save as an error", async () => {
@@ -833,13 +847,13 @@ describe("StrengthPanel", () => {
       await userEvent.click(screen.getByRole("button", { name: "Melden" }));
       await userEvent.click(screen.getByRole("button", { name: "Zurück" }));
       await openReport("Ziel");
-      await userEvent.type(field("Helfer"), "4");
+      await userEvent.type(field("Einsatzkräfte"), "4");
 
       await act(async () => finish({}));
 
       expect(onRecordStrengthReport).toHaveBeenCalledTimes(1);
       expect(screen.getByText("Ziel · neue Meldung")).toBeInTheDocument();
-      expect(field("Helfer")).toHaveValue("4");
+      expect(field("Einsatzkräfte")).toHaveValue("4");
     });
 
     it("keeps a report form open when a rename finishes saving", async () => {
@@ -865,8 +879,8 @@ describe("StrengthPanel", () => {
         stations: [{ id: "s1", name: "UHSt 3", reports: [report()] }],
       });
       await openReport("UHSt 3");
-      await userEvent.clear(field("Helfer"));
-      await userEvent.type(field("Helfer"), "3");
+      await userEvent.clear(field("Einsatzkräfte"));
+      await userEvent.type(field("Einsatzkräfte"), "3");
 
       rerender({
         stations: [
@@ -879,14 +893,14 @@ describe("StrengthPanel", () => {
                 id: "r9",
                 number: 9,
                 reportedAt: "2026-09-26T09:30:00.000Z",
-                helpers: 8,
+                crew: 8,
               }),
             ],
           },
         ],
       });
 
-      expect(field("Helfer")).toHaveValue("8");
+      expect(field("Einsatzkräfte")).toHaveValue("8");
     });
 
     it("keeps typed values when the data refreshes without a new latest report", async () => {
@@ -897,8 +911,8 @@ describe("StrengthPanel", () => {
         ],
       });
       await openReport("UHSt 3");
-      await userEvent.clear(field("Helfer"));
-      await userEvent.type(field("Helfer"), "3");
+      await userEvent.clear(field("Einsatzkräfte"));
+      await userEvent.type(field("Einsatzkräfte"), "3");
 
       rerender({
         stations: [
@@ -906,12 +920,12 @@ describe("StrengthPanel", () => {
           {
             id: "s2",
             name: "Ziel",
-            reports: [report({ id: "r9", number: 9, helpers: 8 })],
+            reports: [report({ id: "r9", number: 9, crew: 8 })],
           },
         ],
       });
 
-      expect(field("Helfer")).toHaveValue("3");
+      expect(field("Einsatzkräfte")).toHaveValue("3");
     });
 
     it("prefills afresh when the form is opened again", async () => {
@@ -919,13 +933,13 @@ describe("StrengthPanel", () => {
         stations: [{ id: "s1", name: "UHSt 3", reports: [report()] }],
       });
       await openReport("UHSt 3");
-      await userEvent.clear(field("Helfer"));
-      await userEvent.type(field("Helfer"), "3");
+      await userEvent.clear(field("Einsatzkräfte"));
+      await userEvent.type(field("Einsatzkräfte"), "3");
       await userEvent.click(screen.getByRole("button", { name: "Zurück" }));
 
       await openReport("UHSt 3");
 
-      expect(field("Helfer")).toHaveValue("6");
+      expect(field("Einsatzkräfte")).toHaveValue("6");
     });
   });
 
@@ -952,7 +966,7 @@ describe("StrengthPanel", () => {
           reportedAt: "2026-09-26T06:02:00.000Z",
           leaders: 1,
           subLeaders: 1,
-          helpers: 6,
+          crew: 6,
           additionalPersonnel: 2,
           note: null,
         }),
@@ -961,7 +975,7 @@ describe("StrengthPanel", () => {
           reportedAt: "2026-09-26T08:10:00.000Z",
           leaders: 1,
           subLeaders: 1,
-          helpers: 5,
+          crew: 5,
           additionalPersonnel: 3,
           note: "Streife unterwegs",
         }),
@@ -970,33 +984,43 @@ describe("StrengthPanel", () => {
           reportedAt: "2026-09-26T07:04:00.000Z",
           leaders: 1,
           subLeaders: 1,
-          helpers: 5,
+          crew: 5,
           additionalPersonnel: 2,
           note: "Übergabe",
         }),
       ]);
 
       expect(historyRows()).toEqual([
-        ["Zeit", "F/UF/H//Σ", "+", "Pers.", ""],
-        ["10:10", "1/1/5//7", "3", "10", "⋯"],
+        ["Zeit", "F/UF/E/G", "+", "Pers.", ""],
+        ["10:10", "1/1/5/7", "3", "10", "⋯"],
         ["Streife unterwegs"],
-        ["09:04", "1/1/5//7", "2", "9", "⋯"],
+        ["09:04", "1/1/5/7", "2", "9", "⋯"],
         ["Übergabe"],
-        ["08:02", "1/1/6//8", "2", "10", "⋯"],
+        ["08:02", "1/1/6/8", "2", "10", "⋯"],
       ]);
     });
 
     it("leaves out annulled reports", async () => {
       await openHistory([
-        report({ number: 3, helpers: 4 }),
-        report({ number: 7, helpers: 9, state: "annulliert" }),
+        report({ number: 3, crew: 4 }),
+        report({ number: 7, crew: 9, state: "annulliert" }),
       ]);
 
       expect(historyRows()).toEqual([
-        ["Zeit", "F/UF/H//Σ", "+", "Pers.", ""],
-        ["11:01", "0/1/4//5", "2", "7", "⋯"],
+        ["Zeit", "F/UF/E/G", "+", "Pers.", ""],
+        ["11:01", "0/1/4/5", "2", "7", "⋯"],
         ["2 einsatzbereite Streifen"],
       ]);
+    });
+
+    it("underlines G in the head and in each row", async () => {
+      await openHistory([report()]);
+
+      const table = within(
+        screen.getByRole("table", { name: "Verlauf UHSt 3" }),
+      );
+      expect(table.getByText(strength("F/UF/E/G"))).toBeInTheDocument();
+      expect(table.getByText(strength("0/1/6/7"))).toBeInTheDocument();
     });
 
     it("shows a report arriving live while it is open", async () => {
@@ -1012,7 +1036,7 @@ describe("StrengthPanel", () => {
               report({
                 number: 7,
                 reportedAt: "2026-09-26T09:30:00.000Z",
-                helpers: 9,
+                crew: 9,
               }),
             ],
           },
@@ -1020,10 +1044,10 @@ describe("StrengthPanel", () => {
       });
 
       expect(historyRows()).toEqual([
-        ["Zeit", "F/UF/H//Σ", "+", "Pers.", ""],
-        ["11:30", "0/1/9//10", "2", "12", "⋯"],
+        ["Zeit", "F/UF/E/G", "+", "Pers.", ""],
+        ["11:30", "0/1/9/10", "2", "12", "⋯"],
         ["2 einsatzbereite Streifen"],
-        ["11:01", "0/1/6//7", "2", "9", "⋯"],
+        ["11:01", "0/1/6/7", "2", "9", "⋯"],
         ["2 einsatzbereite Streifen"],
       ]);
     });
@@ -1044,12 +1068,12 @@ describe("StrengthPanel", () => {
         id: "s1",
         name: "UHSt 3",
         reports: [
-          report({ id: "r1", number: 3, helpers: 4, note: null }),
+          report({ id: "r1", number: 3, crew: 4, note: null }),
           report({
             id: "r2",
             number: 7,
             reportedAt: "2026-09-26T09:30:00.000Z",
-            helpers: 9,
+            crew: 9,
             note: "Streife unterwegs",
           }),
         ],
@@ -1085,7 +1109,7 @@ describe("StrengthPanel", () => {
           name: "UHSt 3 · Meldung 11:01 korrigieren",
         }),
       ).toBeInTheDocument();
-      expect(field("Helfer")).toHaveValue("4");
+      expect(field("Einsatzkräfte")).toHaveValue("4");
       expect(field("Zusätzliches Personal")).toHaveValue("2");
       expect(field("Notiz")).toHaveValue("");
       expect(screen.getByRole("combobox", { name: "Stelle" })).toHaveValue(
@@ -1097,8 +1121,8 @@ describe("StrengthPanel", () => {
       const { onCorrectStrengthReport } = setup({ stations: stations() });
       await openCorrection("11:30 (#7)");
 
-      await userEvent.clear(field("Helfer"));
-      await userEvent.type(field("Helfer"), "8");
+      await userEvent.clear(field("Einsatzkräfte"));
+      await userEvent.type(field("Einsatzkräfte"), "8");
       await userEvent.selectOptions(
         screen.getByRole("combobox", { name: "Stelle" }),
         "Ziel",
@@ -1108,7 +1132,7 @@ describe("StrengthPanel", () => {
       expect(onCorrectStrengthReport).toHaveBeenCalledWith("r2", "s2", {
         leaders: 0,
         subLeaders: 1,
-        helpers: 8,
+        crew: 8,
         additionalPersonnel: 2,
         note: "Streife unterwegs",
       });
@@ -1132,8 +1156,8 @@ describe("StrengthPanel", () => {
     it("keeps a started new report while correcting", async () => {
       setup({ stations: stations() });
       await userEvent.click(within(card("UHSt 3")).getByText("UHSt 3"));
-      await userEvent.clear(field("Helfer"));
-      await userEvent.type(field("Helfer"), "3");
+      await userEvent.clear(field("Einsatzkräfte"));
+      await userEvent.type(field("Einsatzkräfte"), "3");
 
       await userEvent.click(
         screen.getByRole("button", { name: "Aktionen für Meldung 11:01 (#3)" }),
@@ -1141,19 +1165,19 @@ describe("StrengthPanel", () => {
       await userEvent.click(
         await screen.findByRole("menuitem", { name: "Korrigieren" }),
       );
-      expect(field("Helfer")).toHaveValue("4");
+      expect(field("Einsatzkräfte")).toHaveValue("4");
       await userEvent.click(screen.getByRole("button", { name: "Abbrechen" }));
 
-      expect(field("Helfer")).toHaveValue("3");
+      expect(field("Einsatzkräfte")).toHaveValue("3");
     });
 
     it("prefills the new report afresh after a correction", async () => {
       const corrected = stations();
-      corrected[0].reports[1] = { ...corrected[0].reports[1], helpers: 8 };
+      corrected[0].reports[1] = { ...corrected[0].reports[1], crew: 8 };
       const { rerender } = setup({ stations: stations() });
       await openCorrection("11:30 (#7)");
-      await userEvent.clear(field("Helfer"));
-      await userEvent.type(field("Helfer"), "8");
+      await userEvent.clear(field("Einsatzkräfte"));
+      await userEvent.type(field("Einsatzkräfte"), "8");
       await userEvent.click(screen.getByRole("button", { name: "Speichern" }));
 
       rerender({ stations: corrected });
@@ -1161,29 +1185,29 @@ describe("StrengthPanel", () => {
       expect(
         screen.getByRole("heading", { name: "UHSt 3 · neue Meldung" }),
       ).toBeInTheDocument();
-      expect(field("Helfer")).toHaveValue("8");
+      expect(field("Einsatzkräfte")).toHaveValue("8");
     });
 
     it("keeps a started new report when an older report is corrected", async () => {
       const corrected = stations();
-      corrected[0].reports[0] = { ...corrected[0].reports[0], helpers: 5 };
+      corrected[0].reports[0] = { ...corrected[0].reports[0], crew: 5 };
       const { rerender } = setup({ stations: stations() });
       await userEvent.click(within(card("UHSt 3")).getByText("UHSt 3"));
-      await userEvent.clear(field("Helfer"));
-      await userEvent.type(field("Helfer"), "3");
+      await userEvent.clear(field("Einsatzkräfte"));
+      await userEvent.type(field("Einsatzkräfte"), "3");
       await userEvent.click(
         screen.getByRole("button", { name: "Aktionen für Meldung 11:01 (#3)" }),
       );
       await userEvent.click(
         await screen.findByRole("menuitem", { name: "Korrigieren" }),
       );
-      await userEvent.clear(field("Helfer"));
-      await userEvent.type(field("Helfer"), "5");
+      await userEvent.clear(field("Einsatzkräfte"));
+      await userEvent.type(field("Einsatzkräfte"), "5");
       await userEvent.click(screen.getByRole("button", { name: "Speichern" }));
 
       rerender({ stations: corrected });
 
-      expect(field("Helfer")).toHaveValue("3");
+      expect(field("Einsatzkräfte")).toHaveValue("3");
     });
 
     it("tells apart two reports of the same minute", async () => {
@@ -1217,15 +1241,15 @@ describe("StrengthPanel", () => {
         })),
       });
       await openCorrection("11:01 (#3)");
-      await userEvent.clear(field("Helfer"));
-      await userEvent.type(field("Helfer"), "8");
+      await userEvent.clear(field("Einsatzkräfte"));
+      await userEvent.type(field("Einsatzkräfte"), "8");
 
       await userEvent.click(screen.getByRole("button", { name: "Speichern" }));
 
       expect(screen.getByRole("alert")).toHaveTextContent(
         "Annullierte Einträge können nicht geändert werden.",
       );
-      expect(field("Helfer")).toHaveValue("8");
+      expect(field("Einsatzkräfte")).toHaveValue("8");
     });
   });
 
@@ -1235,12 +1259,12 @@ describe("StrengthPanel", () => {
         id: "s1",
         name: "UHSt 3",
         reports: [
-          report({ id: "r1", number: 3, helpers: 4 }),
+          report({ id: "r1", number: 3, crew: 4 }),
           report({
             id: "r2",
             number: 7,
             reportedAt: "2026-09-26T09:30:00.000Z",
-            helpers: 9,
+            crew: 9,
             state,
           }),
         ],
@@ -1294,7 +1318,9 @@ describe("StrengthPanel", () => {
     it("prefills the new report afresh after an annulment", async () => {
       const { rerender } = setup({ stations: stations() });
       await openAnnulment();
-      expect(screen.getByRole("textbox", { name: "Helfer" })).toHaveValue("9");
+      expect(
+        screen.getByRole("textbox", { name: "Einsatzkräfte" }),
+      ).toHaveValue("9");
       await userEvent.click(
         within(await screen.findByRole("dialog")).getByRole("button", {
           name: "Annullieren",
@@ -1303,7 +1329,9 @@ describe("StrengthPanel", () => {
 
       rerender({ stations: stations("annulliert") });
 
-      expect(screen.getByRole("textbox", { name: "Helfer" })).toHaveValue("4");
+      expect(
+        screen.getByRole("textbox", { name: "Einsatzkräfte" }),
+      ).toHaveValue("4");
     });
 
     it("keeps the report when the confirmation is cancelled", async () => {
@@ -1443,7 +1471,7 @@ describe("StrengthPanel", () => {
               report({
                 number: 4,
                 reportedAt: "2026-09-26T08:10:00.000Z",
-                helpers: 3,
+                crew: 3,
                 state: "annulliert",
               }),
             ],
@@ -1456,7 +1484,7 @@ describe("StrengthPanel", () => {
                 number: 2,
                 reportedAt: "2026-09-26T07:04:00.000Z",
                 leaders: 1,
-                helpers: 10,
+                crew: 10,
                 additionalPersonnel: 0,
               }),
             ],
@@ -1467,10 +1495,15 @@ describe("StrengthPanel", () => {
       await openTotalHistory();
 
       expect(totalHistoryRows()).toEqual([
-        ["Zeit", "F/UF/H//Σ", "+", "Pers."],
-        ["09:04", "1/2/16//19", "2", "21"],
-        ["08:02", "0/1/6//7", "2", "9"],
+        ["Zeit", "F/UF/E/G", "+", "Pers."],
+        ["09:04", "1/2/16/19", "2", "21"],
+        ["08:02", "0/1/6/7", "2", "9"],
       ]);
+      const table = within(
+        screen.getByRole("table", { name: "Summenverlauf" }),
+      );
+      expect(table.getByText(strength("F/UF/E/G"))).toBeInTheDocument();
+      expect(table.getByText(strength("1/2/16/19"))).toBeInTheDocument();
       expect(screen.queryByRole("region", { name: "Summe" })).toBeNull();
     });
 
@@ -1503,7 +1536,7 @@ describe("StrengthPanel", () => {
               report({
                 number: 2,
                 reportedAt: "2026-09-26T09:30:00.000Z",
-                helpers: 4,
+                crew: 4,
                 additionalPersonnel: 0,
               }),
             ],
@@ -1512,9 +1545,9 @@ describe("StrengthPanel", () => {
       });
 
       expect(totalHistoryRows()).toEqual([
-        ["Zeit", "F/UF/H//Σ", "+", "Pers."],
-        ["11:30", "0/2/10//12", "2", "14"],
-        ["11:01", "0/1/6//7", "2", "9"],
+        ["Zeit", "F/UF/E/G", "+", "Pers."],
+        ["11:30", "0/2/10/12", "2", "14"],
+        ["11:01", "0/1/6/7", "2", "9"],
       ]);
     });
 

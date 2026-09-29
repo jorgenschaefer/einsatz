@@ -22,12 +22,12 @@ async function aStation(db: TestDb, operationId: string, name: string) {
 const counts = (
   leaders: number,
   subLeaders: number,
-  helpers: number,
+  crew: number,
   additionalPersonnel: number,
 ): StrengthValues => ({
   leaders,
   subLeaders,
-  helpers,
+  crew,
   additionalPersonnel,
   note: null,
 });

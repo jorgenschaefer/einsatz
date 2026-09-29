@@ -1,7 +1,7 @@
 export interface StrengthCounts {
   leaders: number;
   subLeaders: number;
-  helpers: number;
+  crew: number;
   additionalPersonnel: number;
 }
 
@@ -9,19 +9,19 @@ export interface StrengthValues extends StrengthCounts {
   note: string | null;
 }
 
-/** Σ: Führer + Unterführer + Helfer. */
+/** G (Gesamt): Führer + Unterführer + Einsatzkräfte. */
 export function sumOf(values: StrengthCounts): number {
-  return values.leaders + values.subLeaders + values.helpers;
+  return values.leaders + values.subLeaders + values.crew;
 }
 
-/** Gesamtpersonen: Σ + zusätzliches Personal. */
+/** Gesamtpersonen: G + zusätzliches Personal. */
 export function totalPersonsOf(values: StrengthCounts): number {
   return sumOf(values) + values.additionalPersonnel;
 }
 
-/** Die Stärke-Schreibweise F/UF/H//Σ, z. B. „0/1/6//7". */
+/** Die Stärke F/UF/E/G als reiner Text, z. B. „0/1/6//7" (im ETB). */
 export function formatStrength(counts: StrengthCounts): string {
-  return `${counts.leaders}/${counts.subLeaders}/${counts.helpers}//${sumOf(counts)}`;
+  return `${counts.leaders}/${counts.subLeaders}/${counts.crew}//${sumOf(counts)}`;
 }
 
 export function formatStrengthReportText(
@@ -71,7 +71,7 @@ export function totalOf(reportsByStation: ReportedStrength[][]): Total {
   const total: Total = {
     leaders: 0,
     subLeaders: 0,
-    helpers: 0,
+    crew: 0,
     additionalPersonnel: 0,
     stationCount: 0,
     oldestReportedAt: null,
@@ -81,7 +81,7 @@ export function totalOf(reportsByStation: ReportedStrength[][]): Total {
     if (!latest) continue;
     total.leaders += latest.leaders;
     total.subLeaders += latest.subLeaders;
-    total.helpers += latest.helpers;
+    total.crew += latest.crew;
     total.additionalPersonnel += latest.additionalPersonnel;
     if (totalPersonsOf(latest) === 0) continue;
     total.stationCount += 1;

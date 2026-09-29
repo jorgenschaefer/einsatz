@@ -44,7 +44,7 @@ export async function recordStrengthReport(
   });
   await tx.query(
     `INSERT INTO strength_reports
-       (id, station_id, journal_entry_id, leaders, sub_leaders, helpers, additional_personnel, note)
+       (id, station_id, journal_entry_id, leaders, sub_leaders, crew, additional_personnel, note)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
     [
       randomUUID(),
@@ -52,7 +52,7 @@ export async function recordStrengthReport(
       entry.id,
       values.leaders,
       values.subLeaders,
-      values.helpers,
+      values.crew,
       values.additionalPersonnel,
       values.note,
     ],
@@ -109,7 +109,7 @@ export async function correctStrengthReport(
     if (!station) throw new ValidationError("Stelle nicht gefunden.");
     await tx.query(
       `UPDATE strength_reports
-          SET station_id = $2, leaders = $3, sub_leaders = $4, helpers = $5,
+          SET station_id = $2, leaders = $3, sub_leaders = $4, crew = $5,
               additional_personnel = $6, note = $7
         WHERE id = $1`,
       [
@@ -117,7 +117,7 @@ export async function correctStrengthReport(
         input.stationId,
         values.leaders,
         values.subLeaders,
-        values.helpers,
+        values.crew,
         values.additionalPersonnel,
         values.note,
       ],
@@ -166,14 +166,14 @@ export async function listStrengthReports(
     station_id: string;
     leaders: number;
     sub_leaders: number;
-    helpers: number;
+    crew: number;
     additional_personnel: number;
     note: string | null;
     created_at: string | Date;
     state: JournalEntryState;
     number: number;
   }>(
-    `SELECT r.id, r.station_id, r.leaders, r.sub_leaders, r.helpers,
+    `SELECT r.id, r.station_id, r.leaders, r.sub_leaders, r.crew,
             r.additional_personnel, r.note, e.created_at, e.state, e.number
        FROM strength_reports r
        JOIN journal_entries e ON e.id = r.journal_entry_id
@@ -186,7 +186,7 @@ export async function listStrengthReports(
     stationId: row.station_id,
     leaders: row.leaders,
     subLeaders: row.sub_leaders,
-    helpers: row.helpers,
+    crew: row.crew,
     additionalPersonnel: row.additional_personnel,
     note: row.note,
     reportedAt: new Date(row.created_at),
@@ -201,7 +201,7 @@ function requireStrengthValues(values: StrengthValues): StrengthValues {
   const counts = [
     values.leaders,
     values.subLeaders,
-    values.helpers,
+    values.crew,
     values.additionalPersonnel,
   ];
   if (!counts.every((n) => Number.isInteger(n) && n >= 0 && n <= MAX_COUNT)) {

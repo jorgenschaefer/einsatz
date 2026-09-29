@@ -71,7 +71,7 @@ describe("deleteOperation (domain)", () => {
         values: {
           leaders: 0,
           subLeaders: 1,
-          helpers: 6,
+          crew: 6,
           additionalPersonnel: 2,
           note: null,
         },

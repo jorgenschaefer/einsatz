@@ -18,14 +18,14 @@ import {
 const values = (over: Partial<StrengthValues> = {}): StrengthValues => ({
   leaders: 0,
   subLeaders: 1,
-  helpers: 6,
+  crew: 6,
   additionalPersonnel: 2,
   note: "2 einsatzbereite Streifen",
   ...over,
 });
 
 describe("sumOf / totalPersonsOf", () => {
-  it("sums Führer, Unterführer and Helfer, and adds zusätzliches Personal for the Gesamtpersonen", () => {
+  it("sums Führer, Unterführer and Einsatzkräfte, and adds zusätzliches Personal for the Gesamtpersonen", () => {
     expect(sumOf(values())).toBe(7);
     expect(totalPersonsOf(values())).toBe(9);
   });
@@ -34,7 +34,7 @@ describe("sumOf / totalPersonsOf", () => {
     const zero = values({
       leaders: 0,
       subLeaders: 0,
-      helpers: 0,
+      crew: 0,
       additionalPersonnel: 0,
     });
     expect(sumOf(zero)).toBe(0);
@@ -43,10 +43,8 @@ describe("sumOf / totalPersonsOf", () => {
 });
 
 describe("formatStrength", () => {
-  it("writes Führer/Unterführer/Helfer//Σ", () => {
-    expect(formatStrength(values({ leaders: 1, helpers: 12 }))).toBe(
-      "1/1/12//14",
-    );
+  it("writes Führer/Unterführer/Einsatzkräfte//G", () => {
+    expect(formatStrength(values({ leaders: 1, crew: 12 }))).toBe("1/1/12//14");
   });
 });
 
@@ -150,7 +148,7 @@ describe("totalOf", () => {
   ) => ({
     leaders: counts[0],
     subLeaders: counts[1],
-    helpers: counts[2],
+    crew: counts[2],
     additionalPersonnel: counts[3],
     note: null,
     reportedAt,
@@ -162,7 +160,7 @@ describe("totalOf", () => {
     expect(totalOf([])).toEqual({
       leaders: 0,
       subLeaders: 0,
-      helpers: 0,
+      crew: 0,
       additionalPersonnel: 0,
       stationCount: 0,
       oldestReportedAt: null,
@@ -184,7 +182,7 @@ describe("totalOf", () => {
     expect(total).toEqual({
       leaders: 2,
       subLeaders: 6,
-      helpers: 25,
+      crew: 25,
       additionalPersonnel: 6,
       stationCount: 2,
       oldestReportedAt: new Date("2026-09-26T08:10:00Z"),
@@ -198,7 +196,7 @@ describe("totalOf", () => {
       [report([0, 1, 6, 2], "2026-09-26T08:10:00Z")],
     ]);
     expect(total.stationCount).toBe(1);
-    expect(total.helpers).toBe(6);
+    expect(total.crew).toBe(6);
     expect(total.oldestReportedAt).toEqual(new Date("2026-09-26T08:10:00Z"));
   });
 
@@ -240,14 +238,14 @@ describe("totalOf", () => {
 
 describe("totalHistory", () => {
   const report = (
-    helpers: number,
+    crew: number,
     reportedAt: string,
     number: number,
     state: "gueltig" | "annulliert" = "gueltig",
   ) => ({
     leaders: 0,
     subLeaders: 0,
-    helpers,
+    crew,
     additionalPersonnel: 0,
     note: null,
     reportedAt,
@@ -259,7 +257,7 @@ describe("totalHistory", () => {
     totalHistory(reportsByStation).map((row) => ({
       number: row.number,
       reportedAt: row.reportedAt,
-      helpers: row.total.helpers,
+      crew: row.total.crew,
     }));
 
   it("is empty without a valid report", () => {
@@ -281,10 +279,10 @@ describe("totalHistory", () => {
         ],
       ]),
     ).toEqual([
-      { number: 8, reportedAt: "2026-09-26T10:00:00Z", helpers: 23 },
-      { number: 5, reportedAt: "2026-09-26T09:00:00Z", helpers: 13 },
-      { number: 2, reportedAt: "2026-09-26T08:00:00Z", helpers: 11 },
-      { number: 1, reportedAt: "2026-09-26T07:00:00Z", helpers: 1 },
+      { number: 8, reportedAt: "2026-09-26T10:00:00Z", crew: 23 },
+      { number: 5, reportedAt: "2026-09-26T09:00:00Z", crew: 13 },
+      { number: 2, reportedAt: "2026-09-26T08:00:00Z", crew: 11 },
+      { number: 1, reportedAt: "2026-09-26T07:00:00Z", crew: 1 },
     ]);
   });
 
@@ -298,8 +296,8 @@ describe("totalHistory", () => {
         [report(10, "2026-09-26T09:00:00Z", 5)],
       ]),
     ).toEqual([
-      { number: 5, reportedAt: "2026-09-26T09:00:00Z", helpers: 11 },
-      { number: 1, reportedAt: "2026-09-26T07:00:00Z", helpers: 1 },
+      { number: 5, reportedAt: "2026-09-26T09:00:00Z", crew: 11 },
+      { number: 1, reportedAt: "2026-09-26T07:00:00Z", crew: 1 },
     ]);
   });
 
@@ -310,8 +308,8 @@ describe("totalHistory", () => {
         [report(10, "2026-09-26T07:00:50Z", 2)],
       ]),
     ).toEqual([
-      { number: 2, reportedAt: "2026-09-26T07:00:50Z", helpers: 11 },
-      { number: 1, reportedAt: "2026-09-26T07:00:10Z", helpers: 1 },
+      { number: 2, reportedAt: "2026-09-26T07:00:50Z", crew: 11 },
+      { number: 1, reportedAt: "2026-09-26T07:00:10Z", crew: 1 },
     ]);
   });
 
@@ -322,8 +320,8 @@ describe("totalHistory", () => {
         [report(10, "2026-09-26T07:00:00.000Z", 2)],
       ]),
     ).toEqual([
-      { number: 2, reportedAt: "2026-09-26T07:00:00.000Z", helpers: 11 },
-      { number: 1, reportedAt: "2026-09-26T07:00:00Z", helpers: 11 },
+      { number: 2, reportedAt: "2026-09-26T07:00:00.000Z", crew: 11 },
+      { number: 1, reportedAt: "2026-09-26T07:00:00Z", crew: 11 },
     ]);
   });
 
@@ -342,7 +340,7 @@ describe("totalHistory", () => {
     expect(row.total).toEqual({
       leaders: 1,
       subLeaders: 2,
-      helpers: 10,
+      crew: 10,
       additionalPersonnel: 3,
       stationCount: 2,
       oldestReportedAt: new Date("2026-09-26T07:00:00Z"),
@@ -354,17 +352,17 @@ describe("isReportStale / isTotalStale", () => {
   const reportedAt = "2026-09-26T08:10:00Z";
   const at = (minutes: number) =>
     new Date(reportedAt).getTime() + minutes * 60_000;
-  const report = (helpers: number, additionalPersonnel = 0) => ({
+  const report = (crew: number, additionalPersonnel = 0) => ({
     leaders: 0,
     subLeaders: 0,
-    helpers,
+    crew,
     additionalPersonnel,
     reportedAt,
   });
   const total = (oldestReportedAt: Date | null) => ({
     leaders: 0,
     subLeaders: 0,
-    helpers: 4,
+    crew: 4,
     additionalPersonnel: 0,
     stationCount: oldestReportedAt ? 1 : 0,
     oldestReportedAt,
@@ -394,7 +392,7 @@ describe("formatTotalStrengthText", () => {
   const total = (stationCount: number, oldestReportedAt: Date | null) => ({
     leaders: 2,
     subLeaders: 6,
-    helpers: 25,
+    crew: 25,
     additionalPersonnel: 6,
     stationCount,
     oldestReportedAt,
@@ -421,7 +419,7 @@ describe("formatTotalStrengthText", () => {
       formatTotalStrengthText({
         leaders: 0,
         subLeaders: 0,
-        helpers: 0,
+        crew: 0,
         additionalPersonnel: 0,
         stationCount: 0,
         oldestReportedAt: null,

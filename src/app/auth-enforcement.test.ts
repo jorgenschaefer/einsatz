@@ -254,7 +254,7 @@ const userGuardedActions: Invocation[] = [
       recordStrengthReportAction("st-1", {
         leaders: 0,
         subLeaders: 1,
-        helpers: 6,
+        crew: 6,
         additionalPersonnel: 2,
         note: null,
       }),
@@ -265,7 +265,7 @@ const userGuardedActions: Invocation[] = [
       correctStrengthReportAction("r-1", "st-1", {
         leaders: 0,
         subLeaders: 1,
-        helpers: 6,
+        crew: 6,
         additionalPersonnel: 2,
         note: null,
       }),

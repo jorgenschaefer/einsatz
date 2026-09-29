@@ -61,7 +61,7 @@ async function anOperation() {
 const SOME_VALUES = {
   leaders: 0,
   subLeaders: 1,
-  helpers: 6,
+  crew: 6,
   additionalPersonnel: 2,
   note: null,
 };
@@ -165,7 +165,7 @@ describe("strength actions", () => {
     const values = {
       leaders: 0,
       subLeaders: 1,
-      helpers: 6,
+      crew: 6,
       additionalPersonnel: 2,
       note: null,
     };
@@ -191,7 +191,7 @@ describe("strength actions", () => {
       await recordStrengthReportAction(station.id, {
         leaders: -1,
         subLeaders: 0,
-        helpers: 0,
+        crew: 0,
         additionalPersonnel: 0,
         note: null,
       }),
@@ -209,7 +209,7 @@ describe("strength actions", () => {
     await recordStrengthReportAction(station.id, {
       leaders: 0,
       subLeaders: 1,
-      helpers: 6,
+      crew: 6,
       additionalPersonnel: 2,
       note: null,
     });
@@ -243,7 +243,7 @@ describe("strength actions", () => {
     const values = {
       leaders: 0,
       subLeaders: 1,
-      helpers: 6,
+      crew: 6,
       additionalPersonnel: 2,
       note: null,
     };
@@ -253,11 +253,11 @@ describe("strength actions", () => {
     expect(
       await correctStrengthReportAction(report.id, station.id, {
         ...values,
-        helpers: 5,
+        crew: 5,
       }),
     ).toEqual({});
 
-    expect((await listStrengthReports(db, op.id))[0].helpers).toBe(5);
+    expect((await listStrengthReports(db, op.id))[0].crew).toBe(5);
     expect((await listEntries(db, op.id)).at(-1)).toMatchObject({
       text: "Stärkemeldung UHSt 3: 0/1/5//6, +2 zusätzlich, 8 Personen",
       author: "clara",
@@ -273,7 +273,7 @@ describe("strength actions", () => {
     await recordStrengthReportAction(station.id, {
       leaders: 0,
       subLeaders: 1,
-      helpers: 6,
+      crew: 6,
       additionalPersonnel: 2,
       note: null,
     });
@@ -306,7 +306,7 @@ describe("strength actions", () => {
         (s: { reportId: string; stationId: string }) =>
           correctStrengthReportAction(s.reportId, s.stationId, {
             ...SOME_VALUES,
-            helpers: 5,
+            crew: 5,
           }),
       ],
       [
