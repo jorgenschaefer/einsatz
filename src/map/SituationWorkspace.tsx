@@ -910,6 +910,7 @@ export function SituationWorkspace({
             onCorrect={onCorrectJournalEntry}
             onAnnul={onAnnulJournalEntry}
             newEntryRef={newEntryRef}
+            visible={mainView === "etb"}
           />
         </Box>
 

@@ -802,6 +802,21 @@ describe("SituationWorkspace", () => {
     }
   });
 
+  it("shows the latest ETB entry when the ETB is chosen", async () => {
+    const scrollIntoView = vi.spyOn(Element.prototype, "scrollIntoView");
+    try {
+      renderWorkspace();
+      await selectMainView("Lagekarte");
+      scrollIntoView.mockClear();
+
+      await selectMainView("ETB");
+
+      expect(scrollIntoView).toHaveBeenCalledWith({ block: "end" });
+    } finally {
+      scrollIntoView.mockRestore();
+    }
+  });
+
   describe("working beside the Lagekarte on the desktop", () => {
     beforeEach(() => {
       stubMatchMedia(true);

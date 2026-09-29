@@ -15,7 +15,7 @@ import {
   Textarea,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { type Ref, useState } from "react";
+import { type Ref, useEffect, useRef, useState } from "react";
 import type {
   JournalEntryState,
   JournalEntryType,
@@ -48,6 +48,8 @@ export interface JournalPanelProps {
   onCorrect: (id: string, text: string) => Promise<ActionResult>;
   onAnnul: (id: string) => Promise<ActionResult>;
   newEntryRef?: Ref<HTMLTextAreaElement>;
+  /** Wird das ETB sichtbar, zeigt es den letzten Eintrag. */
+  visible: boolean;
 }
 
 const berlinTime = (iso: string) =>
@@ -68,6 +70,7 @@ export function JournalPanel({
   onCorrect,
   onAnnul,
   newEntryRef,
+  visible,
 }: JournalPanelProps) {
   const [hideAuto, setHideAuto] = useState(false);
   const [draft, setDraft] = useState("");
@@ -80,7 +83,8 @@ export function JournalPanel({
   const [annulError, setAnnulError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const visible = hideAuto ? entries.filter((e) => !isAutomatic(e)) : entries;
+  const shown = hideAuto ? entries.filter((e) => !isAutomatic(e)) : entries;
+  const scroll = useScrollToEnd(visible, entries.at(-1)?.id);
 
   const submitNew = async () => {
     const text = draft.trim();
@@ -93,6 +97,7 @@ export function JournalPanel({
       }
       setDraft("");
       setError(null);
+      scroll.scrollToEnd();
     } catch {
       setError(SAVE_ERROR);
     }
@@ -165,7 +170,7 @@ export function JournalPanel({
       />
 
       <Stack gap="sm" className="journal-entries">
-        {visible.map((entry) => {
+        {shown.map((entry) => {
           const isAuto = isAutomatic(entry);
           const isValid = entry.state === "gueltig";
           const canCorrect = isValid && entry.type === "manuell";
@@ -274,9 +279,16 @@ export function JournalPanel({
             </Paper>
           );
         })}
+        {/* Deckt die letzten 8 px der Liste ab: Am Ende gescrollt fehlen dem
+            Rand sonst Bruchteile eines Pixels, und es gilt nicht als „am Ende".
+            Ohne flexShrink schrumpft er in der scrollenden Liste (Desktop) auf 0. */}
+        <div
+          ref={scroll.endRef}
+          style={{ height: 8, marginTop: -8, flexShrink: 0 }}
+        />
       </Stack>
 
-      <Stack gap="xs" className="journal-new-entry">
+      <Stack gap="xs" className="journal-new-entry" ref={scroll.newEntryRef}>
         <Textarea
           ref={newEntryRef}
           aria-label="Neuer Eintrag"
@@ -321,6 +333,57 @@ export function JournalPanel({
       </Modal>
     </Stack>
   );
+}
+
+/**
+ * Hält das ETB am letzten Eintrag wie einen Chat: beim Sichtbarwerden, nach
+ * `scrollToEnd` und bei einem neuen Eintrag, solange das Listenende zu sehen
+ * war. Wer hochgescrollt hat, bleibt, wo er ist.
+ */
+function useScrollToEnd(visible: boolean, lastEntryId: string | undefined) {
+  const endRef = useRef<HTMLDivElement>(null);
+  const newEntryRef = useRef<HTMLDivElement>(null);
+  const endInView = useRef(false);
+
+  useEffect(() => {
+    if (!endRef.current) return;
+    // Mehrere Beobachtungen seit dem letzten Aufruf: Es zählt die neueste.
+    const observer = new IntersectionObserver((observations) => {
+      endInView.current = observations.at(-1)?.isIntersecting ?? false;
+    });
+    observer.observe(endRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (visible) scrollToEnd(endRef.current, newEntryRef.current);
+  }, [visible]);
+
+  useEffect(() => {
+    if (lastEntryId !== undefined && endInView.current) {
+      scrollToEnd(endRef.current, newEntryRef.current);
+    }
+  }, [lastEntryId]);
+
+  return {
+    endRef,
+    newEntryRef,
+    // Das eigene Scrollen gilt sofort als „am Ende": Der IntersectionObserver
+    // meldet es erst nach dem nächsten Frame, der neue Eintrag kommt oft vorher.
+    scrollToEnd: () => {
+      endInView.current = true;
+      scrollToEnd(endRef.current, newEntryRef.current);
+    },
+  };
+}
+
+/**
+ * Am Desktop scrollt nur die Liste ans Ende; am Handy scrollt das ganze ETB,
+ * dort gehört Neuer Eintrag unter dem letzten Eintrag mit ins Bild.
+ */
+function scrollToEnd(listEnd: Element | null, newEntry: Element | null) {
+  listEnd?.scrollIntoView({ block: "end" });
+  newEntry?.scrollIntoView({ block: "end" });
 }
 
 /** Strg/⌘+Enter schickt das Textfeld ab. */

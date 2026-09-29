@@ -2,8 +2,16 @@ import { MantineProvider } from "@mantine/core";
 import { render as rtlRender } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createRef } from "react";
-import { describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor, within } from "@/test/render";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  type MockInstance,
+  vi,
+} from "vitest";
+import { act, fireEvent, render, screen, waitFor, within } from "@/test/render";
 import {
   type JournalEntryView,
   JournalPanel,
@@ -25,14 +33,19 @@ function entry(over: Partial<JournalEntryView> = {}): JournalEntryView {
   };
 }
 
-function setup(over: Partial<JournalPanelProps> = {}) {
-  const props: JournalPanelProps = {
+function panelProps(over: Partial<JournalPanelProps> = {}): JournalPanelProps {
+  return {
     entries: [entry()],
     onAdd: vi.fn(async () => ({})),
     onCorrect: vi.fn(async () => ({})),
     onAnnul: vi.fn(async () => ({})),
+    visible: true,
     ...over,
   };
+}
+
+function setup(over: Partial<JournalPanelProps> = {}) {
+  const props = panelProps(over);
   render(<JournalPanel {...props} />);
   return props;
 }
@@ -305,6 +318,7 @@ describe("JournalPanel", () => {
           onAdd={vi.fn()}
           onCorrect={vi.fn()}
           onAnnul={onAnnul}
+          visible
         />
       </MantineProvider>,
     );
@@ -545,5 +559,135 @@ describe("JournalPanel", () => {
     expect(list).not.toContainElement(
       screen.getByRole("button", { name: "Eintrag hinzufügen" }),
     );
+  });
+
+  describe("scrolling to the latest entry", () => {
+    let scrollIntoView: MockInstance<Element["scrollIntoView"]>;
+    /** Meldet Beobachtungen des Listenendes, älteste zuerst, in einem Aufruf. */
+    let reportEndVisible: (...visible: boolean[]) => void;
+
+    beforeEach(() => {
+      scrollIntoView = vi.spyOn(Element.prototype, "scrollIntoView");
+      vi.stubGlobal(
+        "IntersectionObserver",
+        class {
+          constructor(callback: IntersectionObserverCallback) {
+            reportEndVisible = (...visible) =>
+              act(() =>
+                callback(
+                  visible.map(
+                    (isIntersecting) =>
+                      ({ isIntersecting }) as IntersectionObserverEntry,
+                  ),
+                  this as unknown as IntersectionObserver,
+                ),
+              );
+          }
+          observe() {}
+          disconnect() {}
+        },
+      );
+    });
+
+    afterEach(() => {
+      scrollIntoView.mockRestore();
+      vi.unstubAllGlobals();
+    });
+
+    const withLiveEntry = [
+      entry(),
+      entry({ id: "e2", number: 2, text: "Pegel steigt", author: "ben" }),
+    ];
+
+    it("shows the latest entry when it opens", () => {
+      render(<JournalPanel {...panelProps()} />);
+
+      expect(scrollIntoView).toHaveBeenCalledWith({ block: "end" });
+    });
+
+    // Am Handy scrollt das ganze ETB; unter der Liste steht Neuer Eintrag.
+    it("brings Neuer Eintrag into view below the latest entry", () => {
+      render(<JournalPanel {...panelProps()} />);
+
+      const newEntry = screen
+        .getByLabelText("Neuer Eintrag")
+        .closest(".journal-new-entry");
+      expect(scrollIntoView.mock.contexts.at(-1)).toBe(newEntry);
+    });
+
+    it("shows the latest entry once it becomes visible", () => {
+      const { rerender } = render(
+        <JournalPanel {...panelProps({ visible: false })} />,
+      );
+      expect(scrollIntoView).not.toHaveBeenCalled();
+
+      rerender(<JournalPanel {...panelProps({ visible: true })} />);
+
+      expect(scrollIntoView).toHaveBeenCalledWith({ block: "end" });
+    });
+
+    it("scrolls to the end after adding an entry, even when scrolled up", async () => {
+      render(<JournalPanel {...panelProps()} />);
+      reportEndVisible(false);
+      scrollIntoView.mockClear();
+
+      await userEvent.type(
+        screen.getByLabelText("Neuer Eintrag"),
+        "Pegel steigt",
+      );
+      await userEvent.click(
+        screen.getByRole("button", { name: "Eintrag hinzufügen" }),
+      );
+
+      expect(scrollIntoView).toHaveBeenCalledWith({ block: "end" });
+    });
+
+    it("follows its own entry arriving after the add, before the end is reported in view", async () => {
+      const props = panelProps();
+      const { rerender } = render(<JournalPanel {...props} />);
+      reportEndVisible(false);
+      await userEvent.type(
+        screen.getByLabelText("Neuer Eintrag"),
+        "Pegel steigt",
+      );
+      await userEvent.click(
+        screen.getByRole("button", { name: "Eintrag hinzufügen" }),
+      );
+      scrollIntoView.mockClear();
+
+      rerender(<JournalPanel {...props} entries={withLiveEntry} />);
+
+      expect(scrollIntoView).toHaveBeenCalledWith({ block: "end" });
+    });
+
+    it("follows a live entry while the end of the list is in view", () => {
+      const { rerender } = render(<JournalPanel {...panelProps()} />);
+      reportEndVisible(true);
+      scrollIntoView.mockClear();
+
+      rerender(<JournalPanel {...panelProps({ entries: withLiveEntry })} />);
+
+      expect(scrollIntoView).toHaveBeenCalledWith({ block: "end" });
+    });
+
+    it("goes by the newest of several observations of the end", () => {
+      const { rerender } = render(<JournalPanel {...panelProps()} />);
+      reportEndVisible(false, true);
+      scrollIntoView.mockClear();
+
+      rerender(<JournalPanel {...panelProps({ entries: withLiveEntry })} />);
+
+      expect(scrollIntoView).toHaveBeenCalledWith({ block: "end" });
+    });
+
+    it("stays put for a live entry while scrolled up", () => {
+      const { rerender } = render(<JournalPanel {...panelProps()} />);
+      reportEndVisible(false);
+      scrollIntoView.mockClear();
+
+      rerender(<JournalPanel {...panelProps({ entries: withLiveEntry })} />);
+
+      expect(scrollIntoView).not.toHaveBeenCalled();
+    });
   });
 });

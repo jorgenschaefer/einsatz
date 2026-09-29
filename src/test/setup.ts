@@ -24,6 +24,18 @@ if (typeof window !== "undefined") {
 
   window.scrollTo = window.scrollTo || vi.fn();
 
+  Element.prototype.scrollIntoView =
+    Element.prototype.scrollIntoView || (() => {});
+
+  class IntersectionObserverStub {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }
+  window.IntersectionObserver =
+    window.IntersectionObserver ||
+    (IntersectionObserverStub as unknown as typeof IntersectionObserver);
+
   class ResizeObserverStub {
     observe() {}
     unobserve() {}
