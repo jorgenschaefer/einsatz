@@ -8,7 +8,6 @@ import {
   Checkbox,
   Group,
   Menu,
-  Modal,
   Paper,
   Stack,
   Text,
@@ -16,6 +15,7 @@ import {
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { type Ref, useEffect, useRef, useState } from "react";
+import { ConfirmationModal } from "@/app/ConfirmationModal";
 import type {
   JournalEntryState,
   JournalEntryType,
@@ -78,9 +78,6 @@ export function JournalPanel({
   const [editText, setEditText] = useState("");
   const [annulTarget, setAnnulTarget] = useState<JournalEntryView | null>(null);
   const [annulConfirmationOpen, annulConfirmation] = useDisclosure(false);
-  const [annulPending, setAnnulPending] = useState(false);
-  // Im Modal statt oben im ETB: annulliert wird oft weit unten in der Liste.
-  const [annulError, setAnnulError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const shown = hideAuto ? entries.filter((e) => !isAutomatic(e)) : entries;
@@ -126,26 +123,7 @@ export function JournalPanel({
 
   const openAnnulConfirmation = (entry: JournalEntryView) => {
     setAnnulTarget(entry);
-    setAnnulError(null);
     annulConfirmation.open();
-  };
-
-  const closeAnnulConfirmation = () => {
-    if (!annulPending) annulConfirmation.close();
-  };
-
-  const annul = async () => {
-    if (!annulTarget || !annulConfirmationOpen) return;
-    setAnnulPending(true);
-    try {
-      const { error: err } = await onAnnul(annulTarget.id);
-      setAnnulError(err ?? null);
-      if (!err) annulConfirmation.close();
-    } catch {
-      setAnnulError(SAVE_ERROR);
-    } finally {
-      setAnnulPending(false);
-    }
   };
 
   // Die journal-*-Klassen tragen das Desktop-Layout der Seitenleiste
@@ -302,35 +280,21 @@ export function JournalPanel({
         </Button>
       </Stack>
 
-      <Modal
-        opened={annulConfirmationOpen}
-        onClose={closeAnnulConfirmation}
-        title={`Eintrag #${annulTarget?.number} annullieren`}
-      >
-        <Stack>
-          {annulError && (
-            <Alert color="red" role="alert">
-              {annulError}
-            </Alert>
-          )}
+      {annulTarget && (
+        <ConfirmationModal
+          opened={annulConfirmationOpen}
+          onClose={annulConfirmation.close}
+          title={`Eintrag #${annulTarget.number} annullieren`}
+          confirmLabel="Annullieren"
+          confirmColor="red"
+          onConfirm={() => onAnnul(annulTarget.id)}
+        >
           <Text>
             Der Eintrag bleibt durchgestrichen im Einsatztagebuch stehen. Das
             lässt sich nicht rückgängig machen.
           </Text>
-          <Group justify="flex-end">
-            <Button
-              variant="default"
-              disabled={annulPending}
-              onClick={closeAnnulConfirmation}
-            >
-              Abbrechen
-            </Button>
-            <Button color="red" loading={annulPending} onClick={annul}>
-              Annullieren
-            </Button>
-          </Group>
-        </Stack>
-      </Modal>
+        </ConfirmationModal>
+      )}
     </Stack>
   );
 }

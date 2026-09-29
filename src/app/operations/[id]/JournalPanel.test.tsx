@@ -11,6 +11,7 @@ import {
   type MockInstance,
   vi,
 } from "vitest";
+import { buttonColor } from "@/test/button-color";
 import { act, fireEvent, render, screen, waitFor, within } from "@/test/render";
 import {
   type JournalEntryView,
@@ -209,7 +210,11 @@ describe("JournalPanel", () => {
       name: "Eintrag #1 annullieren",
     });
     expect(within(dialog).getByText(/nicht rückgängig/)).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Annullieren" }));
+    const annullieren = within(dialog).getByRole("button", {
+      name: "Annullieren",
+    });
+    expect(buttonColor(annullieren)).toBe("red");
+    await userEvent.click(annullieren);
     expect(props.onAnnul).toHaveBeenCalledWith("e1");
   });
 
@@ -452,7 +457,7 @@ describe("JournalPanel", () => {
     ).toBeInTheDocument();
   });
 
-  it("surfaces a save error in the still open confirmation when annulling fails", async () => {
+  it("shows a failed annulment in the still open confirmation", async () => {
     const onAnnul = vi
       .fn<JournalPanelProps["onAnnul"]>()
       .mockRejectedValue(new Error("boom"));
@@ -465,7 +470,7 @@ describe("JournalPanel", () => {
       within(dialog).getByRole("button", { name: "Annullieren" }),
     );
     expect(await within(dialog).findByRole("alert")).toHaveTextContent(
-      "Speichern fehlgeschlagen. Bitte erneut versuchen.",
+      "Das hat nicht geklappt. Bitte erneut versuchen.",
     );
   });
 

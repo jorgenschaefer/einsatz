@@ -3,6 +3,7 @@ import { render as rtlRender } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { ActionResult } from "@/app/operations/[id]/action-result";
+import { buttonColor } from "@/test/button-color";
 import { act, render, screen, waitFor, within } from "@/test/render";
 import {
   StrengthPanel,
@@ -443,9 +444,9 @@ describe("StrengthPanel", () => {
         name: "Gesamtstärke melden",
       });
       expect(onReportTotalStrength).not.toHaveBeenCalled();
-      await userEvent.click(
-        within(dialog).getByRole("button", { name: "Melden" }),
-      );
+      const melden = within(dialog).getByRole("button", { name: "Melden" });
+      expect(buttonColor(melden)).toBe("blue");
+      await userEvent.click(melden);
 
       expect(onReportTotalStrength).toHaveBeenCalledTimes(1);
       expect(screen.queryByRole("dialog")).toBeNull();
@@ -582,7 +583,7 @@ describe("StrengthPanel", () => {
       const dialog = await confirmReportTotal();
 
       expect(within(dialog).getByRole("alert")).toHaveTextContent(
-        "Speichern fehlgeschlagen. Bitte erneut versuchen.",
+        "Das hat nicht geklappt. Bitte erneut versuchen.",
       );
     });
   });
@@ -1307,9 +1308,11 @@ describe("StrengthPanel", () => {
       });
       expect(within(dialog).getByText(/nicht rückgängig/)).toBeInTheDocument();
       expect(onAnnulStrengthReport).not.toHaveBeenCalled();
-      await userEvent.click(
-        within(dialog).getByRole("button", { name: "Annullieren" }),
-      );
+      const annullieren = within(dialog).getByRole("button", {
+        name: "Annullieren",
+      });
+      expect(buttonColor(annullieren)).toBe("red");
+      await userEvent.click(annullieren);
 
       expect(onAnnulStrengthReport).toHaveBeenCalledWith("r2");
       expect(screen.queryByRole("dialog")).toBeNull();
@@ -1395,7 +1398,7 @@ describe("StrengthPanel", () => {
       );
 
       expect(within(dialog).getByRole("alert")).toHaveTextContent(
-        "Speichern fehlgeschlagen. Bitte erneut versuchen.",
+        "Das hat nicht geklappt. Bitte erneut versuchen.",
       );
     });
 

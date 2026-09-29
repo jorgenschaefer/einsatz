@@ -8,7 +8,6 @@ import {
   Group,
   Input,
   Menu,
-  Modal,
   NativeSelect,
   Paper,
   SimpleGrid,
@@ -24,11 +23,11 @@ import { IconArrowLeft, IconPencil } from "@tabler/icons-react";
 import {
   type Dispatch,
   Fragment,
-  type ReactNode,
   type SetStateAction,
   useId,
   useState,
 } from "react";
+import { ConfirmationModal } from "@/app/ConfirmationModal";
 import type { ActionResult } from "@/app/operations/[id]/action-result";
 import {
   berlinTimeOfDay,
@@ -383,72 +382,6 @@ function TotalCard({
         </Group>
       </Stack>
     </Paper>
-  );
-}
-
-/**
- * Bestätigt eine Action, bevor sie läuft; ihr Fehler erscheint im offenen
- * Dialog statt oben im Bereich, der oft weit weggescrollt ist. Bei Erfolg
- * schließt er sich.
- */
-function ConfirmationModal({
-  opened,
-  onClose,
-  title,
-  confirmLabel,
-  confirmColor,
-  onConfirm,
-  children,
-}: {
-  opened: boolean;
-  onClose: () => void;
-  title: string;
-  confirmLabel: string;
-  confirmColor?: string;
-  onConfirm: () => Promise<ActionResult>;
-  children: ReactNode;
-}) {
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const close = () => {
-    if (pending) return;
-    setError(null);
-    onClose();
-  };
-
-  const confirm = async () => {
-    // Beim Ausblenden bleibt der Knopf noch klickbar.
-    if (!opened) return;
-    setPending(true);
-    await runAction(onConfirm, setError, onClose);
-    setPending(false);
-  };
-
-  return (
-    <Modal
-      opened={opened}
-      onClose={close}
-      styles={{ title: { minWidth: 0, overflowWrap: "anywhere" } }}
-      title={title}
-    >
-      <Stack>
-        {error && (
-          <Alert color="red" role="alert">
-            {error}
-          </Alert>
-        )}
-        {children}
-        <Group justify="flex-end">
-          <Button variant="default" disabled={pending} onClick={close}>
-            Abbrechen
-          </Button>
-          <Button color={confirmColor} loading={pending} onClick={confirm}>
-            {confirmLabel}
-          </Button>
-        </Group>
-      </Stack>
-    </Modal>
   );
 }
 

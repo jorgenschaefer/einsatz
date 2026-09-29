@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:
 advances:  AC-2, AC-3, AC-4, AC-10
 after:
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -59,3 +59,21 @@ Entschieden, was sich später schwer ändern lässt: Pfad und Name `src/app/Conf
 - Einsatz löschen und Konto löschen, und was das Modal bei der Weiterleitung nach „Einsatz löschen“ tun muss: Tickets 06 und 07.
 - Ein allgemeiner Hook für „beschäftigt/Fehler“ (Punkt 7 in `REFACTORING.md`) und die übrigen `SAVE_ERROR`-Stellen in `JournalPanel` und `StrengthPanel` für Anlegen und Korrigieren: bleiben.
 - `REFACTORING.md` anpassen: Tickets 05 und 07.
+
+
+## Record
+Nach einem Halt (`undecided`) mit dem Nutzer fertiggestellt. Entschieden: Nicht rote Bestätigungsknöpfe sind **blau** (Mantine `blue`), nicht in der Primärfarbe DRK-Rot. `ConfirmationModal` hat dafür `confirmColor = "blue"` als Vorgabe; die zerstörerischen Rückfragen übergeben weiter `confirmColor="red"`. Das gilt auch für die Tickets 02–07.
+
+Teile, die dieses Ticket voranbringt:
+- **AC-2** (vier Rückfragen): `JournalPanel.test.tsx` „asks for confirmation before annulling and annuls only once confirmed“ (Titel, Text, Knopf rot); `StrengthPanel.test.tsx` „asks for confirmation and annuls only once confirmed“ (rot) und „asks for confirmation and reports the Gesamtstärke only once confirmed“ (blau); `MapControls.test.tsx` „saves the default view only after confirming“ (Titel, Text, „Festlegen“ blau); `ConfirmationModal.test.tsx` „colours the confirm button as told“ und „… blue unless told otherwise“. Die Farbe liest `src/test/button-color.ts` aus der `--button-bg`-Variable des Knopfs.
+- **AC-3**: `ConfirmationModal.test.tsx` (Ladezustand, gesperrtes „Abbrechen“, Escape und Overlay während der Action, zweiter Tap); `JournalPanel.test.tsx` „annuls only once on a double click“, „keeps the confirmation open while the annulment is in flight“; `MapControls.test.tsx` „locks Abbrechen while saving“.
+- **AC-4**: `ConfirmationModal.test.tsx` (`{error}`, geworfene Ausnahme mit „Das hat nicht geklappt. Bitte erneut versuchen.“, erneut bestätigen); an den Aufrufstellen „shows a failed annulment in the still open confirmation“ (`JournalPanel`, `StrengthPanel`), „shows a failed report as an error“ (`StrengthPanel`), „shows a fallback when saving throws“ (`MapControls`).
+- **AC-10**: im Browser mit `run-einsatz` bei 390×844 und 1280×800 geprüft: alle vier Rückfragen vollständig sichtbar, beide Knöpfe unten rechts, 80 Zeichen ohne Leerzeichen im Titel umgebrochen, `scrollWidth <= innerWidth`.
+
+Kommando: `docker compose -f docker-compose.test.yml up -d && npm run check` – 117 Dateien, 1116 Tests grün, tsc und Biome ohne Befund.
+
+### Left standing
+- Die Browserprüfung (AC-10) lief vor der Farbentscheidung; das Blau selbst ist nur im Test (mit dem App-Theme) belegt, nicht noch einmal im Browser angesehen.
+- Das Specimen zeigt auch „Speichern“ blau; in der App bleibt es DRK-Rot. Nur die nicht roten Bestätigungsknöpfe sind blau.
+- Die Browserprüfung hat die Dev-Datenbank migriert (`strength_reports` fehlte) und Playwright-Chromium 1243 installiert (1228 dabei entfernt). Die Setup-Hinweise in `.claude/skills/run-einsatz` sind veraltet (`node_modules` fehlte, Chromium 1243 nicht installiert).
+- Nicht behoben, gehört nicht zu diesem Ticket: Der Modal-Titel ist 16 px normal mit Zeilenhöhe 1, ein mehrzeiliger Titel wirkt gedrängt. Die Knöpfe sind 36 px hoch, also unter 44 px.

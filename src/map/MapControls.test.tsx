@@ -1,6 +1,7 @@
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { ActionResult } from "@/app/operations/[id]/action-result";
+import { buttonColor } from "@/test/button-color";
 import { render, screen, within } from "@/test/render";
 import { MapControls, type MapPanel } from "./MapControls";
 
@@ -75,13 +76,16 @@ describe("MapControls", () => {
       screen.getByRole("button", { name: "Standard-Ausschnitt festlegen" }),
     );
     const dialog = await screen.findByRole("dialog", {
-      name: "Aktuellen Ausschnitt als Standard festlegen?",
+      name: "Standard-Ausschnitt festlegen",
     });
-    expect(onSetDefault).not.toHaveBeenCalled();
-
-    await userEvent.click(
-      within(dialog).getByRole("button", { name: "Festlegen" }),
+    expect(dialog).toHaveTextContent(
+      "Der aktuelle Kartenausschnitt wird zum Standard-Ausschnitt dieses Einsatzes.",
     );
+    expect(onSetDefault).not.toHaveBeenCalled();
+    const festlegen = within(dialog).getByRole("button", { name: "Festlegen" });
+    expect(buttonColor(festlegen)).toBe("blue");
+
+    await userEvent.click(festlegen);
 
     expect(onSetDefault).toHaveBeenCalledTimes(1);
     await vi.waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
@@ -134,7 +138,24 @@ describe("MapControls", () => {
     );
 
     expect(within(dialog).getByRole("alert")).toHaveTextContent(
-      "Speichern fehlgeschlagen. Bitte erneut versuchen.",
+      "Das hat nicht geklappt. Bitte erneut versuchen.",
     );
+  });
+
+  it("locks Abbrechen while saving", async () => {
+    renderControls({
+      onSetDefault: vi.fn(() => new Promise<ActionResult>(() => {})),
+    });
+    await userEvent.click(
+      screen.getByRole("button", { name: "Standard-Ausschnitt festlegen" }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Festlegen" }),
+    );
+
+    expect(
+      within(dialog).getByRole("button", { name: "Abbrechen" }),
+    ).toBeDisabled();
   });
 });

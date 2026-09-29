@@ -1,6 +1,6 @@
 "use client";
 
-import { ActionIcon, Alert, Button, Group, Modal, Stack } from "@mantine/core";
+import { ActionIcon, Stack, Text } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import {
   IconHome,
@@ -9,7 +9,7 @@ import {
   IconPolygon,
   IconStack2,
 } from "@tabler/icons-react";
-import { useState } from "react";
+import { ConfirmationModal } from "@/app/ConfirmationModal";
 import type { ActionResult } from "@/app/operations/[id]/action-result";
 
 export type MapPanel = "symbols" | "areas" | "layers";
@@ -44,28 +44,6 @@ export function MapControls({
   canReturnToDefault: boolean;
 }) {
   const [confirmOpened, confirm] = useDisclosure(false);
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-
-  const askToSaveDefault = () => {
-    setSaveError(null);
-    confirm.open();
-  };
-  const saveDefault = async () => {
-    setSaving(true);
-    try {
-      const { error } = await onSetDefault();
-      if (error) {
-        setSaveError(error);
-        return;
-      }
-      confirm.close();
-    } catch {
-      setSaveError("Speichern fehlgeschlagen. Bitte erneut versuchen.");
-    } finally {
-      setSaving(false);
-    }
-  };
 
   return (
     <Stack
@@ -91,7 +69,7 @@ export function MapControls({
           variant="default"
           size="lg"
           aria-label="Standard-Ausschnitt festlegen"
-          onClick={askToSaveDefault}
+          onClick={confirm.open}
         >
           <IconHomeEdit size={18} />
         </ActionIcon>
@@ -105,25 +83,18 @@ export function MapControls({
           <IconHome size={18} />
         </ActionIcon>
       </Stack>
-      <Modal
+      <ConfirmationModal
         opened={confirmOpened}
         onClose={confirm.close}
-        title="Aktuellen Ausschnitt als Standard festlegen?"
+        title="Standard-Ausschnitt festlegen"
+        confirmLabel="Festlegen"
+        onConfirm={onSetDefault}
       >
-        {saveError && (
-          <Alert color="red" role="alert" mb="md">
-            {saveError}
-          </Alert>
-        )}
-        <Group justify="flex-end">
-          <Button variant="default" onClick={confirm.close}>
-            Abbrechen
-          </Button>
-          <Button loading={saving} onClick={saveDefault}>
-            Festlegen
-          </Button>
-        </Group>
-      </Modal>
+        <Text>
+          Der aktuelle Kartenausschnitt wird zum Standard-Ausschnitt dieses
+          Einsatzes.
+        </Text>
+      </ConfirmationModal>
     </Stack>
   );
 }
