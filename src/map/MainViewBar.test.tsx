@@ -38,18 +38,6 @@ describe("MainViewBar", () => {
     expect(onSelect).toHaveBeenCalledWith("strength");
   });
 
-  it("marks neither item as current before the start view is known", () => {
-    render(
-      <MainViewBar activeView="default" onSelect={vi.fn()} newEtbEntries={0} />,
-    );
-    expect(screen.getByRole("button", { name: "ETB" })).not.toHaveAttribute(
-      "aria-current",
-    );
-    expect(
-      screen.getByRole("button", { name: "Lagekarte" }),
-    ).not.toHaveAttribute("aria-current");
-  });
-
   it("shows the number of new ETB entries on the ETB item", () => {
     render(
       <MainViewBar activeView="map" onSelect={vi.fn()} newEtbEntries={3} />,

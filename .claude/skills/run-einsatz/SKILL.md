@@ -186,8 +186,9 @@ npm run check                                      # tsc + biome + vitest (~2.5 
 - **Each card on `/operations` has its own `Einsatz-Aktionen` button.** Scope
   it with `.mantine-Card-root:has-text("<name>")`. `text=Einsatz löschen`
   didn't reliably hit the menu item, but `role=menuitem[name=…]` does.
-- **Screenshots right after a resize catch the navbar mid-animation,** leaving
-  an empty strip on the left in phone layout. `viewport` now waits 500 ms for this.
+- **Screenshots right after a resize can catch the AppShell mid-transition**
+  (header and footer animate across the 48 em switch). `viewport` waits 500 ms
+  for this.
 - The Next dev-indicator bubble ("N", bottom left) overlaps the mobile footer
   nav in screenshots. That's dev-only.
 

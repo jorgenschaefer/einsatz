@@ -17,8 +17,7 @@ export function MainViewBar({
   onSelect,
   newEtbEntries,
 }: {
-  /** "default": die Startansicht steht noch nicht fest (vor der Hydration). */
-  activeView: MainView | "default";
+  activeView: MainView;
   onSelect: (view: MainView) => void;
   newEtbEntries: number;
 }) {

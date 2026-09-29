@@ -2,8 +2,8 @@
 solution:  02-SOLUTION.md
 satisfies: AC-1, AC-3, AC-4, AC-6, AC-7, AC-8, AC-9, AC-10, AC-11
 after:
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -216,3 +216,40 @@ entfällt, weil beide Breiten mit dem ETB starten.
   Seitenleiste; Änderungen an Ansichts- und Geräteansicht (`DeviceView`).
 - Keine Änderung an `StrengthPanel` (Randfall „Stärke nicht in der
   Übersicht verlassen").
+
+## Record
+
+**Criteria → tests** (all in `src/map/SituationWorkspace.test.tsx` unless noted)
+
+- **AC-1** (map left beside a 360 px sidebar, bar at the bottom of the sidebar, no left bar)
+  - „the map panel in the sidebar on the desktop" › „keeps the Lagekarte visible beside the ETB and Stärke", „switches the sidebar with its own bar" (the workspace renders its own `MainViewBar` in `<main>`), „starts on the ETB on the desktop, next to the Lagekarte".
+  - `src/app/operations/[id]/LageansichtShell.test.tsx` „shows the navigation only in the phone bar, not in a left bar" (no `navigation` role, the bar is only in the footer).
+  - Layout (grid, 360 px, bar at the bottom): Vitest loads no CSS, so this was checked in the browser (see Command).
+- **AC-3 / AC-4 / AC-6** — „working beside the Lagekarte on the desktop" › „adds an ETB entry with Strg+Enter / Eintrag hinzufügen and keeps the ETB and the map", „returns to the Stellen after Melden / Unverändert melden and keeps the map". Each checks that the map stays visible, `adapter.setView` is not called, no mode band is shown, and a Kartenzeichen click on the map opens its dialog straight away. Dragging the map right after Strg+Enter was checked in the browser.
+- **AC-7** — „keeps a started ETB entry across the Lagekarte and a map button", „keeps a half-filled Stärkemeldung across the Lagekarte" (desktop). The phone versions stay: „keeps a started ETB entry when switching to the Lagekarte and back", „keeps a half-filled Stärkemeldung …", „keeps a started Stelle name …".
+- **AC-8** — `describe.each` „counting new ETB entries on a phone / on the desktop". The whole block runs at both widths, and on the desktop it reads the count from the sidebar bar.
+- **AC-9** — „the map panel in the sidebar on the desktop" › „shows no map panel beside the ETB", „shows Kartenzeichen under Lagekarte after loading", „shows the panel of a map button, and a second click changes nothing" (`aria-pressed`), „offers no Schließen on the panel", „switches the sidebar from the ETB to Lagekarte with the panel of a map button", „shows the last chosen panel again after the ETB".
+- **AC-10** — „shows the ETB and leaves the Lagekarte to CSS in the server-rendered markup" (ETB without `display: none`, map without inline `display`, map inside `[data-layout="unknown"]`). `src/map/useIsDesktop.test.ts` „does not know the width while rendering on the server". Checked in the browser with JavaScript disabled at 1280 and 360 px.
+- **AC-11** — „starts on the ETB on a phone", „opens no map sheet at start on a phone", „switches and closes map panels via the controls and ✕ on a phone", and the unchanged „closing the sheet on a phone" block. Browser check at 360×740.
+- **Wechsel über die Schwelle** — „crossing 768 px" › „keeps an open sheet as the sidebar panel and back", „opens the sheet of the map button pressed on the desktop on a phone", „shows Kartenzeichen on the desktop when the sheet was closed", „shows the Lagekarte without a sheet on a phone when no map button was pressed", „shows the Lagekarte on a phone only while it is the main view", „does not recreate the map". Also „keeps the main view when the width crosses 768 px". `useIsDesktop.test.ts` „follows the width across 48 em", „stops listening once unmounted".
+
+**Command**: `npm run check` (test Postgres container up): green, 116 files, 1081 tests. A browser check via `run-einsatz` at 1280×800 and 360×740 found every item OK: sidebar 920–1280 px, bar at y 744–800, ETB before hydration and with JS off, map buttons and panels, Strg+Enter then an immediate drag pans the map, phone unchanged. Screenshots were in `/tmp/einsatz-shots/`.
+
+**Departures from the plan**
+
+- `useIsDesktop` uses `useSyncExternalStore` with a server snapshot of `null` (like `useKeyboardOpen`), not a mount effect. It is `null` on the server and during hydration, and on a pure client render it has the real width straight away.
+- The pre-hydration rule hides the whole `[data-view="map"]` (not only `.map-area`) under 48 em when the container has `data-layout="unknown"`. On the phone, `[data-view="map"]` keeps its inline `display: none` outside „Lagekarte", so the sheet disappears with the map. On the desktop it has no inline style and is `display: contents` in the grid.
+- The map's divider is a `border-right` on `.map-area`, not a border on the left of the sidebar. It looks the same, and it is one rule for all three sidebar views.
+- The sidebar bar is shown and hidden by our own CSS at `(min-width: 48em)`, not with Mantine's `visibleFrom="sm"`, which switches at 47.99375 em. With `visibleFrom`, both bars would show in that 0.1 px gap.
+- `stubMatchMedia` moved from the workspace test to `src/test/match-media.ts` (shared with `useIsDesktop.test.ts`), now with any number of listeners and a working `removeEventListener`.
+- `MapControls`' `onTogglePanel` is renamed to `onSelectPanel`, because on the desktop it no longer toggles (review nit).
+- Removed tests: `MainViewBar.test.tsx` „marks neither item as current before the start view is known" (the `"default"` view no longer exists), and „does not count entries present at load". Both widths now start on the ETB, where the count is always 0, so that test no longer pinned anything (review nit).
+- Some tests were green on their first run, because the state model from steps 2–4 already implied them: the step 5 threshold tests, the AC-3/4/6 tests and the SSR test. I proved each by mutation, and each went red: showing the map only for `mainView === "map"` (fails AC-3/4/6 after the map-visible assertion was added); treating `null` as the desktop (fails SSR); dropping `data-layout` (fails SSR); a map button on the desktop not storing its panel (fails „opens the sheet of the map button pressed on the desktop on a phone").
+
+**Left standing**
+
+- Review should-fix (round 2), not done: „a desktop test that an active map mode survives adding an ETB entry / a Stärkemeldung". While the sidebar shows ETB or Stärke, no map mode can be active. Modes only start from a map panel, which puts the sidebar on „Lagekarte", and switching back ends the mode (`switchMainView`, until ticket 03). A Bereich click on the map opens no editor („does not open the area editor when a Bereich is clicked on the map"). So „same mode" is trivially true here and a test would have nothing to arm. Ticket 03 (AC-5) is where that test belongs.
+- Browser check finding, out of scope: in a long ETB, the focused „Neuer Eintrag" field slides down behind the sidebar bar after each entry, because nothing scrolls it back. This is the fixed input field at the bottom of the ETB, which ticket 02 (AC-12) owns.
+- The first browser check logged a hydration mismatch at 360 px (style attributes of Mantine inputs). A second, cold check reproduced it neither on HEAD nor with this change. Most likely it was a stale hot-reloaded tab.
+- Not rechecked in the browser: the last CSS change (sidebar bar via own media query instead of `visibleFrom`), made after the browser check. The grid cell and query are the same as before; only who applies `display: none` changed.
+

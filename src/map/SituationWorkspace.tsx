@@ -61,6 +61,7 @@ import {
 } from "./SituationMap";
 import { renderSymbolDataUrl } from "./tactical-symbol";
 import { countUnseenEntries } from "./unseen-entries";
+import { useIsDesktop } from "./useIsDesktop";
 import { useMapFocus } from "./useMapFocus";
 import { useMapMode } from "./useMapMode";
 import { useMapSearch } from "./useMapSearch";
@@ -183,11 +184,6 @@ export interface SituationWorkspaceProps {
   eventsHook?: (url: string, onChanged: () => void) => LiveConnection;
 }
 
-/** Ab dieser Breite gilt die Desktop-Form (Leiste links, Panel rechts). */
-const WIDE_QUERY = "(min-width: 48em)";
-
-const isPhone = () => !window.matchMedia(WIDE_QUERY).matches;
-
 export function SituationWorkspace({
   operationId,
   operationName,
@@ -245,13 +241,8 @@ export function SituationWorkspace({
   );
   const [openPanel, setOpenPanel] = useState<MapPanel | null>(null);
   const mapRef = useRef<SituationMapHandle>(null);
-  const [mainView, setMainView] = useState<MainView | "default">("default");
-  // Einmalig beim Mount die Startansicht nach Breite festlegen (kein Listener):
-  // eine spätere Breitenänderung (Tablet drehen) soll die gewählte Hauptansicht
-  // nicht mehr verändern.
-  useEffect(() => {
-    setMainView(window.matchMedia(WIDE_QUERY).matches ? "map" : "etb");
-  }, []);
+  const [mainView, setMainView] = useState<MainView>("etb");
+  const isDesktop = useIsDesktop();
   const latestEntryNumber = Math.max(
     0,
     ...journalEntries.map((entry) => entry.number),
@@ -372,13 +363,26 @@ export function SituationWorkspace({
   const editingImage =
     imageOverlays.find((o) => o.id === editingImageId) ?? null;
 
-  const togglePanel = (panel: MapPanel) =>
-    setOpenPanel((open) => (open === panel ? null : panel));
+  // Am Desktop steht unter „Lagekarte" in der Seitenleiste immer ein Panel;
+  // am Handy ist das Panel ein Blatt über der Karte, das auch zu sein kann.
+  const shownPanel: MapPanel | null = isDesktop
+    ? mainView === "map"
+      ? (openPanel ?? "symbols")
+      : null
+    : openPanel;
+  const selectMapPanel = (panel: MapPanel) => {
+    if (!isDesktop) {
+      setOpenPanel((open) => (open === panel ? null : panel));
+      return;
+    }
+    setOpenPanel(panel);
+    switchMainView("map");
+  };
   // Am Handy liegt das Blatt über der unteren Kartenhälfte; wer dort auf der
   // Karte weiterarbeitet (platzieren, zeichnen, angesprungenes Ziel ansehen),
-  // braucht die Fläche. Am Desktop steht das Panel neben der Karte und bleibt.
+  // braucht die Fläche. Am Desktop steht das Panel in der Seitenleiste und bleibt.
   const closeSheetOnPhone = () => {
-    if (isPhone()) setOpenPanel(null);
+    if (!isDesktop) setOpenPanel(null);
   };
   const armQuickSymbol = (quickId: string | null) => {
     armQuick(quickId);
@@ -582,6 +586,14 @@ export function SituationWorkspace({
     }
   };
 
+  const mainViewBar = (
+    <MainViewBar
+      activeView={mainView}
+      onSelect={switchMainView}
+      newEtbEntries={newEtbEntries}
+    />
+  );
+
   return (
     <LageansichtShell
       operationName={operationName}
@@ -589,24 +601,21 @@ export function SituationWorkspace({
       viewLinks={viewLinks}
       onCreateViewLink={onCreateViewLink}
       onDeleteViewLink={onDeleteViewLink}
-      navigation={
-        <MainViewBar
-          activeView={mainView}
-          onSelect={switchMainView}
-          newEtbEntries={newEtbEntries}
-        />
-      }
+      navigation={mainViewBar}
       connected={connected}
     >
-      <Stack gap={0} h="100%" data-main-view={mainView}>
+      <Box
+        className="situation-workspace"
+        data-layout={isDesktop === null ? "unknown" : undefined}
+      >
         <Box
           className="map-view"
           data-view="map"
-          data-panel-open={openPanel ? "" : undefined}
-          // Inline, damit es jede Klasse schlägt (auch die Startansicht-Regel).
+          data-panel-open={shownPanel ? "" : undefined}
+          // Inline, damit es jede Klasse schlägt (auch die Regel für unbekannte Breite).
           style={{
             display:
-              mainView === "map" || mainView === "default" ? undefined : "none",
+              isDesktop !== false || mainView === "map" ? undefined : "none",
           }}
         >
           <Box className="map-area">
@@ -698,15 +707,15 @@ export function SituationWorkspace({
               </Stack>
             </Box>
             <MapControls
-              openPanel={openPanel}
-              onTogglePanel={togglePanel}
+              openPanel={shownPanel}
+              onSelectPanel={selectMapPanel}
               onSetDefault={saveDefaultView}
               onReturnToDefault={returnToDefaultView}
               canReturnToDefault={operationDefaultView !== null}
             />
           </Box>
 
-          {openPanel && (
+          {shownPanel && (
             <Box
               component="section"
               aria-labelledby="map-panel-title"
@@ -714,15 +723,17 @@ export function SituationWorkspace({
             >
               <Group justify="space-between" wrap="nowrap" px="sm" py={6}>
                 <Text id="map-panel-title" fw={600}>
-                  {MAP_PANEL_LABEL[openPanel]}
+                  {MAP_PANEL_LABEL[shownPanel]}
                 </Text>
-                <CloseButton
-                  aria-label="Schließen"
-                  onClick={() => setOpenPanel(null)}
-                />
+                {!isDesktop && (
+                  <CloseButton
+                    aria-label="Schließen"
+                    onClick={() => setOpenPanel(null)}
+                  />
+                )}
               </Group>
               <Box className="map-panel__content" p="sm">
-                {openPanel === "symbols" && (
+                {shownPanel === "symbols" && (
                   <Stack gap="sm">
                     <Group gap="xs" align="flex-start">
                       <QuickSelectToolbar
@@ -767,7 +778,7 @@ export function SituationWorkspace({
                     )}
                   </Stack>
                 )}
-                {openPanel === "areas" && (
+                {shownPanel === "areas" && (
                   <Stack gap="sm">
                     <Group gap="xs">
                       {AREA_SHAPES.map(({ shape, label }) => (
@@ -820,7 +831,7 @@ export function SituationWorkspace({
                     )}
                   </Stack>
                 )}
-                {openPanel === "layers" && (
+                {shownPanel === "layers" && (
                   <Stack>
                     <KmlPanel
                       overlays={kmlOverlays}
@@ -873,8 +884,7 @@ export function SituationWorkspace({
             flex: 1,
             minHeight: 0,
             overflow: "auto",
-            display:
-              mainView === "etb" || mainView === "default" ? undefined : "none",
+            display: mainView === "etb" ? undefined : "none",
           }}
           py="sm"
         >
@@ -908,6 +918,8 @@ export function SituationWorkspace({
             now={now}
           />
         </Box>
+
+        <Box className="sidebar-bar">{mainViewBar}</Box>
 
         <Modal
           opened={selectedArea !== null}
@@ -991,7 +1003,7 @@ export function SituationWorkspace({
             </Stack>
           )}
         </Modal>
-      </Stack>
+      </Box>
     </LageansichtShell>
   );
 }

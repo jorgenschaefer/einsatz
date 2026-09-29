@@ -25,7 +25,6 @@ import type { OperationStatus } from "@/server/operations/operations";
 
 const HEADER_HEIGHT = { base: 40, sm: 56 };
 const FOOTER_HEIGHT = 56;
-const NAVBAR_WIDTH = 72;
 const CONNECTION_LOST_LABEL =
   "Verbindung getrennt – wird automatisch wiederhergestellt";
 
@@ -67,7 +66,7 @@ export function LageansichtShell({
   viewLinks?: ViewLinkItem[];
   onCreateViewLink?: (label: string) => void | Promise<void>;
   onDeleteViewLink?: (id: string) => void | Promise<void>;
-  /** Die Hauptansichten-Leiste: unten am Handy, links am Desktop. */
+  /** Die Hauptansichten-Leiste unten am Handy. */
   navigation?: ReactNode;
   children: ReactNode;
 }) {
@@ -89,7 +88,6 @@ export function LageansichtShell({
         height: { base: FOOTER_HEIGHT, sm: 0 },
         collapsed: keyboardOpen,
       }}
-      navbar={{ width: { base: 0, sm: NAVBAR_WIDTH }, breakpoint: "sm" }}
       padding={0}
     >
       <AppShell.Header>
@@ -164,7 +162,6 @@ export function LageansichtShell({
           </Menu>
         </Group>
       </AppShell.Header>
-      <AppShell.Navbar visibleFrom="sm">{navigation}</AppShell.Navbar>
       {!keyboardOpen && (
         <AppShell.Footer hiddenFrom="sm">{navigation}</AppShell.Footer>
       )}

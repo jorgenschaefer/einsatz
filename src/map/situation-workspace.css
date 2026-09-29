@@ -6,45 +6,44 @@
   background-color: var(--mantine-color-default-hover);
 }
 
-/* Startansicht vor der Hydration (AC-14): solange data-main-view="default"
-   ist, hat keine der beiden Hauptansichten ein inline display (JS kennt die
-   Breite noch nicht), daher entscheidet hier reines CSS anhand derselben
-   48-em-Schwelle wie die AppShell-Leiste (LageansichtShell). Die zweite Query
-   ist die exakte Verneinung der ersten (kein max-width-Gegenstück mit
-   Rundungslücke), damit keine Breite durchs Raster fällt. Sobald der
-   Mount-Effekt eine echte Hauptansicht setzt, greifen diese Regeln nicht mehr
-   (data-main-view ist dann "map" oder "etb", nicht mehr "default"; das
-   inline display der Bereiche entscheidet). */
-@media not all and (min-width: 48em) {
-  [data-main-view="default"] [data-view="map"] {
-    display: none;
-  }
+/* Die Lageführungsseite. Am Handy steht jeweils eine Hauptansicht allein, die
+   Leiste unten gehört zur AppShell (LageansichtShell). Am Desktop füllt die
+   Karte die Fläche links; rechts steht eine 360 px breite Seitenleiste mit der
+   gewählten Ansicht (Kartenpanel, ETB oder Stärke) über der eigenen Leiste.
+   Dieselbe 48-em-Schwelle wie useIsDesktop und die AppShell-Leiste. */
+.situation-workspace {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
-@media (min-width: 48em) {
-  [data-main-view="default"] [data-view="etb"] {
+
+/* Die Leiste der Seitenleiste gibt es nur am Desktop; am Handy ist es die der
+   AppShell. */
+.sidebar-bar {
+  display: none;
+}
+
+/* Vor der Hydration kennt JS die Breite nicht (data-layout="unknown"); die
+   Karte hat dann kein inline display, und CSS blendet sie am Handy aus, wo die
+   Startansicht ETB sie ersetzt. Die Query ist die exakte Verneinung der
+   Desktop-Query (kein max-width-Gegenstück mit Rundungslücke). */
+@media not all and (min-width: 48em) {
+  [data-layout="unknown"] [data-view="map"] {
     display: none;
   }
 }
 
-/* ETB- und Stärke-Breite (AC-13): überall 16 px Rand, damit der Text nicht an der
-   Trennlinie klebt; am Desktop zusätzlich auf eine lesbare Zeilenlänge
-   begrenzt und linksbündig statt zentriert. */
+/* ETB und Stärke: überall 16 px Rand, damit der Text nicht an der Trennlinie
+   klebt. */
 .etb-pane,
 .strength-pane {
   padding-inline: 16px;
 }
 
-@media (min-width: 48em) {
-  .etb-pane,
-  .strength-pane {
-    max-width: 720px;
-  }
-}
-
 /* Lagekarte mit Kartenpanel. Am Handy liegt das Panel als Blatt über der
    unteren Hälfte der Karte (nicht ziehbar, der Inhalt scrollt); am Desktop steht
-   es 360 px breit rechts neben der Karte und verkleinert sie. Ein Container für
-   beide Formen, damit der Inhalt beim Überschreiten der Schwelle erhalten bleibt. */
+   es in der Seitenleiste. Ein Container für beide Formen, damit der Inhalt beim
+   Überschreiten der Schwelle erhalten bleibt. */
 .map-view {
   flex: 1;
   min-height: 0;
@@ -78,12 +77,42 @@
 }
 
 @media (min-width: 48em) {
+  .situation-workspace {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 360px;
+    grid-template-rows: minmax(0, 1fr) 56px;
+  }
+
+  /* Karte und Kartenpanel werden Zellen des Rasters, ohne den DOM umzuhängen
+     (die Karte wird beim Überschreiten der Schwelle nicht neu erzeugt). */
+  .map-view {
+    display: contents;
+  }
+
+  .map-area {
+    grid-column: 1;
+    grid-row: 1 / -1;
+    border-right: 1px solid var(--mantine-color-default-border);
+  }
+
+  .map-panel,
+  .etb-pane,
+  .strength-pane {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .sidebar-bar {
+    display: block;
+    grid-column: 2;
+    grid-row: 2;
+    border-top: 1px solid var(--mantine-color-default-border);
+  }
+
   .map-panel {
     position: static;
-    flex: none;
-    width: 360px;
+    min-height: 0;
     border-top: none;
-    border-left: 1px solid var(--mantine-color-default-border);
     box-shadow: none;
   }
 }

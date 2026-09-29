@@ -9,7 +9,7 @@ function renderControls(
 ) {
   const props = {
     openPanel: null as MapPanel | null,
-    onTogglePanel: vi.fn(),
+    onSelectPanel: vi.fn(),
     onSetDefault: vi.fn(async (): Promise<ActionResult> => ({})),
     onReturnToDefault: vi.fn(),
     canReturnToDefault: true,
@@ -49,9 +49,9 @@ describe("MapControls", () => {
   });
 
   it("reports the tapped panel control", async () => {
-    const { onTogglePanel } = renderControls();
+    const { onSelectPanel } = renderControls();
     await userEvent.click(screen.getByRole("button", { name: "Ebenen" }));
-    expect(onTogglePanel).toHaveBeenCalledWith("layers");
+    expect(onSelectPanel).toHaveBeenCalledWith("layers");
   });
 
   it("returns to the default view", async () => {

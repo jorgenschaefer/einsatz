@@ -26,6 +26,23 @@ describe("LageansichtShell", () => {
     expect(screen.getByText("Karte")).toBeInTheDocument();
   });
 
+  it("shows the navigation only in the phone bar, not in a left bar", () => {
+    render(
+      <LageansichtShell
+        operationName="Hochwasser"
+        status="active"
+        navigation={<div>Leiste</div>}
+      >
+        <div>Karte</div>
+      </LageansichtShell>,
+    );
+    expect(screen.queryByRole("navigation")).toBeNull();
+    expect(
+      within(screen.getByRole("contentinfo")).getByText("Leiste"),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText("Leiste")).toHaveLength(1);
+  });
+
   it("carries no Einsatz lifecycle actions in the header (they live in the overview)", () => {
     render(
       <LageansichtShell operationName="Hochwasser" status="active">

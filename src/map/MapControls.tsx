@@ -32,13 +32,13 @@ export const MAP_PANEL_LABEL: Record<MapPanel, string> = {
  */
 export function MapControls({
   openPanel,
-  onTogglePanel,
+  onSelectPanel,
   onSetDefault,
   onReturnToDefault,
   canReturnToDefault,
 }: {
   openPanel: MapPanel | null;
-  onTogglePanel: (panel: MapPanel) => void;
+  onSelectPanel: (panel: MapPanel) => void;
   onSetDefault: () => Promise<ActionResult>;
   onReturnToDefault: () => void;
   canReturnToDefault: boolean;
@@ -81,7 +81,7 @@ export function MapControls({
           size="lg"
           aria-label={MAP_PANEL_LABEL[panel]}
           aria-pressed={openPanel === panel}
-          onClick={() => onTogglePanel(panel)}
+          onClick={() => onSelectPanel(panel)}
         >
           <Icon size={18} />
         </ActionIcon>

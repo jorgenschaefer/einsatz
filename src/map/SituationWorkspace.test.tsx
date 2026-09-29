@@ -2,6 +2,7 @@ import userEvent from "@testing-library/user-event";
 import { renderToString } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { JournalEntryView } from "@/app/operations/[id]/JournalPanel";
+import { stubMatchMedia } from "@/test/match-media";
 import {
   act,
   fireEvent,
@@ -67,48 +68,6 @@ const footerOffsetReleased = () =>
   [...document.querySelectorAll("style")].some((style) =>
     style.textContent?.includes("--app-shell-footer-offset:0px !important"),
   );
-
-const START_VIEW_QUERY = "(min-width: 48em)";
-
-/**
- * Stubbt `window.matchMedia` mit einem `matches`-Wert für `START_VIEW_QUERY`,
- * der sich über `fireChange` ändern lässt – simuliert dabei einen echten
- * `MediaQueryList`: ein per `addEventListener("change", …)` auf genau dieser
- * Query registrierter Listener wird tatsächlich aufgerufen, falls die
- * Implementierung (fälschlich) einen registriert. Mantine ruft `matchMedia`
- * für andere Queries auf (Farbschema u. Ä.); jeder Aufruf bekommt daher ein
- * eigenes MediaQueryList-Objekt, damit deren Listener sich nicht mit unserem
- * überschreiben.
- */
-function stubMatchMedia(initialMatches: boolean) {
-  let matches = initialMatches;
-  let changeListener: ((event: { matches: boolean }) => void) | null = null;
-  vi.stubGlobal(
-    "matchMedia",
-    vi.fn((query: string) => ({
-      get matches() {
-        return query === START_VIEW_QUERY ? matches : false;
-      },
-      media: query,
-      onchange: null,
-      addEventListener: vi.fn((event: string, cb: typeof changeListener) => {
-        if (event === "change" && query === START_VIEW_QUERY) {
-          changeListener = cb;
-        }
-      }),
-      removeEventListener: vi.fn(),
-      addListener: vi.fn(),
-      removeListener: vi.fn(),
-      dispatchEvent: vi.fn(),
-    })),
-  );
-  return {
-    fireChange: (nextMatches: boolean) => {
-      matches = nextMatches;
-      changeListener?.({ matches: nextMatches });
-    },
-  };
-}
 
 function buildProps(over: Partial<SituationWorkspaceProps> = {}) {
   const fake = fakeFactory();
@@ -223,9 +182,6 @@ const journalEntry = (
   revisions: [],
 });
 
-/** Der ETB-Punkt der Leiste; sein Name trägt die Zahl neuer Einträge. */
-const etbItem = () => screen.getAllByText("ETB")[0].closest("button");
-
 /**
  * Der Knopf mit diesem Text, für Prüfungen am Knopf selbst (Name, disabled,
  * aria-pressed); `getByText` liefert nur das Textelement darin.
@@ -259,7 +215,23 @@ describe("SituationWorkspace", () => {
     expect(screen.getByText(/Teilen/i)).toBeInTheDocument();
   });
 
-  describe("counting new ETB entries", () => {
+  describe.each([
+    ["on a phone", false],
+    ["on the desktop", true],
+  ])("counting new ETB entries %s", (_, desktop) => {
+    beforeEach(() => {
+      stubMatchMedia(desktop);
+    });
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    /** Der ETB-Punkt der sichtbaren Leiste; sein Name trägt die Zahl neuer Einträge. */
+    const etbItem = () =>
+      within(screen.getByRole(desktop ? "main" : "contentinfo"))
+        .getByText("ETB")
+        .closest("button");
+
     it("counts a new entry from another author while the Lagekarte is shown", async () => {
       const { props } = buildProps({ journalEntries: [journalEntry(1, null)] });
       const { rerender } = render(<SituationWorkspace {...props} />);
@@ -364,18 +336,6 @@ describe("SituationWorkspace", () => {
 
       await selectMainView("Lagekarte");
       expect(etbItem()).toHaveAccessibleName("ETB");
-    });
-
-    it("does not count entries present at load on the desktop", () => {
-      stubMatchMedia(true);
-      try {
-        renderWorkspace({
-          journalEntries: [journalEntry(1, null), journalEntry(2, "ben")],
-        });
-        expect(etbItem()).toHaveAccessibleName("ETB");
-      } finally {
-        vi.unstubAllGlobals();
-      }
     });
   });
 
@@ -608,16 +568,16 @@ describe("SituationWorkspace", () => {
     }
   });
 
-  it("starts on the Lagekarte on the desktop", () => {
+  it("starts on the ETB on the desktop, next to the Lagekarte", () => {
     stubMatchMedia(true);
     try {
       renderWorkspace();
+      expect(screen.getByLabelText("Neuer Eintrag")).toBeVisible();
       expect(
         screen.getByLabelText("Zum Standard-Ausschnitt zurück", {
           selector: "button",
         }),
       ).toBeVisible();
-      expect(screen.getByLabelText("Neuer Eintrag")).not.toBeVisible();
     } finally {
       vi.unstubAllGlobals();
     }
@@ -629,9 +589,8 @@ describe("SituationWorkspace", () => {
       renderWorkspace();
       expect(screen.getByLabelText("Neuer Eintrag")).toBeVisible();
 
-      // Die Breite überschreitet 768 px. Selbst wenn ein Listener registriert
-      // wäre (was er nicht sein soll), darf sich die Hauptansicht dadurch
-      // nicht ändern – sie steht seit dem ersten Rendern fest.
+      // Die Breite überschreitet 768 px (Tablet drehen); die gewählte
+      // Hauptansicht bleibt.
       act(() => {
         fireChange(true);
       });
@@ -642,14 +601,21 @@ describe("SituationWorkspace", () => {
     }
   });
 
-  it('carries data-main-view="default" in the server-rendered markup', () => {
+  it("shows the ETB and leaves the Lagekarte to CSS in the server-rendered markup", () => {
     const { props } = buildProps();
-    const html = renderToString(
+    const container = document.createElement("div");
+    container.innerHTML = renderToString(
       <Providers>
         <SituationWorkspace {...props} />
       </Providers>,
     );
-    expect(html).toContain('data-main-view="default"');
+    const pane = (view: string) =>
+      container.querySelector(`[data-view="${view}"]`) as HTMLElement;
+    expect(pane("etb").style.display).toBe("");
+    expect(pane("map").style.display).toBe("");
+    expect(pane("strength").style.display).toBe("none");
+    // Hides the map on a phone until the width is known (situation-workspace.css).
+    expect(pane("map").closest('[data-layout="unknown"]')).not.toBeNull();
   });
 
   it("hides the phone bar while the on-screen keyboard is open, even with the field still focused", () => {
@@ -675,17 +641,254 @@ describe("SituationWorkspace", () => {
     }
   });
 
-  it("opens no map panel at start", () => {
-    stubMatchMedia(true);
+  it("opens no map sheet at start on a phone", async () => {
+    stubMatchMedia(false);
     try {
       renderWorkspace();
+      await selectMainView("Lagekarte");
       expect(anyMapPanel()).toBeNull();
     } finally {
       vi.unstubAllGlobals();
     }
   });
 
-  it("switches and closes map panels via the controls and ✕", async () => {
+  describe("the map panel in the sidebar on the desktop", () => {
+    beforeEach(() => {
+      stubMatchMedia(true);
+    });
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    const mapButton = (name: PanelName) =>
+      screen.getByLabelText(name, { selector: "button" });
+
+    it("shows no map panel beside the ETB", () => {
+      renderWorkspace();
+      expect(anyMapPanel()).toBeNull();
+      expect(mapButton("Kartenzeichen")).toHaveAttribute(
+        "aria-pressed",
+        "false",
+      );
+    });
+
+    it("shows Kartenzeichen under Lagekarte after loading", async () => {
+      renderWorkspace();
+      await selectMainView("Lagekarte");
+      expect(mapPanel("Kartenzeichen")).toBeVisible();
+      expect(mapButton("Kartenzeichen")).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      );
+    });
+
+    it("shows the panel of a map button, and a second click changes nothing", async () => {
+      renderWorkspace();
+      await selectMainView("Lagekarte");
+      await userEvent.click(mapButton("Bereiche"));
+      expect(mapPanel("Bereiche")).toBeVisible();
+      expect(mapButton("Bereiche")).toHaveAttribute("aria-pressed", "true");
+      expect(mapButton("Kartenzeichen")).toHaveAttribute(
+        "aria-pressed",
+        "false",
+      );
+
+      await userEvent.click(mapButton("Bereiche"));
+      expect(mapPanel("Bereiche")).toBeVisible();
+      expect(mapButton("Bereiche")).toHaveAttribute("aria-pressed", "true");
+    });
+
+    it("switches the sidebar with its own bar", async () => {
+      renderWorkspace();
+      const sidebarBar = within(screen.getByRole("main"));
+      expect(sidebarBar.getByRole("button", { name: "ETB" })).toHaveAttribute(
+        "aria-current",
+        "page",
+      );
+
+      await userEvent.click(sidebarBar.getByRole("button", { name: "Stärke" }));
+      expect(
+        sidebarBar.getByRole("button", { name: "Stärke" }),
+      ).toHaveAttribute("aria-current", "page");
+      expect(screen.getByLabelText("Neuer Eintrag")).not.toBeVisible();
+
+      await userEvent.click(
+        sidebarBar.getByRole("button", { name: "Lagekarte" }),
+      );
+      expect(mapPanel("Kartenzeichen")).toBeVisible();
+    });
+
+    it("keeps the Lagekarte visible beside the ETB and Stärke", async () => {
+      renderWorkspace();
+      const mapShown = () =>
+        expect(
+          screen.getByLabelText("Zum Standard-Ausschnitt zurück", {
+            selector: "button",
+          }),
+        ).toBeVisible();
+      mapShown();
+      await selectMainView("Stärke");
+      mapShown();
+    });
+
+    it("offers no Schließen on the panel", async () => {
+      renderWorkspace();
+      await selectMainView("Lagekarte");
+      expect(
+        within(mapPanel("Kartenzeichen")).queryByLabelText("Schließen", {
+          selector: "button",
+        }),
+      ).toBeNull();
+    });
+
+    it("switches the sidebar from the ETB to Lagekarte with the panel of a map button", async () => {
+      renderWorkspace();
+      await userEvent.click(mapButton("Ebenen"));
+      expect(mapPanel("Ebenen")).toBeVisible();
+      expect(screen.getByLabelText("Neuer Eintrag")).not.toBeVisible();
+      expect(
+        screen.getAllByText("Lagekarte")[0].closest("button"),
+      ).toHaveAttribute("aria-current", "page");
+    });
+
+    it("shows the last chosen panel again after the ETB", async () => {
+      renderWorkspace();
+      await userEvent.click(mapButton("Bereiche"));
+      await selectMainView("ETB");
+      expect(anyMapPanel()).toBeNull();
+      expect(mapButton("Bereiche")).toHaveAttribute("aria-pressed", "false");
+
+      await selectMainView("Lagekarte");
+      expect(mapPanel("Bereiche")).toBeVisible();
+    });
+  });
+
+  describe("working beside the Lagekarte on the desktop", () => {
+    beforeEach(() => {
+      stubMatchMedia(true);
+    });
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    const REPORT = {
+      id: "r1",
+      leaders: 0,
+      subLeaders: 1,
+      helpers: 6,
+      additionalPersonnel: 2,
+      note: null,
+      reportedAt: new Date().toISOString(),
+      state: "gueltig" as const,
+      number: 1,
+    };
+
+    const renderLoaded = async (over: Partial<SituationWorkspaceProps>) => {
+      const built = renderWorkspace({ symbols: [SYMBOL], ...over });
+      await waitFor(() => expect(built.adapter.setMarker).toHaveBeenCalled());
+      built.adapter.setView.mockClear();
+      return built;
+    };
+
+    const expectMapUntouchedAndClickable = async (
+      adapter: ReturnType<typeof fakeFactory>["adapter"],
+    ) => {
+      expect(
+        screen.getByLabelText("Zum Standard-Ausschnitt zurück", {
+          selector: "button",
+        }),
+      ).toBeVisible();
+      expect(adapter.setView).not.toHaveBeenCalled();
+      expect(modeBandShown()).toBe(false);
+      const spec = adapter.setMarker.mock.calls.at(-1)![1] as MarkerSpec;
+      act(() => spec.onClick!());
+      expect(
+        await screen.findByRole("dialog", { name: "Kartenzeichen" }),
+      ).toBeInTheDocument();
+    };
+    const modeBandShown = () => screen.queryByRole("toolbar") !== null;
+
+    it.each([
+      ["Strg+Enter", () => userEvent.keyboard("{Control>}{Enter}{/Control}")],
+      [
+        "Eintrag hinzufügen",
+        () => userEvent.click(screen.getByText("Eintrag hinzufügen")),
+      ],
+    ])(
+      "adds an ETB entry with %s and keeps the ETB and the map",
+      async (_, submit) => {
+        const onAddJournalEntry = vi.fn(async () => ({}));
+        const { adapter } = await renderLoaded({ onAddJournalEntry });
+
+        await userEvent.click(screen.getByLabelText("Neuer Eintrag"));
+        await userEvent.keyboard("Deich gesichert");
+        await submit();
+
+        expect(onAddJournalEntry).toHaveBeenCalledWith("Deich gesichert");
+        expect(screen.getByLabelText("Neuer Eintrag")).toBeVisible();
+        await expectMapUntouchedAndClickable(adapter);
+      },
+    );
+
+    it.each(["Melden", "Unverändert melden"])(
+      "returns to the Stellen after %s and keeps the map",
+      async (button) => {
+        const onRecordStrengthReport = vi.fn(async () => ({}));
+        const { adapter } = await renderLoaded({
+          onRecordStrengthReport,
+          stations: [{ id: "st1", name: "UHSt 3", reports: [REPORT] }],
+        });
+        await selectMainView("Stärke");
+
+        await userEvent.click(screen.getByRole("button", { name: "UHSt 3" }));
+        await userEvent.click(screen.getByRole("button", { name: button }));
+
+        expect(onRecordStrengthReport).toHaveBeenCalledTimes(1);
+        expect(
+          await screen.findByRole("button", { name: "UHSt 3" }),
+        ).toBeVisible();
+        await expectMapUntouchedAndClickable(adapter);
+      },
+    );
+
+    it("keeps a started ETB entry across the Lagekarte and a map button", async () => {
+      renderWorkspace();
+      fireEvent.change(screen.getByLabelText("Neuer Eintrag"), {
+        target: { value: "Deich gesichert" },
+      });
+
+      await selectMainView("Lagekarte");
+      await userEvent.click(
+        screen.getByLabelText("Bereiche", { selector: "button" }),
+      );
+      await selectMainView("ETB");
+
+      expect(screen.getByLabelText("Neuer Eintrag")).toHaveValue(
+        "Deich gesichert",
+      );
+    });
+
+    it("keeps a half-filled Stärkemeldung across the Lagekarte", async () => {
+      renderWorkspace({
+        stations: [{ id: "st1", name: "UHSt 3", reports: [] }],
+      });
+      await selectMainView("Stärke");
+      await userEvent.click(screen.getByRole("button", { name: "UHSt 3" }));
+      await userEvent.type(
+        screen.getByRole("textbox", { name: "Helfer" }),
+        "6",
+      );
+
+      await userEvent.click(
+        screen.getByLabelText("Ebenen", { selector: "button" }),
+      );
+      await selectMainView("Stärke");
+
+      expect(screen.getByRole("textbox", { name: "Helfer" })).toHaveValue("6");
+    });
+  });
+
+  it("switches and closes map panels via the controls and ✕ on a phone", async () => {
     renderWorkspace();
     await openPanel("Kartenzeichen");
     expect(mapPanel("Kartenzeichen")).toBeVisible();
@@ -733,22 +936,92 @@ describe("SituationWorkspace", () => {
     expect(mapPanel("Ebenen")).toBeVisible();
   });
 
-  it("keeps the open map panel as the right panel when the width crosses 768 px", async () => {
-    const { fireChange } = stubMatchMedia(false);
-    try {
-      renderWorkspace();
-      await openPanel("Kartenzeichen");
-      act(() => {
-        fireChange(true);
-      });
-      expect(mapPanel("Kartenzeichen")).toBeVisible();
-
-      // Jetzt Desktop-Form: Scharfstellen lässt das Panel stehen.
-      await userEvent.click(screen.getByText(/KTW/));
-      expect(mapPanel("Kartenzeichen")).toBeVisible();
-    } finally {
+  describe("crossing 768 px", () => {
+    afterEach(() => {
       vi.unstubAllGlobals();
-    }
+    });
+
+    it("keeps an open sheet as the sidebar panel and back", async () => {
+      const { fireChange } = stubMatchMedia(false);
+      renderWorkspace();
+      await openPanel("Bereiche");
+
+      act(() => fireChange(true));
+      expect(mapPanel("Bereiche")).toBeVisible();
+      // Jetzt Desktop-Form: Zeichnen lässt das Panel stehen.
+      await userEvent.click(screen.getByText("Polygon"));
+      expect(mapPanel("Bereiche")).toBeVisible();
+
+      act(() => fireChange(false));
+      expect(mapPanel("Bereiche")).toBeVisible();
+      expect(
+        within(mapPanel("Bereiche")).getByLabelText("Schließen", {
+          selector: "button",
+        }),
+      ).toBeInTheDocument();
+    });
+
+    it("shows Kartenzeichen on the desktop when the sheet was closed", async () => {
+      const { fireChange } = stubMatchMedia(false);
+      renderWorkspace();
+      await selectMainView("Lagekarte");
+
+      act(() => fireChange(true));
+      expect(mapPanel("Kartenzeichen")).toBeVisible();
+    });
+
+    it("opens the sheet of the map button pressed on the desktop on a phone", async () => {
+      const { fireChange } = stubMatchMedia(true);
+      renderWorkspace();
+      await userEvent.click(
+        screen.getByLabelText("Ebenen", { selector: "button" }),
+      );
+
+      act(() => fireChange(false));
+      expect(
+        within(mapPanel("Ebenen")).getByLabelText("Schließen", {
+          selector: "button",
+        }),
+      ).toBeVisible();
+    });
+
+    it("shows the Lagekarte without a sheet on a phone when no map button was pressed", async () => {
+      const { fireChange } = stubMatchMedia(true);
+      renderWorkspace();
+      await selectMainView("Lagekarte");
+
+      act(() => fireChange(false));
+      expect(
+        screen.getByLabelText("Zum Standard-Ausschnitt zurück", {
+          selector: "button",
+        }),
+      ).toBeVisible();
+      expect(anyMapPanel()).toBeNull();
+    });
+
+    it("shows the Lagekarte on a phone only while it is the main view", async () => {
+      const { fireChange } = stubMatchMedia(true);
+      renderWorkspace();
+
+      act(() => fireChange(false));
+      expect(screen.getByLabelText("Neuer Eintrag")).toBeVisible();
+      expect(
+        screen.getByLabelText("Zum Standard-Ausschnitt zurück", {
+          selector: "button",
+        }),
+      ).not.toBeVisible();
+    });
+
+    it("does not recreate the map", () => {
+      const { fireChange } = stubMatchMedia(true);
+      const { factory, adapter } = renderWorkspace();
+
+      act(() => fireChange(false));
+      act(() => fireChange(true));
+
+      expect(factory.create).toHaveBeenCalledTimes(1);
+      expect(adapter.destroy).not.toHaveBeenCalled();
+    });
   });
 
   it("saves the current map view as the default after confirming", async () => {
@@ -894,7 +1167,7 @@ describe("SituationWorkspace", () => {
       expect(mapPanel("Bereiche")).toBeVisible();
     });
 
-    it("keeps the right panel open on the desktop", async () => {
+    it("keeps the sidebar panel open on the desktop", async () => {
       stubMatchMedia(true);
       renderWorkspace();
       await openPanel("Kartenzeichen");
