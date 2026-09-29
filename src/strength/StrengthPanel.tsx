@@ -687,6 +687,7 @@ function useStrengthFields(initial: StrengthValues | undefined) {
   const countInput = (field: Count, label: string) => (
     <TextInput
       label={label}
+      styles={ONE_LINE_LABEL}
       value={counts[field]}
       onChange={(e) => {
         const digits = e.currentTarget.value.replace(/\D/g, "");
@@ -700,7 +701,13 @@ function useStrengthFields(initial: StrengthValues | undefined) {
 
   const fields = (
     <>
-      <SimpleGrid cols={4} spacing="xs">
+      {/* Unterführer ist das längste Label; EK und G brauchen weniger Platz.
+          Schlichtes 1fr (anders als SimpleGrids minmax(0, 1fr)) wird nie
+          schmaler als das einzeilige Label: Diese Zeile kürzt nie mit „…". */}
+      <SimpleGrid
+        spacing="xs"
+        style={{ gridTemplateColumns: "1fr 1.25fr 1fr 1fr" }}
+      >
         {countInput("leaders", "Führer")}
         {countInput("subLeaders", "Unterführer")}
         {countInput("crew", "EK")}
@@ -890,11 +897,25 @@ function Strength({ counts }: { counts: StrengthCounts }) {
   );
 }
 
+/**
+ * Labels im Stärke-Raster bleiben einzeilig und enden bei Platzmangel mit „…"
+ * (bei 320 px: „Zusätzliches Personal"), statt in die Nachbarspalte zu laufen
+ * oder umzubrechen.
+ */
+const ONE_LINE_LABEL = {
+  label: {
+    display: "block",
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+  },
+} as const;
+
 function Computed({ label, value }: { label: string; value: number }) {
   const id = useId();
   // Input.Wrapper: dasselbe Label wie an den Eingabefeldern daneben.
   return (
-    <Input.Wrapper label={label} id={id}>
+    <Input.Wrapper label={label} id={id} styles={ONE_LINE_LABEL}>
       <Text component="output" id={id} display="block" fw={700} py={6}>
         {value}
       </Text>
