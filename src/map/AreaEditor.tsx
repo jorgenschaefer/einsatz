@@ -9,6 +9,8 @@ import {
   TextInput,
 } from "@mantine/core";
 import { useState } from "react";
+import { ConfirmationModal } from "@/app/ConfirmationModal";
+import type { ActionResult } from "@/app/operations/[id]/action-result";
 import type { AreaStyle } from "./area";
 
 export interface AreaEditorProps {
@@ -22,7 +24,7 @@ export interface AreaEditorProps {
   onRedraw: () => void;
   /** Only for circles: moves the circle under the map's crosshair. */
   onMove?: () => void;
-  onDelete: () => void | Promise<void>;
+  onDelete: () => Promise<ActionResult>;
   busy?: boolean;
   error?: string | null;
 }
@@ -45,6 +47,7 @@ export function AreaEditor({
   const [radiusAtOpen] = useState(initialRadius);
   const [radius, setRadius] = useState<string | number>(radiusAtOpen ?? "");
   const [radiusError, setRadiusError] = useState<string | null>(null);
+  const [deleteAsked, setDeleteAsked] = useState(false);
 
   const save = () => {
     const style = { color, opacity, label };
@@ -114,12 +117,24 @@ export function AreaEditor({
         <Button
           variant="light"
           color="red"
-          onClick={() => onDelete()}
+          onClick={() => setDeleteAsked(true)}
           loading={busy}
         >
           Löschen
         </Button>
       </Group>
+      <ConfirmationModal
+        stackId="bereich-loeschen"
+        opened={deleteAsked}
+        onClose={() => setDeleteAsked(false)}
+        title="Bereich löschen"
+        confirmLabel="Endgültig löschen"
+        confirmColor="red"
+        onConfirm={onDelete}
+      >
+        Der Bereich verschwindet von der Lagekarte. Das lässt sich nicht
+        rückgängig machen.
+      </ConfirmationModal>
     </Stack>
   );
 }

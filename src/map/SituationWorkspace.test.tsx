@@ -1626,7 +1626,7 @@ describe("SituationWorkspace", () => {
   });
 
   it("lists Bereiche and opens the area editor via the row edit button", async () => {
-    const onDeleteArea = vi.fn();
+    const onDeleteArea = vi.fn(async () => ({}));
     const area = {
       id: "a1",
       geometry: {
@@ -1646,6 +1646,9 @@ describe("SituationWorkspace", () => {
       }),
     );
     await userEvent.click(await screen.findByText("Löschen"));
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Endgültig löschen" }),
+    );
     expect(onDeleteArea).toHaveBeenCalledWith("a1");
   });
 
@@ -3220,6 +3223,28 @@ describe("SituationWorkspace", () => {
     );
   });
 
+  const clickConfirmationOverlay = () => {
+    const overlay = [...document.querySelectorAll(".mantine-Modal-overlay")].at(
+      -1,
+    );
+    if (!overlay) throw new Error("no overlay");
+    return userEvent.click(overlay);
+  };
+
+  const hanging = () => new Promise<ActionResult>(() => {});
+
+  const cancelWays = [
+    [
+      "Abbrechen",
+      (dialog: HTMLElement) =>
+        userEvent.click(
+          within(dialog).getByRole("button", { name: "Abbrechen" }),
+        ),
+    ],
+    ["Escape", () => userEvent.keyboard("{Escape}")],
+    ["a click beside the confirmation", () => clickConfirmationOverlay()],
+  ] as const;
+
   describe("confirming in the Kartenzeichen detail", () => {
     const token = "secret-token-123";
     const aSymbol = (deviceLinkToken?: string) => ({
@@ -3251,28 +3276,6 @@ describe("SituationWorkspace", () => {
 
     const detailDialog = () =>
       screen.queryByRole("dialog", { name: "Kartenzeichen" });
-
-    const clickConfirmationOverlay = () => {
-      const overlay = [
-        ...document.querySelectorAll(".mantine-Modal-overlay"),
-      ].at(-1);
-      if (!overlay) throw new Error("no overlay");
-      return userEvent.click(overlay);
-    };
-
-    const hanging = () => new Promise<ActionResult>(() => {});
-
-    const cancelWays = [
-      [
-        "Abbrechen",
-        (dialog: HTMLElement) =>
-          userEvent.click(
-            within(dialog).getByRole("button", { name: "Abbrechen" }),
-          ),
-      ],
-      ["Escape", () => userEvent.keyboard("{Escape}")],
-      ["a click beside the confirmation", () => clickConfirmationOverlay()],
-    ] as const;
 
     const confirmations = [
       {
@@ -3453,6 +3456,141 @@ describe("SituationWorkspace", () => {
       expect(screen.getByLabelText("Gerätelink")).toHaveValue(
         `${window.location.origin}/device/fresh-token`,
       );
+    });
+  });
+
+  describe("confirming in the Bereich editor", () => {
+    const area = {
+      id: "a1",
+      geometry: {
+        shape: "circle" as const,
+        center: { lat: 1, lng: 2 },
+        radius: 100,
+      },
+      color: "#e2001a",
+      opacity: 0.4,
+      label: "Zone Nord",
+    };
+
+    async function openEditor(over: Partial<SituationWorkspaceProps> = {}) {
+      renderWorkspace({ areas: [area], ...over });
+      await openPanel("Bereiche");
+      await userEvent.click(
+        await screen.findByLabelText(/Zone Nord bearbeiten/, {
+          selector: "button",
+        }),
+      );
+      return screen.findByRole("dialog", { name: "Bereich" });
+    }
+
+    const editLabel = async () => {
+      const label = screen.getByLabelText("Beschriftung");
+      await userEvent.clear(label);
+      await userEvent.type(label, "Zone Süd");
+    };
+
+    const ask = async (editor: HTMLElement) => {
+      await userEvent.click(
+        within(editor).getByRole("button", { name: "Löschen" }),
+      );
+      return screen.findByRole("dialog", { name: "Bereich löschen" });
+    };
+
+    const editorDialog = () =>
+      screen.queryByRole("dialog", { name: "Bereich" });
+
+    it.each(cancelWays)(
+      "keeps the editor and its unsaved input after cancelling with %s",
+      async (_, cancel) => {
+        const onDeleteArea = vi.fn(async () => ({}));
+        const editor = await openEditor({ onDeleteArea });
+        await editLabel();
+        const dialog = await ask(editor);
+
+        await cancel(dialog);
+
+        await waitFor(() =>
+          expect(
+            screen.queryByRole("dialog", { name: "Bereich löschen" }),
+          ).toBeNull(),
+        );
+        expect(onDeleteArea).not.toHaveBeenCalled();
+        expect(editorDialog()).toBeInTheDocument();
+        expect(screen.getByLabelText("Beschriftung")).toHaveValue("Zone Süd");
+      },
+    );
+
+    it("deletes the Bereich only once confirmed and closes both dialogs", async () => {
+      const onDeleteArea = vi.fn(async () => ({}));
+      const dialog = await ask(await openEditor({ onDeleteArea }));
+
+      expect(onDeleteArea).not.toHaveBeenCalled();
+      expect(dialog).toHaveTextContent(
+        "Der Bereich verschwindet von der Lagekarte. Das lässt sich nicht rückgängig machen.",
+      );
+      const confirm = within(dialog).getByRole("button", {
+        name: "Endgültig löschen",
+      });
+      expect(buttonColor(confirm)).toBe("red");
+
+      await userEvent.click(confirm);
+
+      expect(onDeleteArea).toHaveBeenCalledWith("a1");
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    });
+
+    it.each([
+      [
+        "a returned error",
+        async () => ({ error: "Bereich gesperrt." }),
+        "Bereich gesperrt.",
+      ],
+      [
+        "a thrown failure",
+        async (): Promise<ActionResult> => {
+          throw new Error("offline");
+        },
+        "Das hat nicht geklappt. Bitte erneut versuchen.",
+      ],
+    ])(
+      "shows %s in the open confirmation, not in the editor",
+      async (_, onDeleteArea, message) => {
+        const editor = await openEditor({ onDeleteArea });
+        const dialog = await ask(editor);
+
+        await userEvent.click(
+          within(dialog).getByRole("button", { name: "Endgültig löschen" }),
+        );
+
+        expect(screen.getAllByRole("alert")).toEqual([
+          within(dialog).getByRole("alert"),
+        ]);
+        expect(within(dialog).getByRole("alert")).toHaveTextContent(message);
+        expect(editorDialog()).toBeInTheDocument();
+        expect(
+          within(dialog).getByRole("button", { name: "Endgültig löschen" }),
+        ).toBeEnabled();
+        expect(
+          within(dialog).getByRole("button", { name: "Abbrechen" }),
+        ).toBeEnabled();
+      },
+    );
+
+    it("keeps both dialogs open on Escape or a click beside while deleting", async () => {
+      const onDeleteArea = vi.fn(hanging);
+      const dialog = await ask(await openEditor({ onDeleteArea }));
+
+      await userEvent.click(
+        within(dialog).getByRole("button", { name: "Endgültig löschen" }),
+      );
+      await userEvent.keyboard("{Escape}");
+      await clickConfirmationOverlay();
+
+      expect(
+        screen.getByRole("dialog", { name: "Bereich löschen" }),
+      ).toBeInTheDocument();
+      expect(editorDialog()).toBeInTheDocument();
+      expect(onDeleteArea).toHaveBeenCalledTimes(1);
     });
   });
 });

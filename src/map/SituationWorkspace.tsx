@@ -317,8 +317,8 @@ export function SituationWorkspace({
   // können aber sehr wohl scheitern (eine überlange Bezeichnung aus dem
   // Erweitert-Formular, eine entartete Geometrie), daher zeigen sie ihren
   // `{error}` über den `mapError`-Kanal. Was eine Rückfrage hat – „Kartenzeichen
-  // löschen", „Gerätelink neu generieren", „Standard-Ausschnitt festlegen"
-  // (MapControls) –, zeigt seinen Fehler in der Rückfrage. Nur die strukturell
+  // löschen", „Bereich löschen" (AreaEditor), „Gerätelink neu generieren",
+  // „Standard-Ausschnitt festlegen" (MapControls) –, zeigt seinen Fehler in der Rückfrage. Nur die strukturell
   // stets gültigen Interaktionen bleiben bewusst fire-and-forget: onMove (Drag
   // auf gültige Koordinaten) und „Gerätelink erzeugen" (nur eine Objekt-id).
   const runDetail = async (op: () => Promise<ActionResult>) => {
@@ -473,6 +473,15 @@ export function SituationWorkspace({
       setSelectedAreaId(created.id);
     }
   };
+  const closeArea = () => {
+    setSelectedAreaId(null);
+    setAreaError(null);
+  };
+  const deleteArea = async (id: string) => {
+    const result = await onDeleteArea(id);
+    if (!result.error) closeArea();
+    return result;
+  };
   const runArea = async (op: () => Promise<ActionResult>) => {
     setAreaBusy(true);
     try {
@@ -481,8 +490,7 @@ export function SituationWorkspace({
         setAreaError(error);
         return;
       }
-      setSelectedAreaId(null);
-      setAreaError(null);
+      closeArea();
     } catch {
       setAreaError("Speichern fehlgeschlagen. Bitte erneut versuchen.");
     } finally {
@@ -948,42 +956,42 @@ export function SituationWorkspace({
 
         <Box className="sidebar-bar">{mainViewBar}</Box>
 
-        <Modal
-          opened={selectedArea !== null}
-          onClose={() => {
-            setSelectedAreaId(null);
-            setAreaError(null);
-          }}
-          title="Bereich"
-        >
-          {selectedArea && (
-            <AreaEditor
-              key={selectedArea.id}
-              initial={{
-                color: selectedArea.color,
-                opacity: selectedArea.opacity,
-                label: selectedArea.label,
-              }}
-              radius={
-                selectedArea.geometry.shape === "circle"
-                  ? selectedArea.geometry.radius
-                  : undefined
-              }
-              busy={areaBusy}
-              error={areaError}
-              onSave={(style, radius) =>
-                runArea(() => saveArea(selectedArea, style, radius))
-              }
-              onRedraw={startRedraw}
-              onMove={
-                selectedArea.geometry.shape === "circle"
-                  ? startMoveCircle
-                  : undefined
-              }
-              onDelete={() => runArea(() => onDeleteArea(selectedArea.id))}
-            />
-          )}
-        </Modal>
+        <Modal.Stack>
+          <Modal
+            stackId="bereich"
+            opened={selectedArea !== null}
+            onClose={closeArea}
+            title="Bereich"
+          >
+            {selectedArea && (
+              <AreaEditor
+                key={selectedArea.id}
+                initial={{
+                  color: selectedArea.color,
+                  opacity: selectedArea.opacity,
+                  label: selectedArea.label,
+                }}
+                radius={
+                  selectedArea.geometry.shape === "circle"
+                    ? selectedArea.geometry.radius
+                    : undefined
+                }
+                busy={areaBusy}
+                error={areaError}
+                onSave={(style, radius) =>
+                  runArea(() => saveArea(selectedArea, style, radius))
+                }
+                onRedraw={startRedraw}
+                onMove={
+                  selectedArea.geometry.shape === "circle"
+                    ? startMoveCircle
+                    : undefined
+                }
+                onDelete={() => deleteArea(selectedArea.id)}
+              />
+            )}
+          </Modal>
+        </Modal.Stack>
 
         <Modal
           opened={advancedOpened}

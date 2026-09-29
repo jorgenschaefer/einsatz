@@ -1,6 +1,7 @@
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@/test/render";
+import type { ActionResult } from "@/app/operations/[id]/action-result";
+import { fireEvent, render, screen, within } from "@/test/render";
 import { AreaEditor, type AreaEditorProps } from "./AreaEditor";
 
 function setup(over: Partial<AreaEditorProps> = {}) {
@@ -150,9 +151,64 @@ describe("AreaEditor", () => {
     expect(props.onRedraw).toHaveBeenCalled();
   });
 
-  it("deletes the area", async () => {
-    const { props } = setup();
-    await userEvent.click(screen.getByRole("button", { name: "Löschen" }));
-    expect(props.onDelete).toHaveBeenCalled();
+  describe("deleting", () => {
+    const ask = async () => {
+      await userEvent.click(screen.getByRole("button", { name: "Löschen" }));
+      return screen.findByRole("dialog", { name: "Bereich löschen" });
+    };
+
+    it("deletes the area only once confirmed", async () => {
+      const onDelete = vi.fn(async () => ({}));
+      setup({ onDelete });
+      const dialog = await ask();
+      expect(onDelete).not.toHaveBeenCalled();
+
+      await userEvent.click(
+        within(dialog).getByRole("button", { name: "Endgültig löschen" }),
+      );
+
+      expect(onDelete).toHaveBeenCalledTimes(1);
+    });
+
+    it.each([
+      [
+        "a returned error",
+        async () => ({ error: "Bereich gesperrt." }),
+        "Bereich gesperrt.",
+      ],
+      [
+        "a thrown failure",
+        async (): Promise<ActionResult> => {
+          throw new Error("offline");
+        },
+        "Das hat nicht geklappt. Bitte erneut versuchen.",
+      ],
+    ])("shows %s in the confirmation", async (_, onDelete, message) => {
+      setup({ onDelete });
+      const dialog = await ask();
+
+      await userEvent.click(
+        within(dialog).getByRole("button", { name: "Endgültig löschen" }),
+      );
+
+      expect(within(dialog).getByRole("alert")).toHaveTextContent(message);
+    });
+
+    it("stays locked while deleting", async () => {
+      const onDelete = vi.fn(() => new Promise<ActionResult>(() => {}));
+      setup({ onDelete });
+      const dialog = await ask();
+      const confirm = within(dialog).getByRole("button", {
+        name: "Endgültig löschen",
+      });
+
+      await userEvent.click(confirm);
+      await userEvent.click(confirm);
+
+      expect(
+        within(dialog).getByRole("button", { name: "Abbrechen" }),
+      ).toBeDisabled();
+      expect(onDelete).toHaveBeenCalledTimes(1);
+    });
   });
 });

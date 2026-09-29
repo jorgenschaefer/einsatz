@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:    AC-6
 advances:  AC-1, AC-2, AC-3, AC-4, AC-5, AC-10
 after:     01-bestaetigungs-modal, 02-kartenzeichen-und-geraetelink
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -67,3 +67,28 @@ Tests: `src/map/AreaEditor.test.tsx` („deletes the area“, Zeile ~153) und di
 - „Speichern“, „Form neu zeichnen“ und „Verschieben“ im Bereich-Dialog: bleiben ohne Rückfrage und laufen weiter über `runArea`.
 - Lage und Auffälligkeit der Lösch-Knöpfe: Sie bleiben, wo und wie sie sind.
 - Verhalten, wenn das Objekt anderswo gelöscht wird, während seine Rückfrage offen ist. Es wird nicht eigens gebaut oder getestet.
+
+## Record
+Schließt:
+- **AC-6**: für den Bereich `src/map/SituationWorkspace.test.tsx`, Block „confirming in the Bereich editor“, „keeps the editor and its unsaved input after cancelling with Abbrechen / Escape / a click beside the confirmation“ (`onDeleteArea` nicht gerufen, Bereich-Dialog offen, geänderte „Beschriftung“ noch da). Für Kartenzeichen und Gerätelink aus Ticket 02: Block „confirming in the Kartenzeichen detail“, je Rückfrage „keeps the detail and its unsaved input after cancelling with Abbrechen / Escape / a click beside the confirmation“, sowie `src/map/DeviceLinkPanel.test.tsx` „does not regenerate when cancelled / on Escape / on a click beside the confirmation“. Zusammen decken sie alle drei Rückfragen und alle drei Wege ab.
+
+Bringt voran (für Bereich löschen):
+- **AC-1**: die drei Abbrechen-Tests oben; „deletes the Bereich only once confirmed and closes both dialogs“; `AreaEditor.test.tsx` „deleting › deletes the area only once confirmed“; „lists Bereiche and opens the area editor via the row edit button“ geht jetzt über „Endgültig löschen“.
+- **AC-2**: „deletes the Bereich only once confirmed …“ (Titel, Text, „Endgültig löschen“ rot).
+- **AC-3**: „keeps both dialogs open on Escape or a click beside while deleting“ (Workspace, `onDeleteArea` einmal gerufen); `AreaEditor.test.tsx` „deleting › stays locked while deleting“ („Abbrechen“ gesperrt, zweiter Klick ruft nicht erneut). Ladezustand des Bestätigungsknopfs kommt aus `ConfirmationModal` (Ticket 01).
+- **AC-4**: „shows a returned error / a thrown failure in the open confirmation, not in the editor“ (einziger Alert auf der Seite steht in der Rückfrage, Bereich-Dialog offen, beide Knöpfe aktiv); `AreaEditor.test.tsx` „deleting › shows a returned error / a thrown failure in the confirmation“.
+- **AC-5**: „deletes the Bereich only once confirmed and closes both dialogs“.
+- **AC-10**: im Browser mit `run-einsatz` (Subagent) bei 390×844 (Touch) und 1280×800 geprüft: Rückfrage vollständig sichtbar, beide Knöpfe oberstes Element an ihrer Stelle, `scrollWidth == innerWidth`; Escape, Overlay-Klick und „Abbrechen“ schließen nur die Rückfrage, geänderte Beschriftung bleibt; „Endgültig löschen“ schließt beide Dialoge, Bereich weg von Karte und Liste; keine Konsolenfehler.
+
+Kommando: `docker compose -f docker-compose.test.yml up -d && npm run check` – 117 Dateien, 1146 Tests grün, tsc und Biome ohne Befund.
+
+### Left standing
+- Abweichung vom Plan, Schritt 3: Der Test „Fehler steht in der Rückfrage und nicht im `AreaEditor`“ prüft, dass auf der Seite genau ein Alert steht und er in der Rückfrage liegt. Unter `MantineProvider env="test"` gibt es keine Portale, die Rückfrage hängt im DOM also im Bereich-Dialog; `within(editor)` hätte ihren Alert mitgezählt.
+- Abweichung vom Plan, Schritt 3: Das Schließen des Bereich-Dialogs steht jetzt in `closeArea()`, das `onClose`, `runArea` und `deleteArea` gemeinsam nutzen, statt `setSelectedAreaId(null); setAreaError(null)` dreimal zu wiederholen.
+- Die Rückfrage-Helfer `clickConfirmationOverlay`, `hanging` und `cancelWays` in `SituationWorkspace.test.tsx` stehen jetzt eine Ebene höher, damit Kartenzeichen- und Bereich-Block sie teilen.
+- Anders als bei Kartenzeichen (Ticket 02) braucht die Bereich-Rückfrage keine gemerkte id: Sie lebt im `AreaEditor`, der mit `key={selectedArea.id}` je Bereich neu gemountet wird.
+- Review (eine Runde, keine Blocker, kein Should-fix): Nit „Kommentar zur Fehler-Politik nennt Bereich löschen nicht“ behoben.
+- Nicht behoben, Browser-Check: Beim Öffnen der Rückfrage liegt der Fokus auf ihrem Schließen-X statt auf „Abbrechen“; nach dem Abbrechen auf dem X des Bereich-Dialogs statt auf „Löschen“ – Enter schließt dann den Bereich-Dialog und verwirft ungespeicherte Eingaben ohne Nachfrage. Mantine-Standard, gleich wie bei Kartenzeichen (Ticket 02); betrifft alle Rückfragen und gehört nicht in dieses Ticket.
+- Nicht geändert, Browser-Check: „Endgültig löschen“ ist Mantines `red` (`#fa5252`), heller als das DRK-Rot. So verlangt es die Rückfrage-Konvention aus Ticket 01 (Rot für Zerstörerisches, DRK-Rot ist Primärfarbe).
+- Nicht gemacht: `SituationWorkspace.tsx` bzw. seine Test-Datei vor dem Ändern aufteilen (wie in Ticket 02 begründet; eigener Umbau, `REFACTORING.md` Punkt 10).
+- Browserprüfung und Review liefen gleichzeitig und teilten anfangs einen Playwright-Treiber auf Port 9223; beide haben danach eigene Treiber benutzt, ihre Ergebnisse stammen aus den eigenen Sitzungen. In der Dev-Datenbank wurden die Einsätze „QA-Bereich“ und „Critique-Bereich“ angelegt und wieder gelöscht; keine Migration, kein Seed.
