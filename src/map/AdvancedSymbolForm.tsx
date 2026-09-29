@@ -1,7 +1,6 @@
 "use client";
 
 import { Button, Group, Image, Select, Stack, TextInput } from "@mantine/core";
-import { useState } from "react";
 import {
   einheiten,
   fachaufgaben,
@@ -10,7 +9,8 @@ import {
   organisationen,
   symbole,
   verwaltungsstufen,
-} from "taktische-zeichen-core";
+} from "@taktische-zeichen/core";
+import { useState } from "react";
 import {
   MAX_COMPOSITION_FIELD_LENGTH,
   type SymbolComposition,

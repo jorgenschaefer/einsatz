@@ -24,7 +24,7 @@ const COMPOSITION_KEYS: ReadonlySet<string> = new Set([
  * Prüft an der Action-Grenze **nur die Form** einer Zeichen-Komposition: ein
  * Objekt mit ausschließlich bekannten Schlüsseln und String-Werten (mit
  * Längenobergrenze). Bewusst **keine** Prüfung gegen die erlaubten Werte von
- * `taktische-zeichen-core` – `text`/`symbol` sind frei, und künftige Symbolwerte
+ * `@taktische-zeichen/core` – `text`/`symbol` sind frei, und künftige Symbolwerte
  * sollen nicht fälschlich abgelehnt werden.
  */
 export function assertComposition(composition: SymbolComposition): void {
