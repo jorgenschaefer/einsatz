@@ -1,0 +1,165 @@
+<title>Von, An, Weg im ETB</title>
+<style>
+/* Layout: ein Rahmen in Breite der Desktop-Seitenleiste (336 px, ähnlich dem Handy bei 360–390 px) mit ETB-Eintrag und Eingabebereich darunter. Optik wie Mantine mit DRK-Rot. */
+:root {
+  --bg: #f1f3f5;
+  --surface: #ffffff;
+  --fg: #212529;
+  --dimmed: #868e96;
+  --border: #dee2e6;
+  --accent: #ea1120;
+  --accent-light: #ffe8ea;
+  --accent-light-fg: #d10010;
+  --chip: #f1f3f5;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #1a1b1e; --surface: #242424; --fg: #c9c9c9; --dimmed: #828282;
+    --border: #424242; --accent: #e03e52; --accent-light: rgba(234, 17, 32, 0.18);
+    --accent-light-fg: #ff8a93; --chip: #2e2e2e;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #1a1b1e; --surface: #242424; --fg: #c9c9c9; --dimmed: #828282;
+  --border: #424242; --accent: #e03e52; --accent-light: rgba(234, 17, 32, 0.18);
+  --accent-light-fg: #ff8a93; --chip: #2e2e2e;
+  color-scheme: dark;
+}
+body { background: var(--bg); color: var(--fg); font-family: var(--font); font-size: 14px; line-height: 1.55; }
+.page { max-width: 1240px; margin: 0 auto; padding-inline: 16px; padding-block: 24px 48px; display: grid; gap: 32px; }
+h1 { font-size: 24px; margin: 0; text-wrap: balance; }
+h2 { font-size: 18px; margin: 0; text-wrap: balance; }
+p { margin: 0; max-width: 68ch; }
+.intro, section { display: grid; gap: 12px; }
+.frames { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
+.frame { display: grid; gap: 8px; width: 366px; max-width: 100%; align-content: start; }
+.tag { font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--dimmed); font-weight: 600; }
+.pro, .con { font-size: 13px; margin: 0; padding-left: 18px; }
+.phone { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px; display: grid; gap: 10px; }
+
+.paper { border: 1px solid var(--border); border-radius: 4px; padding: 10px 12px; background: var(--surface); display: grid; gap: 2px; }
+.head { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--dimmed); }
+.head b { color: var(--fg); font-size: 14px; margin-right: 6px; }
+.route { font-size: 13px; font-weight: 600; }
+.route .way { font-weight: 400; color: var(--dimmed); }
+
+.lbl { font-size: 14px; font-weight: 500; }
+.field { display: grid; gap: 4px; position: relative; }
+.input, textarea { font: inherit; font-size: 14px; color: var(--fg); background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 6px 10px; width: 100%; box-sizing: border-box; min-height: 36px; }
+textarea { min-height: 60px; resize: vertical; }
+.input:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.dropdown { position: absolute; top: 100%; left: 0; right: 0; margin-top: 2px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,.12); z-index: 2; padding: 4px; display: grid; }
+.dropdown button { font: inherit; text-align: left; background: none; border: 0; color: var(--fg); padding: 6px 8px; border-radius: 4px; }
+.dropdown button:hover, .dropdown button:focus-visible { background: var(--chip); }
+
+.seg { display: grid; grid-template-columns: repeat(4, 1fr); background: var(--chip); border-radius: 4px; padding: 3px; gap: 2px; }
+.seg button { font: inherit; font-size: 13px; background: none; border: 0; color: var(--fg); padding: 5px 0; border-radius: 3px; }
+.seg button[aria-pressed="true"] { background: var(--surface); box-shadow: 0 1px 3px rgba(0,0,0,.15); font-weight: 600; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font: inherit; font-size: 13px; background: var(--chip); color: var(--fg); border: 1px solid var(--border); border-radius: 16px; padding: 3px 12px; min-height: 30px; }
+.chip[aria-pressed="true"] { background: var(--accent-light); color: var(--accent-light-fg); border-color: var(--accent); font-weight: 600; }
+.chip.ghost { background: none; border-style: dashed; color: var(--dimmed); }
+.rowlbl { display: flex; align-items: baseline; gap: 8px; }
+.rowlbl .lbl { width: 28px; flex: none; }
+.rowlbl .chips { flex: 1; min-width: 0; }
+
+.btn { font: inherit; font-size: 14px; font-weight: 600; height: 36px; padding: 0 18px; border-radius: 4px; border: 0; background: var(--accent); color: #fff; width: fit-content; }
+.swap { font: inherit; font-size: 13px; background: none; border: 1px solid var(--border); color: var(--fg); border-radius: 4px; padding: 3px 10px; min-height: 30px; }
+.preview { font-size: 12px; color: var(--dimmed); }
+.preview b { color: var(--fg); }
+
+/* Kompakt: je Feld genau eine Zeile, Chips scrollen waagerecht statt umzubrechen. */
+.line { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.line .lbl { width: 28px; flex: none; font-size: 13px; color: var(--dimmed); }
+.line .chips { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; flex: 1; min-width: 0; mask-image: linear-gradient(to right, #000 85%, transparent); }
+.line .chips::-webkit-scrollbar { display: none; }
+.line .chip { flex: none; min-height: 28px; padding: 2px 10px; }
+.entry-box { display: grid; gap: 8px; border-top: 1px dashed var(--border); padding-top: 10px; }
+.measure { font-size: 12px; color: var(--dimmed); font-variant-numeric: tabular-nums; }
+.measure b { color: var(--fg); }
+.select { font: inherit; font-size: 14px; color: var(--fg); background: var(--surface); border: 1px solid var(--border); border-radius: 4px; height: 36px; padding: 0 8px; }
+.w336 { width: 336px; }
+.other-btn { flex: none; min-height: 28px; padding: 2px 10px; font-size: 13px; }
+.other-input { flex: 1; min-width: 0; min-height: 28px; padding: 2px 8px; font-size: 13px; }
+.line[data-other] .chips { display: none; }
+</style>
+<div class="page">
+  <div class="intro">
+    <h1>Von, An und Weg im ETB</h1>
+    <p>Die vereinbarte Gestaltung: je Feld eine Zeile Chips, die waagerecht wischt und nie umbricht, „andere …“ fest am rechten Rand, der Weg als Auswahl neben dem Knopf. Gleich am Handy und in der Desktop-Seitenleiste. Darüber ein fertiger Eintrag mit Kopfzeile. Die Bedienelemente lassen sich ausprobieren.</p>
+    <p>Beispielwerte aus der Cyclassics 2026: Stellen UHSt 1 bis UHSt 4, dazu bereits verwendet EAL, ELW 1 und Leitstelle.</p>
+  </div>
+  <div class="frames">
+    <div class="frame w336">
+        <span class="tag">Neuer Eintrag</span>
+        <div class="phone">
+          <div class="paper">
+            <div class="head"><span><b>#41</b>30.09.26, 14:02</span><span>jorgen</span></div>
+            <div class="route">Von UHSt 2 an EAL <span class="way">· Funk</span></div>
+            <div>benötigen RTW für 42/m mit KoPlaWu, an Gustav-Schleswig-Str. 23</div>
+          </div>
+          
+          <div class="entry-box" data-measure>
+            <div class="line" data-other-row>
+              <span class="lbl">Von</span>
+              <div class="chips" data-single><button type="button" class="chip" aria-pressed="true">UHSt 2</button><button type="button" class="chip" aria-pressed="false">EAL</button><button type="button" class="chip" aria-pressed="false">UHSt 1</button><button type="button" class="chip" aria-pressed="false">UHSt 3</button><button type="button" class="chip" aria-pressed="false">UHSt 4</button></div>
+              <input class="input other-input" id="k-von" aria-label="Von (andere)" placeholder="Von eingeben …" hidden autocomplete="off">
+              <button type="button" class="chip ghost other-btn" aria-label="Von: anderer Wert">andere …</button>
+            </div>
+            <div class="line" data-other-row>
+              <span class="lbl">An</span>
+              <div class="chips" data-single><button type="button" class="chip" aria-pressed="true">EAL</button><button type="button" class="chip" aria-pressed="false">UHSt 2</button><button type="button" class="chip" aria-pressed="false">Leitstelle</button><button type="button" class="chip" aria-pressed="false">ELW 1</button><button type="button" class="chip" aria-pressed="false">UHSt 1</button></div>
+              <input class="input other-input" id="k-an" aria-label="An (andere)" placeholder="An eingeben …" hidden autocomplete="off">
+              <button type="button" class="chip ghost other-btn" aria-label="An: anderer Wert">andere …</button>
+            </div>
+            <textarea aria-label="Neuer Eintrag" placeholder="Ereignis festhalten …"></textarea>
+            <div class="line" style="justify-content: space-between">
+              <select class="select" aria-label="Weg">
+                <option selected>Funk</option><option>Telefon</option><option>Persönlich</option><option>Andere …</option><option>ohne</option>
+              </select>
+              <button class="btn" type="button">Eintrag hinzufügen</button>
+            </div>
+          </div>
+        </div>
+        <span class="measure">Eingabe: <b data-out></b></span>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Einfachauswahl für Chips und Umschalter; erneuter Tipp auf einen Chip hebt die Auswahl auf.
+  document.querySelectorAll("[data-seg], [data-single]").forEach((group) => {
+    group.addEventListener("click", (e) => {
+      const btn = e.target.closest("button");
+      if (!btn) return;
+      const wasOn = btn.getAttribute("aria-pressed") === "true";
+      group.querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", "false"));
+      if (!(wasOn && group.hasAttribute("data-single"))) btn.setAttribute("aria-pressed", "true");
+    });
+  });
+  // Kompakt: „andere …" tauscht die Chip-Zeile gegen ein Feld in derselben Höhe, „×" tauscht zurück.
+  document.querySelectorAll("[data-other-row]").forEach((row) => {
+    const btn = row.querySelector(".other-btn");
+    const input = row.querySelector(".other-input");
+    const label = btn.getAttribute("aria-label");
+    btn.addEventListener("click", () => {
+      const on = !row.hasAttribute("data-other");
+      row.toggleAttribute("data-other", on);
+      input.hidden = !on;
+      btn.textContent = on ? "×" : "andere …";
+      btn.setAttribute("aria-label", on ? "Zurück zur Auswahl" : label);
+      if (on) input.focus();
+    });
+  });
+  // Höhe des Eingabebereichs messen und ausgeben.
+  const measure = () => document.querySelectorAll("[data-measure]").forEach((box) => {
+    const out = box.closest(".frame").querySelector("[data-out]");
+    out.textContent = `${Math.round(box.getBoundingClientRect().height)} px`;
+  });
+  measure();
+  window.addEventListener("resize", measure);
+</script>
