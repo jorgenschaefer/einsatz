@@ -8,13 +8,13 @@ import {
   type SituationWorkspaceProps,
 } from "./SituationWorkspace";
 import {
-  aSymbol,
   buildProps,
   openPanel,
   renderWorkspace,
   SYMBOL,
   selectMainView,
 } from "./SituationWorkspace.fixtures";
+import { aSymbol } from "./symbol.fixtures";
 
 describe("SituationWorkspace", () => {
   it("places the armed Schnellauswahl composition where the map is clicked", async () => {

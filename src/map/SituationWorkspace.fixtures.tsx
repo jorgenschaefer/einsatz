@@ -7,8 +7,8 @@ import type { CreateMapOptions, MapAdapterFactory } from "./adapter";
 import {
   SituationWorkspace,
   type SituationWorkspaceProps,
-  type WorkspaceSymbol,
 } from "./SituationWorkspace";
+import { aSymbol } from "./symbol.fixtures";
 
 export function fakeFactory() {
   const captured: { options?: CreateMapOptions } = {};
@@ -128,22 +128,6 @@ export const mapPanel = (name: PanelName) =>
   screen.getByRole("region", { name });
 export const anyMapPanel = () =>
   screen.queryByRole("region", { name: /^(Kartenzeichen|Bereiche|Ebenen)$/ });
-
-export const aSymbol = (
-  over: Partial<WorkspaceSymbol> = {},
-): WorkspaceSymbol => ({
-  id: "s1",
-  lat: 53.5,
-  lng: 9.9,
-  composition: {
-    grundzeichen: "ortsfeste-stelle",
-    organisation: "hilfsorganisation",
-  },
-  positionSource: "manual",
-  reportedAt: null,
-  deviceLinkToken: null,
-  ...over,
-});
 
 export const SYMBOL = aSymbol({
   composition: {

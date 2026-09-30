@@ -5,29 +5,27 @@ import type { ActionResult } from "@/app/action-result";
 import { buttonColor } from "@/test/button-color";
 import { clickModalOverlay } from "@/test/modal-overlay";
 import { render, screen, waitFor, within } from "@/test/render";
-import type { WorkspaceSymbol } from "./SituationWorkspace";
 import { SymbolDetailModal } from "./SymbolDetailModal";
+import { aSymbol } from "./symbol.fixtures";
 
 type Props = ComponentProps<typeof SymbolDetailModal>;
 
 const token = "secret-token-123";
-const aSymbol = (deviceLinkToken: string | null = null): WorkspaceSymbol => ({
-  id: "s1",
-  lat: 1,
-  lng: 2,
-  composition: {
-    grundzeichen: "ortsfeste-stelle",
-    organisation: "hilfsorganisation",
-    text: "RK 1",
-  },
-  positionSource: "manual",
-  reportedAt: null,
-  deviceLinkToken,
-});
+const rk1 = (deviceLinkToken: string | null = null) =>
+  aSymbol({
+    lat: 1,
+    lng: 2,
+    composition: {
+      grundzeichen: "ortsfeste-stelle",
+      organisation: "hilfsorganisation",
+      text: "RK 1",
+    },
+    deviceLinkToken,
+  });
 
 async function openDetail(over: Partial<Props> = {}) {
   const props: Props = {
-    symbol: aSymbol(token),
+    symbol: rk1(token),
     onClose: vi.fn(),
     onUpdate: vi.fn(async () => ({})),
     onDelete: vi.fn(async () => ({})),
@@ -126,7 +124,7 @@ describe("SymbolDetailModal", () => {
   });
 
   it("generates a device link", async () => {
-    const { props } = await openDetail({ symbol: aSymbol() });
+    const { props } = await openDetail({ symbol: rk1() });
     await userEvent.click(screen.getByText(/Gerätelink erzeugen/));
     expect(props.onGenerateDeviceLink).toHaveBeenCalledWith("s1");
   });
@@ -269,7 +267,7 @@ describe("SymbolDetailModal", () => {
 
       rerenderWith({ symbol: null });
       await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-      rerenderWith({ symbol: { ...aSymbol(), id: "s2" } });
+      rerenderWith({ symbol: { ...rk1(), id: "s2" } });
 
       await screen.findByRole("dialog", { name: "Kartenzeichen" });
       expect(
@@ -298,7 +296,7 @@ describe("SymbolDetailModal", () => {
       );
       expect(detailDialog()).toBeInTheDocument();
 
-      rerenderWith({ symbol: aSymbol("fresh-token") });
+      rerenderWith({ symbol: rk1("fresh-token") });
 
       expect(screen.getByLabelText("Gerätelink")).toHaveValue(
         `${window.location.origin}/device/fresh-token`,

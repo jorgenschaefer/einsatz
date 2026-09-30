@@ -1,17 +1,19 @@
 import { describe, expect, it } from "vitest";
 import { type StatefulSymbol, toPlacedSymbols } from "./placed-symbols";
+import { aStatefulSymbol } from "./symbol.fixtures";
 
 const NOW = new Date("2026-07-04T12:00:00Z").getTime();
 
-const symbol = (over: Partial<StatefulSymbol> = {}): StatefulSymbol => ({
-  id: "s1",
-  lat: 53.55,
-  lng: 9.99,
-  composition: { grundzeichen: "ortsfeste-stelle", organisation: "feuerwehr" },
-  positionSource: "manual",
-  reportedAt: null,
-  ...over,
-});
+const symbol = (over: Partial<StatefulSymbol> = {}) =>
+  aStatefulSymbol({
+    lat: 53.55,
+    lng: 9.99,
+    composition: {
+      grundzeichen: "ortsfeste-stelle",
+      organisation: "feuerwehr",
+    },
+    ...over,
+  });
 
 describe("toPlacedSymbols", () => {
   it("renders an icon data URL and keeps position", () => {

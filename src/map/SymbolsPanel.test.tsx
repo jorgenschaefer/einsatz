@@ -4,22 +4,16 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@/test/render";
 import { toPlacedSymbols } from "./placed-symbols";
 import { QUICK_SELECT } from "./quick-select";
-import type { WorkspaceSymbol } from "./SituationWorkspace";
 import { SymbolsPanel } from "./SymbolsPanel";
+import { aSymbol } from "./symbol.fixtures";
 
-const PUMP: WorkspaceSymbol = {
-  id: "s1",
-  lat: 53.5,
-  lng: 9.9,
+const PUMP = aSymbol({
   composition: {
     grundzeichen: "taktische-formation",
     organisation: "hilfsorganisation",
     text: "Rotkreuz 83/1",
   },
-  positionSource: "manual",
-  reportedAt: null,
-  deviceLinkToken: null,
-};
+});
 
 function renderPanel(over: Partial<ComponentProps<typeof SymbolsPanel>> = {}) {
   const symbols = over.symbols ?? [];
@@ -77,24 +71,22 @@ describe("SymbolsPanel", () => {
     };
     renderPanel({
       symbols: [
-        {
+        aSymbol({
           id: "fresh",
           lat: 1,
           lng: 2,
           composition: comp,
           positionSource: "device",
           reportedAt: new Date(Date.now() - 10 * 1000),
-          deviceLinkToken: null,
-        },
-        {
+        }),
+        aSymbol({
           id: "stale",
           lat: 3,
           lng: 4,
           composition: { ...comp, text: "THW 1" },
           positionSource: "device",
           reportedAt: new Date(Date.now() - 4 * 60 * 1000),
-          deviceLinkToken: null,
-        },
+        }),
         PUMP,
       ],
     });
