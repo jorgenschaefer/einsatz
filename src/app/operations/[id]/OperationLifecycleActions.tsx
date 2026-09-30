@@ -1,21 +1,15 @@
 "use client";
 
-import {
-  ActionIcon,
-  Button,
-  Group,
-  Menu,
-  Modal,
-  Stack,
-  Text,
-} from "@mantine/core";
+import { ActionIcon, Menu, Text } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
+import { ConfirmationModal } from "@/app/ConfirmationModal";
+import type { ActionResult } from "./action-result";
 
 export interface OperationLifecycleActionsProps {
   status: "active" | "closed";
   onClose: () => void | Promise<void>;
   onReopen: () => void | Promise<void>;
-  onDelete: () => void | Promise<void>;
+  onDelete: () => Promise<ActionResult>;
 }
 
 export function OperationLifecycleActions({
@@ -51,27 +45,20 @@ export function OperationLifecycleActions({
         </Menu.Dropdown>
       </Menu>
 
-      <Modal
+      <ConfirmationModal
         opened={confirmOpen}
         onClose={confirm.close}
         title="Einsatz löschen"
+        confirmLabel="Endgültig löschen"
+        confirmColor="red"
+        onConfirm={onDelete}
       >
-        <Stack>
-          <Text>
-            Dieser Einsatz wird mit seinem gesamten{" "}
-            <strong>Einsatztagebuch</strong> und allen Kartenobjekten
-            unwiderruflich gelöscht.
-          </Text>
-          <Group justify="flex-end">
-            <Button variant="default" onClick={confirm.close}>
-              Abbrechen
-            </Button>
-            <Button color="red" onClick={() => onDelete()}>
-              Endgültig löschen
-            </Button>
-          </Group>
-        </Stack>
-      </Modal>
+        <Text>
+          Dieser Einsatz wird mit seinem gesamten{" "}
+          <strong>Einsatztagebuch</strong> und allen Kartenobjekten
+          unwiderruflich gelöscht.
+        </Text>
+      </ConfirmationModal>
     </>
   );
 }

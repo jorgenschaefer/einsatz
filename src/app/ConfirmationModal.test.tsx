@@ -1,5 +1,6 @@
 import { Button, Modal } from "@mantine/core";
 import userEvent from "@testing-library/user-event";
+import { redirect } from "next/navigation";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import type { ActionResult } from "@/app/operations/[id]/action-result";
@@ -106,6 +107,36 @@ describe("ConfirmationModal", () => {
     await userEvent.click(button(dialog, "Abbrechen"));
 
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  describe("when the action redirects", () => {
+    const redirectError = () => {
+      try {
+        redirect("/operations");
+      } catch (error) {
+        return error;
+      }
+    };
+
+    it("shows no failure and stays loading until the navigation lands", async () => {
+      const onConfirm = vi.fn(async () => {
+        throw redirectError();
+      });
+      const { onClose, dialog } = setup(onConfirm);
+
+      await userEvent.click(button(dialog, "Annullieren"));
+      await userEvent.click(button(dialog, "Annullieren"), {
+        pointerEventsCheck: 0,
+      });
+
+      expect(within(dialog).queryByRole("alert")).toBeNull();
+      expect(button(dialog, "Annullieren")).toHaveAttribute(
+        "data-loading",
+        "true",
+      );
+      expect(onConfirm).toHaveBeenCalledTimes(1);
+      expect(onClose).not.toHaveBeenCalled();
+    });
   });
 
   describe("while the action runs", () => {

@@ -8,29 +8,6 @@ wegfällt.
 
 ## Oberfläche
 
-### 1. Löschen einheitlich bestätigen
-
-**Heute.** Jede Löschung verhält sich anders:
-
-- Einsatz löschen und ETB-Eintrag annullieren fragen in einem Modal nach
-  (`OperationLifecycleActions`, `JournalPanel`).
-- Ansichtslink löschen fragt inline in der Zeile nach (`ViewLinkPanel`).
-- Kartenzeichen, Bereich, KML-Overlay und Bild-Overlay werden ohne Rückfrage
-  gelöscht (`SituationWorkspace`, `AreaEditor`, `KmlPanel`,
-  `ImageOverlayEditor`).
-- „Gerätelink neu generieren" macht den alten Link sofort ungültig, ebenfalls
-  ohne Rückfrage (`DeviceLinkPanel`).
-
-**Vorschlag.** Ein gemeinsames Bestätigungs-Modal für alles, was sich nicht
-rückgängig machen lässt; die Inline-Bestätigung beim Ansichtslink entfällt.
-
-**Bringt.** Ein Muster statt drei; kein versehentliches Löschen per
-Fehl-Tap am Handy; der Code für Bestätigungen liegt an einer Stelle.
-
-**Kostet.** Ein Tap mehr bei jeder Löschung. Offen ist, ob auch das Entfernen
-eines KML-Overlays eine Rückfrage braucht – es lässt sich meist leicht wieder
-einbinden.
-
 ### 2. Gleicher Tap auf ein Kartenzeichen in beiden Nur-Lesen-Ansichten
 
 **Heute.** In der Geräteansicht öffnet ein Tap auf ein Zeichen die Karten-App

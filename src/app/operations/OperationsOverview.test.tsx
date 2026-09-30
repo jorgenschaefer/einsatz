@@ -109,7 +109,7 @@ describe("OperationsOverview", () => {
   });
 
   it("deletes an Einsatz from its per-card menu after confirmation", async () => {
-    const onDeleteOperation = vi.fn(async () => {});
+    const onDeleteOperation = vi.fn(async () => ({}));
     render(
       <OperationsOverview
         operations={[op({ id: "a" })]}

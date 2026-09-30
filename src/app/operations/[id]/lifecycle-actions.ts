@@ -10,6 +10,7 @@ import {
   closeOperation,
   reopenOperation,
 } from "@/server/operations/operation-lifecycle";
+import type { ActionResult } from "./action-result";
 import { revalidateOperation } from "./operation-action";
 
 // Bespoke – nicht über `operationAction`: close/reopen revalidieren zusätzlich
@@ -35,7 +36,7 @@ export async function reopenOperationAction(
 
 export async function deleteOperationAction(
   operationId: string,
-): Promise<void> {
+): Promise<ActionResult> {
   await requireUser();
   // Eine Domänenfunktion kapselt DB-Löschung + Datei-Aufräumen (keine
   // Orchestrierung mehr in der Action).

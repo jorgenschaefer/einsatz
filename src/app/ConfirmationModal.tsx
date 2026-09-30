@@ -1,6 +1,7 @@
 "use client";
 
 import { Alert, Button, Group, Modal, Stack } from "@mantine/core";
+import { unstable_rethrow } from "next/navigation";
 import { type ReactNode, useState } from "react";
 import type { ActionResult } from "@/app/operations/[id]/action-result";
 
@@ -48,7 +49,10 @@ export function ConfirmationModal({
       const result = await onConfirm();
       setError(result.error ?? null);
       if (!result.error) onClose();
-    } catch {
+    } catch (error) {
+      // Die Navigation ist schon unterwegs; bis sie die Seite ersetzt, bleibt
+      // der Knopf im Ladezustand, damit kein zweiter Tap die Action auslöst.
+      if (isNextNavigation(error)) return;
       setError(FAILURE);
     }
     setPending(false);
@@ -80,4 +84,21 @@ export function ConfirmationModal({
       </Stack>
     </Modal>
   );
+}
+
+/**
+ * Eine Server-Action, die `redirect` ruft, lehnt auf dem Client mit einem
+ * Redirect-Fehler ab, nachdem der Router die Navigation angestoßen hat.
+ * `unstable_rethrow` ist die öffentliche API, die ihn erkennt. Sie erkennt
+ * auch `notFound`, `forbidden` und `unauthorized`; die navigieren aus einer
+ * Server-Action aber nicht, der Dialog bliebe gesperrt. Bestätigte Actions
+ * dürfen sie deshalb nicht rufen.
+ */
+function isNextNavigation(error: unknown): boolean {
+  try {
+    unstable_rethrow(error);
+    return false;
+  } catch {
+    return true;
+  }
 }

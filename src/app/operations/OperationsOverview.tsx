@@ -13,6 +13,7 @@ import {
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import Link from "next/link";
+import type { ActionResult } from "./[id]/action-result";
 import { OperationLifecycleActions } from "./[id]/OperationLifecycleActions";
 import { NewOperationForm, type OperationFormAction } from "./NewOperationForm";
 
@@ -24,13 +25,14 @@ export interface OperationSummary {
 }
 
 const noop = async () => {};
+const succeed = async (): Promise<ActionResult> => ({});
 
 export function OperationsOverview({
   operations,
   createAction,
   onCloseOperation = noop,
   onReopenOperation = noop,
-  onDeleteOperation = noop,
+  onDeleteOperation = succeed,
   onLogout = noop,
   isAdmin = false,
 }: {
@@ -38,7 +40,7 @@ export function OperationsOverview({
   createAction: OperationFormAction;
   onCloseOperation?: (operationId: string) => void | Promise<void>;
   onReopenOperation?: (operationId: string) => void | Promise<void>;
-  onDeleteOperation?: (operationId: string) => void | Promise<void>;
+  onDeleteOperation?: (operationId: string) => Promise<ActionResult>;
   onLogout?: () => void | Promise<void>;
   isAdmin?: boolean;
 }) {
@@ -78,14 +80,21 @@ export function OperationsOverview({
                   c="inherit"
                   style={{ flex: 1, minWidth: 0 }}
                 >
-                  <Text fw={600}>{operation.name}</Text>
+                  <Text fw={600} style={{ overflowWrap: "anywhere" }}>
+                    {operation.name}
+                  </Text>
                   {operation.description && (
-                    <Text c="dimmed" size="sm" mt={2}>
+                    <Text
+                      c="dimmed"
+                      size="sm"
+                      mt={2}
+                      style={{ overflowWrap: "anywhere" }}
+                    >
                       {operation.description}
                     </Text>
                   )}
                 </Anchor>
-                <Group gap="xs" wrap="nowrap">
+                <Group gap="xs" wrap="nowrap" style={{ flexShrink: 0 }}>
                   <Badge
                     color={operation.status === "active" ? "green" : "gray"}
                   >
