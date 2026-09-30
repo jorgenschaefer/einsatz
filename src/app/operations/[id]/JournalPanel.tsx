@@ -18,18 +18,13 @@ import type { ActionResult } from "@/app/action-result";
 import { ConfirmationModal } from "@/app/ConfirmationModal";
 import { EntryForm } from "@/journal/EntryForm";
 import { DEFAULT_CHANNEL } from "@/journal/EntryRouteFields";
+import { EntryRouteHeader } from "@/journal/EntryRouteHeader";
 import {
   type EntryContent,
   type EntryRoute,
-  formatEntryRoute,
   NO_ROUTE,
 } from "@/journal/entry-route";
-import {
-  type EntryRouteMemory,
-  NOTHING_REMEMBERED,
-  readEntryRouteMemory,
-  rememberEntryRoute,
-} from "@/journal/entry-route-storage";
+import { useEntryRouteMemory } from "@/journal/useEntryRouteMemory";
 import type {
   JournalEntryState,
   JournalEntryType,
@@ -293,11 +288,7 @@ export function JournalPanel({
           initial={NEW_ENTRY}
           correspondents={correspondents}
           lastUsed={memory.remembered}
-          presetChannel={
-            memory.remembered.channel === undefined
-              ? DEFAULT_CHANNEL
-              : memory.remembered.channel
-          }
+          presetChannel={memory.remembered.channel}
           submitLabel="Eintrag hinzufügen"
           onSubmit={addEntry}
         />
@@ -319,59 +310,6 @@ export function JournalPanel({
       )}
     </Stack>
   );
-}
-
-/**
- * „Von X an Y" fett, der Weg gedimmt dahinter; nichts ohne alle drei Angaben.
- * Durchgestrichen bei früheren Fassungen und annullierten Einträgen.
- */
-function EntryRouteHeader({
-  route,
-  struck = false,
-}: {
-  route: EntryRoute;
-  struck?: boolean;
-}) {
-  const header = formatEntryRoute(route);
-  if (!header) return null;
-  const { parties, channel } = header;
-  const content = (
-    <>
-      {parties}
-      {channel && (
-        <Text span inherit fw={400} c="dimmed">
-          {parties ? ` · ${channel}` : channel}
-        </Text>
-      )}
-    </>
-  );
-  return (
-    <Text size="sm" fw={600} mt={4}>
-      {struck ? <del>{content}</del> : content}
-    </Text>
-  );
-}
-
-/**
- * Was dieses Gerät sich zu den neuen Einträgen des Gesamteinsatzes gemerkt hat.
- * Erst nach dem Mounten gelesen: Auf dem Server gibt es keinen Browser-Speicher,
- * und das erste Rendern muss dort wie im Browser alphabetisch und mit Funk sein.
- */
-function useEntryRouteMemory(operationId: string) {
-  const [remembered, setRemembered] =
-    useState<EntryRouteMemory>(NOTHING_REMEMBERED);
-
-  useEffect(() => {
-    setRemembered(readEntryRouteMemory(operationId));
-  }, [operationId]);
-
-  return {
-    remembered,
-    remember: (route: EntryRoute) => {
-      rememberEntryRoute(operationId, route);
-      setRemembered(readEntryRouteMemory(operationId));
-    },
-  };
 }
 
 /**
