@@ -9,6 +9,7 @@ import type {
   MarkerSpec,
 } from "./adapter";
 import { DeviceView, type DeviceViewProps } from "./DeviceView";
+import type { StatefulSymbol } from "./placed-symbols";
 
 function fakeFactory() {
   const captured: { options?: CreateMapOptions } = {};
@@ -61,20 +62,23 @@ function renderDevice(over: Partial<DeviceViewProps> = {}) {
   return fake;
 }
 
+const aSymbol = (over: Partial<StatefulSymbol> = {}): StatefulSymbol => ({
+  id: "s1",
+  lat: 53.5,
+  lng: 9.9,
+  composition: {
+    grundzeichen: "ortsfeste-stelle",
+    organisation: "hilfsorganisation",
+  },
+  positionSource: "manual",
+  reportedAt: null,
+  ...over,
+});
+
 describe("DeviceView", () => {
   it("renders the operation symbols read-only, without editing controls", async () => {
     const { adapter } = renderDevice({
-      symbols: [
-        {
-          id: "s1",
-          lat: 53.5,
-          lng: 9.9,
-          composition: {
-            grundzeichen: "ortsfeste-stelle",
-            organisation: "hilfsorganisation",
-          },
-        },
-      ],
+      symbols: [aSymbol()],
     });
     await waitFor(() =>
       expect(adapter.setMarker).toHaveBeenCalledWith(
@@ -94,17 +98,7 @@ describe("DeviceView", () => {
   it("hands off navigation to the device map app when a symbol is tapped", async () => {
     const open = vi.spyOn(window, "open").mockImplementation(() => null);
     const { adapter } = renderDevice({
-      symbols: [
-        {
-          id: "s1",
-          lat: 53.5,
-          lng: 9.9,
-          composition: {
-            grundzeichen: "ortsfeste-stelle",
-            organisation: "hilfsorganisation",
-          },
-        },
-      ],
+      symbols: [aSymbol()],
     });
     await waitFor(() =>
       expect(adapter.setMarker).toHaveBeenCalledWith("s1", expect.anything()),
@@ -149,19 +143,7 @@ describe("DeviceView", () => {
       const justNow = new Date(Date.now() - 10 * 1000); // frisch gemeldet
       const { adapter } = renderDevice({
         eventsHook: () => ({ connected: true }),
-        symbols: [
-          {
-            id: "s1",
-            lat: 53.5,
-            lng: 9.9,
-            composition: {
-              grundzeichen: "ortsfeste-stelle",
-              organisation: "hilfsorganisation",
-            },
-            positionSource: "device",
-            reportedAt: justNow,
-          },
-        ],
+        symbols: [aSymbol({ positionSource: "device", reportedAt: justNow })],
       });
       await vi.waitFor(() =>
         expect(adapter.setMarker).toHaveBeenCalledWith("s1", expect.anything()),
@@ -186,16 +168,13 @@ describe("DeviceView", () => {
   it("searches placed objects and jumps to a chosen Kartenzeichen", async () => {
     const { adapter } = renderDevice({
       symbols: [
-        {
-          id: "s1",
-          lat: 53.5,
-          lng: 9.9,
+        aSymbol({
           composition: {
             grundzeichen: "ortsfeste-stelle",
             organisation: "hilfsorganisation",
             text: "Rotkreuz 83/1",
           },
-        },
+        }),
       ],
     });
     fireEvent.change(screen.getByLabelText("Suche"), {

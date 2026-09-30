@@ -8,6 +8,8 @@ const symbol = (over: Partial<StatefulSymbol> = {}): StatefulSymbol => ({
   lat: 53.55,
   lng: 9.99,
   composition: { grundzeichen: "ortsfeste-stelle", organisation: "feuerwehr" },
+  positionSource: "manual",
+  reportedAt: null,
   ...over,
 });
 
@@ -35,14 +37,6 @@ describe("toPlacedSymbols", () => {
   it("shows a manual symbol at full opacity", () => {
     const [placed] = toPlacedSymbols(
       [symbol({ positionSource: "manual" })],
-      NOW,
-    );
-    expect(placed.opacity).toBe(1);
-  });
-
-  it("treats a missing position source as manual (full opacity)", () => {
-    const [placed] = toPlacedSymbols(
-      [symbol({ positionSource: undefined })],
       NOW,
     );
     expect(placed.opacity).toBe(1);

@@ -10,10 +10,20 @@ const CONNECTION_LOST_LABEL =
 
 const HEADER_TEST_IDS = ["desktop-header", "mobile-header"] as const;
 
+const shareProps = {
+  viewLinks: [],
+  onCreateViewLink: async (): Promise<ActionResult> => ({}),
+  onDeleteViewLink: async (): Promise<ActionResult> => ({}),
+};
+
 describe("LageansichtShell", () => {
   it("shows the operation name, a back link and the map content", () => {
     render(
-      <LageansichtShell operationName="Hochwasser" status="active">
+      <LageansichtShell
+        operationName="Hochwasser"
+        status="active"
+        {...shareProps}
+      >
         <div>Karte</div>
       </LageansichtShell>,
     );
@@ -33,6 +43,7 @@ describe("LageansichtShell", () => {
       <LageansichtShell
         operationName="Hochwasser"
         status="active"
+        {...shareProps}
         navigation={<div>Leiste</div>}
       >
         <div>Karte</div>
@@ -47,7 +58,11 @@ describe("LageansichtShell", () => {
 
   it("carries no Einsatz lifecycle actions in the header (they live in the overview)", () => {
     render(
-      <LageansichtShell operationName="Hochwasser" status="active">
+      <LageansichtShell
+        operationName="Hochwasser"
+        status="active"
+        {...shareProps}
+      >
         <div>Karte</div>
       </LageansichtShell>,
     );
@@ -62,7 +77,11 @@ describe("LageansichtShell", () => {
 
   it("shows the status on both header sizes", () => {
     render(
-      <LageansichtShell operationName="Hochwasser" status="active">
+      <LageansichtShell
+        operationName="Hochwasser"
+        status="active"
+        {...shareProps}
+      >
         <div>Karte</div>
       </LageansichtShell>,
     );
@@ -78,6 +97,7 @@ describe("LageansichtShell", () => {
       <LageansichtShell
         operationName="Hochwasser"
         status="active"
+        {...shareProps}
         viewLinks={[{ id: "1", label: "Leitstelle", token: "tok-a" }]}
       >
         <div>Karte</div>
@@ -90,7 +110,11 @@ describe("LageansichtShell", () => {
 
   it("exposes the operation name as a heading on the phone header too", () => {
     render(
-      <LageansichtShell operationName="Hochwasser" status="active">
+      <LageansichtShell
+        operationName="Hochwasser"
+        status="active"
+        {...shareProps}
+      >
         <div>Karte</div>
       </LageansichtShell>,
     );
@@ -105,7 +129,11 @@ describe("LageansichtShell", () => {
     const longName =
       "Cyclassics 2026 – Einsatzabschnitt 4 Nord an der langen Chaussee";
     render(
-      <LageansichtShell operationName={longName} status="active">
+      <LageansichtShell
+        operationName={longName}
+        status="active"
+        {...shareProps}
+      >
         <div>Karte</div>
       </LageansichtShell>,
     );
@@ -120,6 +148,7 @@ describe("LageansichtShell", () => {
       <LageansichtShell
         operationName="Hochwasser"
         status="active"
+        {...shareProps}
         viewLinks={[{ id: "1", label: "Leitstelle", token: "tok-a" }]}
       >
         <div>Karte</div>
@@ -142,6 +171,7 @@ describe("LageansichtShell", () => {
         <LageansichtShell
           operationName="Hochwasser"
           status="active"
+          {...shareProps}
           viewLinks={[{ id: "1", label: "Leitstelle", token: "tok-a" }]}
           onDeleteViewLink={onDeleteViewLink}
         >
@@ -203,7 +233,11 @@ describe("LageansichtShell", () => {
 
   it("offers a Zurück zu Einsätze link in the ⋮ menu", async () => {
     render(
-      <LageansichtShell operationName="Hochwasser" status="active">
+      <LageansichtShell
+        operationName="Hochwasser"
+        status="active"
+        {...shareProps}
+      >
         <div>Karte</div>
       </LageansichtShell>,
     );
@@ -215,7 +249,12 @@ describe("LageansichtShell", () => {
 
   it("shows no connection-lost symbol on either header size while connected", () => {
     render(
-      <LageansichtShell operationName="Hochwasser" status="active" connected>
+      <LageansichtShell
+        operationName="Hochwasser"
+        status="active"
+        {...shareProps}
+        connected
+      >
         <div>Karte</div>
       </LageansichtShell>,
     );
@@ -233,6 +272,7 @@ describe("LageansichtShell", () => {
       <LageansichtShell
         operationName="Hochwasser"
         status="active"
+        {...shareProps}
         connected={false}
       >
         <div>Karte</div>

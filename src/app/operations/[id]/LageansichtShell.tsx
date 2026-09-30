@@ -29,9 +29,6 @@ const FOOTER_HEIGHT = 56;
 const CONNECTION_LOST_LABEL =
   "Verbindung getrennt – wird automatisch wiederhergestellt";
 
-const noop = async () => {};
-const succeed = async (): Promise<ActionResult> => ({});
-
 function ConnectionIndicator() {
   return (
     <Popover position="bottom" withArrow>
@@ -55,9 +52,9 @@ export function LageansichtShell({
   operationName,
   status,
   connected = true,
-  viewLinks = [],
-  onCreateViewLink = noop,
-  onDeleteViewLink = succeed,
+  viewLinks,
+  onCreateViewLink,
+  onDeleteViewLink,
   navigation = null,
   children,
 }: {
@@ -65,9 +62,9 @@ export function LageansichtShell({
   status: OperationStatus;
   /** Ist die Live-Verbindung getrennt, zeigt die Kopfzeile ein Symbol dafür. */
   connected?: boolean;
-  viewLinks?: ViewLinkItem[];
-  onCreateViewLink?: (label: string) => void | Promise<void>;
-  onDeleteViewLink?: (id: string) => Promise<ActionResult>;
+  viewLinks: ViewLinkItem[];
+  onCreateViewLink: (label: string) => Promise<ActionResult>;
+  onDeleteViewLink: (id: string) => Promise<ActionResult>;
   /** Die Hauptansichten-Leiste unten am Handy. */
   navigation?: ReactNode;
   children: ReactNode;

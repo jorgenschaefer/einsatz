@@ -105,9 +105,9 @@ function SymbolDetail({
         ungültig. Das lässt sich nicht rückgängig machen.
       </ConfirmationModal>
       <DeviceLinkPanel
-        token={symbol.deviceLinkToken ?? null}
-        positionSource={symbol.positionSource ?? "manual"}
-        reportedAt={symbol.reportedAt ?? null}
+        token={symbol.deviceLinkToken}
+        positionSource={symbol.positionSource}
+        reportedAt={symbol.reportedAt}
         onGenerate={() => onGenerateDeviceLink(symbol.id)}
       />
     </Stack>

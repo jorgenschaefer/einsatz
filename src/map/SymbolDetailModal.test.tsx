@@ -11,7 +11,7 @@ import { SymbolDetailModal } from "./SymbolDetailModal";
 type Props = ComponentProps<typeof SymbolDetailModal>;
 
 const token = "secret-token-123";
-const aSymbol = (deviceLinkToken?: string): WorkspaceSymbol => ({
+const aSymbol = (deviceLinkToken: string | null = null): WorkspaceSymbol => ({
   id: "s1",
   lat: 1,
   lng: 2,
@@ -20,6 +20,8 @@ const aSymbol = (deviceLinkToken?: string): WorkspaceSymbol => ({
     organisation: "hilfsorganisation",
     text: "RK 1",
   },
+  positionSource: "manual",
+  reportedAt: null,
   deviceLinkToken,
 });
 

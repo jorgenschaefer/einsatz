@@ -12,8 +12,8 @@ export interface StatefulSymbol {
   lat: number;
   lng: number;
   composition: SymbolComposition;
-  positionSource?: PositionSource;
-  reportedAt?: Date | null;
+  positionSource: PositionSource;
+  reportedAt: Date | null;
 }
 
 /** Bildet Kartenzeichen auf darstellbare Marker ab: Icon aus der Komposition, veraltete ausgegraut. */
@@ -27,8 +27,6 @@ export function toPlacedSymbols(
     lng: s.lng,
     iconUrl: renderSymbolDataUrl(s.composition),
     label: s.composition.text,
-    opacity: isStale(s.positionSource ?? "manual", s.reportedAt ?? null, now)
-      ? STALE_OPACITY
-      : 1,
+    opacity: isStale(s.positionSource, s.reportedAt, now) ? STALE_OPACITY : 1,
   }));
 }

@@ -7,6 +7,7 @@ import type { CreateMapOptions, MapAdapterFactory } from "./adapter";
 import {
   SituationWorkspace,
   type SituationWorkspaceProps,
+  type WorkspaceSymbol,
 } from "./SituationWorkspace";
 
 export function fakeFactory() {
@@ -59,7 +60,7 @@ export function buildProps(over: Partial<SituationWorkspaceProps> = {}) {
     status: "active",
     currentUsername: "anna",
     viewLinks: [],
-    onCreateViewLink: vi.fn(async () => {}),
+    onCreateViewLink: vi.fn(async () => ({})),
     onDeleteViewLink: vi.fn(async () => ({})),
     operationDefaultView: null,
     tileUrl: "t",
@@ -128,15 +129,18 @@ export const mapPanel = (name: PanelName) =>
 export const anyMapPanel = () =>
   screen.queryByRole("region", { name: /^(Kartenzeichen|Bereiche|Ebenen)$/ });
 
-export const SYMBOL = {
+export const SYMBOL: WorkspaceSymbol = {
   id: "s1",
   lat: 53.5,
   lng: 9.9,
   composition: {
-    grundzeichen: "taktische-formation" as const,
-    organisation: "hilfsorganisation" as const,
+    grundzeichen: "taktische-formation",
+    organisation: "hilfsorganisation",
     text: "Pumpe 1",
   },
+  positionSource: "manual",
+  reportedAt: null,
+  deviceLinkToken: null,
 };
 
 export const AREA = {

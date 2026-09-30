@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:    AC-1, AC-8
 advances:  AC-7
 after:
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -126,3 +126,36 @@ der Nudge „`SymbolDetailModal` … nicht anfassen“ zielt auf dessen
 - Der `save`-Ablauf von `SymbolDetailModal`.
 
 ## Left standing
+- **AC-1 ist nur zur Hälfte durch einen automatischen Test gedeckt.** Der
+  neue Test in `view-link-actions.test.ts` belegt, dass `createViewLinkAction`
+  das Live-Ereignis des Einsatzes sendet und `{}` liefert. Dass der Link danach
+  bei einem anderen Client ohne Neuladen erscheint, deckt kein Test ab. Der
+  Review hat das im laufenden App mit zwei angemeldeten Browsern auf demselben
+  Einsatz geprüft, bei 390×844 und 1920×1080: Der Link erschien im offenen
+  Teilen-Dialog des zweiten Browsers ohne Neuladen.
+- **AC-8 ist durch keinen bleibenden Test gepinnt**, wie im Plan vorgesehen.
+  Geprüft habe ich es mit `npx tsc --noEmit`, nachdem ich jeweils eine Stelle
+  probeweise entfernt und danach wiederhergestellt hatte. `tsc` schlug jedes
+  Mal fehl:
+  - `viewLinks`, `onCreateViewLink` und `onDeleteViewLink` einzeln aus
+    `buildProps` in `SituationWorkspace.fixtures.tsx` (Rendern von
+    `SituationWorkspace`);
+  - dieselben drei Props einzeln an der Stelle, wo `SituationWorkspace`
+    `LageansichtShell` rendert;
+  - `positionSource`, `reportedAt` und `deviceLinkToken` einzeln am
+    `WorkspaceSymbol` `SYMBOL` in `SituationWorkspace.fixtures.tsx`;
+  - `positionSource` und `reportedAt` einzeln am `StatefulSymbol` der Fabrik
+    in `placed-symbols.test.ts`.
+- **Abweichung vom Plan:** Ich habe den Test „treats a missing position source
+  as manual (full opacity)“ in `src/map/placed-symbols.test.ts` gelöscht. Er
+  prüfte genau den `??`-Fallback, den Schritt 5 entfernt, und kompiliert mit
+  dem Pflichtfeld nicht mehr. `position_source` ist in der DB `NOT NULL`, und
+  dass ein manuelles Kartenzeichen nie verblasst, prüft weiterhin
+  `src/map/staleness.test.ts`.
+- **Zum Nudge über die Kommentare:** Nur der Kommentar in
+  `view-link-actions.ts` hat sich geändert; er verweist jetzt nur noch auf das
+  Trust-Modell in `operationAction`. Die Kommentare in `kml-actions.ts` und
+  `image-overlay-actions.ts` habe ich stehen lassen. Sie erwähnen Ansichtslinks
+  nicht, und ihre Aussage stimmt weiterhin: Diese Actions laufen wegen ihres
+  eigenen Catch-alls noch nicht über `operationAction`. Die Fallback-Option,
+  die das ändert, baut `02`.

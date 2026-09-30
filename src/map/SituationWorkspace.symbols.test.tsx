@@ -6,6 +6,7 @@ import { QUICK_SELECT } from "./quick-select";
 import {
   SituationWorkspace,
   type SituationWorkspaceProps,
+  type WorkspaceSymbol,
 } from "./SituationWorkspace";
 import {
   buildProps,
@@ -14,6 +15,20 @@ import {
   SYMBOL,
   selectMainView,
 } from "./SituationWorkspace.fixtures";
+
+const aSymbol = (over: Partial<WorkspaceSymbol> = {}): WorkspaceSymbol => ({
+  id: "s1",
+  lat: 53.5,
+  lng: 9.9,
+  composition: {
+    grundzeichen: "ortsfeste-stelle",
+    organisation: "hilfsorganisation",
+  },
+  positionSource: "manual",
+  reportedAt: null,
+  deviceLinkToken: null,
+  ...over,
+});
 
 describe("SituationWorkspace", () => {
   it("places the armed Schnellauswahl composition where the map is clicked", async () => {
@@ -147,16 +162,13 @@ describe("SituationWorkspace", () => {
   it("centers the map on a Kartenzeichen when its list row is clicked, without opening the detail", async () => {
     const { adapter } = renderWorkspace({
       symbols: [
-        {
-          id: "s1",
-          lat: 53.5,
-          lng: 9.9,
+        aSymbol({
           composition: {
             grundzeichen: "taktische-formation",
             organisation: "hilfsorganisation",
             text: "Rotkreuz 83/1",
           },
-        },
+        }),
       ],
     });
     await openPanel("Kartenzeichen");
@@ -174,16 +186,13 @@ describe("SituationWorkspace", () => {
   it("opens the detail via the row edit button", async () => {
     renderWorkspace({
       symbols: [
-        {
-          id: "s1",
-          lat: 53.5,
-          lng: 9.9,
+        aSymbol({
           composition: {
             grundzeichen: "taktische-formation",
             organisation: "hilfsorganisation",
             text: "Rotkreuz 83/1",
           },
-        },
+        }),
       ],
     });
     await openPanel("Kartenzeichen");
@@ -213,16 +222,13 @@ describe("SituationWorkspace", () => {
   it("jumps the map to a searched Kartenzeichen", async () => {
     const { adapter } = renderWorkspace({
       symbols: [
-        {
-          id: "s1",
-          lat: 53.5,
-          lng: 9.9,
+        aSymbol({
           composition: {
             grundzeichen: "taktische-formation",
             organisation: "hilfsorganisation",
             text: "Rotkreuz 83/1",
           },
-        },
+        }),
       ],
     });
     await selectMainView("Lagekarte");
@@ -246,17 +252,7 @@ describe("SituationWorkspace", () => {
 
   it("renders a marker for each provided Kartenzeichen", async () => {
     const { adapter } = renderWorkspace({
-      symbols: [
-        {
-          id: "s1",
-          lat: 53.5,
-          lng: 9.9,
-          composition: {
-            grundzeichen: "ortsfeste-stelle",
-            organisation: "hilfsorganisation",
-          },
-        },
-      ],
+      symbols: [aSymbol()],
     });
     await waitFor(() =>
       expect(adapter.setMarker).toHaveBeenCalledWith(
@@ -274,8 +270,7 @@ describe("SituationWorkspace", () => {
     const onUpdate = vi.fn();
     const { adapter } = renderWorkspace({
       symbols: [
-        {
-          id: "s1",
+        aSymbol({
           lat: 1,
           lng: 2,
           composition: {
@@ -283,7 +278,7 @@ describe("SituationWorkspace", () => {
             organisation: "hilfsorganisation",
             text: "RK 1",
           },
-        },
+        }),
       ],
       onUpdate,
     });
@@ -337,17 +332,8 @@ describe("SituationWorkspace", () => {
   });
 
   it("does not show an earlier Kartenzeichen's save error after it vanished", async () => {
-    const aSymbol = (id: string) => ({
-      id,
-      lat: 1,
-      lng: 2,
-      composition: {
-        grundzeichen: "ortsfeste-stelle" as const,
-        organisation: "hilfsorganisation" as const,
-      },
-    });
     const { adapter, props } = buildProps({
-      symbols: [aSymbol("s1"), aSymbol("s2")],
+      symbols: [aSymbol({ id: "s1" }), aSymbol({ id: "s2" })],
       onUpdate: vi.fn(async () => ({
         error: "Ungültige Zeichen-Komposition.",
       })),
@@ -364,7 +350,9 @@ describe("SituationWorkspace", () => {
       await screen.findByText("Ungültige Zeichen-Komposition."),
     ).toBeInTheDocument();
 
-    rerender(<SituationWorkspace {...props} symbols={[aSymbol("s2")]} />);
+    rerender(
+      <SituationWorkspace {...props} symbols={[aSymbol({ id: "s2" })]} />,
+    );
     await waitFor(() =>
       expect(
         screen.queryByRole("dialog", { name: "Kartenzeichen" }),
@@ -382,28 +370,10 @@ describe("SituationWorkspace", () => {
 
   it("grays out a device symbol whose last report is stale, but never a manual one", async () => {
     const stale = new Date(Date.now() - 4 * 60 * 1000); // > 3 min
-    const comp = {
-      grundzeichen: "ortsfeste-stelle" as const,
-      organisation: "hilfsorganisation" as const,
-    };
     const { adapter } = renderWorkspace({
       symbols: [
-        {
-          id: "dev",
-          lat: 1,
-          lng: 2,
-          composition: comp,
-          positionSource: "device",
-          reportedAt: stale,
-        },
-        {
-          id: "man",
-          lat: 3,
-          lng: 4,
-          composition: comp,
-          positionSource: "manual",
-          reportedAt: stale,
-        },
+        aSymbol({ id: "dev", positionSource: "device", reportedAt: stale }),
+        aSymbol({ id: "man", positionSource: "manual", reportedAt: stale }),
       ],
     });
     await waitFor(() =>
@@ -422,21 +392,10 @@ describe("SituationWorkspace", () => {
   it("grays a device symbol that goes stale while the view stays open", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     try {
-      const comp = {
-        grundzeichen: "ortsfeste-stelle" as const,
-        organisation: "hilfsorganisation" as const,
-      };
       const justNow = new Date(Date.now() - 10 * 1000); // frisch gemeldet
       const { adapter } = renderWorkspace({
         symbols: [
-          {
-            id: "dev",
-            lat: 1,
-            lng: 2,
-            composition: comp,
-            positionSource: "device",
-            reportedAt: justNow,
-          },
+          aSymbol({ id: "dev", positionSource: "device", reportedAt: justNow }),
         ],
       });
       await vi.waitFor(() =>

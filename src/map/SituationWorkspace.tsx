@@ -65,9 +65,9 @@ export interface WorkspaceSymbol {
   lat: number;
   lng: number;
   composition: SymbolComposition;
-  positionSource?: PositionSource;
-  reportedAt?: Date | null;
-  deviceLinkToken?: string | null;
+  positionSource: PositionSource;
+  reportedAt: Date | null;
+  deviceLinkToken: string | null;
 }
 
 export interface WorkspaceKmlOverlay {
@@ -93,9 +93,9 @@ export interface SituationWorkspaceProps {
   status: OperationStatus;
   /** Nutzername des angemeldeten Nutzers; eigene ETB-Einträge zählen nicht als neu. */
   currentUsername: string;
-  viewLinks?: ViewLinkItem[];
-  onCreateViewLink?: (label: string) => void | Promise<void>;
-  onDeleteViewLink?: (id: string) => Promise<ActionResult>;
+  viewLinks: ViewLinkItem[];
+  onCreateViewLink: (label: string) => Promise<ActionResult>;
+  onDeleteViewLink: (id: string) => Promise<ActionResult>;
   operationDefaultView: MapView | null;
   tileUrl: string;
   attribution: string;

@@ -112,6 +112,23 @@ describe("view link actions", () => {
     expect(listener).toHaveBeenCalledTimes(1);
   });
 
+  it("tells other open clients of the Einsatz that a view link was created", async () => {
+    await login();
+    const op = await anOperation();
+    const listener = vi.fn();
+    const unsubscribe = subscribeOperation(op.id, listener);
+
+    let result: unknown;
+    try {
+      result = await createViewLinkAction(op.id, "Leitstelle");
+    } finally {
+      unsubscribe();
+    }
+
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({});
+  });
+
   it("refuses to create a link without a session and writes nothing", async () => {
     const op = await anOperation();
     await expect(createViewLinkAction(op.id, "Leitstelle")).rejects.toThrow();

@@ -9,7 +9,7 @@ import { ViewLinkPanel, type ViewLinkPanelProps } from "./ViewLinkPanel";
 function setup(over: Partial<ViewLinkPanelProps> = {}) {
   const props: ViewLinkPanelProps = {
     links: [],
-    onCreate: vi.fn(),
+    onCreate: vi.fn(async () => ({})),
     onDelete: vi.fn(async () => ({})),
     ...over,
   };
@@ -36,8 +36,10 @@ describe("ViewLinkPanel", () => {
   });
 
   it("disables the create button while a creation is in flight", async () => {
-    let resolve: () => void = () => {};
-    const onCreate = vi.fn(() => new Promise<void>((r) => (resolve = r)));
+    let resolve: (result: ActionResult) => void = () => {};
+    const onCreate = vi.fn(
+      () => new Promise<ActionResult>((r) => (resolve = r)),
+    );
     setup({ onCreate });
     fireEvent.change(screen.getByLabelText(/Bezeichnung/i), {
       target: { value: "Leitstelle" },
@@ -49,7 +51,7 @@ describe("ViewLinkPanel", () => {
     expect(button).toBeDisabled();
     // Die Erzeugung abschließen und das folgende State-Update (Feld leeren,
     // Ladezustand beenden) abwarten, damit es innerhalb act() flusht.
-    resolve();
+    resolve({});
     await waitFor(() => expect(button).toBeEnabled());
   });
 

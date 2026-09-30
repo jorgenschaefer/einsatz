@@ -15,7 +15,7 @@ export interface ViewLinkItem {
 
 export interface ViewLinkPanelProps {
   links: ViewLinkItem[];
-  onCreate: (label: string) => void | Promise<void>;
+  onCreate: (label: string) => Promise<ActionResult>;
   onDelete: (id: string) => Promise<ActionResult>;
 }
 

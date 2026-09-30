@@ -16,6 +16,9 @@ const PUMP: WorkspaceSymbol = {
     organisation: "hilfsorganisation",
     text: "Rotkreuz 83/1",
   },
+  positionSource: "manual",
+  reportedAt: null,
+  deviceLinkToken: null,
 };
 
 function renderPanel(over: Partial<ComponentProps<typeof SymbolsPanel>> = {}) {
@@ -81,6 +84,7 @@ describe("SymbolsPanel", () => {
           composition: comp,
           positionSource: "device",
           reportedAt: new Date(Date.now() - 10 * 1000),
+          deviceLinkToken: null,
         },
         {
           id: "stale",
@@ -89,6 +93,7 @@ describe("SymbolsPanel", () => {
           composition: { ...comp, text: "THW 1" },
           positionSource: "device",
           reportedAt: new Date(Date.now() - 4 * 60 * 1000),
+          deviceLinkToken: null,
         },
         PUMP,
       ],

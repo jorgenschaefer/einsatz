@@ -13,6 +13,7 @@ import type {
   MapAdapterFactory,
   MarkerSpec,
 } from "./adapter";
+import type { StatefulSymbol } from "./placed-symbols";
 import { ViewLinkView, type ViewLinkViewProps } from "./ViewLinkView";
 
 function fakeFactory() {
@@ -66,15 +67,17 @@ function renderView(over: Partial<ViewLinkViewProps> = {}) {
   return fake;
 }
 
-const aSymbol = {
+const aSymbol: StatefulSymbol = {
   id: "s1",
   lat: 53.5,
   lng: 9.9,
   composition: {
-    grundzeichen: "ortsfeste-stelle" as const,
-    organisation: "hilfsorganisation" as const,
+    grundzeichen: "ortsfeste-stelle",
+    organisation: "hilfsorganisation",
     text: "Rotkreuz 83/1",
   },
+  positionSource: "manual",
+  reportedAt: null,
 };
 
 describe("ViewLinkView", () => {
