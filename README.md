@@ -6,6 +6,13 @@ Primarily a testing ground for my [skill collection](https://github.com/jorgensc
 
 The user interface and the domain language are German.
 
+![Situation map with tactical symbols and an operations area next to the operations journal](docs/screenshots/lagekarte-etb.png)
+
+<p>
+  <img src="docs/screenshots/staerke.png" width="68%" alt="Strength reports per station with totals">
+  <img src="docs/screenshots/mobil.png" width="29%" alt="Situation map on a phone">
+</p>
+
 ## Features
 
 - **Operations** (Einsätze), each with its own situation map and journal.
