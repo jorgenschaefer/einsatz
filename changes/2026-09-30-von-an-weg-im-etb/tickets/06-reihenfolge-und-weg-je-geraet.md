@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:    AC-3, AC-6, AC-8
 advances:
 after:     05-von-an-weg-korrigieren
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -107,3 +107,66 @@ nach `wert.toLowerCase()` gemerkt, nicht nach der Schreibweise.
 - Aus *Out of scope*: Chips entfernen, z. B. durch langes Drücken. Wird gebaut, falls vertippte Werte im Einsatz stören.
 
 ## Left standing
+- Review-Nit nicht umgesetzt: `JournalPanel` gibt `presetChannel` ausdrücklich
+  als *Funk* weiter, wenn nichts gemerkt ist, obwohl `NEW_ENTRY` schon mit
+  *Funk* beginnt. Ohne diese Zeile bliebe beim Wechsel in einen anderen
+  Gesamteinsatz ohne Neuladen der gemerkte Weg des vorigen stehen, weil
+  `EntryForm` einen fehlenden Wert nicht übernimmt.
+- Review-Nit nicht umgesetzt: Speichert ein zweiter Tab desselben
+  Gesamteinsatzes auf demselben Gerät, zeigt der erste die alte Reihenfolge,
+  bis er neu lädt oder selbst speichert. Gespeichert wird trotzdem richtig,
+  weil `rememberEntryRoute` vor dem Schreiben neu liest. Auf das
+  `storage`-Ereignis zu hören, verlangt kein Kriterium.
+- Nicht erneut geprüft: Den Blocker der zweiten Review (Von, An und Weg wurden
+  ungetrimmt gemerkt, der Server speichert sie getrimmt) und ihren Should-fix
+  (Test, dass das Server-Rendern das Gemerkte nicht liest) habe ich nach der
+  zweiten und letzten Runde behoben, jeweils mit einem Test, der zuerst
+  fehlschlug. Eine dritte Review und ein Blick in den Browser darauf gab es
+  nicht. Dafür ist `trimToNull` aus `src/server/journal/journal.ts` als
+  `trimRouteValue` nach `src/journal/entry-route.ts` gezogen, damit Server und
+  Gerät dieselbe Regel benutzen.
+- Was kein automatischer Test prüft, haben die Reviewer im Browser geprüft
+  (360×800 und 1920×1080): Nach Neuladen bleiben Reihenfolge und Weg (*Telefon*,
+  Freitext „Melder“, *ohne*). Die Browser-Konsole zeigt beim Laden keinen
+  Hydration-Fehler, mit und ohne Gemerktes. Der Freitext-Weg ist bei 360 px
+  151,2 px breit, „Eintrag hinzufügen“ daneben ungekürzt. Ein echtes privates
+  Fenster ließ sich mit dem Browser-Treiber nicht öffnen. Stattdessen haben
+  sie den Speicher geleert (alphabetisch, *Funk*) und `localStorage` werfen
+  lassen (Speichern geht, keine Fehlermeldung, alphabetisch). Das Neuladen
+  zeigt bis zur Hydration kurz alphabetisch und *Funk*, dann springen Chips
+  und Weg auf das Gemerkte. Das folgt aus der Vorgabe zum Server-Rendern; im
+  Dev-Modus ist der Sprung sichtbar.
+- Abweichung vom Plan, Schritt 1: Die Tests stehen in der neuen Datei
+  `JournalPanel.remembered.test.tsx`, nicht in `JournalPanel.route.test.tsx`,
+  die schon 300 Zeilen hat. `localStorage` leert jetzt `src/test/setup.ts`
+  nach jedem Test, für alle DOM-Tests, weil auch andere Testdateien Einträge
+  speichern und sich sonst über die Reihenfolge beeinflussen würden.
+- Abweichung vom Plan, Schritt 2: Gemerkt wird statt eines Zeitstempels eine
+  Zahl je Feld, die mit jeder Verwendung um eins über die bisher größte
+  steigt. Zwei Einträge in derselben Millisekunde hätten sonst denselben Wert.
+  `NOTHING_REMEMBERED` ist zusätzlich exportiert, als Anfangszustand des Panels.
+- Abweichung vom Plan, Schritt 4: Den gemerkten Weg übernimmt `EntryForm` über
+  die neue Prop `presetChannel`, solange die Weg-Auswahl nicht bedient wurde.
+  `EntryChannelSelect` wird dafür zum Textfeld, auch wenn ein Freitext-Weg
+  erst nach dem Mounten kommt, und bleibt eines, wenn man es leert
+  (Should-fix der ersten Review). Der Test „Wahl wird nicht überschrieben“
+  wechselt die `operationId` beim `rerender`, denn gelesen wird nur beim
+  Mounten und beim Wechsel des Gesamteinsatzes.
+- Abweichung vom Plan, Schritt 6: Im Browser habe ich nicht selbst geprüft.
+  Das haben die Reviewer in beiden Runden übernommen, mit den Beobachtungen
+  oben.
+- Zum TDD-Ablauf: Einige Tests liefen gleich grün, weil ihr Erwartungswert
+  „nichts ändert sich“ ist: „keeps its own order in each Gesamteinsatz“,
+  „presets Funk on a device that remembers no Weg“, „keeps its own Weg in each
+  Gesamteinsatz“, „keeps a Weg chosen before the remembered one arrives“,
+  „orders alphabetically, presets Funk and adds without browser storage“,
+  „changes neither order nor remembered Weg when adding fails“, „renders on
+  the server alphabetically …“, „puts the pinned value before the one used
+  last“ und die Tests für kaputten Speicherinhalt. Gegen kaputten Code
+  schlugen fehl: der Weg-Test ohne Prüfung auf `channelChosen`, der
+  Fehler-Test mit Merken vor der Fehlerprüfung, der Korrektur-Test mit Merken
+  nach einer Korrektur, der Test ohne Browser-Speicher ohne try/catch um
+  `setItem`, der Server-Test mit Lesen beim ersten Rendern und die Tests für
+  kaputten Inhalt ohne Formprüfung. Die übrigen habe ich so nicht geprüft. Die
+  Sortierung in `EntryRouteChips` habe ich vor ihrem Test eingebaut; den Test
+  habe ich gegen den Stand ohne diese Änderung laufen lassen, er schlug fehl.

@@ -28,6 +28,7 @@ export function panelProps(
   over: Partial<JournalPanelProps> = {},
 ): JournalPanelProps {
   return {
+    operationId: "op-1",
     entries: [entry()],
     correspondents: [],
     onAdd: vi.fn(async () => ({})),

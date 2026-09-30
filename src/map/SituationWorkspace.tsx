@@ -660,6 +660,7 @@ export function SituationWorkspace({
           py="sm"
         >
           <JournalPanel
+            operationId={operationId}
             entries={journalEntries}
             correspondents={correspondents}
             onAdd={onAddJournalEntry}

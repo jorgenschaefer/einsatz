@@ -7,6 +7,7 @@ const browserTestsInTs = [
   "src/map/use*.test.ts",
   "src/map/leaflet-adapter.*.test.ts",
   "src/map/last-view-storage.test.ts",
+  "src/journal/entry-route-storage.test.ts",
 ];
 
 export default defineConfig({

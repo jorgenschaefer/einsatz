@@ -9,6 +9,7 @@ import {
   UnstyledButton,
 } from "@mantine/core";
 import { type KeyboardEvent, type KeyboardEventHandler, useState } from "react";
+import { type LastUsed, orderCorrespondents } from "./entry-route";
 import "./entry-route-fields.css";
 
 const CHANNELS = ["Funk", "Telefon", "Persönlich"];
@@ -22,8 +23,8 @@ const OTHER_CHANNEL = "andere";
 /**
  * Der Weg eines Eintrags als Auswahl ohne sichtbares Label. „Andere …" macht
  * daraus ein Textfeld; „×" macht wieder die Auswahl daraus, mit dem Weg von
- * vorher. Ein Weg, den die Auswahl nicht bietet, steht von Anfang an im
- * Textfeld; „×" führt dann zu Funk.
+ * vorher. Ein Weg, den die Auswahl nicht bietet, steht im Textfeld, auch
+ * wenn er erst später kommt; „×" führt dann zu Funk.
  */
 export function EntryChannelSelect({
   size = "sm",
@@ -56,6 +57,10 @@ export function EntryChannelSelect({
     setBackFromOther(true);
     onChange(channelBeforeOther);
   };
+
+  // Ein Weg, den die Auswahl nicht bietet, kann auch nach dem Mounten kommen
+  // (der gemerkte Weg); das Textfeld bleibt dann auch, wenn es geleert wird.
+  if (!offered && !otherOpen) setOtherOpen(true);
 
   if (otherOpen) {
     return (
@@ -114,6 +119,7 @@ export function EntryRouteChips({
   value,
   onChange,
   options,
+  lastUsed,
   pinned = null,
   otherOpen,
   onOtherOpenChange,
@@ -123,6 +129,8 @@ export function EntryRouteChips({
   value: string | null;
   onChange: (value: string | null) => void;
   options: string[];
+  /** Die zuletzt benutzten Werte stehen vorne, die übrigen alphabetisch dahinter. */
+  lastUsed: LastUsed;
   /** Steht vorne in der Zeile, auch wenn er abgewählt wird. */
   pinned?: string | null;
   otherOpen: boolean;
@@ -158,7 +166,7 @@ export function EntryRouteChips({
         />
       ) : (
         <div className="entry-route-chips-row">
-          {chipOrder(options, value, pinned).map((option) => (
+          {chipOrder(options, lastUsed, value, pinned).map((option) => (
             <Chip
               key={option}
               size="sm"
@@ -207,17 +215,19 @@ const markedSuggestion = (field: HTMLInputElement) => {
 };
 
 /**
- * Die Chips alphabetisch, `pinned` vorne. Verschwindet der gewählte oder
- * vorangestellte Wert aus der Liste (umbenannte Stelle, annullierter Eintrag),
- * bleibt er als Chip stehen.
+ * Die Chips nach letzter Verwendung, `pinned` ganz vorne. Verschwindet der
+ * gewählte oder vorangestellte Wert aus der Liste (umbenannte Stelle,
+ * annullierter Eintrag), bleibt er als Chip stehen.
  */
 function chipOrder(
   options: string[],
+  lastUsed: LastUsed,
   value: string | null,
   pinned: string | null,
 ): string[] {
-  const chips = withValue(withValue(options, value), pinned).toSorted((a, b) =>
-    a.localeCompare(b, "de", { sensitivity: "base" }),
+  const chips = orderCorrespondents(
+    withValue(withValue(options, value), pinned),
+    lastUsed,
   );
   const first = chips.find((chip) => sameCorrespondent(chip, pinned));
   return first === undefined

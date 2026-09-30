@@ -117,6 +117,7 @@ describe("JournalPanel – Annullieren", () => {
     rtlRender(
       <MantineProvider>
         <JournalPanel
+          operationId="op-1"
           entries={[entry()]}
           correspondents={[]}
           onAdd={vi.fn()}

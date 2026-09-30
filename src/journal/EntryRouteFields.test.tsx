@@ -3,6 +3,7 @@ import { useState } from "react";
 import { describe, expect, it } from "vitest";
 import { render, screen, within } from "@/test/render";
 import { EntryChannelSelect, EntryRouteChips } from "./EntryRouteFields";
+import type { LastUsed } from "./entry-route";
 
 /** Hält den Weg, wie es der Eingabebereich tut, und zeigt ihn zum Prüfen. */
 function ChannelHarness({ initial }: { initial: string | null }) {
@@ -54,16 +55,28 @@ describe("EntryChannelSelect", () => {
 
     expect(chosenChannel()).toBe("null");
   });
+
+  it("turns into the text field once given a Weg it does not offer", () => {
+    const { rerender } = render(
+      <EntryChannelSelect value="Funk" onChange={() => {}} />,
+    );
+
+    rerender(<EntryChannelSelect value="Melder" onChange={() => {}} />);
+
+    expect(screen.getByRole("textbox", { name: "Weg" })).toHaveValue("Melder");
+  });
 });
 
 /** Hält Von, wie es der Eingabebereich tut, und zeigt es zum Prüfen. */
 function ChipsHarness({
   initial = null,
   options,
+  lastUsed = {},
   pinned,
 }: {
   initial?: string | null;
   options: string[];
+  lastUsed?: LastUsed;
   pinned?: string;
 }) {
   const [sender, setSender] = useState(initial);
@@ -75,6 +88,7 @@ function ChipsHarness({
         value={sender}
         onChange={setSender}
         options={options}
+        lastUsed={lastUsed}
         pinned={pinned}
         otherOpen={otherOpen}
         onOtherOpenChange={setOtherOpen}
@@ -143,6 +157,29 @@ describe("EntryRouteChips", () => {
     expect(chip("EAL")).not.toBeChecked();
   });
 
+  it("puts the values used last first, the others alphabetically", () => {
+    render(
+      <ChipsHarness
+        options={["UHSt 2", "EAL", "Leitstelle", "Deichwache"]}
+        lastUsed={{ eal: 1, "uhst 2": 2 }}
+      />,
+    );
+
+    expect(chipNames()).toEqual(["UHSt 2", "EAL", "Deichwache", "Leitstelle"]);
+  });
+
+  it("puts the pinned value before the one used last", () => {
+    render(
+      <ChipsHarness
+        options={["EAL", "UHSt 2", "Leitstelle"]}
+        lastUsed={{ eal: 1 }}
+        pinned="UHSt 2"
+      />,
+    );
+
+    expect(chipNames()).toEqual(["UHSt 2", "EAL", "Leitstelle"]);
+  });
+
   it("puts the pinned value first", () => {
     render(<ChipsHarness options={["EAL", "UHSt 2"]} pinned="UHSt 2" />);
 
@@ -173,6 +210,7 @@ describe("EntryRouteChips", () => {
         value="ELW 1"
         onChange={() => {}}
         options={["EAL", "ELW 1"]}
+        lastUsed={{}}
         otherOpen={false}
         onOtherOpenChange={() => {}}
       />,
@@ -184,6 +222,7 @@ describe("EntryRouteChips", () => {
         value="ELW 1"
         onChange={() => {}}
         options={["EAL", "ELW 2"]}
+        lastUsed={{}}
         otherOpen={false}
         onOtherOpenChange={() => {}}
       />,

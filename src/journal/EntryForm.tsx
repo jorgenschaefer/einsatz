@@ -1,13 +1,13 @@
 "use client";
 
 import { Button, Group, Stack, Textarea } from "@mantine/core";
-import { type Ref, useState } from "react";
+import { type Ref, useEffect, useRef, useState } from "react";
 import {
   EntryChannelSelect,
   EntryRouteChips,
   isSubmitShortcut,
 } from "@/journal/EntryRouteFields";
-import type { EntryContent, EntryRoute } from "@/journal/entry-route";
+import type { EntryContent, EntryRoute, LastUsed } from "@/journal/entry-route";
 
 /** Ob bei Von und An statt der Chips das Feld „andere …" offen ist. */
 const NO_OTHER_OPEN = { sender: false, recipient: false };
@@ -25,6 +25,8 @@ export function EntryForm({
   pinned = false,
   compact = false,
   correspondents,
+  lastUsed,
+  presetChannel,
   submitLabel,
   onSubmit,
   onCancel,
@@ -39,6 +41,13 @@ export function EntryForm({
   /** Kleine Weg-Auswahl und Knöpfe, damit sie im schmaleren Eintrag in eine Zeile passen. */
   compact?: boolean;
   correspondents: string[];
+  /** Ordnet die Chips von Von und An, die zuletzt benutzten vorne. */
+  lastUsed: { sender: LastUsed; recipient: LastUsed };
+  /**
+   * Ersetzt den Weg aus `initial`, auch wenn er sich später ändert, solange die
+   * Weg-Auswahl nicht bedient wurde.
+   */
+  presetChannel?: string | null;
   submitLabel: string;
   /** Liefert, ob gespeichert wurde. */
   onSubmit: (content: EntryContent) => Promise<boolean>;
@@ -51,7 +60,13 @@ export function EntryForm({
     channel: initial.channel,
   });
   const [otherOpen, setOtherOpen] = useState(NO_OTHER_OPEN);
+  const channelChosen = useRef(false);
   const size = compact ? "xs" : "sm";
+
+  useEffect(() => {
+    if (presetChannel === undefined || channelChosen.current) return;
+    setRoute((current) => ({ ...current, channel: presetChannel }));
+  }, [presetChannel]);
 
   /** `chosen` ist, was ein Feld beim Abschicken noch übernimmt. */
   const submit = async (chosen: Partial<EntryRoute> = {}) => {
@@ -70,6 +85,7 @@ export function EntryForm({
         value={route.sender}
         onChange={(sender) => setRoute({ ...route, sender })}
         options={correspondents}
+        lastUsed={lastUsed.sender}
         pinned={pinned ? initial.sender : null}
         otherOpen={otherOpen.sender}
         onOtherOpenChange={(sender) => setOtherOpen({ ...otherOpen, sender })}
@@ -80,6 +96,7 @@ export function EntryForm({
         value={route.recipient}
         onChange={(recipient) => setRoute({ ...route, recipient })}
         options={correspondents}
+        lastUsed={lastUsed.recipient}
         pinned={pinned ? initial.recipient : null}
         otherOpen={otherOpen.recipient}
         onOtherOpenChange={(recipient) =>
@@ -103,7 +120,10 @@ export function EntryForm({
         <EntryChannelSelect
           size={size}
           value={route.channel}
-          onChange={(channel) => setRoute({ ...route, channel })}
+          onChange={(channel) => {
+            channelChosen.current = true;
+            setRoute({ ...route, channel });
+          }}
           onKeyDown={submitOnCtrlEnter(submit)}
         />
         <Group gap="xs" wrap="nowrap">

@@ -4,6 +4,7 @@ import { afterEach, vi } from "vitest";
 
 afterEach(() => {
   cleanup();
+  localStorage.clear();
 });
 
 // Mantine components rely on browser APIs jsdom does not implement.

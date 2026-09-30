@@ -1,5 +1,9 @@
 import { randomUUID } from "node:crypto";
-import type { EntryContent, EntryRoute } from "@/journal/entry-route";
+import {
+  type EntryContent,
+  type EntryRoute,
+  trimRouteValue,
+} from "@/journal/entry-route";
 import type { Db, Queryable } from "@/server/db/db";
 import { lockOperation } from "@/server/operations/operations";
 import { ValidationError } from "@/server/validation";
@@ -100,11 +104,6 @@ function requireEntryText(raw: string): string {
   return text;
 }
 
-/** Von, An und Weg werden getrimmt gespeichert; leer heißt: keine Angabe. */
-function trimToNull(value: string | null): string | null {
-  return value?.trim() || null;
-}
-
 /**
  * Hängt einen Eintrag mit der nächsten lückenlosen Nummer an das ETB des
  * Einsatzes an. Muss innerhalb einer Transaktion laufen; sperrt die
@@ -145,9 +144,9 @@ export async function appendEntry(
       text,
       input.type,
       input.author,
-      trimToNull(sender),
-      trimToNull(recipient),
-      trimToNull(channel),
+      trimRouteValue(sender),
+      trimRouteValue(recipient),
+      trimRouteValue(channel),
     ],
   );
   return toEntry(rows[0]);
@@ -307,9 +306,9 @@ export async function reviseEntry(
       entryId,
       text,
       author,
-      trimToNull(content.sender),
-      trimToNull(content.recipient),
-      trimToNull(content.channel),
+      trimRouteValue(content.sender),
+      trimRouteValue(content.recipient),
+      trimRouteValue(content.channel),
     ],
   );
   const updated = await loadEntry(tx, entryId);

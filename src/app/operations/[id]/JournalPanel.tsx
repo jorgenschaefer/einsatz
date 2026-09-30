@@ -24,6 +24,12 @@ import {
   formatEntryRoute,
   NO_ROUTE,
 } from "@/journal/entry-route";
+import {
+  type EntryRouteMemory,
+  NOTHING_REMEMBERED,
+  readEntryRouteMemory,
+  rememberEntryRoute,
+} from "@/journal/entry-route-storage";
 import type {
   JournalEntryState,
   JournalEntryType,
@@ -50,6 +56,7 @@ export interface JournalEntryView extends EntryRoute {
 }
 
 export interface JournalPanelProps {
+  operationId: string;
   entries: JournalEntryView[];
   /** Die Werte für Von und An eines neuen Eintrags und einer Korrektur. */
   correspondents: string[];
@@ -80,6 +87,7 @@ const isAutomatic = (entry: JournalEntryView) =>
   entry.type === "stelle-angelegt";
 
 export function JournalPanel({
+  operationId,
   entries,
   correspondents,
   onAdd,
@@ -93,6 +101,7 @@ export function JournalPanel({
   const [annulTarget, setAnnulTarget] = useState<JournalEntryView | null>(null);
   const [annulConfirmationOpen, annulConfirmation] = useDisclosure(false);
   const [error, setError] = useState<string | null>(null);
+  const memory = useEntryRouteMemory(operationId);
 
   const shown = hideAuto ? entries.filter((e) => !isAutomatic(e)) : entries;
   const scroll = useScrollToEnd(visible, entries.at(-1)?.id);
@@ -104,6 +113,7 @@ export function JournalPanel({
         setError(err);
         return false;
       }
+      memory.remember(content);
       setError(null);
       scroll.scrollToEnd();
       return true;
@@ -256,6 +266,7 @@ export function JournalPanel({
                     pinned
                     compact
                     correspondents={correspondents}
+                    lastUsed={memory.remembered}
                     submitLabel="Speichern"
                     onSubmit={correctEditedEntry}
                     onCancel={() => setEditingId(null)}
@@ -281,6 +292,12 @@ export function JournalPanel({
           textRef={newEntryRef}
           initial={NEW_ENTRY}
           correspondents={correspondents}
+          lastUsed={memory.remembered}
+          presetChannel={
+            memory.remembered.channel === undefined
+              ? DEFAULT_CHANNEL
+              : memory.remembered.channel
+          }
           submitLabel="Eintrag hinzufügen"
           onSubmit={addEntry}
         />
@@ -333,6 +350,28 @@ function EntryRouteHeader({
       {struck ? <del>{content}</del> : content}
     </Text>
   );
+}
+
+/**
+ * Was dieses Gerät sich zu den neuen Einträgen des Gesamteinsatzes gemerkt hat.
+ * Erst nach dem Mounten gelesen: Auf dem Server gibt es keinen Browser-Speicher,
+ * und das erste Rendern muss dort wie im Browser alphabetisch und mit Funk sein.
+ */
+function useEntryRouteMemory(operationId: string) {
+  const [remembered, setRemembered] =
+    useState<EntryRouteMemory>(NOTHING_REMEMBERED);
+
+  useEffect(() => {
+    setRemembered(readEntryRouteMemory(operationId));
+  }, [operationId]);
+
+  return {
+    remembered,
+    remember: (route: EntryRoute) => {
+      rememberEntryRoute(operationId, route);
+      setRemembered(readEntryRouteMemory(operationId));
+    },
+  };
 }
 
 /**
