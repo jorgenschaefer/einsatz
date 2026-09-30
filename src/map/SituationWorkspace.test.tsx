@@ -2795,6 +2795,50 @@ describe("SituationWorkspace", () => {
     ).toBeInTheDocument();
   });
 
+  it("does not show an earlier Kartenzeichen's save error after it vanished", async () => {
+    const aSymbol = (id: string) => ({
+      id,
+      lat: 1,
+      lng: 2,
+      composition: {
+        grundzeichen: "ortsfeste-stelle" as const,
+        organisation: "hilfsorganisation" as const,
+      },
+    });
+    const { adapter, props } = buildProps({
+      symbols: [aSymbol("s1"), aSymbol("s2")],
+      onUpdate: vi.fn(async () => ({
+        error: "Ungültige Zeichen-Komposition.",
+      })),
+    });
+    const clickMarker = (id: string) => {
+      const call = adapter.setMarker.mock.calls.findLast(([m]) => m === id);
+      act(() => (call![1] as MarkerSpec).onClick!());
+    };
+    const { rerender } = render(<SituationWorkspace {...props} />);
+    await waitFor(() => expect(adapter.setMarker).toHaveBeenCalledTimes(2));
+    clickMarker("s1");
+    await userEvent.click(await screen.findByText("Speichern"));
+    expect(
+      await screen.findByText("Ungültige Zeichen-Komposition."),
+    ).toBeInTheDocument();
+
+    rerender(<SituationWorkspace {...props} symbols={[aSymbol("s2")]} />);
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: "Kartenzeichen" }),
+      ).not.toBeInTheDocument(),
+    );
+    clickMarker("s2");
+
+    expect(
+      await screen.findByRole("dialog", { name: "Kartenzeichen" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("Ungültige Zeichen-Komposition."),
+    ).not.toBeInTheDocument();
+  });
+
   it("shows a connection-lost symbol on both header sizes when the live stream is disconnected, without a banner above the work area", () => {
     renderWorkspace({ eventsHook: () => ({ connected: false }) });
     for (const testId of ["desktop-header", "mobile-header"]) {

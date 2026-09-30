@@ -300,6 +300,10 @@ export function SituationWorkspace({
   const selectedArea = areas.find((a) => a.id === selectedAreaId) ?? null;
   const movingCircle = areas.find((a) => a.id === movingCircleId) ?? null;
 
+  const openDetail = (id: string) => {
+    setSelectedId(id);
+    setDetailError(null);
+  };
   const closeDetail = () => {
     setSelectedId(null);
     setDetailError(null);
@@ -659,7 +663,7 @@ export function SituationWorkspace({
               armedComposition={armedComposition}
               onPlace={placeSymbolAt}
               onMove={onMove}
-              onSelect={setSelectedId}
+              onSelect={openDetail}
               focusTarget={focusTarget}
               areas={areas}
               drawShape={drawShape}
@@ -787,7 +791,7 @@ export function SituationWorkspace({
                             key={row.id}
                             name={row.name}
                             onJump={() => jumpFromPanel(row.lat, row.lng)}
-                            onEdit={() => setSelectedId(row.id)}
+                            onEdit={() => openDetail(row.id)}
                             icon={
                               <Image src={row.iconUrl} alt="" w={22} h={22} />
                             }
