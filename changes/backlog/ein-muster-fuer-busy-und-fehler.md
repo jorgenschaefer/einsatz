@@ -6,8 +6,9 @@ Entscheidung.
 
 **Heute.** Dasselbe Muster aus `busy`, `error`, try/catch/finally steht in
 mehreren leicht abweichenden Varianten: `run` in `KmlPanel` und
-`ImageOverlayPanel` (identisch), `runDetail`, `runArea` und `persistImage` in
-`SituationWorkspace`, `saveDefault` in `MapControls`, dazu mehrere Handler in
+`ImageOverlayPanel` (identisch), `save` in `SymbolDetailModal` und
+`AreaEditorModal`, `persistImage` in `SituationWorkspace`, `saveDefault` in
+`MapControls`, dazu mehrere Handler in
 `JournalPanel`.
 
 **Vorschlag.** Ein kleiner Hook (etwa `useActionRunner`), der `busy`,

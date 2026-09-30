@@ -17,4 +17,4 @@ können, obwohl die Produktion sie immer setzt:
 **Bringt.** Der Typ sagt, was wirklich immer da ist; die Fallbacks entfallen.
 
 **Kostet.** Änderungen in mehreren Test-Fixtures, vor allem in
-`SituationWorkspace.test.tsx`.
+`SituationWorkspace.fixtures.tsx` und den Tests von `SymbolDetailModal`.
