@@ -3,7 +3,7 @@ criteria:  CRITERIA.md
 closes:    AC-1, AC-2, AC-3, AC-4
 advances:
 after:
-status:    ready
+status:    done
 attempts:  0
 ---
 
@@ -119,3 +119,15 @@ einzeilig, bei langen Namen die Knöpfe rechtsbündig in einer zweiten Zeile.
   ganze URL (`addKmlUrlAction` in `src/app/operations/[id]/kml-actions.ts`
   nicht anfassen).
 - Die Kürzung in `PanelRow` und `ViewLinkPanel` bleibt, wie sie ist.
+
+## Record
+- **AC-1:** im Browser bei 390×844 und 1280×800: „Strecke“ als KML-Datei und als KML-URL je einzeilig, Knöpfe neben dem Namen, Zeile 56 px hoch wie vorher. Der Stil ist gepinnt in `src/map/KmlPanel.test.tsx` › „lets the row wrap, with the name growing and the buttons right-aligned“.
+- **AC-2:** im Browser: die KML-URL mit dem 80-Zeichen-Namen aus AC-2 bricht bei 1280×800 dreizeilig um (Name 272 px breit, Zeile 132 px statt 280 px) und bei 390×844 dreizeilig (302 px); „Neu laden“ und „Entfernen“ rechtsbündig darunter, im Panel; „Entfernen“ bei 390 angetippt, Rückfrage erschien, abgebrochen. Stil gepinnt durch denselben Test.
+- **AC-3:** im Browser bei beiden Breiten: `scrollWidth` des Panels gleich seiner Breite (360 bzw. 390 px), kein Name mit „…“ (`text-overflow: clip`, Label nicht abgeschnitten), alle Schalter und Knöpfe der langen KML-Datei, KML-URL und des Bild-Overlays im Panel. Umbruch des Labels gepinnt durch „lets a long name without spaces wrap, with the row aligned at the top“.
+- **AC-4:** im Browser: die lange Bild-Overlay-Zeile hat bei 1280×800 ein 164 px breites, fünfzeiliges Label und „Bearbeiten“ bei 1163–1255, bei 390×844 194 px, vierzeilig, „Bearbeiten“ bei 273–365 – dieselben Werte wie bei der Abnahme am 2026-09-30 auf dem Stand vor dieser Änderung. `ImageOverlayPanel.tsx` ist nicht im Diff.
+- Checks: `npm run check` grün (127 Testdateien, 1221 Tests).
+
+### Left standing
+- **Vergleichswerte aus der Abnahme statt eigener Messung (Plan, Schritt 1):** Die Werte „vorher“ für AC-1 und AC-4 stammen aus der Abnahme von „Rückfragen nennen ihr Ziel“ am 2026-09-30 auf demselben Code (`aea5971`, seitdem unverändert), nicht aus einem eigenen Lauf vor dem Umbau.
+- **Test pinnt Stile, nicht Layout:** jsdom rechnet kein Layout; ob die Knöpfe tatsächlich umbrechen, zeigt nur der Browser.
+- **Review:** ein Durchgang in frischem Kontext, keine Blocker, nichts zu beheben; ein Nit (Testtitel versprach einen langen Namen, den der Test nicht rendert) behoben durch Umbenennen. In der Konsole zwei HTTP-500 vom kaputten Standard-Marker in KML (schon im Backlog, `a014c00`), nicht von dieser Änderung.

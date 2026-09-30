@@ -96,16 +96,17 @@ export function KmlPanel({
 
   const overlayRow = (overlay: KmlOverlayView) => (
     <Paper key={overlay.id} data-testid={`kml-${overlay.id}`} withBorder p="sm">
-      <Group justify="space-between" align="flex-start" wrap="nowrap">
+      <Group justify="space-between" align="flex-start" wrap="wrap">
         <Switch
           styles={WRAPPING_SWITCH_LABEL}
+          style={{ flex: "1 1 auto", maxWidth: "100%" }}
           label={overlay.name}
           checked={overlay.visible}
           onChange={(e) =>
             run(onToggleVisibility(overlay.id, e.currentTarget.checked))
           }
         />
-        <Group gap="xs" wrap="nowrap">
+        <Group gap="xs" wrap="nowrap" style={{ marginLeft: "auto" }}>
           {overlay.sourceType === "url" && (
             <Button
               size="xs"

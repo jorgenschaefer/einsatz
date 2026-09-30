@@ -35,7 +35,7 @@ const fileOverlay: KmlOverlayView = {
 };
 
 describe("KmlPanel", () => {
-  it("lets a long name without spaces wrap, with switch and buttons at the top of the row", () => {
+  it("lets a long name without spaces wrap, with the row aligned at the top", () => {
     const longName = `${"Einsatzabschnitt".repeat(5)}.kml`;
     renderPanel({
       overlays: [
@@ -52,6 +52,22 @@ describe("KmlPanel", () => {
       expect(row.firstElementChild).toHaveStyle({
         "--group-align": "flex-start",
       });
+    }
+  });
+
+  it("lets the row wrap, with the name growing and the buttons right-aligned", () => {
+    renderPanel({ overlays: [urlOverlay, fileOverlay] });
+
+    for (const id of ["k1", "k2"]) {
+      const row = screen.getByTestId(`kml-${id}`);
+      expect(row.firstElementChild).toHaveStyle({ "--group-wrap": "wrap" });
+      expect(row.querySelector(".mantine-Switch-root")).toHaveStyle({
+        flex: "1 1 auto",
+        maxWidth: "100%",
+      });
+      expect(
+        within(row).getByRole("button", { name: "Entfernen" }).parentElement,
+      ).toHaveStyle({ marginLeft: "auto" });
     }
   });
 
