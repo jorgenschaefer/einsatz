@@ -10,6 +10,7 @@ import {
 
 function setup(over: Partial<OperationLifecycleActionsProps> = {}) {
   const props: OperationLifecycleActionsProps = {
+    name: "Hochwasser",
     status: "active",
     onClose: vi.fn(),
     onReopen: vi.fn(),
@@ -52,7 +53,9 @@ describe("OperationLifecycleActions", () => {
     await userEvent.click(
       await screen.findByRole("menuitem", { name: /Einsatz löschen/ }),
     );
-    expect(await screen.findByText(/Einsatztagebuch/)).toBeInTheDocument();
+    expect(await screen.findByRole("dialog")).toHaveTextContent(
+      "Dieser Einsatz wird mit seinem gesamten Einsatztagebuch und allen Kartenobjekten unwiderruflich gelöscht.",
+    );
     expect(props.onDelete).not.toHaveBeenCalled();
     await userEvent.click(
       screen.getByRole("button", { name: /Endgültig löschen/ }),
@@ -78,7 +81,7 @@ describe("OperationLifecycleActions", () => {
       await screen.findByRole("menuitem", { name: /Einsatz löschen/ }),
     );
     const dialog = await screen.findByRole("dialog", {
-      name: "Einsatz löschen",
+      name: "Einsatz „Hochwasser“ löschen",
     });
     await userEvent.click(
       within(dialog).getByRole("button", { name: "Endgültig löschen" }),
@@ -110,7 +113,7 @@ describe("OperationLifecycleActions", () => {
       await clickModalOverlay();
 
       expect(
-        screen.getByRole("dialog", { name: "Einsatz löschen" }),
+        screen.getByRole("dialog", { name: "Einsatz „Hochwasser“ löschen" }),
       ).toBeInTheDocument();
     });
 

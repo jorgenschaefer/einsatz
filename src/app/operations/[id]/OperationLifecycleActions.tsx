@@ -6,6 +6,7 @@ import type { ActionResult } from "@/app/action-result";
 import { ConfirmationModal } from "@/app/ConfirmationModal";
 
 export interface OperationLifecycleActionsProps {
+  name: string;
   status: "active" | "closed";
   onClose: () => void | Promise<void>;
   onReopen: () => void | Promise<void>;
@@ -13,6 +14,7 @@ export interface OperationLifecycleActionsProps {
 }
 
 export function OperationLifecycleActions({
+  name,
   status,
   onClose,
   onReopen,
@@ -48,7 +50,7 @@ export function OperationLifecycleActions({
       <ConfirmationModal
         opened={confirmOpen}
         onClose={confirm.close}
-        title="Einsatz löschen"
+        title={`Einsatz „${name}“ löschen`}
         confirmLabel="Endgültig löschen"
         onConfirm={onDelete}
       >

@@ -152,4 +152,28 @@ describe("OperationsOverview", () => {
     );
     expect(onReopenOperation).toHaveBeenCalledWith("b");
   });
+
+  it("names the Einsatz of the chosen card in the delete confirmation", async () => {
+    render(
+      <OperationsOverview
+        operations={[
+          op({ id: "a", name: "Hochwasser" }),
+          op({ id: "b", name: "Sturm" }),
+        ]}
+        createAction={noop}
+      />,
+    );
+    const sturmCard = screen
+      .getByText("Sturm")
+      .closest('[class*="Card"]') as HTMLElement;
+    await userEvent.click(
+      within(sturmCard).getByRole("button", { name: /Einsatz-Aktionen/ }),
+    );
+    await userEvent.click(
+      await screen.findByRole("menuitem", { name: /Einsatz löschen/ }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog).toHaveAccessibleName(/Sturm/);
+    expect(dialog).not.toHaveAccessibleName(/Hochwasser/);
+  });
 });

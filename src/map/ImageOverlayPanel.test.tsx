@@ -22,6 +22,28 @@ function renderPanel(over: Partial<ImageOverlayPanelProps> = {}) {
 const overlay: ImageOverlayItem = { id: "i1", name: "Lageplan", visible: true };
 
 describe("ImageOverlayPanel", () => {
+  const longName = `${"Absperrplan".repeat(7)}.pdf`;
+
+  it("lets a long name without spaces wrap, with switch and button at the top of the row", () => {
+    renderPanel({ overlays: [{ ...overlay, name: longName }] });
+
+    const row = screen.getByTestId("image-i1");
+    expect(within(row).getByText(longName)).toHaveStyle({
+      overflowWrap: "anywhere",
+    });
+    expect(row.firstElementChild).toHaveStyle({
+      "--group-align": "flex-start",
+    });
+  });
+
+  it("keeps the Bearbeiten button whole beside a long name without spaces", () => {
+    renderPanel({ overlays: [{ ...overlay, name: longName }] });
+
+    expect(screen.getByRole("button", { name: "Bearbeiten" })).toHaveStyle({
+      flexShrink: "0",
+    });
+  });
+
   it("shows an empty hint when there are no image overlays", () => {
     renderPanel();
     expect(screen.getByText(/Keine Bild-Overlays/)).toBeInTheDocument();

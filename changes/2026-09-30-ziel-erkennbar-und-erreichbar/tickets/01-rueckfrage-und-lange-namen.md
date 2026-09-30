@@ -3,7 +3,7 @@ criteria:  CRITERIA.md
 closes:    AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-7, AC-8
 advances:
 after:
-status:    ready
+status:    done
 attempts:  0
 ---
 
@@ -155,3 +155,21 @@ Test-Erleichterung). Der Theme-Eintrag für `Modal` ist der erste unter
 - 44 px hohe Touch-Ziele außerhalb der Rückfragen.
 - Die Kürzung in `PanelRow` (Kartenzeichen- und Bereichslisten) und in
   `ViewLinkPanel` bleibt, wie sie ist.
+
+## Record
+- **AC-1:** `src/app/operations/OperationsOverview.test.tsx` › „names the Einsatz of the chosen card in the delete confirmation“.
+- **AC-2:** `src/app/operations/[id]/OperationLifecycleActions.test.tsx` › „requires explicit confirmation before deleting, warning about the Einsatztagebuch“ (ganzer Satz) und „does not delete when the confirmation is cancelled“; im Browser bestätigt.
+- **AC-3:** im Browser bei 390×844 und 1280×800 (Titel bricht drei- bis vierzeilig um, kein seitliches Scrollen, beide Knöpfe sichtbar).
+- **AC-4:** `src/map/KmlPanel.test.tsx` und `src/map/ImageOverlayPanel.test.tsx` › „lets a long name without spaces wrap …“ und „keeps the Bearbeiten button whole …“ für die Stile; das Layout im Browser bei beiden Breiten mit KML-Datei, KML-URL und Bild-Overlay aus 80 Zeichen.
+- **AC-5:** im Browser bei beiden Breiten, Zeilen „Strecke“ einzeilig, 56 px hoch wie vorher.
+- **AC-6:** `src/app/theme.test.tsx` für Gewicht, Zeilenhöhe, Umbruch und Kopfausrichtung; im Browser in der Rückfrage, im Kartenzeichen-Dialog und in „Neuen Einsatz eröffnen“.
+- **AC-7:** `src/app/ConfirmationModal.test.tsx` › „makes both buttons large enough to tap on a phone“; im Browser 44 px.
+- **AC-8:** im Browser: „Speichern“, „Löschen“, „Gerätelink erzeugen“ und „Einsatz eröffnen“ 36 px, wie auf `7d369ba`.
+- Checks: `npm run check` grün (127 Testdateien, 1220 Tests).
+
+### Left standing
+- **Theme ohne `Modal.extend`:** Der Plan sah `Modal.extend` vor. In Server Components ist `Modal` nur eine Client-Referenz ohne `extend`, und jede Seite antwortete mit 500. Das Theme nutzt deshalb ein schlichtes Objekt, mit einem Kommentar dazu. Ein Test dafür fehlt, weil Vitest das Server-Rendering von Next nicht ausführt; geprüft ist es am laufenden Dev-Server.
+- **Abweichung vom Nudge zu `miw={0}`:** `miw={0}` am `Switch` und `minWidth: 0` am `labelWrapper` hatten im Browser keine Wirkung, weil `overflow-wrap: anywhere` allein die Mindestbreite des Labels klein macht. Beides ist wieder entfernt.
+- **Neu gegenüber dem Plan:** „Bearbeiten“ im Bild-Overlay bekommt `flexShrink: 0`, weil der Knopf neben einem langen Namen sonst auf „Bea“ schrumpfte.
+- **Hinweis für die Abnahme:** Eine KML-URL mit langem Namen hat neben „Neu laden“ und „Entfernen“ nur eine schmale Namensspalte (73 px bei 1280, 103 px bei 390) und bricht bis zu elfzeilig um. Das erfüllt AC-4 und entspricht dem vereinbarten Design, fällt aber auf.
+- **Review:** zwei Durchgänge in frischem Kontext. Der erste fand den 500-Fehler (Blocker), den gekürzten Knopf (Should-fix) und die wirkungslosen Mindestbreiten (Nit); alle drei behoben. Der zweite fand keine Blocker und nichts zu beheben, nur zwei Nits zu den Tests (Testdaten ohne langen Namen, `align="flex-start"` nicht gepinnt); beide behoben.

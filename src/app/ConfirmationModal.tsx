@@ -7,6 +7,9 @@ import type { ActionResult } from "@/app/action-result";
 
 const FAILURE = "Das hat nicht geklappt. Bitte erneut versuchen.";
 
+// Übliche Mindesthöhe für Touch; die Lageführung wird auch am Handy bedient.
+const TAP_TARGET = { height: 44 };
+
 /**
  * Bestätigt eine Action, bevor sie läuft; ihr Fehler erscheint im offenen
  * Dialog statt oben im Bereich, der oft weit weggescrollt ist. Bei Erfolg
@@ -61,13 +64,7 @@ export function ConfirmationModal({
   };
 
   return (
-    <Modal
-      stackId={stackId}
-      opened={opened}
-      onClose={close}
-      styles={{ title: { minWidth: 0, overflowWrap: "anywhere" } }}
-      title={title}
-    >
+    <Modal stackId={stackId} opened={opened} onClose={close} title={title}>
       <Stack>
         {error && (
           <Alert color="red" role="alert">
@@ -76,10 +73,20 @@ export function ConfirmationModal({
         )}
         {children}
         <Group justify="flex-end">
-          <Button variant="default" disabled={pending} onClick={close}>
+          <Button
+            variant="default"
+            style={TAP_TARGET}
+            disabled={pending}
+            onClick={close}
+          >
             Abbrechen
           </Button>
-          <Button color={confirmColor} loading={pending} onClick={confirm}>
+          <Button
+            color={confirmColor}
+            style={TAP_TARGET}
+            loading={pending}
+            onClick={confirm}
+          >
             {confirmLabel}
           </Button>
         </Group>

@@ -35,6 +35,26 @@ const fileOverlay: KmlOverlayView = {
 };
 
 describe("KmlPanel", () => {
+  it("lets a long name without spaces wrap, with switch and buttons at the top of the row", () => {
+    const longName = `${"Einsatzabschnitt".repeat(5)}.kml`;
+    renderPanel({
+      overlays: [
+        { ...urlOverlay, name: longName },
+        { ...fileOverlay, name: longName },
+      ],
+    });
+
+    for (const id of ["k1", "k2"]) {
+      const row = screen.getByTestId(`kml-${id}`);
+      expect(within(row).getByText(longName)).toHaveStyle({
+        overflowWrap: "anywhere",
+      });
+      expect(row.firstElementChild).toHaveStyle({
+        "--group-align": "flex-start",
+      });
+    }
+  });
+
   it("groups the panel into a KML-Datei and a KML-URL section", () => {
     renderPanel();
     expect(

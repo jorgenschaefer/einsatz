@@ -101,6 +101,7 @@ export function OperationsOverview({
                     {operation.status === "active" ? "aktiv" : "abgeschlossen"}
                   </Badge>
                   <OperationLifecycleActions
+                    name={operation.name}
                     status={operation.status}
                     onClose={() => onCloseOperation(operation.id)}
                     onReopen={() => onReopenOperation(operation.id)}

@@ -16,6 +16,7 @@ import { ConfirmationModal } from "@/app/ConfirmationModal";
 import { extractKml } from "@/kml/kmz";
 import type { KmlSourceType } from "@/server/kml/kml-overlays";
 import { ValidationError } from "@/server/validation";
+import { WRAPPING_SWITCH_LABEL } from "./wrapping-switch-label";
 
 export interface KmlOverlayView {
   id: string;
@@ -95,8 +96,9 @@ export function KmlPanel({
 
   const overlayRow = (overlay: KmlOverlayView) => (
     <Paper key={overlay.id} data-testid={`kml-${overlay.id}`} withBorder p="sm">
-      <Group justify="space-between" wrap="nowrap">
+      <Group justify="space-between" align="flex-start" wrap="nowrap">
         <Switch
+          styles={WRAPPING_SWITCH_LABEL}
           label={overlay.name}
           checked={overlay.visible}
           onChange={(e) =>

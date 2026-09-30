@@ -23,4 +23,20 @@ export const theme = createTheme({
   primaryColor: "drk",
   primaryShade: PRIMARY_SHADE,
   colors: { drk },
+  // Ein schlichtes Objekt statt `Modal.extend`: Das Theme wird auch in Server
+  // Components geladen, und dort ist `Modal` nur eine Client-Referenz ohne
+  // `extend` – jede Seite antwortete dann mit 500.
+  components: {
+    Modal: {
+      styles: {
+        header: { alignItems: "flex-start" },
+        title: {
+          fontWeight: 600,
+          lineHeight: 1.35,
+          minWidth: 0,
+          overflowWrap: "anywhere",
+        },
+      },
+    },
+  },
 });

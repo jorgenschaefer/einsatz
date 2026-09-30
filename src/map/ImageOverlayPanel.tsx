@@ -12,6 +12,7 @@ import {
 import type { ReactNode } from "react";
 import { useState } from "react";
 import type { ActionResult } from "@/app/action-result";
+import { WRAPPING_SWITCH_LABEL } from "./wrapping-switch-label";
 
 export interface ImageOverlayItem {
   id: string;
@@ -91,8 +92,9 @@ export function ImageOverlayPanel({
                 withBorder
                 p="sm"
               >
-                <Group justify="space-between" wrap="nowrap">
+                <Group justify="space-between" align="flex-start" wrap="nowrap">
                   <Switch
+                    styles={WRAPPING_SWITCH_LABEL}
                     label={overlay.name}
                     checked={overlay.visible}
                     disabled={busy}
@@ -106,6 +108,7 @@ export function ImageOverlayPanel({
                     <Button
                       size="xs"
                       variant="light"
+                      style={{ flexShrink: 0 }}
                       onClick={() => onEdit(overlay.id)}
                     >
                       Bearbeiten

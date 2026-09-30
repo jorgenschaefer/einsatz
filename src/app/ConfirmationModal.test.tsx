@@ -65,6 +65,13 @@ describe("ConfirmationModal", () => {
     expect(button(dialog, "Annullieren")).toBeEnabled();
   });
 
+  it("makes both buttons large enough to tap on a phone", () => {
+    const { dialog } = setup(vi.fn(async () => ({})));
+
+    expect(button(dialog, "Abbrechen")).toHaveStyle({ height: "44px" });
+    expect(button(dialog, "Annullieren")).toHaveStyle({ height: "44px" });
+  });
+
   it("closes once the action succeeds", async () => {
     const { onClose, dialog } = setup(vi.fn(async () => ({})));
 
