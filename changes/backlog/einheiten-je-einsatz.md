@@ -1,3 +1,9 @@
+---
+effort: L
+complexity: L
+utility: M
+---
+
 # Kein Überblick, welche Einheiten an welchem Einsatz sind
 
 Offen, noch ohne Lösung. Gemeint ist „Einsatz" hier als Ereignis, zu dem

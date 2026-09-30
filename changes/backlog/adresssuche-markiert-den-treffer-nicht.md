@@ -1,3 +1,9 @@
+---
+effort: S
+complexity: S
+utility: M
+---
+
 # Nach der Adresssuche ist die Stelle nicht zu finden
 
 Offen, noch ohne Lösung. Die Adresssuche verschiebt nur den Kartenausschnitt

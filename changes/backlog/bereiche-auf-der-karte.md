@@ -1,3 +1,9 @@
+---
+effort: XL
+complexity: L
+utility: L
+---
+
 # Bereiche auf der Karte
 
 Rückmeldung aus dem Einsatz (u. a. Cyclassics 2026). Die Lösung steht fest

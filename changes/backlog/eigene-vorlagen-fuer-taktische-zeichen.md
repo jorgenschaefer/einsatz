@@ -1,3 +1,9 @@
+---
+effort: M
+complexity: M
+utility: M
+---
+
 # Eigene Vorlagen für Taktische Zeichen
 
 Rückmeldung aus dem Einsatz (u. a. Cyclassics 2026). Die Lösung steht fest

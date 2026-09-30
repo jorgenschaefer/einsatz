@@ -1,3 +1,9 @@
+---
+effort: XS
+complexity: XS
+utility: XS
+---
+
 # Alte `.png`-Overlays
 
 Vorschlag aus dem Vereinfachungs-Durchgang vom 2026-09-28 (Commit `602bf31`).

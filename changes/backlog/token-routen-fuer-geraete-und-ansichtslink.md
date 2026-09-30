@@ -1,3 +1,9 @@
+---
+effort: S
+complexity: S
+utility: XS
+---
+
 # Token-Routen für Geräte- und Ansichtslink
 
 Vorschlag aus dem Vereinfachungs-Durchgang vom 2026-09-28 (Commit `602bf31`).

@@ -1,3 +1,9 @@
+---
+effort: S
+complexity: XS
+utility: S
+---
+
 # Ein Datei-Eingang im Ebenen-Panel
 
 Vorschlag aus dem Vereinfachungs-Durchgang vom 2026-09-28 (Commit `602bf31`).

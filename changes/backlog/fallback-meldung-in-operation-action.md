@@ -1,3 +1,9 @@
+---
+effort: S
+complexity: XS
+utility: XS
+---
+
 # Catch-all der KML- und Bild-Actions in `operationAction`
 
 Vorschlag aus dem Vereinfachungs-Durchgang vom 2026-09-28 (Commit `602bf31`).

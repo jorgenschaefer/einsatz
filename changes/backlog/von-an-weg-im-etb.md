@@ -1,3 +1,9 @@
+---
+effort: M
+complexity: M
+utility: L
+---
+
 # Absender, Empfänger und Weg im ETB
 
 Rückmeldung aus dem Einsatz (u. a. Cyclassics 2026). Die Lösung steht fest

@@ -1,3 +1,9 @@
+---
+effort: XS
+complexity: XS
+utility: S
+---
+
 # `createViewLinkAction` über `operationAction`
 
 Vorschlag aus dem Vereinfachungs-Durchgang vom 2026-09-28 (Commit `602bf31`).

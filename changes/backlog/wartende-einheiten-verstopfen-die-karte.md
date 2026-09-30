@@ -1,3 +1,9 @@
+---
+effort: L
+complexity: M
+utility: M
+---
+
 # Wartende Einheiten verstopfen die Karte
 
 Offen, noch ohne Lösung. Einheiten wechseln zwischen _im Einsatz_ (Position

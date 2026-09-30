@@ -1,3 +1,9 @@
+---
+effort: S
+complexity: XS
+utility: XS
+---
+
 # Pflicht-Props statt optionaler Test-Erleichterungen
 
 Vorschlag aus dem Vereinfachungs-Durchgang vom 2026-09-28 (Commit `602bf31`).
