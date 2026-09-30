@@ -37,3 +37,32 @@
 .entry-route-chips-row > * {
   flex: none;
 }
+
+/* „andere …" und „×": gestrichelter Chip fest am rechten Rand, wischt nicht mit. */
+.entry-route-other {
+  flex: none;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px dashed var(--mantine-color-default-border);
+  border-radius: var(--mantine-radius-xl);
+  font-size: var(--mantine-font-size-sm);
+  color: var(--mantine-color-dimmed);
+}
+
+/* Das Feld für einen anderen Wert steht an Stelle der Chips, in ihrer Höhe. */
+.entry-route-other-field {
+  flex: 1;
+  min-width: 0;
+}
+
+.entry-route-other-field input {
+  height: 28px;
+  min-height: 28px;
+}
+
+/* Der Weg als Textfeld: an Stelle der Auswahl, auch bei 360 px mindestens
+   150 px breit. */
+.entry-channel-other {
+  flex: 1;
+  min-width: 150px;
+}

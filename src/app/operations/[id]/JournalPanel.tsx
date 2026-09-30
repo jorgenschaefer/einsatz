@@ -21,6 +21,7 @@ import {
   DEFAULT_CHANNEL,
   EntryChannelSelect,
   EntryRouteChips,
+  isSubmitShortcut,
 } from "@/journal/EntryRouteFields";
 import {
   type EntryRoute,
@@ -71,6 +72,9 @@ const berlinTime = (iso: string) =>
     timeStyle: "short",
   }).format(new Date(iso));
 
+/** Ob bei Von und An statt der Chips das Feld „andere …" offen ist. */
+const NO_OTHER_OPEN = { sender: false, recipient: false };
+
 const isAutomatic = (entry: JournalEntryView) =>
   entry.type === "einsatz-eröffnet" ||
   entry.type === "einsatz-geschlossen" ||
@@ -91,6 +95,7 @@ export function JournalPanel({
     ...NO_ROUTE,
     channel: DEFAULT_CHANNEL,
   });
+  const [otherOpen, setOtherOpen] = useState(NO_OTHER_OPEN);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [annulTarget, setAnnulTarget] = useState<JournalEntryView | null>(null);
@@ -100,17 +105,19 @@ export function JournalPanel({
   const shown = hideAuto ? entries.filter((e) => !isAutomatic(e)) : entries;
   const scroll = useScrollToEnd(visible, entries.at(-1)?.id);
 
-  const submitNew = async () => {
+  /** `chosen` ist, was ein Feld beim Abschicken noch übernimmt. */
+  const submitNew = async (chosen: Partial<EntryRoute> = {}) => {
     const text = draft.trim();
     if (!text) return;
     try {
-      const { error: err } = await onAdd({ text, ...route });
+      const { error: err } = await onAdd({ text, ...route, ...chosen });
       if (err) {
         setError(err);
         return;
       }
       setDraft("");
       setRoute((current) => ({ ...current, sender: null, recipient: null }));
+      setOtherOpen(NO_OTHER_OPEN);
       setError(null);
       scroll.scrollToEnd();
     } catch {
@@ -292,12 +299,20 @@ export function JournalPanel({
           value={route.sender}
           onChange={(sender) => setRoute({ ...route, sender })}
           options={correspondents}
+          otherOpen={otherOpen.sender}
+          onOtherOpenChange={(sender) => setOtherOpen({ ...otherOpen, sender })}
+          onSubmit={(sender) => submitNew({ sender })}
         />
         <EntryRouteChips
           label="An"
           value={route.recipient}
           onChange={(recipient) => setRoute({ ...route, recipient })}
           options={correspondents}
+          otherOpen={otherOpen.recipient}
+          onOtherOpenChange={(recipient) =>
+            setOtherOpen({ ...otherOpen, recipient })
+          }
+          onSubmit={(recipient) => submitNew({ recipient })}
         />
         <Textarea
           ref={newEntryRef}
@@ -307,13 +322,15 @@ export function JournalPanel({
           onKeyDown={submitOnCtrlEnter(submitNew)}
           placeholder="Ereignis festhalten …"
         />
-        <Group justify="space-between" wrap="nowrap">
+        {/* gap="sm": Neben dem 150 px breiten Freitext-Weg bleibt „Eintrag
+            hinzufügen" bei 360 px ungekürzt. */}
+        <Group justify="space-between" gap="sm" wrap="nowrap">
           <EntryChannelSelect
             value={route.channel}
             onChange={(channel) => setRoute({ ...route, channel })}
             onKeyDown={submitOnCtrlEnter(submitNew)}
           />
-          <Button onClick={submitNew}>Eintrag hinzufügen</Button>
+          <Button onClick={() => submitNew()}>Eintrag hinzufügen</Button>
         </Group>
       </Stack>
 
@@ -406,7 +423,7 @@ function scrollToEnd(listEnd: Element | null, newEntry: Element | null) {
 /** Strg/⌘+Enter schickt das Eingabefeld ab. */
 const submitOnCtrlEnter =
   (submit: () => Promise<void>) => (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+    if (isSubmitShortcut(e)) {
       e.preventDefault();
       void submit();
     }

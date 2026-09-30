@@ -19,12 +19,12 @@ const channelSelect = () => screen.getByRole("combobox", { name: "Weg" });
 const chosenChannel = () => screen.getByRole("status").textContent;
 
 describe("EntryChannelSelect", () => {
-  it("offers Funk, Telefon, Persönlich and ohne", () => {
+  it("offers Funk, Telefon, Persönlich, Andere … and ohne", () => {
     render(<ChannelHarness initial="Funk" />);
 
     expect(
       screen.getAllByRole("option").map((option) => option.textContent),
-    ).toEqual(["Funk", "Telefon", "Persönlich", "ohne"]);
+    ).toEqual(["Funk", "Telefon", "Persönlich", "Andere …", "ohne"]);
   });
 
   it("shows the current Weg", () => {
@@ -65,6 +65,7 @@ function ChipsHarness({
   options: string[];
 }) {
   const [sender, setSender] = useState(initial);
+  const [otherOpen, setOtherOpen] = useState(false);
   return (
     <>
       <EntryRouteChips
@@ -72,6 +73,8 @@ function ChipsHarness({
         value={sender}
         onChange={setSender}
         options={options}
+        otherOpen={otherOpen}
+        onOtherOpenChange={setOtherOpen}
       />
       <output>{JSON.stringify(sender)}</output>
     </>
@@ -144,6 +147,8 @@ describe("EntryRouteChips", () => {
         value="ELW 1"
         onChange={() => {}}
         options={["EAL", "ELW 1"]}
+        otherOpen={false}
+        onOtherOpenChange={() => {}}
       />,
     );
 
@@ -153,10 +158,45 @@ describe("EntryRouteChips", () => {
         value="ELW 1"
         onChange={() => {}}
         options={["EAL", "ELW 2"]}
+        otherOpen={false}
+        onOtherOpenChange={() => {}}
       />,
     );
 
     expect(chipNames()).toEqual(["EAL", "ELW 1", "ELW 2"]);
     expect(chip("ELW 1")).toBeChecked();
+  });
+
+  it("opens a field for another value in place of the chips", async () => {
+    render(<ChipsHarness initial="EAL" options={["EAL", "UHSt 2"]} />);
+
+    await userEvent.click(
+      within(chipRow()).getByRole("button", { name: "andere …" }),
+    );
+    await userEvent.type(
+      within(chipRow()).getByRole("combobox", { name: "Von" }),
+      "Neu",
+    );
+
+    expect(within(chipRow()).queryAllByRole("checkbox")).toEqual([]);
+    expect(chosenSender()).toBe('"Neu"');
+  });
+
+  it("drops the other value and shows the chips again on ×", async () => {
+    render(<ChipsHarness options={["EAL", "UHSt 2"]} />);
+
+    await userEvent.click(
+      within(chipRow()).getByRole("button", { name: "andere …" }),
+    );
+    await userEvent.type(
+      within(chipRow()).getByRole("combobox", { name: "Von" }),
+      "Neu",
+    );
+    await userEvent.click(
+      within(chipRow()).getByRole("button", { name: "Zurück zur Auswahl" }),
+    );
+
+    expect(chipNames()).toEqual(["EAL", "UHSt 2"]);
+    expect(chosenSender()).toBe("null");
   });
 });

@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:    AC-5, AC-13
 advances:  AC-6, AC-8, AC-14, AC-15
 after:     03-von-an-chips
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -119,3 +119,67 @@ Höhe mit Chip-Zeilen.
 - Aus *Out of scope*: Chips entfernen, z. B. durch langes Drücken. Wird gebaut, falls vertippte Werte im Einsatz stören.
 
 ## Left standing
+- Review-Nit nicht umgesetzt: Mit den Pfeiltasten durch die geschlossene
+  Weg-Auswahl zu gehen, macht aus ihr ein Textfeld, sobald *Andere …* erreicht
+  ist. Chromium löst dort bei jedem Pfeil ein `change` aus. *ohne* erreicht man
+  per Tastatur dann nur durch Tippen von „o“ oder über die geöffnete Liste
+  (Alt+↓). Der Fall folgt aus der vereinbarten Gestaltung (natives `<select>`,
+  *Andere …* vor *ohne*). Ihn zu beheben, hieße, diese Gestaltung zu ändern
+  oder Tastendrücke mitzuverfolgen. Beides habe ich nicht getan. In der ersten
+  Review war das ein Should-fix, in der zweiten ein Nit.
+- Abweichung von der Gestaltung: Das „×“ des Freitext-Wegs steht *im* Feld
+  (Mantine `CloseButton` rechts im Feld), nicht daneben, und sieht anders aus
+  als das gestrichelte „×“ bei Von und An. Daneben bliebe dem Feld bei 360 px
+  neben dem ungekürzten „Eintrag hinzufügen“ keine 150 px. Das Feld ist jetzt
+  151 px breit, davon sind etwa 103 px Platz für Text. Das sollte bei der
+  Abnahme bestätigt werden.
+- Abweichung vom Plan, Schritt 1: Die Tests stehen in einer neuen Datei
+  `src/app/operations/[id]/JournalPanel.other.test.tsx`, nicht in
+  `JournalPanel.route.test.tsx`, die schon 300 Zeilen hat. Der Plan-Fall „„ua“
+  schlägt „UHSt 1“ vor“ ist falsch, denn „UHSt 1“ enthält „ua“ nicht. Der Test
+  nimmt „uh“ und erwartet „UHSt 1“ und „UHSt 2“.
+- Abweichung vom Plan, Schritt 1 und AC-5 „getrimmt“: Der Client trimmt nicht.
+  Das tut der Server schon (`trimToNull` in `src/server/journal/journal.ts`),
+  gepinnt in `journal.test.ts` seit Ticket 02. Den Plan-Fall „„ Neu “ →
+  `sender: "Neu"`“ an `onAdd` gibt es deshalb nicht. Dass „so gespeichert,
+  wie getippt“ gilt, zeigt „adds the typed value as An“.
+- Zusätzlich zum Plan (Blocker aus der ersten Review): Drückt man Strg/⌘+Enter,
+  während ein Vorschlag mit den Pfeiltasten markiert ist, wird der markierte
+  Vorschlag gespeichert, nicht das bis dahin Getippte. `EntryRouteChips` meldet
+  Strg/⌘+Enter dafür über `onSubmit(wert)` statt über `onKeyDown`. Außerdem
+  öffnet das Feld seine Vorschläge erst beim Tippen, nicht schon beim Öffnen
+  (Should-fix: die volle Liste verdeckte die Zeile „An“ und den Knopf). Und der
+  Abstand zwischen Weg und „Eintrag hinzufügen“ ist `sm` statt `md`, damit der
+  Knopf neben dem 150-px-Feld ungekürzt bleibt (Should-fix).
+- AC-13, AC-14, die 150 px aus AC-6, „ohne Wischen sichtbar“ und „in derselben
+  Höhe“ aus AC-5 prüft kein automatischer Test, denn jsdom misst kein Layout.
+  Der Reviewer hat es in beiden Runden im Browser gemessen, bei 360 px am Handy
+  und in der Desktop-Seitenleiste mit denselben Werten. Höhe von
+  `.journal-new-entry`: 178,375 px geschlossen, mit beiden „andere …“-Feldern
+  offen und mit Freitext-Weg, gegenüber 102,375 px vor dieser Änderung
+  (+76 px, Grenze +80 px). Das offene Feld ist 28 px hoch, so hoch wie die
+  Chip-Zeile. „andere …“ steht bei voller Chip-Zeile fest bei x 260–344. Der
+  Freitext-Weg ist 151,23 px breit, „Eintrag hinzufügen“ ist nicht gekürzt.
+  `scrollWidth` ist gleich `clientWidth` (360), auch mit offenem Feld, offener
+  Vorschlagsliste und langem Freitext-Weg.
+- Nicht in der zweiten Review geprüft: dass nach „×“ am Freitext-Weg der Fokus
+  wieder auf der Weg-Auswahl steht. Das habe ich nach der zweiten Review aus
+  einem ihrer Nits gebaut. Es ist in „brings back the Weg chosen before on ×“
+  gepinnt, im Browser aber nicht nachgesehen.
+- Zum TDD-Ablauf: Die Tests für die Vorschläge („suggests the correspondents
+  containing …“), Enter übernimmt den Vorschlag, „×“, An frei eingeben und die
+  zwei Tests in `EntryRouteFields.test.tsx` für Öffnen und Schließen liefen
+  gleich grün. Das Autocomplete kam mit dem ersten Test ins Bauteil, und Filter
+  und Enter sind Mantine-Standard. „closes the fields after adding“ lief auch
+  gleich grün; ohne `setOtherOpen(NO_OTHER_OPEN)` schlägt er fehl.
+- Der erste Reviewer hat vermutlich ein Einsatz „Critique-Andere“
+  (`f3472fc7-0206-4aa5-b64b-2418992aa102`) in der Dev-Datenbank liegen lassen.
+  Der Lauf wurde während der zweiten Review abgebrochen. Ich habe es nicht
+  gelöscht.
+- Den offenen Punkt aus Ticket 03 (Von und An mit demselben Wert in
+  verschiedener Schreibweise in einem Eintrag, `listCorrespondents` wählt ohne
+  feste Regel) kann die freie Eingabe jetzt auslösen. Er gehört zu AC-2, nicht
+  zu diesem Ticket, und ist weiter offen.
+- `JournalPanel.tsx` hat jetzt gut 430 Zeilen. Den Eingabebereich in ein
+  eigenes Bauteil zu ziehen, gehört zum Nudge „ein Bauteil für neuen Eintrag
+  und Korrektur“ und damit zu Ticket 05.
