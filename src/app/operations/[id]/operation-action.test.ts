@@ -15,12 +15,14 @@ vi.mock("@/server/events/operation-events", () => ({
   publishOperationChanged: (id: string) => publishOperationChanged(id),
 }));
 
+import { redirect } from "next/navigation";
 import { ValidationError } from "@/server/validation";
 import { operationAction, toFormError } from "./operation-action";
 
 const A_USER = { id: "u1", username: "anna", role: "user" as const };
 
 beforeEach(() => {
+  vi.restoreAllMocks();
   requireUser.mockReset().mockResolvedValue(A_USER);
   revalidatePath.mockReset();
   publishOperationChanged.mockReset();
@@ -53,6 +55,43 @@ describe("operationAction", () => {
         throw new Error("boom");
       }),
     ).rejects.toThrow("boom");
+  });
+
+  describe("with a fallback message", () => {
+    it("logs an unexpected error and returns the fallback without revalidating", async () => {
+      const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
+      const boom = new Error("boom");
+
+      const result = await operationAction(async () => {
+        throw boom;
+      }, "Das ging schief.");
+
+      expect(result).toEqual({ error: "Das ging schief." });
+      expect(errorLog).toHaveBeenCalledWith(expect.anything(), boom);
+      expect(revalidatePath).not.toHaveBeenCalled();
+      expect(publishOperationChanged).not.toHaveBeenCalled();
+    });
+
+    it("still returns a ValidationError's own message and does not log it", async () => {
+      const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      const result = await operationAction(async () => {
+        throw new ValidationError("Der Text darf nicht leer sein.");
+      }, "Das ging schief.");
+
+      expect(result).toEqual({ error: "Der Text darf nicht leer sein." });
+      expect(errorLog).not.toHaveBeenCalled();
+    });
+
+    it("lets a Next navigation error such as redirect through", async () => {
+      vi.spyOn(console, "error").mockImplementation(() => {});
+
+      await expect(
+        operationAction(async () => {
+          redirect("/login");
+        }, "Das ging schief."),
+      ).rejects.toThrow("NEXT_REDIRECT");
+    });
   });
 });
 

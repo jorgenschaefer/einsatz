@@ -1,5 +1,6 @@
 import "server-only";
 import { revalidatePath } from "next/cache";
+import { unstable_rethrow } from "next/navigation";
 import type { ActionResult } from "@/app/action-result";
 import { requireUser } from "@/server/auth/current-user";
 import type { AuthenticatedUser } from "@/server/auth/users";
@@ -22,7 +23,8 @@ export function revalidateOperation(operationId: string): void {
 /**
  * Übersetzt einen Fehler in einen Formularfehler: eine Business-
  * {@link ValidationError} trägt ihre Meldung, alles andere fällt auf `fallback`
- * zurück. Für Actions mit eigenem Catch-all (KML/Bild-Overlay) gedacht.
+ * zurück. Nur noch für das Löschen eines Bild-Overlays, das nicht über
+ * {@link operationAction} läuft.
  */
 export function toFormError(err: unknown, fallback: string): ActionResult {
   if (err instanceof ValidationError) return { error: err.message };
@@ -34,7 +36,9 @@ export function toFormError(err: unknown, fallback: string): ActionResult {
  * Auth-Tests (S2) absichern, analog zum `guarded` der Nutzerverwaltung: erzwingt
  * die Anmeldung, führt die Domänenlogik aus, revalidiert danach den Einsatz und
  * übersetzt eine Business-{@link ValidationError} einheitlich in einen
- * Formularfehler (unerwartete Fehler fliegen weiter). `run` liefert die
+ * Formularfehler. Unerwartete Fehler fliegen weiter, außer mit `fallback`: dann
+ * werden sie protokolliert und als diese Meldung zurückgegeben (Next-
+ * Navigationsfehler wie `redirect` fliegen trotzdem weiter). `run` liefert die
  * `operationId`, die anschließend revalidiert wird.
  *
  * Zugehörigkeit (flaches Trust-Modell): Die Kind-Objekt-Actions (Kartenzeichen,
@@ -47,6 +51,7 @@ export function toFormError(err: unknown, fallback: string): ActionResult {
  */
 export async function operationAction(
   run: (db: Db, user: AuthenticatedUser) => Promise<string>,
+  fallback?: string,
 ): Promise<ActionResult> {
   const user = await requireUser();
   const db = getDb();
@@ -55,7 +60,10 @@ export async function operationAction(
     operationId = await run(db, user);
   } catch (err) {
     if (err instanceof ValidationError) return { error: err.message };
-    throw err;
+    if (fallback === undefined) throw err;
+    unstable_rethrow(err);
+    console.error("Einsatz-Action fehlgeschlagen:", err);
+    return { error: fallback };
   }
   revalidateOperation(operationId);
   return {};

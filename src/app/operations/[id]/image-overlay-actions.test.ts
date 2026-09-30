@@ -29,6 +29,7 @@ vi.mock("next/headers", () => ({
 }));
 
 import {
+  addImageOverlayAction,
   deleteImageOverlayAction,
   replaceImageOverlayFileAction,
 } from "@/app/operations/[id]/image-overlay-actions";
@@ -39,11 +40,14 @@ import * as repo from "@/server/image-overlays/image-overlays";
 import {
   createImageOverlay,
   getImageOverlay,
+  listImageOverlays,
 } from "@/server/image-overlays/image-overlays";
 import * as storage from "@/server/image-overlays/image-storage";
 import { storeOverlayImage } from "@/server/image-overlays/image-storage";
 import { insertOperation } from "@/server/operations/operations";
 import { freshDb } from "@/test/db";
+
+const EMBED_FAILED = "Das Bild konnte nicht eingebunden werden.";
 
 const A_PLACEMENT = {
   centerLat: 53.55,
@@ -192,10 +196,79 @@ describe("replaceImageOverlayFileAction", () => {
     // Nur die alte Datei bleibt übrig – die neu geschriebene wurde aufgeräumt.
     const files = await readdir(join(dir, op.id));
     expect(files).toEqual([oldPath.split(/[/\\]/)[1]]);
-    expect(errorLog).toHaveBeenCalledWith(
-      "Bild-Overlay-Verarbeitung fehlgeschlagen:",
-      dbDown,
+    expect(result).toEqual({ error: EMBED_FAILED });
+    expect(errorLog).toHaveBeenCalledWith(expect.anything(), dbDown);
+  });
+
+  it("asks for a file and changes nothing when none was sent", async () => {
+    await login();
+    const op = await insertOperation(state.db as Db, {
+      name: "Lage",
+      description: null,
+    });
+    const { overlay, oldPath } = await anOverlayWithStoredFile(op.id);
+
+    const result = await replaceImageOverlayFileAction(
+      op.id,
+      overlay.id,
+      "keine-datei" as unknown as File,
     );
+
+    expect(result).toEqual({ error: "Keine Datei ausgewählt." });
+    const unchanged = await getImageOverlay(state.db as Db, overlay.id);
+    expect(unchanged).toMatchObject({ filePath: oldPath, name: "Alt" });
+  });
+});
+
+describe("addImageOverlayAction", () => {
+  it("embeds the image as a new overlay of the Einsatz", async () => {
+    await login();
+    const op = await insertOperation(state.db as Db, {
+      name: "Lage",
+      description: null,
+    });
+
+    const result = await addImageOverlayAction(op.id, await pngFile(600, 300));
+
+    expect(result).toEqual({});
+    expect(await listImageOverlays(state.db as Db, op.id)).toMatchObject([
+      { name: "neu.png", widthPx: 600, heightPx: 300 },
+    ]);
+    expect(state.publishOperationChanged).toHaveBeenCalledWith(op.id);
+  });
+
+  it("shows the embed failure message, logs the error and leaves no file behind when the database insert fails", async () => {
+    await login();
+    const op = await insertOperation(state.db as Db, {
+      name: "Lage",
+      description: null,
+    });
+    const dbDown = new Error("db down");
+    vi.spyOn(repo, "createImageOverlay").mockRejectedValueOnce(dbDown);
+    const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const result = await addImageOverlayAction(op.id, await pngFile(600, 300));
+
+    expect(result).toEqual({ error: EMBED_FAILED });
+    expect(errorLog).toHaveBeenCalledWith(expect.anything(), dbDown);
+    expect(await readdir(join(dir, op.id))).toEqual([]);
+    expect(state.revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it("asks for a file and creates nothing when none was sent", async () => {
+    await login();
+    const op = await insertOperation(state.db as Db, {
+      name: "Lage",
+      description: null,
+    });
+
+    const result = await addImageOverlayAction(
+      op.id,
+      "keine-datei" as unknown as File,
+    );
+
+    expect(result).toEqual({ error: "Keine Datei ausgewählt." });
+    expect(await listImageOverlays(state.db as Db, op.id)).toEqual([]);
   });
 });
 

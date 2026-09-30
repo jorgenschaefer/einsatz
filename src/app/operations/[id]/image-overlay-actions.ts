@@ -32,31 +32,18 @@ import {
   toFormError,
 } from "./operation-action";
 
-// Bild-Overlay-Actions haben ein eigenes Catch-all (PDF→PNG-Renderer,
-// Datei-IO) plus Datei-Aufräumen, passen daher nicht in den `operationAction`-
-// Helfer; sie nutzen aber dessen `revalidateOperation`/`toFormError`.
-// Zur Objekt-Zugehörigkeit (flaches Trust-Modell) siehe `operationAction`.
-function toError(err: unknown, fallback: string): ActionResult {
-  // Unerwartete Fehler (z. B. aus dem PDF→PNG-Renderer oder dem Datei-IO)
-  // serverseitig sichtbar machen – der Nutzer bekommt nur `fallback`.
-  if (!(err instanceof ValidationError)) {
-    console.error("Bild-Overlay-Verarbeitung fehlgeschlagen:", err);
-  }
-  return toFormError(err, fallback);
-}
-
 const EMBED_FAILED = "Das Bild konnte nicht eingebunden werden.";
 const DELETE_FAILED = "Das Bild-Overlay konnte nicht gelöscht werden.";
 
+// Zur Objekt-Zugehörigkeit (flaches Trust-Modell) siehe `operationAction`.
 export async function addImageOverlayAction(
   operationId: string,
   file: File,
 ): Promise<ActionResult> {
-  await requireUser();
-  if (!(file instanceof File)) return { error: "Keine Datei ausgewählt." };
-  try {
+  return operationAction(async (db) => {
+    if (!(file instanceof File))
+      throw new ValidationError("Keine Datei ausgewählt.");
     const { webp, width, height } = await prepareUpload(file);
-    const db = getDb();
     const operation = await getOperation(db, operationId);
     if (!operation) {
       // Vor dem Schreiben ins Volume abbrechen – keine verwaiste Datei/Zeile.
@@ -76,11 +63,8 @@ export async function addImageOverlayAction(
       await deleteOverlayFiles([filePath]); // keine verwaisten Dateien im Volume
       throw err;
     }
-    revalidateOperation(operationId);
-    return {};
-  } catch (err) {
-    return toError(err, EMBED_FAILED);
-  }
+    return operationId;
+  }, EMBED_FAILED);
 }
 
 export async function replaceImageOverlayFileAction(
@@ -88,11 +72,10 @@ export async function replaceImageOverlayFileAction(
   id: string,
   file: File,
 ): Promise<ActionResult> {
-  await requireUser();
-  if (!(file instanceof File)) return { error: "Keine Datei ausgewählt." };
-  try {
+  return operationAction(async (db) => {
+    if (!(file instanceof File))
+      throw new ValidationError("Keine Datei ausgewählt.");
     const { webp, width, height } = await prepareUpload(file);
-    const db = getDb();
     const existing = await getImageOverlay(db, id);
     if (!existing)
       throw new ValidationError("Das Overlay existiert nicht mehr.");
@@ -109,11 +92,8 @@ export async function replaceImageOverlayFileAction(
       throw err;
     }
     await deleteOverlayFiles([existing.filePath]); // alte Version entfernen
-    revalidateOperation(operationId);
-    return {};
-  } catch (err) {
-    return toError(err, EMBED_FAILED);
-  }
+    return operationId;
+  }, EMBED_FAILED);
 }
 
 export async function updateImageOverlayPlacementAction(
@@ -168,6 +148,15 @@ export async function deleteImageOverlayAction(
   } catch (err) {
     return toError(err, DELETE_FAILED);
   }
+}
+
+function toError(err: unknown, fallback: string): ActionResult {
+  // Unerwartete Fehler (z. B. aus dem Datei-IO) serverseitig sichtbar machen –
+  // der Nutzer bekommt nur `fallback`.
+  if (!(err instanceof ValidationError)) {
+    console.error("Bild-Overlay-Verarbeitung fehlgeschlagen:", err);
+  }
+  return toFormError(err, fallback);
 }
 
 /** Prüft eine hochgeladene PDF-/PNG-Datei und bereitet sie als WebP auf. */

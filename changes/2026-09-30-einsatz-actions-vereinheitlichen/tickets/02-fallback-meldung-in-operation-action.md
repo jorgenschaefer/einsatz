@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:    AC-4, AC-5, AC-6
 advances:
 after:
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -122,3 +122,25 @@ Entschieden: Das Log-Präfix ist für alle Actions mit Fallback
 - Die Aktionen in `lifecycle-actions.ts` (Out of scope der Änderung).
 
 ## Left standing
+- **Review-Nit nicht behoben: die Regel „`ValidationError` → eigene Meldung,
+  sonst protokollieren und Fallback“ steht an zwei Stellen.** `toError` in
+  `image-overlay-actions.ts` (nur noch für das Löschen) wiederholt den
+  Fallback-Zweig von `operationAction`, mit anderem Log-Präfix und ohne
+  `unstable_rethrow`, und `toFormError` hat nur noch diesen einen Aufrufer.
+  Der Plan behält beide bewusst für das Löschen (AC-6, Log-Präfix
+  „entschieden“); zusammenlegen wäre eine eigene Entscheidung.
+- **Die beiden Fallback-Texte sind nur durch Tests belegt, nicht im laufenden
+  App.** Der Review hat KML-Datei, KML-URL, Neu laden und Bild einbinden bei
+  390×844 und 1280×800 durchgespielt (Erfolg und `ValidationError`-Meldungen
+  unverändert), konnte aber aus dem Browser keinen wirklich unerwarteten
+  Serverfehler auslösen und das Server-Log des Dev-Servers nicht sehen.
+- **Abweichung vom Plan, Schritt 1:** Test (c) („redirect fliegt trotz Fallback
+  weiter“) war vor Schritt 2 nicht rot, weil `operationAction` ohne Fallback
+  ohnehin alles weiterwirft. Rot wurde er, als ich den Fallback zunächst ohne
+  `unstable_rethrow` gebaut hatte (das Ergebnis war dann
+  `{ error: <Fallback> }`); danach grün.
+- **Nebenbei gesehen, nicht Teil dieses Tickets** (Befund des Reviews im
+  laufenden App): Punkt-Marker aus KML zeigen ein kaputtes Bild
+  (`/operations/marker-icon.png` und `marker-shadow.png` liefern 500, der
+  Leaflet-Iconpfad ist relativ); eine KML-URL auf eine gewöhnliche Webseite
+  (`https://example.org/`) wird ohne Meldung als KML-Overlay angenommen.
