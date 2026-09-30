@@ -11,6 +11,7 @@ import {
   buildProps,
   openPanel,
   renderWorkspace,
+  SYMBOL,
   selectMainView,
 } from "./SituationWorkspace.fixtures";
 
@@ -299,6 +300,40 @@ describe("SituationWorkspace", () => {
         text: "RK 1",
       }),
     );
+  });
+
+  it("deletes a Kartenzeichen from its detail once confirmed", async () => {
+    const onDelete = vi.fn(async () => ({}));
+    const { adapter } = renderWorkspace({ symbols: [SYMBOL], onDelete });
+    await waitFor(() => expect(adapter.setMarker).toHaveBeenCalled());
+    const spec = adapter.setMarker.mock.calls.at(-1)![1] as MarkerSpec;
+    act(() => spec.onClick!());
+
+    await userEvent.click(await screen.findByText("Löschen"));
+    const dialog = await screen.findByRole("dialog", {
+      name: "Kartenzeichen löschen",
+    });
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Endgültig löschen" }),
+    );
+
+    expect(onDelete).toHaveBeenCalledWith("s1");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
+  it("generates a device link from the Kartenzeichen detail", async () => {
+    const onGenerateDeviceLink = vi.fn(async () => ({}));
+    const { adapter } = renderWorkspace({
+      symbols: [SYMBOL],
+      onGenerateDeviceLink,
+    });
+    await waitFor(() => expect(adapter.setMarker).toHaveBeenCalled());
+    const spec = adapter.setMarker.mock.calls.at(-1)![1] as MarkerSpec;
+    act(() => spec.onClick!());
+
+    await userEvent.click(await screen.findByText(/Gerätelink erzeugen/));
+
+    expect(onGenerateDeviceLink).toHaveBeenCalledWith("s1");
   });
 
   it("does not show an earlier Kartenzeichen's save error after it vanished", async () => {
