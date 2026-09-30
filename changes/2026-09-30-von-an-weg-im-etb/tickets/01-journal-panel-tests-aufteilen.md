@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:
 advances:
 after:
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -64,3 +64,21 @@ Keine neuen Tests und keine Änderung an `JournalPanel.tsx`. Von, An und Weg
 beginnen in `02-weg-und-kopfzeile`.
 
 ## Left standing
+- Review-Nit nicht umgesetzt: Die verschobenen Tests stehen unter
+  `describe("JournalPanel – Annullieren", …)` bzw.
+  `describe("JournalPanel – Korrigieren", …)`, so wie der Plan es vorgibt. Damit
+  ändern sich die vollständigen Testnamen (äußerer `describe`) der 20
+  verschobenen Tests, anders als beim Vorbild `8d8ebf7`, das überall
+  `describe("SituationWorkspace", …)` beibehielt. Die Testtitel selbst und die
+  Testkörper sind unverändert.
+- Grenzfälle, die nach der Regel „nicht klar zuzuordnen“ in
+  `JournalPanel.test.tsx` geblieben sind: „offers only „Annullieren …“ for a
+  gesamtstärke-gemeldet entry …“, „offers no actions for an annulled
+  gesamtstärke-gemeldet entry“, „shows no correct/annul buttons on an entry
+  until its menu is opened“, „renders an annulled entry struck through …“ und
+  „offers no correct/annul actions on an annulled entry“.
+- Dass kein Test fehlt oder sich geändert hat, beweist kein automatischer Test.
+  Geprüft habe ich es so: Die Titel der 45 Tests sind vorher und nachher gleich.
+  Die sortierten, nicht leeren Zeilen der alten Datei ab dem `describe` stimmen
+  mit denen der drei neuen Dateien überein, bis auf Imports und
+  `describe`-Kopfzeilen.
