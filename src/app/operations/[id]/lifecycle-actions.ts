@@ -2,7 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import type { ActionResult } from "@/app/action-result";
 import { requireUser } from "@/server/auth/current-user";
 import { getDb } from "@/server/db/pg";
 import { publishOperationChanged } from "@/server/events/operation-events";
@@ -34,12 +33,11 @@ export async function reopenOperationAction(
   revalidateStatusChange(operationId);
 }
 
-// Liefert nie ein `ActionResult`: Erfolg leitet um, ein Fehler fliegt als
-// Ausnahme weiter und erscheint in der Rückfrage als allgemeine Meldung. Der
-// Typ passt nur zu `ConfirmationModal.onConfirm`.
+// Erfolg leitet um, ein Fehler fliegt als Ausnahme weiter und erscheint in
+// der Rückfrage als allgemeine Meldung.
 export async function deleteOperationAction(
   operationId: string,
-): Promise<ActionResult> {
+): Promise<never> {
   await requireUser();
   // Eine Domänenfunktion kapselt DB-Löschung + Datei-Aufräumen (keine
   // Orchestrierung mehr in der Action).
