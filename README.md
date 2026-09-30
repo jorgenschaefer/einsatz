@@ -77,3 +77,12 @@ runs the migrations, makes sure the first admin exists and then starts the
 server on port 3000. [docker-compose.prod.yml](docker-compose.prod.yml) shows a
 setup with an external database and a volume for uploads; set `UPLOADS_DIR` to
 the mounted path.
+
+## License
+
+Copyright (C) 2026 Jorgen Schaefer
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU Affero General Public License as published by the Free
+Software Foundation, either version 3 of the License, or (at your option) any
+later version. See [LICENSE](LICENSE) for the full text.
