@@ -48,8 +48,10 @@ export function UserAdminPanel({
   const [admin, setAdmin] = useState(false);
   const [resettingId, setResettingId] = useState<string | null>(null);
   const [resetValue, setResetValue] = useState("");
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-  const deletingAccount = accounts.find((a) => a.id === deletingId) ?? null;
+  // Bleibt nach dem Schließen gesetzt, damit der Name beim Ausblenden
+  // stehen bleibt.
+  const [deleteTarget, setDeleteTarget] = useState<AccountSummary | null>(null);
+  const [deleteAsked, setDeleteAsked] = useState(false);
   const [pending, setPending] = useState(false);
 
   const run = async (action: Promise<ActionResult>): Promise<ActionResult> => {
@@ -165,7 +167,8 @@ export function UserAdminPanel({
                   disabled={pending}
                   onClick={() => {
                     setError(null);
-                    setDeletingId(account.id);
+                    setDeleteTarget(account);
+                    setDeleteAsked(true);
                   }}
                 >
                   Löschen
@@ -193,17 +196,15 @@ export function UserAdminPanel({
       </Stack>
 
       <ConfirmationModal
-        opened={deletingAccount !== null}
-        onClose={() => setDeletingId(null)}
+        opened={deleteAsked}
+        onClose={() => setDeleteAsked(false)}
         title="Konto löschen"
         confirmLabel="Endgültig löschen"
         confirmColor="red"
-        onConfirm={async () =>
-          deletingAccount ? onDelete(deletingAccount.id) : {}
-        }
+        onConfirm={async () => (deleteTarget ? onDelete(deleteTarget.id) : {})}
       >
         <Text style={{ overflowWrap: "anywhere" }}>
-          Das Konto <strong>{deletingAccount?.username}</strong> wird
+          Das Konto <strong>{deleteTarget?.username}</strong> wird
           unwiderruflich gelöscht.
         </Text>
       </ConfirmationModal>

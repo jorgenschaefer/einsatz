@@ -1,3 +1,5 @@
+import { MantineProvider } from "@mantine/core";
+import { render as rtlRender } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { ActionResult } from "@/app/operations/[id]/action-result";
@@ -120,6 +122,30 @@ describe("UserAdminPanel", () => {
       await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
       expect(onDelete).not.toHaveBeenCalled();
       expect(rowOf("anna")).toBeInTheDocument();
+    });
+
+    it("keeps the account name while the cancelled confirmation fades out", async () => {
+      // Without env="test", so the modal keeps its exit transition.
+      rtlRender(
+        <MantineProvider>
+          <UserAdminPanel
+            accounts={accounts}
+            onCreate={vi.fn()}
+            onSetRole={vi.fn()}
+            onResetPassword={vi.fn()}
+            onDelete={vi.fn()}
+          />
+        </MantineProvider>,
+      );
+      const dialog = await askToDelete("anna");
+
+      await userEvent.click(
+        within(dialog).getByRole("button", { name: "Abbrechen" }),
+      );
+
+      expect(dialog).toHaveTextContent(
+        "Das Konto anna wird unwiderruflich gelöscht.",
+      );
     });
 
     it("dismisses an earlier error above the account list when asking", async () => {
