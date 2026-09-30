@@ -1,0 +1,126 @@
+<title>Rückfrage und lange Namen</title>
+<style>
+/* Layout: zwei Abschnitte untereinander, je Zustand ein Handy-Rahmen (358 px Inhalt = 390 px minus Rand), nebeneinander umbrechend. */
+:root {
+  --bg: #f1f3f5;
+  --surface: #ffffff;
+  --fg: #212529;
+  --dimmed: #868e96;
+  --border: #dee2e6;
+  --red: #e03131;
+  --red-light: #fff5f5;
+  --red-light-fg: #c92a2a;
+  --blue: #1c7ed6;
+  --blue-light: #e7f5ff;
+  --switch-on: #c8102e;
+  --overlay: rgba(0, 0, 0, 0.35);
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #1a1b1e; --surface: #242424; --fg: #c9c9c9; --dimmed: #828282;
+    --border: #424242; --red: #e03131; --red-light: rgba(250, 82, 82, 0.15);
+    --red-light-fg: #ff8787; --blue: #4dabf7; --blue-light: rgba(34, 139, 230, 0.15);
+    --switch-on: #e03e52; --overlay: rgba(0, 0, 0, 0.6);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #1a1b1e; --surface: #242424; --fg: #c9c9c9; --dimmed: #828282;
+  --border: #424242; --red: #e03131; --red-light: rgba(250, 82, 82, 0.15);
+  --red-light-fg: #ff8787; --blue: #4dabf7; --blue-light: rgba(34, 139, 230, 0.15);
+  --switch-on: #e03e52; --overlay: rgba(0, 0, 0, 0.6);
+  color-scheme: dark;
+}
+body { background: var(--bg); color: var(--fg); font-family: var(--font); font-size: 14px; line-height: 1.55; }
+.page { max-width: 1240px; margin: 0 auto; padding-inline: 16px; padding-block: 24px 48px; display: grid; gap: 40px; }
+h1 { font-size: 24px; margin: 0; text-wrap: balance; }
+h2 { font-size: 18px; margin: 0; text-wrap: balance; }
+p { margin: 0; max-width: 68ch; }
+.intro, section { display: grid; gap: 12px; }
+.variants { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
+.variant { display: grid; gap: 8px; width: 358px; max-width: 100%; }
+.variant .tag { font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--dimmed); font-weight: 600; }
+.variant .cost { font-size: 13px; color: var(--dimmed); }
+.phone { width: 358px; max-width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.phone-inner { padding: 12px; display: grid; gap: 8px; }
+.label-sm { font-weight: 600; font-size: 14px; }
+
+.paper { border: 1px solid var(--border); border-radius: 4px; padding: 10px; background: var(--surface); }
+.row { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; flex-wrap: nowrap; }
+.btns { display: flex; gap: 8px; flex-wrap: nowrap; flex-shrink: 0; }
+.btn { font: inherit; font-size: 12px; font-weight: 600; height: 30px; padding: 0 14px; border-radius: 4px; border: 0; white-space: nowrap; }
+.btn.light-red { background: var(--red-light); color: var(--red-light-fg); }
+.btn.light-blue { background: var(--blue-light); color: var(--blue); }
+.btn.default { background: var(--surface); color: var(--fg); border: 1px solid var(--border); font-size: 14px; height: 44px; padding: 0 20px; }
+.btn.filled-red { background: var(--red); color: #fff; font-size: 14px; height: 44px; padding: 0 20px; }
+.switch { display: flex; align-items: flex-start; gap: 10px; min-width: 0; }
+.switch .track { flex: none; width: 36px; height: 20px; border-radius: 10px; background: var(--switch-on); position: relative; margin-top: 1px; }
+.switch .track::after { content: ""; position: absolute; right: 3px; top: 3px; width: 14px; height: 14px; border-radius: 50%; background: #fff; }
+.switch .text { white-space: normal; overflow-wrap: anywhere; }
+.fileinput { font-size: 13px; color: var(--dimmed); white-space: nowrap; }
+.fileinput b { font-weight: 400; border: 1px solid var(--border); border-radius: 3px; padding: 1px 6px; color: var(--fg); background: var(--bg); margin-right: 6px; }
+
+.modal-stage { background: var(--overlay); padding: 32px 12px; }
+.modal { background: var(--surface); border-radius: 8px; padding: 16px; display: grid; gap: 16px; box-shadow: 0 4px 16px rgba(0,0,0,.2); }
+.modal-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.modal-title { font-size: 16px; font-weight: 600; line-height: 1.35; min-width: 0; overflow-wrap: anywhere; }
+.modal-x { flex: none; color: var(--dimmed); font-size: 18px; line-height: 1.35; }
+.modal-foot { display: flex; justify-content: flex-end; gap: 8px; }
+</style>
+
+<div class="page">
+  <div class="intro">
+    <h1>Rückfrage und lange Namen</h1>
+    <p>Vereinbarter Stand für <code>2026-09-30-ziel-erkennbar-und-erreichbar</code>. Jeder Rahmen ist so breit wie der Inhalt am Handy (390 px abzüglich Rand).</p>
+  </div>
+
+  <section>
+    <h2>Rückfrage „Einsatz löschen“</h2>
+    <div class="variants">
+      <div class="variant">
+        <span class="tag">Kurzer Name</span>
+        <div class="phone"><div class="modal-stage"><div class="modal">
+          <div class="modal-head"><span class="modal-title">Einsatz „Cyclassics 2026“ löschen</span><span class="modal-x">×</span></div>
+          <p>Dieser Einsatz wird mit seinem gesamten <strong>Einsatztagebuch</strong> und allen Kartenobjekten unwiderruflich gelöscht.</p>
+          <div class="modal-foot"><button class="btn default">Abbrechen</button><button class="btn filled-red">Endgültig löschen</button></div>
+        </div></div></div>
+      </div>
+      <div class="variant">
+        <span class="tag">80 Zeichen ohne Leerzeichen</span>
+        <div class="phone"><div class="modal-stage"><div class="modal">
+          <div class="modal-head"><span class="modal-title">Einsatz „SanitätsdienstCyclassicsHamburg2026AbschnittNordAlsterRundeZielbereichMönckeberg“ löschen</span><span class="modal-x">×</span></div>
+          <p>Dieser Einsatz wird mit seinem gesamten <strong>Einsatztagebuch</strong> und allen Kartenobjekten unwiderruflich gelöscht.</p>
+          <div class="modal-foot"><button class="btn default">Abbrechen</button><button class="btn filled-red">Endgültig löschen</button></div>
+        </div></div></div>
+        <span class="cost">Titel halbfett mit Zeilenabstand, in allen Dialogen. Knöpfe 44 px hoch, nur in Rückfragen.</span>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Zeilen im Ebenen-Panel</h2>
+    <div class="variants">
+      <div class="variant">
+        <span class="tag">Lange und kurze Namen</span>
+        <div class="phone"><div class="phone-inner">
+          <span class="label-sm">KML-Datei</span>
+          <span class="fileinput"><b>Durchsuchen…</b>Keine Datei ausgewählt.</span>
+          <div class="paper"><div class="row">
+            <label class="switch"><span class="track"></span><span class="text">EinsatzabschnittEinsatzabschnittEinsatzabschnittEinsatzabschnittEinsatzab.kml</span></label>
+            <div class="btns"><button class="btn light-red">Entfernen</button></div>
+          </div></div>
+          <div class="paper"><div class="row">
+            <label class="switch"><span class="track"></span><span class="text">Absperrplan_Cyclassics_2026_final_v3_freigegeben_Ordnungsamt_Stand0915.pdf</span></label>
+            <div class="btns"><button class="btn light-blue">Bearbeiten</button></div>
+          </div></div>
+          <div class="paper"><div class="row">
+            <label class="switch"><span class="track"></span><span class="text">Streckenplan.kml</span></label>
+            <div class="btns"><button class="btn light-red">Entfernen</button></div>
+          </div></div>
+        </div></div>
+        <span class="cost">Der Name bricht um, Schalter und Knöpfe stehen oben in der Zeile.</span>
+      </div>
+    </div>
+  </section>
+</div>
