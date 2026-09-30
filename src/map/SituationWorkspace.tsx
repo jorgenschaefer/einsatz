@@ -27,7 +27,7 @@ import type { OperationStatus } from "@/server/operations/operations";
 import { type StationView, StrengthPanel } from "@/strength/StrengthPanel";
 import type { StrengthValues } from "@/strength/strength";
 import { AdvancedSymbolForm } from "./AdvancedSymbolForm";
-import { AreaEditor } from "./AreaEditor";
+import { AreaEditorModal } from "./AreaEditorModal";
 import { AreasPanel } from "./AreasPanel";
 import type { MapAdapterFactory } from "./adapter";
 import type { AreaGeometry, AreaShape, AreaStyle } from "./area";
@@ -269,8 +269,6 @@ export function SituationWorkspace({
   const { focusTarget, jumpTo, returnToDefaultView } =
     useMapFocus(operationDefaultView);
   const [selectedAreaId, setSelectedAreaId] = useState<string | null>(null);
-  const [areaError, setAreaError] = useState<string | null>(null);
-  const [areaBusy, setAreaBusy] = useState(false);
   const [circleMoveSaving, setCircleMoveSaving] = useState(false);
   const selected = symbols.find((s) => s.id === selectedId) ?? null;
   const selectedArea = areas.find((a) => a.id === selectedAreaId) ?? null;
@@ -389,60 +387,14 @@ export function SituationWorkspace({
       setSelectedAreaId(created.id);
     }
   };
-  const closeArea = () => {
+  const startRedraw = (area: RenderedArea) => {
+    redraw(area.geometry.shape, area.id);
     setSelectedAreaId(null);
-    setAreaError(null);
-  };
-  const deleteArea = async (id: string) => {
-    const result = await onDeleteArea(id);
-    if (!result.error) closeArea();
-    return result;
-  };
-  const runArea = async (op: () => Promise<ActionResult>) => {
-    setAreaBusy(true);
-    try {
-      const { error } = await op();
-      if (error) {
-        setAreaError(error);
-        return;
-      }
-      closeArea();
-    } catch {
-      setAreaError("Speichern fehlgeschlagen. Bitte erneut versuchen.");
-    } finally {
-      setAreaBusy(false);
-    }
-  };
-  // The centre comes from the latest `areas`, so that a move made elsewhere
-  // while the editor was open is not undone.
-  const saveArea = async (
-    area: RenderedArea,
-    style: AreaStyle,
-    radius: number | undefined,
-  ): Promise<ActionResult> => {
-    if (radius !== undefined && area.geometry.shape === "circle") {
-      const { error } = await onUpdateAreaGeometry(area.id, {
-        shape: "circle",
-        center: area.geometry.center,
-        radius,
-      });
-      if (error) return { error };
-    }
-    return onUpdateAreaStyle(area.id, style);
-  };
-  const startRedraw = () => {
-    if (!selectedArea) return;
-    redraw(selectedArea.geometry.shape, selectedArea.id);
-    setSelectedAreaId(null);
-    setAreaError(null);
     closeSheetOnPhone();
   };
-
-  const startMoveCircle = () => {
-    if (!selectedArea) return;
-    armMoveCircle(selectedArea.id);
+  const startMoveCircle = (area: RenderedArea) => {
+    armMoveCircle(area.id);
     setSelectedAreaId(null);
-    setAreaError(null);
     closeSheetOnPhone();
   };
   // The new centre is the map centre under the crosshair; the radius comes from
@@ -788,42 +740,15 @@ export function SituationWorkspace({
 
         <Box className="sidebar-bar">{mainViewBar}</Box>
 
-        <Modal.Stack>
-          <Modal
-            stackId="bereich"
-            opened={selectedArea !== null}
-            onClose={closeArea}
-            title="Bereich"
-          >
-            {selectedArea && (
-              <AreaEditor
-                key={selectedArea.id}
-                initial={{
-                  color: selectedArea.color,
-                  opacity: selectedArea.opacity,
-                  label: selectedArea.label,
-                }}
-                radius={
-                  selectedArea.geometry.shape === "circle"
-                    ? selectedArea.geometry.radius
-                    : undefined
-                }
-                busy={areaBusy}
-                error={areaError}
-                onSave={(style, radius) =>
-                  runArea(() => saveArea(selectedArea, style, radius))
-                }
-                onRedraw={startRedraw}
-                onMove={
-                  selectedArea.geometry.shape === "circle"
-                    ? startMoveCircle
-                    : undefined
-                }
-                onDelete={() => deleteArea(selectedArea.id)}
-              />
-            )}
-          </Modal>
-        </Modal.Stack>
+        <AreaEditorModal
+          area={selectedArea}
+          onClose={() => setSelectedAreaId(null)}
+          onUpdateAreaStyle={onUpdateAreaStyle}
+          onUpdateAreaGeometry={onUpdateAreaGeometry}
+          onDeleteArea={onDeleteArea}
+          onRedraw={startRedraw}
+          onMoveCircle={startMoveCircle}
+        />
 
         <Modal
           opened={advancedOpened}
