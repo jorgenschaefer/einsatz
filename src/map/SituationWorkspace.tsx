@@ -2,7 +2,6 @@
 
 import "./situation-workspace.css";
 import {
-  ActionIcon,
   Alert,
   Badge,
   Box,
@@ -13,12 +12,11 @@ import {
   Modal,
   Stack,
   Text,
-  UnstyledButton,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { IconPencil } from "@tabler/icons-react";
+
 import { useRouter } from "next/navigation";
-import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ActionResult } from "@/app/action-result";
 import { ConfirmationModal } from "@/app/ConfirmationModal";
 import {
@@ -50,6 +48,7 @@ import { KmlPanel } from "./KmlPanel";
 import { type MainView, MainViewBar } from "./MainViewBar";
 import { MAP_PANEL_LABEL, MapControls, type MapPanel } from "./MapControls";
 import { ModeBand } from "./ModeBand";
+import { PanelRow } from "./PanelRow";
 import { toPlacedSymbols } from "./placed-symbols";
 import { QuickSelectToolbar } from "./QuickSelectToolbar";
 import { QUICK_SELECT } from "./quick-select";
@@ -1064,52 +1063,4 @@ export function SituationWorkspace({
  */
 function isMapShown(isDesktop: boolean | null, mainView: MainView) {
   return isDesktop !== false || mainView === "map";
-}
-
-/**
- * Eine Zeile im Kartenzeichen- bzw. Bereichs-Panel: ein Tap auf die Zeile
- * springt auf der Karte hin, der Stift öffnet die Bearbeitung.
- */
-function PanelRow({
-  icon,
-  name,
-  meta,
-  onJump,
-  onEdit,
-}: {
-  icon: ReactNode;
-  name: string;
-  meta: ReactNode;
-  onJump: () => void;
-  onEdit: () => void;
-}) {
-  return (
-    <Group gap="xs" wrap="nowrap" className="panel-row">
-      <UnstyledButton
-        p={6}
-        onClick={onJump}
-        style={{
-          flex: 1,
-          minWidth: 0,
-          borderRadius: "var(--mantine-radius-sm)",
-        }}
-      >
-        <Group gap="xs" wrap="nowrap">
-          {icon}
-          <Text size="sm" style={{ flex: 1, minWidth: 0 }} truncate>
-            {name}
-          </Text>
-          {meta}
-        </Group>
-      </UnstyledButton>
-      <ActionIcon
-        variant="subtle"
-        color="gray"
-        aria-label={`${name} bearbeiten`}
-        onClick={onEdit}
-      >
-        <IconPencil size={18} />
-      </ActionIcon>
-    </Group>
-  );
 }
