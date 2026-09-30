@@ -1,6 +1,7 @@
 import userEvent from "@testing-library/user-event";
 import { renderToString } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { NO_ROUTE } from "@/journal/entry-route";
 import { stubMatchMedia } from "@/test/match-media";
 import {
   act,
@@ -526,6 +527,7 @@ describe("SituationWorkspace", () => {
           state: "gueltig",
           author: null,
           editedAt: null,
+          ...NO_ROUTE,
           revisions: [],
         },
       ],
@@ -535,7 +537,9 @@ describe("SituationWorkspace", () => {
       target: { value: "Deich gesichert" },
     });
     await userEvent.click(screen.getByText("Eintrag hinzufügen"));
-    expect(onAddJournalEntry).toHaveBeenCalledWith("Deich gesichert");
+    expect(onAddJournalEntry).toHaveBeenCalledWith(
+      expect.objectContaining({ text: "Deich gesichert" }),
+    );
   });
 
   it("shows a connection-lost symbol on both header sizes when the live stream is disconnected, without a banner above the work area", () => {

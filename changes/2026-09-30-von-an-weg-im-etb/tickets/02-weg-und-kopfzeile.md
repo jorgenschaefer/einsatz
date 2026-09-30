@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:    AC-9
 advances:  AC-6, AC-8, AC-13, AC-14, AC-15
 after:     01-journal-panel-tests-aufteilen
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -155,3 +155,48 @@ Weg = `channel`; die drei zusammen = `EntryRoute`; die Kopfzeile bildet
 - Aus *Out of scope*: Filtern oder Auswerten des ETB nach Von, An oder Weg.
 
 ## Left standing
+- Review-Nit nicht umgesetzt: `journal-actions.test.ts` kopiert den Aufbau
+  (`vi.mock`-Block, `loginAs`, `liveEventsFor`) aus `strength-actions.test.ts`,
+  wie Schritt 5 es vorgibt („nach dem Muster von“). Diese Hilfen in eine
+  gemeinsame Datei zu ziehen, würde `strength-actions.test.ts` ändern. Das
+  gehört nicht zu diesem Ticket.
+- AC-13 prüft kein automatischer Test, sondern der Reviewer im Browser. Er hat
+  die Höhe von `.journal-new-entry` gemessen, die Baseline in einem eigenen
+  Worktree auf Commit `6392481`:
+  - Desktop-Seitenleiste (360 px breit, bei 1920×1080 und 768×1024): vorher
+    102,375 px, nachher 102,375 px.
+  - Handy mit 360 px Breite: vorher 102,375 px, nachher 102,375 px.
+
+  Die Höhe bleibt gleich, weil die Weg-Auswahl in der Zeile steht, die der
+  Knopf schon vorher allein belegt hat.
+- AC-14 prüft kein automatischer Test, sondern der Reviewer im Browser: Bei
+  360 px ist `scrollWidth` gleich `clientWidth` (360), und kein Element ragt
+  über den rechten Rand. Eine lange Kopfzeile mit mehreren Wörtern und eine
+  mit einem Wort aus 78 Zeichen ohne Leerzeichen brechen am Handy und in der
+  Seitenleiste im Eintrag um. Die Von/An-Werte dafür hat er direkt in die
+  Dev-Datenbank geschrieben, weil es für sie noch keine Eingabe gibt.
+- Auch die Gestaltung prüft kein Test: dass die Weg-Auswahl links neben
+  „Eintrag hinzufügen“ steht und kein sichtbares Label hat, dass „Von X an Y“
+  fett und der Weg gedimmt ist. Das hat der Reviewer im Browser
+  nachgesehen. Strg+Enter in der Weg-Auswahl hat er dort auch ausprobiert.
+- Abweichung vom Plan, Schritt 9: `JournalPanel` hält nur den Weg im Zustand,
+  nicht eine ganze Route mit Von/An `null`. Es gibt noch keine Eingabe für Von
+  und An, deshalb schickt das Panel für sie ausdrücklich `null`. Ticket 03
+  legt den Zustand für Von und An an, wenn es die Chips einbaut.
+- Abweichung vom Plan, Schritt 10: Im Browser habe ich nicht selbst geprüft.
+  Das hat der Reviewer bei 360 px und in der Desktop-Seitenleiste übernommen,
+  mit den Messwerten oben.
+- Abweichung vom Plan, Schritt 7: Hat ein Eintrag frühere Fassungen, steht die
+  Kopfzeile direkt unter der Zeile mit Nummer, Zeit und Urheber, also über den
+  durchgestrichenen Fassungen und nicht direkt über dem Text. Wie Kopfzeile und
+  frühere Fassungen zusammen aussehen, entscheidet Ticket 05.
+- Die „leere Route“ aus Schritt 4 ist die Konstante `NO_ROUTE` in
+  `src/journal/entry-route.ts`. Alle Aufrufer von `appendEntry` übergeben sie
+  ausdrücklich, auch die in bestehenden Tests.
+- Zum TDD-Ablauf: Vier Tests in `JournalPanel.route.test.tsx` sind nie an
+  einer Assertion gescheitert, nur daran, dass es die Weg-Auswahl noch nicht
+  gab: „presets the Weg of a new entry to Funk“, „empties the text and keeps
+  the Weg after adding“, „keeps text and Weg and shows the error when adding
+  fails“ und „adds a new entry with Weg ohne“. Sobald die Auswahl im Panel
+  stand, noch ohne Anschluss an `onAdd`, liefen sie durch. Die übrigen drei
+  sind an ihrer Assertion gescheitert.

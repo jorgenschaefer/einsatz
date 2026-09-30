@@ -17,6 +17,11 @@ import { useDisclosure } from "@mantine/hooks";
 import { type Ref, useEffect, useRef, useState } from "react";
 import type { ActionResult } from "@/app/action-result";
 import { ConfirmationModal } from "@/app/ConfirmationModal";
+import {
+  DEFAULT_CHANNEL,
+  EntryChannelSelect,
+} from "@/journal/EntryRouteFields";
+import { type EntryRoute, formatEntryRoute } from "@/journal/entry-route";
 import type {
   JournalEntryState,
   JournalEntryType,
@@ -30,7 +35,7 @@ interface JournalRevisionView {
   createdAt: string;
 }
 
-export interface JournalEntryView {
+export interface JournalEntryView extends EntryRoute {
   id: string;
   number: number;
   createdAt: string;
@@ -44,7 +49,7 @@ export interface JournalEntryView {
 
 export interface JournalPanelProps {
   entries: JournalEntryView[];
-  onAdd: (text: string) => Promise<ActionResult>;
+  onAdd: (entry: { text: string } & EntryRoute) => Promise<ActionResult>;
   onCorrect: (id: string, text: string) => Promise<ActionResult>;
   onAnnul: (id: string) => Promise<ActionResult>;
   newEntryRef?: Ref<HTMLTextAreaElement>;
@@ -74,6 +79,7 @@ export function JournalPanel({
 }: JournalPanelProps) {
   const [hideAuto, setHideAuto] = useState(false);
   const [draft, setDraft] = useState("");
+  const [channel, setChannel] = useState<string | null>(DEFAULT_CHANNEL);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [annulTarget, setAnnulTarget] = useState<JournalEntryView | null>(null);
@@ -87,7 +93,12 @@ export function JournalPanel({
     const text = draft.trim();
     if (!text) return;
     try {
-      const { error: err } = await onAdd(text);
+      const { error: err } = await onAdd({
+        text,
+        sender: null,
+        recipient: null,
+        channel,
+      });
       if (err) {
         setError(err);
         return;
@@ -205,6 +216,8 @@ export function JournalPanel({
                 </Group>
               </Group>
 
+              <EntryRouteHeader route={entry} />
+
               {entry.revisions.map((rev, index) => (
                 // Revisionen tragen weder id noch seq und werden nur angehängt
                 // (nie umsortiert/entfernt); der Index innerhalb des Eintrags ist
@@ -275,9 +288,14 @@ export function JournalPanel({
           onKeyDown={submitOnCtrlEnter(submitNew)}
           placeholder="Ereignis festhalten …"
         />
-        <Button onClick={submitNew} w="fit-content">
-          Eintrag hinzufügen
-        </Button>
+        <Group justify="space-between" wrap="nowrap">
+          <EntryChannelSelect
+            value={channel}
+            onChange={setChannel}
+            onKeyDown={submitOnCtrlEnter(submitNew)}
+          />
+          <Button onClick={submitNew}>Eintrag hinzufügen</Button>
+        </Group>
       </Stack>
 
       {annulTarget && (
@@ -295,6 +313,23 @@ export function JournalPanel({
         </ConfirmationModal>
       )}
     </Stack>
+  );
+}
+
+/** „Von X an Y" fett, der Weg gedimmt dahinter; nichts ohne alle drei Angaben. */
+function EntryRouteHeader({ route }: { route: EntryRoute }) {
+  const header = formatEntryRoute(route);
+  if (!header) return null;
+  const { parties, channel } = header;
+  return (
+    <Text size="sm" fw={600} mt={4}>
+      {parties}
+      {channel && (
+        <Text span inherit fw={400} c="dimmed">
+          {parties ? ` · ${channel}` : channel}
+        </Text>
+      )}
+    </Text>
   );
 }
 
@@ -349,7 +384,7 @@ function scrollToEnd(listEnd: Element | null, newEntry: Element | null) {
   newEntry?.scrollIntoView({ block: "end" });
 }
 
-/** Strg/⌘+Enter schickt das Textfeld ab. */
+/** Strg/⌘+Enter schickt das Eingabefeld ab. */
 const submitOnCtrlEnter =
   (submit: () => Promise<void>) => (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {

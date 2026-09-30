@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
+import { NO_ROUTE } from "@/journal/entry-route";
 import { insertOperation } from "@/server/operations/operations";
 import { ValidationError } from "@/server/validation";
 import { freshDb } from "@/test/db";
@@ -19,6 +20,7 @@ describe("journal", () => {
         text,
         type: "manuell",
         author: "a",
+        route: NO_ROUTE,
       });
 
     await expect(append("")).rejects.toBeInstanceOf(ValidationError);
@@ -34,6 +36,7 @@ describe("journal", () => {
       text: "  Deich hält  ",
       type: "manuell",
       author: "a",
+      route: NO_ROUTE,
     });
     expect(entry.text).toBe("Deich hält");
   });
@@ -46,12 +49,14 @@ describe("journal", () => {
       text: "A",
       type: "manuell",
       author: "anna",
+      route: NO_ROUTE,
     });
     const second = await appendEntry(db, {
       operationId: op.id,
       text: "B",
       type: "manuell",
       author: "anna",
+      route: NO_ROUTE,
     });
 
     expect(first.number).toBe(1);
@@ -70,6 +75,7 @@ describe("journal", () => {
             text,
             type: "manuell",
             author: "anna",
+            route: NO_ROUTE,
           }),
         ),
       ),
@@ -104,12 +110,14 @@ describe("journal", () => {
       text: "A",
       type: "manuell",
       author: "anna",
+      route: NO_ROUTE,
     });
     const inB = await appendEntry(db, {
       operationId: b.id,
       text: "B",
       type: "manuell",
       author: "anna",
+      route: NO_ROUTE,
     });
 
     expect(inA.number).toBe(1);
@@ -124,15 +132,67 @@ describe("journal", () => {
       text: "first",
       type: "manuell",
       author: "anna",
+      route: NO_ROUTE,
     });
     await appendEntry(db, {
       operationId: op.id,
       text: "second",
       type: "manuell",
       author: "anna",
+      route: NO_ROUTE,
     });
 
     const entries = await listEntries(db, op.id);
     expect(entries.map((e) => e.text)).toEqual(["first", "second"]);
+  });
+
+  it("stores Von, An and Weg trimmed and lists them with the entry", async () => {
+    const db = await freshDb();
+    const op = await anOperation(db);
+    const appended = await appendEntry(db, {
+      operationId: op.id,
+      text: "Deich hält",
+      type: "manuell",
+      author: "anna",
+      route: { sender: " UHSt 2 ", recipient: "EAL  ", channel: " Funk" },
+    });
+
+    const route = { sender: "UHSt 2", recipient: "EAL", channel: "Funk" };
+    expect(appended).toMatchObject(route);
+    expect(await listEntries(db, op.id)).toEqual([
+      expect.objectContaining(route),
+    ]);
+  });
+
+  it("stores blank Von, An and Weg as absent", async () => {
+    const db = await freshDb();
+    const op = await anOperation(db);
+    await appendEntry(db, {
+      operationId: op.id,
+      text: "Deich hält",
+      type: "manuell",
+      author: "anna",
+      route: { sender: "  ", recipient: "", channel: " " },
+    });
+
+    expect(await listEntries(db, op.id)).toEqual([
+      expect.objectContaining({ sender: null, recipient: null, channel: null }),
+    ]);
+  });
+
+  it("lists an entry without a route with Von, An and Weg absent", async () => {
+    const db = await freshDb();
+    const op = await anOperation(db);
+    await appendEntry(db, {
+      operationId: op.id,
+      text: "Einsatz eröffnet",
+      type: "einsatz-eröffnet",
+      author: null,
+      route: NO_ROUTE,
+    });
+
+    expect(await listEntries(db, op.id)).toEqual([
+      expect.objectContaining({ sender: null, recipient: null, channel: null }),
+    ]);
   });
 });

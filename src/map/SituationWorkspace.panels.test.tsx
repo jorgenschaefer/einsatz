@@ -202,7 +202,9 @@ describe("SituationWorkspace", () => {
         await userEvent.keyboard("Deich gesichert");
         await submit();
 
-        expect(onAddJournalEntry).toHaveBeenCalledWith("Deich gesichert");
+        expect(onAddJournalEntry).toHaveBeenCalledWith(
+          expect.objectContaining({ text: "Deich gesichert" }),
+        );
         expect(screen.getByLabelText("Neuer Eintrag")).toBeVisible();
         await expectMapUntouchedAndClickable(adapter);
       },

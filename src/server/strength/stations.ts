@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { NO_ROUTE } from "@/journal/entry-route";
 import type { Db, Queryable } from "@/server/db/db";
 import { appendEntry } from "@/server/journal/journal";
 import { ValidationError } from "@/server/validation";
@@ -38,6 +39,7 @@ export async function createStation(
       text: `Stelle angelegt: ${name}`,
       type: "stelle-angelegt",
       author: input.author,
+      route: NO_ROUTE,
     });
     const { rows } = await rejectingDuplicateName(() =>
       tx.query<StationRow>(
@@ -72,6 +74,7 @@ export async function renameStation(
       text: `Stelle umbenannt: ${station.name} → ${name}`,
       type: "stelle-umbenannt",
       author: input.author,
+      route: NO_ROUTE,
     });
     await rejectingDuplicateName(() =>
       tx.query("UPDATE stations SET name = $2 WHERE id = $1", [

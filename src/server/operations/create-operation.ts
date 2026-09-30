@@ -1,3 +1,4 @@
+import { NO_ROUTE } from "@/journal/entry-route";
 import type { Db } from "@/server/db/db";
 import { appendEntry } from "@/server/journal/journal";
 import { ValidationError } from "@/server/validation";
@@ -27,6 +28,7 @@ export async function createOperation(
       text: OPERATION_OPENED_ENTRY_TEXT,
       type: "einsatz-eröffnet",
       author: null,
+      route: NO_ROUTE,
     });
     return operation;
   });

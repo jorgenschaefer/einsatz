@@ -1,6 +1,7 @@
 import userEvent from "@testing-library/user-event";
 import { vi } from "vitest";
 import type { JournalEntryView } from "@/app/operations/[id]/JournalPanel";
+import { NO_ROUTE } from "@/journal/entry-route";
 import { render, screen, within } from "@/test/render";
 import type { CreateMapOptions, MapAdapterFactory } from "./adapter";
 import {
@@ -161,6 +162,7 @@ export const journalEntry = (
   state: "gueltig",
   author,
   editedAt: null,
+  ...NO_ROUTE,
   revisions: [],
 });
 

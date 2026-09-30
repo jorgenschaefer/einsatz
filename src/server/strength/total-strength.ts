@@ -1,3 +1,4 @@
+import { NO_ROUTE } from "@/journal/entry-route";
 import type { Db } from "@/server/db/db";
 import { appendEntry } from "@/server/journal/journal";
 import { lockOperation } from "@/server/operations/operations";
@@ -23,6 +24,7 @@ export async function reportTotalStrength(
       text: formatTotalStrengthText(totalOf(byStation(reports))),
       type: "gesamtstärke-gemeldet",
       author: input.author,
+      route: NO_ROUTE,
     });
   });
 }

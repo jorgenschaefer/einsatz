@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import type { EntryRoute } from "@/journal/entry-route";
 import type { Db, Queryable } from "@/server/db/db";
 import { lockOperation } from "@/server/operations/operations";
 import { ValidationError } from "@/server/validation";
@@ -20,7 +21,7 @@ export interface JournalRevision {
   createdAt: Date;
 }
 
-export interface JournalEntry {
+export interface JournalEntry extends EntryRoute {
   id: string;
   operationId: string;
   number: number;
@@ -45,6 +46,9 @@ interface JournalRow {
   state: JournalEntryState;
   author: string | null;
   edited_at: string | Date | null;
+  sender: string | null;
+  recipient: string | null;
+  channel: string | null;
 }
 
 const toEntry = (
@@ -60,17 +64,25 @@ const toEntry = (
   state: row.state,
   author: row.author,
   editedAt: row.edited_at ? new Date(row.edited_at) : null,
+  sender: row.sender,
+  recipient: row.recipient,
+  channel: row.channel,
   revisions,
 });
 
 const COLUMNS =
-  "id, operation_id, number, created_at, text, type, state, author, edited_at";
+  "id, operation_id, number, created_at, text, type, state, author, edited_at, sender, recipient, channel";
 
 /** Die eine Stelle für „ETB-Text darf nicht leer sein": trimmt und erzwingt. */
 function requireEntryText(raw: string): string {
   const text = raw.trim();
   if (!text) throw new ValidationError("Der Text darf nicht leer sein.");
   return text;
+}
+
+/** Von, An und Weg werden getrimmt gespeichert; leer heißt: keine Angabe. */
+function trimToNull(value: string | null): string | null {
+  return value?.trim() || null;
 }
 
 /**
@@ -89,9 +101,11 @@ export async function appendEntry(
     text: string;
     type: JournalEntryType;
     author: string | null;
+    route: EntryRoute;
   },
 ): Promise<JournalEntry> {
   const text = requireEntryText(input.text);
+  const { sender, recipient, channel } = input.route;
   await lockOperation(tx, input.operationId);
   const { rows: numberRows } = await tx.query<{ next: number }>(
     "SELECT COALESCE(MAX(number), 0) + 1 AS next FROM journal_entries WHERE operation_id = $1",
@@ -100,10 +114,21 @@ export async function appendEntry(
   const number = numberRows[0].next;
 
   const { rows } = await tx.query<JournalRow>(
-    `INSERT INTO journal_entries (id, operation_id, number, text, type, author)
-     VALUES ($1, $2, $3, $4, $5, $6)
+    `INSERT INTO journal_entries
+       (id, operation_id, number, text, type, author, sender, recipient, channel)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
      RETURNING ${COLUMNS}`,
-    [randomUUID(), input.operationId, number, text, input.type, input.author],
+    [
+      randomUUID(),
+      input.operationId,
+      number,
+      text,
+      input.type,
+      input.author,
+      trimToNull(sender),
+      trimToNull(recipient),
+      trimToNull(channel),
+    ],
   );
   return toEntry(rows[0]);
 }

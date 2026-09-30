@@ -20,6 +20,7 @@ import {
   JournalPanel,
 } from "@/app/operations/[id]/JournalPanel";
 import { LageansichtShell } from "@/app/operations/[id]/LageansichtShell";
+import type { EntryRoute } from "@/journal/entry-route";
 import type { GeoHit } from "@/server/geocoder/geocoder";
 import type { KmlSourceType } from "@/server/kml/kml-overlays";
 import type { PositionSource } from "@/server/mapsymbols/map-symbols";
@@ -100,7 +101,9 @@ export interface SituationWorkspaceProps {
   attribution: string;
   symbols: WorkspaceSymbol[];
   journalEntries: JournalEntryView[];
-  onAddJournalEntry: (text: string) => Promise<ActionResult>;
+  onAddJournalEntry: (
+    entry: { text: string } & EntryRoute,
+  ) => Promise<ActionResult>;
   onCorrectJournalEntry: (id: string, text: string) => Promise<ActionResult>;
   onAnnulJournalEntry: (id: string) => Promise<ActionResult>;
   onSetDefault: (view: MapView) => Promise<ActionResult>;

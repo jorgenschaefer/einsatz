@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { NO_ROUTE } from "@/journal/entry-route";
 import type { Db, Queryable } from "@/server/db/db";
 import {
   appendEntry,
@@ -41,6 +42,7 @@ export async function recordStrengthReport(
     text: formatStrengthReportText(name, values),
     type: "stärkemeldung",
     author: input.author,
+    route: NO_ROUTE,
   });
   await tx.query(
     `INSERT INTO strength_reports

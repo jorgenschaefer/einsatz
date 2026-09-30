@@ -1,3 +1,4 @@
+import { NO_ROUTE } from "@/journal/entry-route";
 import type { Db, Queryable } from "@/server/db/db";
 import { appendEntry } from "@/server/journal/journal";
 import { OPERATION_OPENED_ENTRY_TEXT } from "./create-operation";
@@ -46,6 +47,7 @@ async function transition(
       text: change.text,
       type: change.type,
       author: null,
+      route: NO_ROUTE,
     });
   });
 }

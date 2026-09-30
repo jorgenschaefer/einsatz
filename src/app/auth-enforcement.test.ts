@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { NO_ROUTE } from "@/journal/entry-route";
 import type { AreaGeometry, AreaStyle } from "@/map/area";
 import type { SymbolComposition } from "@/map/composition";
 import type { ImagePlacement } from "@/map/image-overlay";
@@ -233,7 +234,7 @@ const userGuardedActions: Invocation[] = [
   },
   {
     name: "addJournalEntryAction",
-    run: () => addJournalEntryAction("op-1", "Lage"),
+    run: () => addJournalEntryAction("op-1", { text: "Lage", ...NO_ROUTE }),
   },
   {
     name: "correctEntryAction",

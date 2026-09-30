@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { NO_ROUTE } from "@/journal/entry-route";
 import { appendEntry, listEntries } from "@/server/journal/journal";
 import { insertOperation } from "@/server/operations/operations";
 import { ValidationError } from "@/server/validation";
@@ -235,6 +236,7 @@ describe("deleteAccount (last-admin protection)", () => {
       text: "Lage",
       type: "manuell",
       author: "anna",
+      route: NO_ROUTE,
     });
 
     await deleteAccount(db, anna.id);

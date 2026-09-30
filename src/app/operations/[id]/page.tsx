@@ -78,6 +78,9 @@ const toView = (entry: JournalEntry): JournalEntryView => ({
   state: entry.state,
   author: entry.author,
   editedAt: entry.editedAt ? entry.editedAt.toISOString() : null,
+  sender: entry.sender,
+  recipient: entry.recipient,
+  channel: entry.channel,
   revisions: entry.revisions.map((r) => ({
     text: r.text,
     author: r.author,

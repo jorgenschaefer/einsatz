@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { NO_ROUTE } from "@/journal/entry-route";
 
 const deleteOverlayFiles = vi.fn(async (_paths: string[]) => {});
 vi.mock("@/server/image-overlays/image-storage", () => ({
@@ -42,6 +43,7 @@ describe("deleteOperation (domain)", () => {
       text: "Lage",
       type: "manuell",
       author: "anna",
+      route: NO_ROUTE,
     });
     await createMapSymbol(db, {
       operationId: op.id,

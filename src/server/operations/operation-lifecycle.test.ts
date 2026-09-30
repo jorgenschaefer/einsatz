@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { NO_ROUTE } from "@/journal/entry-route";
 import { appendEntry, listEntries } from "@/server/journal/journal";
 import { freshDb } from "@/test/db";
 import {
@@ -75,6 +76,7 @@ describe("closeOperation / reopenOperation", () => {
       text: "nachträglich",
       type: "manuell",
       author: "anna",
+      route: NO_ROUTE,
     });
     expect(
       (await listEntries(db, op.id)).some((e) => e.text === "nachträglich"),

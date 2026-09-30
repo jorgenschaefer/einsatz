@@ -134,7 +134,9 @@ describe("JournalPanel", () => {
     await userEvent.click(
       screen.getByRole("button", { name: /Eintrag hinzufügen/ }),
     );
-    expect(props.onAdd).toHaveBeenCalledWith("Neue Lage");
+    expect(props.onAdd).toHaveBeenCalledWith(
+      expect.objectContaining({ text: "Neue Lage" }),
+    );
   });
 
   it("adds a new manual entry with Strg+Enter in the input field", async () => {
@@ -146,7 +148,9 @@ describe("JournalPanel", () => {
       screen.getByLabelText(/Neuer Eintrag/),
       "{Control>}{Enter}{/Control}",
     );
-    expect(props.onAdd).toHaveBeenCalledWith("Neue Lage");
+    expect(props.onAdd).toHaveBeenCalledWith(
+      expect.objectContaining({ text: "Neue Lage" }),
+    );
   });
 
   it("does not add an empty entry", async () => {

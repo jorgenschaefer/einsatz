@@ -1,5 +1,6 @@
 "use server";
 
+import type { EntryRoute } from "@/journal/entry-route";
 import {
   annulEntry,
   appendEntry,
@@ -9,7 +10,7 @@ import { type ActionResult, operationAction } from "./operation-action";
 
 export async function addJournalEntryAction(
   operationId: string,
-  text: string,
+  { text, ...route }: { text: string } & EntryRoute,
 ): Promise<ActionResult> {
   return operationAction(async (db, user) => {
     // Die Leer-Prüfung liegt in der Domäne (appendEntry), nicht hier.
@@ -19,6 +20,7 @@ export async function addJournalEntryAction(
         text,
         type: "manuell",
         author: user.username,
+        route,
       }),
     );
     return operationId;

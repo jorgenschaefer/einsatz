@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { NO_ROUTE } from "@/journal/entry-route";
 import { createOperation } from "@/server/operations/create-operation";
 import { insertOperation } from "@/server/operations/operations";
 import { ValidationError } from "@/server/validation";
@@ -15,6 +16,7 @@ async function manualEntry(db: Awaited<ReturnType<typeof freshDb>>) {
     text: "Deich hält",
     type: "manuell",
     author: "anna",
+    route: NO_ROUTE,
   });
   return { op, entry };
 }
@@ -109,6 +111,7 @@ describe.each([
       text: "Stelle angelegt: UHSt 3",
       type,
       author: "anna",
+      route: NO_ROUTE,
     });
   }
   const onlyManual = new ValidationError(
@@ -143,6 +146,7 @@ describe("a gesamtstärke-gemeldet entry", () => {
       text: "Gesamtstärke gemeldet: 0/0/0//0, +0 zusätzlich, 0 Personen (0 Stellen)",
       type: "gesamtstärke-gemeldet",
       author: "anna",
+      route: NO_ROUTE,
     });
   }
 
