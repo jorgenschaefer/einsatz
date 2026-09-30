@@ -24,7 +24,6 @@ import { useActionRunner } from "@/app/useActionRunner";
 import type { EntryContent } from "@/journal/entry-route";
 import type { GeoHit } from "@/server/geocoder/geocoder";
 import type { KmlSourceType } from "@/server/kml/kml-overlays";
-import type { PositionSource } from "@/server/mapsymbols/map-symbols";
 import type { OperationStatus } from "@/server/operations/operations";
 import { type StationView, StrengthPanel } from "@/strength/StrengthPanel";
 import type { StrengthValues } from "@/strength/strength";
@@ -41,7 +40,7 @@ import { KmlPanel } from "./KmlPanel";
 import { MainViewBar } from "./MainViewBar";
 import { MAP_PANEL_LABEL, MapControls } from "./MapControls";
 import { ModeBand } from "./ModeBand";
-import { toPlacedSymbols } from "./placed-symbols";
+import { type StatefulSymbol, toPlacedSymbols } from "./placed-symbols";
 import { QUICK_SELECT } from "./quick-select";
 import { SearchBar } from "./SearchBar";
 import {
@@ -61,13 +60,7 @@ import { useStalenessClock } from "./useStalenessClock";
 import type { ViewLinkItem } from "./ViewLinkPanel";
 import type { MapView } from "./view";
 
-export interface WorkspaceSymbol {
-  id: string;
-  lat: number;
-  lng: number;
-  composition: SymbolComposition;
-  positionSource: PositionSource;
-  reportedAt: Date | null;
+export interface WorkspaceSymbol extends StatefulSymbol {
   deviceLinkToken: string | null;
 }
 
