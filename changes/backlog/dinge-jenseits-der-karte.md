@@ -20,4 +20,3 @@ Betrifft:
 
 - [Wartende Einheiten verstopfen die Karte](wartende-einheiten-verstopfen-die-karte.md)
 - [Kein Überblick, welche Einheiten an welchem Einsatz sind](einheiten-je-einsatz.md)
-- [Absender, Empfänger und Weg im ETB](von-an-weg-im-etb.md)
