@@ -59,7 +59,6 @@ export function useMainView({
   }
 
   const switchMainView = (view: MainView) => {
-    if (view === mainView) return;
     setMainView(view);
     if (view === "etb" || mainView === "etb") setSeenUpTo(latestEntryNumber);
   };
