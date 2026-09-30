@@ -98,7 +98,12 @@ describe("listCorrespondents", () => {
     const older = await addEntry(db, op.id, { sender: "Eal" });
     await addEntry(db, op.id, { sender: "EAL" });
 
-    await correctEntry(db, older.id, "Deich hält nicht", "bernd");
+    await correctEntry(
+      db,
+      older.id,
+      { text: "Deich hält nicht", ...NO_ROUTE, sender: "Eal" },
+      "bernd",
+    );
 
     expect(await listCorrespondents(db, op.id)).toEqual(["Eal"]);
   });

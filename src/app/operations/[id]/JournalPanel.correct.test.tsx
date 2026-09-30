@@ -1,10 +1,251 @@
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { fireEvent, screen } from "@/test/render";
+import { NO_ROUTE } from "@/journal/entry-route";
+import { fireEvent, screen, within } from "@/test/render";
 import type { JournalPanelProps } from "./JournalPanel";
 import { chooseAction, entry, setup } from "./JournalPanel.fixtures";
 
+/** Das Korrekturformular im Eintrag, getrennt vom Eingabebereich darunter. */
+const correction = () => {
+  const form = screen.getByLabelText("Korrektur").closest("[data-entry]");
+  if (!(form instanceof HTMLElement)) throw new Error("no correction form");
+  return within(form);
+};
+const chipRow = (label: "Von" | "An") =>
+  correction().getByRole("group", { name: label });
+const chipNames = (label: "Von" | "An") =>
+  within(chipRow(label))
+    .getAllByRole("checkbox")
+    .map((c) => (c as HTMLInputElement).labels?.[0]?.textContent);
+const chosenChips = (label: "Von" | "An") =>
+  within(chipRow(label))
+    .queryAllByRole("checkbox", { checked: true })
+    .map((c) => (c as HTMLInputElement).labels?.[0]?.textContent);
+const channelSelect = () => correction().getByRole("combobox", { name: "Weg" });
+const channelField = () => correction().getByRole("textbox", { name: "Weg" });
+const save = () =>
+  userEvent.click(correction().getByRole("button", { name: "Speichern" }));
+
+const CORRESPONDENTS = ["Abschnitt Nord", "BHP", "EAL", "UHSt 1", "UHSt 2"];
+const ROUTED = { sender: "UHSt 2", recipient: "EAL", channel: "Funk" };
+
 describe("JournalPanel – Korrigieren", () => {
+  it("prefills Von, An and Weg of the entry, the chosen chips first in their rows", async () => {
+    setup({ entries: [entry(ROUTED)], correspondents: CORRESPONDENTS });
+    await chooseAction(1, "Korrigieren");
+
+    expect(chipNames("Von")[0]).toBe("UHSt 2");
+    expect(chosenChips("Von")).toEqual(["UHSt 2"]);
+    expect(chipNames("An")[0]).toBe("EAL");
+    expect(chosenChips("An")).toEqual(["EAL"]);
+    expect(channelSelect()).toHaveDisplayValue("Funk");
+  });
+
+  it("corrects only the Weg of an entry", async () => {
+    const props = setup({
+      entries: [entry(ROUTED)],
+      correspondents: CORRESPONDENTS,
+    });
+    await chooseAction(1, "Korrigieren");
+
+    await userEvent.selectOptions(channelSelect(), "Telefon");
+    await save();
+
+    expect(props.onCorrect).toHaveBeenCalledWith("e1", {
+      text: "Deich hält",
+      ...ROUTED,
+      channel: "Telefon",
+    });
+  });
+
+  it("closes the correction once it is saved", async () => {
+    setup({ entries: [entry(ROUTED)], correspondents: CORRESPONDENTS });
+    await chooseAction(1, "Korrigieren");
+
+    await save();
+
+    expect(screen.queryByLabelText("Korrektur")).toBeNull();
+  });
+
+  it("corrects Von and An of an entry", async () => {
+    const props = setup({
+      entries: [entry(ROUTED)],
+      correspondents: CORRESPONDENTS,
+    });
+    await chooseAction(1, "Korrigieren");
+
+    await userEvent.click(
+      within(chipRow("Von")).getByRole("checkbox", { name: "UHSt 2" }),
+    );
+    await userEvent.click(
+      within(chipRow("An")).getByRole("checkbox", { name: "BHP" }),
+    );
+    await save();
+
+    expect(props.onCorrect).toHaveBeenCalledWith("e1", {
+      text: "Deich hält",
+      sender: null,
+      recipient: "BHP",
+      channel: "Funk",
+    });
+  });
+
+  it("keeps the unchosen prefilled chip first in its row", async () => {
+    setup({ entries: [entry(ROUTED)], correspondents: CORRESPONDENTS });
+    await chooseAction(1, "Korrigieren");
+
+    await userEvent.click(
+      within(chipRow("Von")).getByRole("checkbox", { name: "UHSt 2" }),
+    );
+
+    expect(chipNames("Von")[0]).toBe("UHSt 2");
+    expect(chosenChips("Von")).toEqual([]);
+  });
+
+  it("prefills a free-text Weg in its text field", async () => {
+    setup({
+      entries: [entry({ ...ROUTED, channel: "Melder" })],
+      correspondents: CORRESPONDENTS,
+    });
+    await chooseAction(1, "Korrigieren");
+
+    expect(channelField()).toHaveValue("Melder");
+  });
+
+  it("leaves the focus alone when it opens with a free-text Weg", async () => {
+    setup({
+      entries: [entry({ ...ROUTED, channel: "Melder" })],
+      correspondents: CORRESPONDENTS,
+    });
+    await chooseAction(1, "Korrigieren");
+
+    expect(channelField()).not.toHaveFocus();
+  });
+
+  it("goes back from a prefilled free-text Weg to the choice with Funk on ×", async () => {
+    setup({
+      entries: [entry({ ...ROUTED, channel: "Melder" })],
+      correspondents: CORRESPONDENTS,
+    });
+    await chooseAction(1, "Korrigieren");
+
+    await userEvent.click(
+      correction().getByRole("button", { name: "Zurück zur Auswahl" }),
+    );
+
+    expect(channelSelect()).toHaveDisplayValue("Funk");
+  });
+
+  it("shows the chip of Von in another spelling as chosen and first, and keeps the entry's spelling", async () => {
+    const props = setup({
+      entries: [entry({ ...ROUTED, sender: "UHST 2" })],
+      correspondents: CORRESPONDENTS,
+    });
+    await chooseAction(1, "Korrigieren");
+
+    expect(chipNames("Von")).toEqual([
+      "UHSt 2",
+      "Abschnitt Nord",
+      "BHP",
+      "EAL",
+      "UHSt 1",
+    ]);
+    expect(chosenChips("Von")).toEqual(["UHSt 2"]);
+
+    await save();
+
+    expect(props.onCorrect).toHaveBeenCalledWith("e1", {
+      text: "Deich hält",
+      ...ROUTED,
+      sender: "UHST 2",
+    });
+  });
+
+  it("saves a correction with Strg+Enter in the Weg choice", async () => {
+    const props = setup({
+      entries: [entry(ROUTED)],
+      correspondents: CORRESPONDENTS,
+    });
+    await chooseAction(1, "Korrigieren");
+
+    await userEvent.selectOptions(channelSelect(), "Telefon");
+    await userEvent.type(channelSelect(), "{Control>}{Enter}{/Control}");
+
+    expect(props.onCorrect).toHaveBeenCalledWith("e1", {
+      text: "Deich hält",
+      ...ROUTED,
+      channel: "Telefon",
+    });
+  });
+
+  it("saves a correction with Strg+Enter in the free-text Weg", async () => {
+    const props = setup({
+      entries: [entry({ ...ROUTED, channel: "Melder" })],
+      correspondents: CORRESPONDENTS,
+    });
+    await chooseAction(1, "Korrigieren");
+
+    await userEvent.type(channelField(), " 3{Control>}{Enter}{/Control}");
+
+    expect(props.onCorrect).toHaveBeenCalledWith("e1", {
+      text: "Deich hält",
+      ...ROUTED,
+      channel: "Melder 3",
+    });
+  });
+
+  it("saves a correction with Strg+Enter in the field for another Von", async () => {
+    const props = setup({
+      entries: [entry(ROUTED)],
+      correspondents: CORRESPONDENTS,
+    });
+    await chooseAction(1, "Korrigieren");
+
+    await userEvent.click(
+      within(chipRow("Von")).getByRole("button", { name: "andere …" }),
+    );
+    await userEvent.type(
+      correction().getByRole("combobox", { name: "Von" }),
+      "Neu{Control>}{Enter}{/Control}",
+    );
+
+    expect(props.onCorrect).toHaveBeenCalledWith("e1", {
+      text: "Deich hält",
+      ...ROUTED,
+      sender: "Neu",
+    });
+  });
+
+  it("shows a prior fassung with its header struck through, its author and time", () => {
+    setup({
+      entries: [
+        entry({
+          ...ROUTED,
+          channel: "Telefon",
+          author: "bernd",
+          editedAt: "2026-07-03T09:00:00.000Z",
+          revisions: [
+            {
+              text: "Deich hält",
+              author: "anna",
+              createdAt: "2026-07-03T08:00:00.000Z",
+              ...ROUTED,
+            },
+          ],
+        }),
+      ],
+    });
+
+    expect(
+      screen.getByText(
+        (_, element) =>
+          element?.tagName === "DEL" &&
+          element.textContent === "Von UHSt 2 an EAL · Funk",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/–\s*anna, 03\.07\.26, 10:00/)).toBeInTheDocument();
+  });
+
   it("offers correcting from the entry's action menu without correcting yet", async () => {
     const props = setup();
     await chooseAction(1, "Korrigieren");
@@ -26,7 +267,10 @@ describe("JournalPanel – Korrigieren", () => {
     const field = screen.getByLabelText(/Korrektur/);
     fireEvent.change(field, { target: { value: "Deich hält nicht" } });
     await userEvent.click(screen.getByRole("button", { name: /Speichern/ }));
-    expect(props.onCorrect).toHaveBeenCalledWith("e1", "Deich hält nicht");
+    expect(props.onCorrect).toHaveBeenCalledWith("e1", {
+      text: "Deich hält nicht",
+      ...NO_ROUTE,
+    });
   });
 
   it("renders prior fassungen struck through with their author", () => {
@@ -41,6 +285,7 @@ describe("JournalPanel – Korrigieren", () => {
               text: "Deich hält",
               author: "anna",
               createdAt: "2026-07-03T08:00:00.000Z",
+              ...NO_ROUTE,
             },
           ],
         }),
@@ -60,8 +305,18 @@ describe("JournalPanel – Korrigieren", () => {
         entry({
           text: "Fassung 3",
           revisions: [
-            { text: "Fassung 1", author: "anna", createdAt: sameTs },
-            { text: "Fassung 2", author: "bernd", createdAt: sameTs },
+            {
+              text: "Fassung 1",
+              author: "anna",
+              createdAt: sameTs,
+              ...NO_ROUTE,
+            },
+            {
+              text: "Fassung 2",
+              author: "bernd",
+              createdAt: sameTs,
+              ...NO_ROUTE,
+            },
           ],
         }),
       ],
@@ -80,7 +335,10 @@ describe("JournalPanel – Korrigieren", () => {
     const field = screen.getByLabelText(/Korrektur/);
     fireEvent.change(field, { target: { value: "Deich hält nicht" } });
     await userEvent.type(field, "{Control>}{Enter}{/Control}");
-    expect(props.onCorrect).toHaveBeenCalledWith("e1", "Deich hält nicht");
+    expect(props.onCorrect).toHaveBeenCalledWith("e1", {
+      text: "Deich hält nicht",
+      ...NO_ROUTE,
+    });
   });
 
   it("surfaces a save error when a correction fails", async () => {

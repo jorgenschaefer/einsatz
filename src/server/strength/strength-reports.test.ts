@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { NO_ROUTE } from "@/journal/entry-route";
 import { listEntries } from "@/server/journal/journal";
 import { closeOperation } from "@/server/operations/operation-lifecycle";
 import { insertOperation, lockOperation } from "@/server/operations/operations";
@@ -311,7 +312,12 @@ describe("correctStrengthReport", () => {
       author: "clara",
       editedAt: expect.any(Date),
       revisions: [
-        { text: before.text, author: "bernd", createdAt: before.createdAt },
+        {
+          text: before.text,
+          author: "bernd",
+          createdAt: before.createdAt,
+          ...NO_ROUTE,
+        },
       ],
     });
   });

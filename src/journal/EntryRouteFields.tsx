@@ -22,24 +22,32 @@ const OTHER_CHANNEL = "andere";
 /**
  * Der Weg eines Eintrags als Auswahl ohne sichtbares Label. „Andere …" macht
  * daraus ein Textfeld; „×" macht wieder die Auswahl daraus, mit dem Weg von
- * vorher.
+ * vorher. Ein Weg, den die Auswahl nicht bietet, steht von Anfang an im
+ * Textfeld; „×" führt dann zu Funk.
  */
 export function EntryChannelSelect({
+  size = "sm",
   value,
   onChange,
   onKeyDown,
 }: {
+  size?: "xs" | "sm";
   value: string | null;
   onChange: (channel: string | null) => void;
   onKeyDown?: KeyboardEventHandler<HTMLElement>;
 }) {
-  const [otherOpen, setOtherOpen] = useState(false);
+  const offered = value === null || CHANNELS.includes(value);
+  const [otherOpen, setOtherOpen] = useState(!offered);
+  const [otherChosen, setOtherChosen] = useState(false);
   const [backFromOther, setBackFromOther] = useState(false);
-  const [channelBeforeOther, setChannelBeforeOther] = useState(value);
+  const [channelBeforeOther, setChannelBeforeOther] = useState(
+    offered ? value : DEFAULT_CHANNEL,
+  );
 
   const openOther = () => {
     setChannelBeforeOther(value);
     setOtherOpen(true);
+    setOtherChosen(true);
     onChange(null);
   };
 
@@ -55,14 +63,20 @@ export function EntryChannelSelect({
       // hinzufügen" noch 150 px breit ist.
       <TextInput
         className="entry-channel-other"
+        size={size}
         aria-label="Weg"
-        autoFocus
+        // Nur nach „Andere …", nicht beim Öffnen einer Korrektur.
+        autoFocus={otherChosen}
         value={value ?? ""}
         onChange={(e) => onChange(e.currentTarget.value || null)}
         onKeyDown={onKeyDown}
         rightSectionPointerEvents="all"
         rightSection={
-          <CloseButton aria-label="Zurück zur Auswahl" onClick={closeOther} />
+          <CloseButton
+            size={size}
+            aria-label="Zurück zur Auswahl"
+            onClick={closeOther}
+          />
         }
       />
     );
@@ -70,6 +84,7 @@ export function EntryChannelSelect({
 
   return (
     <NativeSelect
+      size={size}
       aria-label="Weg"
       // Nach „×" steht der Fokus wieder auf der Auswahl, die das Textfeld ersetzt.
       autoFocus={backFromOther}
@@ -99,6 +114,7 @@ export function EntryRouteChips({
   value,
   onChange,
   options,
+  pinned = null,
   otherOpen,
   onOtherOpenChange,
   onSubmit,
@@ -107,6 +123,8 @@ export function EntryRouteChips({
   value: string | null;
   onChange: (value: string | null) => void;
   options: string[];
+  /** Steht vorne in der Zeile, auch wenn er abgewählt wird. */
+  pinned?: string | null;
   otherOpen: boolean;
   onOtherOpenChange: (open: boolean) => void;
   /** Strg/⌘+Enter im Feld: schickt den Eintrag mit diesem Wert ab. */
@@ -140,13 +158,15 @@ export function EntryRouteChips({
         />
       ) : (
         <div className="entry-route-chips-row">
-          {alphabetically(withChosen(options, value)).map((option) => (
+          {chipOrder(options, value, pinned).map((option) => (
             <Chip
               key={option}
               size="sm"
               variant="light"
-              checked={option === value}
-              onChange={() => onChange(option === value ? null : option)}
+              checked={sameCorrespondent(option, value)}
+              onChange={() =>
+                onChange(sameCorrespondent(option, value) ? null : option)
+              }
             >
               {option}
             </Chip>
@@ -187,11 +207,33 @@ const markedSuggestion = (field: HTMLInputElement) => {
 };
 
 /**
- * Verschwindet der gewählte Wert aus der Liste (umbenannte Stelle, annullierter
- * Eintrag), bleibt er als Chip stehen: gespeichert wird, was zu sehen ist.
+ * Die Chips alphabetisch, `pinned` vorne. Verschwindet der gewählte oder
+ * vorangestellte Wert aus der Liste (umbenannte Stelle, annullierter Eintrag),
+ * bleibt er als Chip stehen.
  */
-const withChosen = (options: string[], value: string | null) =>
-  value === null || options.includes(value) ? options : [...options, value];
+function chipOrder(
+  options: string[],
+  value: string | null,
+  pinned: string | null,
+): string[] {
+  const chips = withValue(withValue(options, value), pinned).toSorted((a, b) =>
+    a.localeCompare(b, "de", { sensitivity: "base" }),
+  );
+  const first = chips.find((chip) => sameCorrespondent(chip, pinned));
+  return first === undefined
+    ? chips
+    : [first, ...chips.filter((chip) => chip !== first)];
+}
 
-const alphabetically = (values: string[]) =>
-  values.toSorted((a, b) => a.localeCompare(b, "de", { sensitivity: "base" }));
+const withValue = (options: string[], value: string | null) =>
+  value === null || options.some((option) => sameCorrespondent(option, value))
+    ? options
+    : [...options, value];
+
+/**
+ * Ein Gesprächspartner ohne Rücksicht auf Groß- und Kleinschreibung: Der Chip
+ * „UHSt 2" steht auch für einen Eintrag mit „UHST 2", dessen Schreibweise
+ * gespeichert bleibt, solange niemand den Chip antippt.
+ */
+const sameCorrespondent = (a: string, b: string | null) =>
+  b !== null && a.localeCompare(b, "de", { sensitivity: "accent" }) === 0;

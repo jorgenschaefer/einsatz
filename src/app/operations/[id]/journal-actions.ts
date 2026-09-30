@@ -1,6 +1,6 @@
 "use server";
 
-import type { EntryRoute } from "@/journal/entry-route";
+import type { EntryContent } from "@/journal/entry-route";
 import {
   annulEntry,
   appendEntry,
@@ -10,7 +10,7 @@ import { type ActionResult, operationAction } from "./operation-action";
 
 export async function addJournalEntryAction(
   operationId: string,
-  { text, ...route }: { text: string } & EntryRoute,
+  { text, ...route }: EntryContent,
 ): Promise<ActionResult> {
   return operationAction(async (db, user) => {
     // Die Leer-Prüfung liegt in der Domäne (appendEntry), nicht hier.
@@ -29,10 +29,10 @@ export async function addJournalEntryAction(
 
 export async function correctEntryAction(
   entryId: string,
-  text: string,
+  content: EntryContent,
 ): Promise<ActionResult> {
   return operationAction(async (db, user) => {
-    const entry = await correctEntry(db, entryId, text, user.username);
+    const entry = await correctEntry(db, entryId, content, user.username);
     return entry.operationId;
   });
 }

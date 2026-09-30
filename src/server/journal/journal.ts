@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { EntryRoute } from "@/journal/entry-route";
+import type { EntryContent, EntryRoute } from "@/journal/entry-route";
 import type { Db, Queryable } from "@/server/db/db";
 import { lockOperation } from "@/server/operations/operations";
 import { ValidationError } from "@/server/validation";
@@ -15,7 +15,7 @@ export type JournalEntryType =
 export type JournalEntryState = "gueltig" | "annulliert";
 
 /** Eine frühere Fassung eines Eintrags mit eigenem Urheber und Zeitstempel. */
-export interface JournalRevision {
+export interface JournalRevision extends EntryRoute {
   text: string;
   author: string | null;
   createdAt: Date;
@@ -69,6 +69,26 @@ const toEntry = (
   channel: row.channel,
   revisions,
 });
+
+interface RevisionRow {
+  text: string;
+  author: string | null;
+  created_at: string | Date;
+  sender: string | null;
+  recipient: string | null;
+  channel: string | null;
+}
+
+const toRevision = (row: RevisionRow): JournalRevision => ({
+  text: row.text,
+  author: row.author,
+  createdAt: new Date(row.created_at),
+  sender: row.sender,
+  recipient: row.recipient,
+  channel: row.channel,
+});
+
+const REVISION_COLUMNS = "text, author, created_at, sender, recipient, channel";
 
 const COLUMNS =
   "id, operation_id, number, created_at, text, type, state, author, edited_at, sender, recipient, channel";
@@ -142,28 +162,20 @@ export async function listEntries(
     [operationId],
   );
 
-  const { rows: revisionRows } = await db.query<{
-    entry_id: string;
-    text: string;
-    author: string | null;
-    created_at: string | Date;
-  }>(
-    `SELECT r.entry_id, r.text, r.author, r.created_at
-       FROM journal_entry_revisions r
-       JOIN journal_entries e ON e.id = r.entry_id
-      WHERE e.operation_id = $1
-      ORDER BY r.seq ASC`,
+  const { rows: revisionRows } = await db.query<
+    RevisionRow & { entry_id: string }
+  >(
+    `SELECT entry_id, ${REVISION_COLUMNS}
+       FROM journal_entry_revisions
+      WHERE entry_id IN (SELECT id FROM journal_entries WHERE operation_id = $1)
+      ORDER BY seq ASC`,
     [operationId],
   );
 
   const revisionsByEntry = new Map<string, JournalRevision[]>();
   for (const r of revisionRows) {
     const list = revisionsByEntry.get(r.entry_id) ?? [];
-    list.push({
-      text: r.text,
-      author: r.author,
-      createdAt: new Date(r.created_at),
-    });
+    list.push(toRevision(r));
     revisionsByEntry.set(r.entry_id, list);
   }
 
@@ -207,20 +219,11 @@ async function loadEntry(
   );
   if (!rows[0]) return null;
 
-  const { rows: revisionRows } = await tx.query<{
-    text: string;
-    author: string | null;
-    created_at: string | Date;
-  }>(
-    "SELECT text, author, created_at FROM journal_entry_revisions WHERE entry_id = $1 ORDER BY seq ASC",
+  const { rows: revisionRows } = await tx.query<RevisionRow>(
+    `SELECT ${REVISION_COLUMNS} FROM journal_entry_revisions WHERE entry_id = $1 ORDER BY seq ASC`,
     [entryId],
   );
-  const revisions = revisionRows.map((r) => ({
-    text: r.text,
-    author: r.author,
-    createdAt: new Date(r.created_at),
-  }));
-  return toEntry(rows[0], revisions);
+  return toEntry(rows[0], revisionRows.map(toRevision));
 }
 
 /** Wirft, wenn der Eintrag fehlt oder bereits annulliert ist. */
@@ -243,7 +246,7 @@ function assertValid(
 export async function correctEntry(
   db: Db,
   entryId: string,
-  newText: string,
+  content: EntryContent,
   author: string,
 ): Promise<JournalEntry> {
   return db.transaction(async (tx) => {
@@ -259,40 +262,55 @@ export async function correctEntry(
         "Nur manuelle Einträge können geändert werden.",
       );
     }
-    return reviseEntry(tx, entryId, newText, author);
+    return reviseEntry(tx, entryId, content, author);
   });
 }
 
 /**
- * Macht `text` zur aktuellen Fassung des Eintrags und erhält die bisherige als
- * frühere Fassung mit ihrem Urheber und Zeitstempel. Muss innerhalb einer
- * Transaktion laufen; sperrt die Eintrags-Zeile, damit parallele Korrekturen
- * nacheinander laufen. Annullierte Einträge sind unantastbar.
+ * Macht `content` zur aktuellen Fassung des Eintrags und erhält die bisherige
+ * samt Route als frühere Fassung mit ihrem Urheber und Zeitstempel. Muss
+ * innerhalb einer Transaktion laufen; sperrt die Eintrags-Zeile, damit
+ * parallele Korrekturen nacheinander laufen. Annullierte Einträge sind
+ * unantastbar.
  */
 export async function reviseEntry(
   tx: Queryable,
   entryId: string,
-  newText: string,
+  content: EntryContent,
   author: string,
 ): Promise<JournalEntry> {
-  const text = requireEntryText(newText);
+  const text = requireEntryText(content.text);
   const entry = await loadEntry(tx, entryId, true);
   assertValid(entry);
 
   await tx.query(
-    `INSERT INTO journal_entry_revisions (id, entry_id, text, author, created_at)
-       VALUES ($1, $2, $3, $4, $5)`,
+    `INSERT INTO journal_entry_revisions
+       (id, entry_id, text, author, created_at, sender, recipient, channel)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
     [
       randomUUID(),
       entryId,
       entry.text,
       entry.author,
       (entry.editedAt ?? entry.createdAt).toISOString(),
+      entry.sender,
+      entry.recipient,
+      entry.channel,
     ],
   );
   await tx.query(
-    "UPDATE journal_entries SET text = $2, author = $3, edited_at = now() WHERE id = $1",
-    [entryId, text, author],
+    `UPDATE journal_entries
+        SET text = $2, author = $3, edited_at = now(),
+            sender = $4, recipient = $5, channel = $6
+      WHERE id = $1`,
+    [
+      entryId,
+      text,
+      author,
+      trimToNull(content.sender),
+      trimToNull(content.recipient),
+      trimToNull(content.channel),
+    ],
   );
   const updated = await loadEntry(tx, entryId);
   if (!updated) throw new Error("Eintrag nach Aktualisierung nicht gefunden.");

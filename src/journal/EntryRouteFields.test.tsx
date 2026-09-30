@@ -60,9 +60,11 @@ describe("EntryChannelSelect", () => {
 function ChipsHarness({
   initial = null,
   options,
+  pinned,
 }: {
   initial?: string | null;
   options: string[];
+  pinned?: string;
 }) {
   const [sender, setSender] = useState(initial);
   const [otherOpen, setOtherOpen] = useState(false);
@@ -73,6 +75,7 @@ function ChipsHarness({
         value={sender}
         onChange={setSender}
         options={options}
+        pinned={pinned}
         otherOpen={otherOpen}
         onOtherOpenChange={setOtherOpen}
       />
@@ -138,6 +141,29 @@ describe("EntryRouteChips", () => {
 
     expect(chosenSender()).toBe('"UHSt 2"');
     expect(chip("EAL")).not.toBeChecked();
+  });
+
+  it("puts the pinned value first", () => {
+    render(<ChipsHarness options={["EAL", "UHSt 2"]} pinned="UHSt 2" />);
+
+    expect(chipNames()).toEqual(["UHSt 2", "EAL"]);
+  });
+
+  it("keeps the pinned value as a chip once unchosen, though it is not among the values", async () => {
+    render(<ChipsHarness initial="ELW 1" options={["EAL"]} pinned="ELW 1" />);
+
+    await userEvent.click(chip("ELW 1"));
+
+    expect(chosenSender()).toBe("null");
+    expect(chipNames()).toEqual(["ELW 1", "EAL"]);
+  });
+
+  it("unchooses a value in another spelling on a tap on its chip", async () => {
+    render(<ChipsHarness initial="UHST 2" options={["EAL", "UHSt 2"]} />);
+
+    await userEvent.click(chip("UHSt 2"));
+
+    expect(chosenSender()).toBe("null");
   });
 
   it("keeps showing the chosen value once it has left the values", async () => {

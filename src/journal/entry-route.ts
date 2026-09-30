@@ -5,6 +5,9 @@ export interface EntryRoute {
   channel: string | null;
 }
 
+/** Was eine Fassung eines Eintrags sagt: Text samt Von, An und Weg. */
+export type EntryContent = { text: string } & EntryRoute;
+
 /**
  * Die Kopfzeile eines Eintrags, „Von X an Y" und Weg getrennt, damit der Weg
  * gedimmt dargestellt werden kann; `null` ohne alle drei Angaben.

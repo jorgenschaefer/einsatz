@@ -8,6 +8,22 @@ import { JournalPanel, type JournalPanelProps } from "./JournalPanel";
 import { chooseAction, entry, setup } from "./JournalPanel.fixtures";
 
 describe("JournalPanel – Annullieren", () => {
+  it("shows the header of an annulled entry struck through", () => {
+    setup({
+      entries: [
+        entry({
+          state: "annulliert",
+          sender: "UHSt 2",
+          recipient: "EAL",
+          channel: "Funk",
+        }),
+      ],
+    });
+
+    const header = screen.getByText("Von UHSt 2 an EAL", { exact: false });
+    expect(header.closest("del")).toBeInTheDocument();
+  });
+
   it("asks for confirmation before annulling and annuls only once confirmed", async () => {
     const props = setup();
     await chooseAction(1, "Annullieren …");

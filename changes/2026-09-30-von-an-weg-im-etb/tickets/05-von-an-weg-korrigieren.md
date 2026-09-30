@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:    AC-10, AC-11, AC-14, AC-15
 advances:
 after:     04-andere-werte-frei-eingeben
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -109,3 +109,67 @@ beim neuen Eintrag (Chip-Zeilen über der Textarea, Weg-Auswahl in der Zeile mit
 - Aus *Out of scope*: Von, An und Weg an automatischen Einträgen und Stärkemeldungen. Die Korrektur einer Stärkemeldung übergibt eine leere Route und zeigt keine Route-Felder.
 
 ## Left standing
+- Review-Nit nicht umgesetzt: `EntryForm` hat die zwei Schalter `pinned` und
+  `compact`, und die Korrektur setzt immer beide. Sie bedeuten Verschiedenes:
+  `pinned` stellt die vorbelegten Chips voran, `compact` macht Weg-Auswahl und
+  Knöpfe klein, weil der Platz im Eintrag schmaler ist. Ein gemeinsamer
+  „Korrektur-Modus“ würde das verdecken.
+- Review-Beobachtung, nicht behoben: Nach dem Speichern schließt die Korrektur,
+  bevor die neue Fassung über das Live-Ereignis ankommt. Kurz steht der Eintrag
+  noch in der alten Fassung da. Das war bei der reinen Textkorrektur schon so.
+- Abweichung von der Gestaltung: Hat die Korrektur einen Freitext-Weg, stehen
+  „Speichern“ und „Abbrechen“ in der nächsten Zeile. Mindestens 150 px Feld
+  plus beide Knöpfe brauchen etwa 349 px, im Eintrag sind aber nur 302 px
+  Platz. Mit der Auswahl, auch mit *Persönlich*, passt alles in eine Zeile.
+  Dafür sind Weg-Auswahl und Knöpfe in der Korrektur klein (`xs`), wie die
+  Knöpfe der Korrektur vorher auch. Das sollte bei der Abnahme bestätigt
+  werden.
+- AC-14 und die Anordnung prüft kein automatischer Test, denn jsdom misst kein
+  Layout. Der Reviewer hat in der zweiten Runde bei 360 px und in der
+  Desktop-Seitenleiste (1920×1080) gemessen:
+  - Seite: `scrollWidth` gleich `clientWidth`, in allen Zuständen, auch mit
+    langer Route, offenem „andere …“ und Freitext-Weg in der Korrektur.
+  - Eine lange Kopfzeile bricht im Eintrag um.
+  - Korrektur: Weg-Auswahl 97 px, „Speichern“ 88 px und „Abbrechen“ 92,7 px
+    in einer Zeile. Der Freitext-Weg ist 302 px breit, die Knöpfe stehen
+    darunter.
+  - Eingabebereich unverändert: `.journal-new-entry` 178,375 px hoch,
+    Freitext-Weg 151,23 px, „Eintrag hinzufügen“ ungekürzt.
+
+  Im Browser hat er außerdem geprüft: Vorfassungen und annullierte Einträge
+  zeigen ihre Kopfzeile durchgestrichen. Beim Öffnen einer Korrektur springt
+  der Fokus nirgendwohin. Strg+Enter aus dem Freitext-Weg der Korrektur
+  speichert.
+- Abweichung vom Plan, Schritt 6: Im Browser habe ich nicht selbst geprüft.
+  Das hat der Reviewer in beiden Runden übernommen, mit den Messwerten oben.
+- Abweichung vom Nudge „in einer neuen Migration“: Es gibt keine neue
+  Migration. Die Spalten an beiden Tabellen hat Migration 014 aus Ticket 02
+  schon angelegt; sie werden hier nur beschrieben und gelesen.
+- In diesem Ticket entschieden (der Plan sagt dazu nichts): Hat der Eintrag
+  einen Freitext-Weg, führt „×“ in der Korrektur zur Auswahl mit *Funk*, dem
+  Weg, mit dem auch ein neuer Eintrag beginnt. Der Freitext-Weg bekommt den
+  Fokus nur, wenn man *Andere …* wählt, nicht schon beim Öffnen der Korrektur
+  (Nit aus der ersten Review).
+- Auswirkung auf den neuen Eintrag: Die Chips vergleichen jetzt ohne Rücksicht
+  auf Groß- und Kleinschreibung, beim neuen Eintrag wie bei der Korrektur. Den
+  seltenen Fall aus Ticket 03 (gewählter Chip, ein anderes Gerät benennt die
+  Stelle nur in der Schreibweise um) zeigt die Zeile jetzt als einen Chip in
+  der neuen Schreibweise, gewählt. Gespeichert wird die alte Schreibweise, bis
+  jemand den Chip antippt. Das ist dieselbe Regel wie bei der Korrektur.
+- Nicht in diesem Ticket, aber bei der Review aufgefallen: Ändert eine
+  Korrektur nur den Weg eines Eintrags mit „UHST 2“, bleibt dessen
+  Schreibweise gespeichert (so entschieden). Weil `listCorrespondents` den
+  Zeitpunkt der Korrektur als Verwendung zählt, wird „UHST 2“ damit wieder die
+  jüngste Schreibweise in allen Chip-Zeilen. Das gehört zu AC-2 und
+  `listCorrespondents`, nicht hierher.
+- Zum TDD-Ablauf: Einige Tests liefen gleich grün, weil der Code dafür schon
+  mit einem früheren Schritt kam: „keeps the unchosen prefilled chip first in
+  its row“, „saves a correction with Strg+Enter in the field for another Von“
+  sowie in `EntryRouteFields.test.tsx` „puts the pinned value first“, „keeps
+  the pinned value as a chip once unchosen …“ und „unchooses a value in
+  another spelling …“. Die letzten beiden und „closes the correction once it
+  is saved“ habe ich probeweise gegen kaputten Code laufen lassen; sie
+  schlugen fehl. Die übrigen habe ich so nicht geprüft. Der Test für die
+  Aktion schlug zuerst mit einem `TypeError` fehl statt an der Assertion. Ich
+  habe dann die Signatur geändert und die Route noch verworfen; danach schlug
+  er an der Assertion fehl.

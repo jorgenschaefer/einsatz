@@ -89,6 +89,9 @@ const toView = (entry: JournalEntry): JournalEntryView => ({
     text: r.text,
     author: r.author,
     createdAt: r.createdAt.toISOString(),
+    sender: r.sender,
+    recipient: r.recipient,
+    channel: r.channel,
   })),
 });
 

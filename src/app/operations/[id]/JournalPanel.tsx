@@ -4,26 +4,22 @@ import {
   ActionIcon,
   Alert,
   Badge,
-  Button,
+  Box,
   Checkbox,
   Group,
   Menu,
   Paper,
   Stack,
   Text,
-  Textarea,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { type Ref, useEffect, useRef, useState } from "react";
 import type { ActionResult } from "@/app/action-result";
 import { ConfirmationModal } from "@/app/ConfirmationModal";
+import { EntryForm } from "@/journal/EntryForm";
+import { DEFAULT_CHANNEL } from "@/journal/EntryRouteFields";
 import {
-  DEFAULT_CHANNEL,
-  EntryChannelSelect,
-  EntryRouteChips,
-  isSubmitShortcut,
-} from "@/journal/EntryRouteFields";
-import {
+  type EntryContent,
   type EntryRoute,
   formatEntryRoute,
   NO_ROUTE,
@@ -35,7 +31,7 @@ import type {
 
 const SAVE_ERROR = "Speichern fehlgeschlagen. Bitte erneut versuchen.";
 
-interface JournalRevisionView {
+interface JournalRevisionView extends EntryRoute {
   text: string;
   author: string | null;
   createdAt: string;
@@ -55,10 +51,10 @@ export interface JournalEntryView extends EntryRoute {
 
 export interface JournalPanelProps {
   entries: JournalEntryView[];
-  /** Die Werte für Von und An eines neuen Eintrags. */
+  /** Die Werte für Von und An eines neuen Eintrags und einer Korrektur. */
   correspondents: string[];
-  onAdd: (entry: { text: string } & EntryRoute) => Promise<ActionResult>;
-  onCorrect: (id: string, text: string) => Promise<ActionResult>;
+  onAdd: (entry: EntryContent) => Promise<ActionResult>;
+  onCorrect: (id: string, content: EntryContent) => Promise<ActionResult>;
   onAnnul: (id: string) => Promise<ActionResult>;
   newEntryRef?: Ref<HTMLTextAreaElement>;
   /** Wird das ETB sichtbar, zeigt es den letzten Eintrag. */
@@ -72,8 +68,11 @@ const berlinTime = (iso: string) =>
     timeStyle: "short",
   }).format(new Date(iso));
 
-/** Ob bei Von und An statt der Chips das Feld „andere …" offen ist. */
-const NO_OTHER_OPEN = { sender: false, recipient: false };
+const NEW_ENTRY: EntryContent = {
+  text: "",
+  ...NO_ROUTE,
+  channel: DEFAULT_CHANNEL,
+};
 
 const isAutomatic = (entry: JournalEntryView) =>
   entry.type === "einsatz-eröffnet" ||
@@ -90,14 +89,7 @@ export function JournalPanel({
   visible,
 }: JournalPanelProps) {
   const [hideAuto, setHideAuto] = useState(false);
-  const [draft, setDraft] = useState("");
-  const [route, setRoute] = useState<EntryRoute>({
-    ...NO_ROUTE,
-    channel: DEFAULT_CHANNEL,
-  });
-  const [otherOpen, setOtherOpen] = useState(NO_OTHER_OPEN);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editText, setEditText] = useState("");
   const [annulTarget, setAnnulTarget] = useState<JournalEntryView | null>(null);
   const [annulConfirmationOpen, annulConfirmation] = useDisclosure(false);
   const [error, setError] = useState<string | null>(null);
@@ -105,45 +97,37 @@ export function JournalPanel({
   const shown = hideAuto ? entries.filter((e) => !isAutomatic(e)) : entries;
   const scroll = useScrollToEnd(visible, entries.at(-1)?.id);
 
-  /** `chosen` ist, was ein Feld beim Abschicken noch übernimmt. */
-  const submitNew = async (chosen: Partial<EntryRoute> = {}) => {
-    const text = draft.trim();
-    if (!text) return;
+  const addEntry = async (content: EntryContent) => {
     try {
-      const { error: err } = await onAdd({ text, ...route, ...chosen });
+      const { error: err } = await onAdd(content);
       if (err) {
         setError(err);
-        return;
+        return false;
       }
-      setDraft("");
-      setRoute((current) => ({ ...current, sender: null, recipient: null }));
-      setOtherOpen(NO_OTHER_OPEN);
       setError(null);
       scroll.scrollToEnd();
+      return true;
     } catch {
       setError(SAVE_ERROR);
+      return false;
     }
   };
 
-  const submitEdit = async () => {
-    const text = editText.trim();
-    if (!text || editingId === null) return;
+  const correctEditedEntry = async (content: EntryContent) => {
+    if (editingId === null) return false;
     try {
-      const { error: err } = await onCorrect(editingId, text);
+      const { error: err } = await onCorrect(editingId, content);
       if (err) {
         setError(err);
-        return;
+        return false;
       }
       setEditingId(null);
       setError(null);
+      return true;
     } catch {
       setError(SAVE_ERROR);
+      return false;
     }
-  };
-
-  const startCorrection = (entry: JournalEntryView) => {
-    setEditingId(entry.id);
-    setEditText(entry.text);
   };
 
   const openAnnulConfirmation = (entry: JournalEntryView) => {
@@ -214,7 +198,7 @@ export function JournalPanel({
                       </Menu.Target>
                       <Menu.Dropdown>
                         {canCorrect && (
-                          <Menu.Item onClick={() => startCorrection(entry)}>
+                          <Menu.Item onClick={() => setEditingId(entry.id)}>
                             Korrigieren
                           </Menu.Item>
                         )}
@@ -230,21 +214,26 @@ export function JournalPanel({
                 </Group>
               </Group>
 
-              <EntryRouteHeader route={entry} />
-
               {entry.revisions.map((rev, index) => (
                 // Revisionen tragen weder id noch seq und werden nur angehängt
                 // (nie umsortiert/entfernt); der Index innerhalb des Eintrags ist
                 // daher ein stabiler, kollisionsfreier Key – anders als der
                 // Zeitstempel, den zwei Fassungen teilen können.
                 // biome-ignore lint/suspicious/noArrayIndexKey: append-only, stable index
-                <Text key={`${entry.id}-${index}`} size="sm" c="dimmed" mt={4}>
-                  <del>{rev.text}</del>
-                  {rev.author &&
-                    ` – ${rev.author}, ${berlinTime(rev.createdAt)}`}
-                </Text>
+                <Box key={`${entry.id}-${index}`} c="dimmed">
+                  <EntryRouteHeader route={rev} struck />
+                  <Text size="sm" mt={4}>
+                    <del>{rev.text}</del>
+                    {rev.author &&
+                      ` – ${rev.author}, ${berlinTime(rev.createdAt)}`}
+                  </Text>
+                </Box>
               ))}
 
+              <EntryRouteHeader
+                route={entry}
+                struck={entry.state === "annulliert"}
+              />
               {entry.state === "annulliert" ? (
                 <Text mt={4}>
                   <del>{entry.text}</del>
@@ -260,26 +249,18 @@ export function JournalPanel({
               )}
 
               {editingId === entry.id && (
-                <Stack mt="xs" gap="xs">
-                  <Textarea
-                    aria-label="Korrektur"
-                    value={editText}
-                    onChange={(e) => setEditText(e.currentTarget.value)}
-                    onKeyDown={submitOnCtrlEnter(submitEdit)}
+                <Box mt="xs">
+                  <EntryForm
+                    label="Korrektur"
+                    initial={entry}
+                    pinned
+                    compact
+                    correspondents={correspondents}
+                    submitLabel="Speichern"
+                    onSubmit={correctEditedEntry}
+                    onCancel={() => setEditingId(null)}
                   />
-                  <Group gap="xs">
-                    <Button size="xs" onClick={submitEdit}>
-                      Speichern
-                    </Button>
-                    <Button
-                      size="xs"
-                      variant="subtle"
-                      onClick={() => setEditingId(null)}
-                    >
-                      Abbrechen
-                    </Button>
-                  </Group>
-                </Stack>
+                </Box>
               )}
             </Paper>
           );
@@ -293,46 +274,17 @@ export function JournalPanel({
         />
       </Stack>
 
-      <Stack gap="xs" className="journal-new-entry" ref={scroll.newEntryRef}>
-        <EntryRouteChips
-          label="Von"
-          value={route.sender}
-          onChange={(sender) => setRoute({ ...route, sender })}
-          options={correspondents}
-          otherOpen={otherOpen.sender}
-          onOtherOpenChange={(sender) => setOtherOpen({ ...otherOpen, sender })}
-          onSubmit={(sender) => submitNew({ sender })}
-        />
-        <EntryRouteChips
-          label="An"
-          value={route.recipient}
-          onChange={(recipient) => setRoute({ ...route, recipient })}
-          options={correspondents}
-          otherOpen={otherOpen.recipient}
-          onOtherOpenChange={(recipient) =>
-            setOtherOpen({ ...otherOpen, recipient })
-          }
-          onSubmit={(recipient) => submitNew({ recipient })}
-        />
-        <Textarea
-          ref={newEntryRef}
-          aria-label="Neuer Eintrag"
-          value={draft}
-          onChange={(e) => setDraft(e.currentTarget.value)}
-          onKeyDown={submitOnCtrlEnter(submitNew)}
+      <div className="journal-new-entry" ref={scroll.newEntryRef}>
+        <EntryForm
+          label="Neuer Eintrag"
           placeholder="Ereignis festhalten …"
+          textRef={newEntryRef}
+          initial={NEW_ENTRY}
+          correspondents={correspondents}
+          submitLabel="Eintrag hinzufügen"
+          onSubmit={addEntry}
         />
-        {/* gap="sm": Neben dem 150 px breiten Freitext-Weg bleibt „Eintrag
-            hinzufügen" bei 360 px ungekürzt. */}
-        <Group justify="space-between" gap="sm" wrap="nowrap">
-          <EntryChannelSelect
-            value={route.channel}
-            onChange={(channel) => setRoute({ ...route, channel })}
-            onKeyDown={submitOnCtrlEnter(submitNew)}
-          />
-          <Button onClick={() => submitNew()}>Eintrag hinzufügen</Button>
-        </Group>
-      </Stack>
+      </div>
 
       {annulTarget && (
         <ConfirmationModal
@@ -352,19 +304,33 @@ export function JournalPanel({
   );
 }
 
-/** „Von X an Y" fett, der Weg gedimmt dahinter; nichts ohne alle drei Angaben. */
-function EntryRouteHeader({ route }: { route: EntryRoute }) {
+/**
+ * „Von X an Y" fett, der Weg gedimmt dahinter; nichts ohne alle drei Angaben.
+ * Durchgestrichen bei früheren Fassungen und annullierten Einträgen.
+ */
+function EntryRouteHeader({
+  route,
+  struck = false,
+}: {
+  route: EntryRoute;
+  struck?: boolean;
+}) {
   const header = formatEntryRoute(route);
   if (!header) return null;
   const { parties, channel } = header;
-  return (
-    <Text size="sm" fw={600} mt={4}>
+  const content = (
+    <>
       {parties}
       {channel && (
         <Text span inherit fw={400} c="dimmed">
           {parties ? ` · ${channel}` : channel}
         </Text>
       )}
+    </>
+  );
+  return (
+    <Text size="sm" fw={600} mt={4}>
+      {struck ? <del>{content}</del> : content}
     </Text>
   );
 }
@@ -419,12 +385,3 @@ function scrollToEnd(listEnd: Element | null, newEntry: Element | null) {
   listEnd?.scrollIntoView({ block: "end" });
   newEntry?.scrollIntoView({ block: "end" });
 }
-
-/** Strg/⌘+Enter schickt das Eingabefeld ab. */
-const submitOnCtrlEnter =
-  (submit: () => Promise<void>) => (e: React.KeyboardEvent) => {
-    if (isSubmitShortcut(e)) {
-      e.preventDefault();
-      void submit();
-    }
-  };

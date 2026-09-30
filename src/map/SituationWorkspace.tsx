@@ -20,7 +20,7 @@ import {
   JournalPanel,
 } from "@/app/operations/[id]/JournalPanel";
 import { LageansichtShell } from "@/app/operations/[id]/LageansichtShell";
-import type { EntryRoute } from "@/journal/entry-route";
+import type { EntryContent } from "@/journal/entry-route";
 import type { GeoHit } from "@/server/geocoder/geocoder";
 import type { KmlSourceType } from "@/server/kml/kml-overlays";
 import type { PositionSource } from "@/server/mapsymbols/map-symbols";
@@ -101,12 +101,13 @@ export interface SituationWorkspaceProps {
   attribution: string;
   symbols: WorkspaceSymbol[];
   journalEntries: JournalEntryView[];
-  /** Die Werte für Von und An eines neuen ETB-Eintrags. */
+  /** Die Werte für Von und An eines neuen ETB-Eintrags und einer Korrektur. */
   correspondents: string[];
-  onAddJournalEntry: (
-    entry: { text: string } & EntryRoute,
+  onAddJournalEntry: (entry: EntryContent) => Promise<ActionResult>;
+  onCorrectJournalEntry: (
+    id: string,
+    content: EntryContent,
   ) => Promise<ActionResult>;
-  onCorrectJournalEntry: (id: string, text: string) => Promise<ActionResult>;
   onAnnulJournalEntry: (id: string) => Promise<ActionResult>;
   onSetDefault: (view: MapView) => Promise<ActionResult>;
   onPlace: (

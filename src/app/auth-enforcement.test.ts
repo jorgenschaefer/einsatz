@@ -238,7 +238,7 @@ const userGuardedActions: Invocation[] = [
   },
   {
     name: "correctEntryAction",
-    run: () => correctEntryAction("e-1", "Korrektur"),
+    run: () => correctEntryAction("e-1", { text: "Korrektur", ...NO_ROUTE }),
   },
   { name: "annulEntryAction", run: () => annulEntryAction("e-1") },
   {

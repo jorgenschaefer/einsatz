@@ -29,7 +29,7 @@ describe("correctEntry", () => {
     const corrected = await correctEntry(
       db,
       entry.id,
-      "Deich hält nicht",
+      { text: "Deich hält nicht", ...NO_ROUTE },
       "bernd",
     );
     expect(corrected.text).toBe("Deich hält nicht");
@@ -47,11 +47,71 @@ describe("correctEntry", () => {
     expect(corrected.number).toBe(entry.number);
   });
 
+  it("makes a new fassung when only the Weg changes, keeping the prior route in the prior fassung", async () => {
+    const db = await freshDb();
+    const op = await insertOperation(db, { name: "Deich", description: null });
+    const entry = await appendEntry(db, {
+      operationId: op.id,
+      text: "Deich hält",
+      type: "manuell",
+      author: "anna",
+      route: { sender: "UHSt 2", recipient: "EAL", channel: "Funk" },
+    });
+
+    await correctEntry(
+      db,
+      entry.id,
+      {
+        text: "Deich hält",
+        sender: "UHSt 2",
+        recipient: "EAL",
+        channel: "Telefon",
+      },
+      "bernd",
+    );
+
+    const [reloaded] = await listEntries(db, op.id);
+    expect(reloaded).toMatchObject({
+      text: "Deich hält",
+      sender: "UHSt 2",
+      recipient: "EAL",
+      channel: "Telefon",
+      author: "bernd",
+    });
+    expect(reloaded.revisions).toEqual([
+      expect.objectContaining({
+        text: "Deich hält",
+        author: "anna",
+        sender: "UHSt 2",
+        recipient: "EAL",
+        channel: "Funk",
+      }),
+    ]);
+  });
+
+  it("stores the corrected route trimmed, with blank values as none", async () => {
+    const db = await freshDb();
+    const { entry } = await manualEntry(db);
+
+    const corrected = await correctEntry(
+      db,
+      entry.id,
+      { text: "Deich hält", sender: "  EAL ", recipient: "  ", channel: "" },
+      "bernd",
+    );
+
+    expect(corrected).toMatchObject({
+      sender: "EAL",
+      recipient: null,
+      channel: null,
+    });
+  });
+
   it("accumulates history over multiple corrections, oldest first", async () => {
     const db = await freshDb();
     const { entry } = await manualEntry(db);
-    await correctEntry(db, entry.id, "zweite", "bernd");
-    await correctEntry(db, entry.id, "dritte", "clara");
+    await correctEntry(db, entry.id, { text: "zweite", ...NO_ROUTE }, "bernd");
+    await correctEntry(db, entry.id, { text: "dritte", ...NO_ROUTE }, "clara");
 
     const [reloaded] = await listEntries(db, entry.operationId);
     expect(reloaded.text).toBe("dritte");
@@ -67,7 +127,7 @@ describe("correctEntry", () => {
     const [auto] = await listEntries(db, op.id);
     expect(auto.type).toBe("einsatz-eröffnet");
     await expect(
-      correctEntry(db, auto.id, "manipuliert", "anna"),
+      correctEntry(db, auto.id, { text: "manipuliert", ...NO_ROUTE }, "anna"),
     ).rejects.toBeInstanceOf(ValidationError);
   });
 
@@ -78,7 +138,7 @@ describe("correctEntry", () => {
       correctEntry(
         db,
         "00000000-0000-0000-0000-000000000000",
-        "Deich hält",
+        { text: "Deich hält", ...NO_ROUTE },
         "bernd",
       ),
     ).rejects.toThrow(new ValidationError("Eintrag nicht gefunden."));
@@ -88,7 +148,7 @@ describe("correctEntry", () => {
     const db = await freshDb();
     const { entry } = await manualEntry(db);
     await expect(
-      correctEntry(db, entry.id, "   ", "bernd"),
+      correctEntry(db, entry.id, { text: "   ", ...NO_ROUTE }, "bernd"),
     ).rejects.toBeInstanceOf(ValidationError);
     const [reloaded] = await listEntries(db, entry.operationId);
     expect(reloaded.text).toBe("Deich hält");
@@ -122,7 +182,7 @@ describe.each([
     const db = await freshDb();
     const entry = await stationEntry(db);
     await expect(
-      correctEntry(db, entry.id, "manipuliert", "bernd"),
+      correctEntry(db, entry.id, { text: "manipuliert", ...NO_ROUTE }, "bernd"),
     ).rejects.toThrow(onlyManual);
   });
 
@@ -171,7 +231,7 @@ describe("a gesamtstärke-gemeldet entry", () => {
     const db = await freshDb();
     const entry = await totalStrengthEntry(db);
     await expect(
-      correctEntry(db, entry.id, "manipuliert", "bernd"),
+      correctEntry(db, entry.id, { text: "manipuliert", ...NO_ROUTE }, "bernd"),
     ).rejects.toThrow(
       new ValidationError("Nur manuelle Einträge können geändert werden."),
     );
@@ -209,7 +269,7 @@ describe("annulEntry", () => {
     const { entry } = await manualEntry(db);
     await annulEntry(db, entry.id);
     await expect(
-      correctEntry(db, entry.id, "neu", "bernd"),
+      correctEntry(db, entry.id, { text: "neu", ...NO_ROUTE }, "bernd"),
     ).rejects.toBeInstanceOf(ValidationError);
   });
 });

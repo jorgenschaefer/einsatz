@@ -127,7 +127,7 @@ export async function correctStrengthReport(
     await reviseEntry(
       tx,
       report.journal_entry_id,
-      formatStrengthReportText(station.name, values),
+      { text: formatStrengthReportText(station.name, values), ...NO_ROUTE },
       input.author,
     );
     return operationId;

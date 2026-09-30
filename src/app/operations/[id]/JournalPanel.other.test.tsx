@@ -190,6 +190,14 @@ describe("JournalPanel – andere Von und An", () => {
 });
 
 describe("JournalPanel – anderer Weg", () => {
+  it("puts the focus into the field for the Weg on Andere …", async () => {
+    setup();
+
+    await userEvent.selectOptions(channelSelect(), "Andere …");
+
+    expect(channelField()).toHaveFocus();
+  });
+
   it("adds the typed Weg", async () => {
     const props = setup();
 

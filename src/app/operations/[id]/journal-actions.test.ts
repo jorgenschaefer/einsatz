@@ -17,7 +17,10 @@ vi.mock("next/headers", () => ({
   }),
 }));
 
-import { addJournalEntryAction } from "@/app/operations/[id]/journal-actions";
+import {
+  addJournalEntryAction,
+  correctEntryAction,
+} from "@/app/operations/[id]/journal-actions";
 import { hashPassword } from "@/server/auth/password";
 import { insertSession } from "@/server/auth/sessions";
 import { insertUser } from "@/server/auth/users";
@@ -91,6 +94,43 @@ describe("journal actions", () => {
         sender: "UHSt 2",
         recipient: "EAL",
         channel: "Funk",
+      }),
+    ]);
+    expect(events).toBe(1);
+  });
+
+  it("corrects Von, An and Weg of an entry and tells the Führungsansichten once", async () => {
+    await loginAs("bernd");
+    const op = await insertOperation(state.db as Db, {
+      name: "Cyclassics",
+      description: null,
+    });
+    await addJournalEntryAction(op.id, {
+      text: "Deich hält",
+      sender: "UHSt 2",
+      recipient: "EAL",
+      channel: "Funk",
+    });
+    const [entry] = await listEntries(state.db as Db, op.id);
+
+    const events = await liveEventsFor(op.id, async () => {
+      expect(
+        await correctEntryAction(entry.id, {
+          text: "Deich hält",
+          sender: "EAL",
+          recipient: "UHSt 2",
+          channel: "Telefon",
+        }),
+      ).toEqual({});
+    });
+
+    expect(await listEntries(state.db as Db, op.id)).toEqual([
+      expect.objectContaining({
+        text: "Deich hält",
+        sender: "EAL",
+        recipient: "UHSt 2",
+        channel: "Telefon",
+        revisions: [expect.objectContaining({ channel: "Funk" })],
       }),
     ]);
     expect(events).toBe(1);
