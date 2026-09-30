@@ -6,29 +6,15 @@ import { QUICK_SELECT } from "./quick-select";
 import {
   SituationWorkspace,
   type SituationWorkspaceProps,
-  type WorkspaceSymbol,
 } from "./SituationWorkspace";
 import {
+  aSymbol,
   buildProps,
   openPanel,
   renderWorkspace,
   SYMBOL,
   selectMainView,
 } from "./SituationWorkspace.fixtures";
-
-const aSymbol = (over: Partial<WorkspaceSymbol> = {}): WorkspaceSymbol => ({
-  id: "s1",
-  lat: 53.5,
-  lng: 9.9,
-  composition: {
-    grundzeichen: "ortsfeste-stelle",
-    organisation: "hilfsorganisation",
-  },
-  positionSource: "manual",
-  reportedAt: null,
-  deviceLinkToken: null,
-  ...over,
-});
 
 describe("SituationWorkspace", () => {
   it("places the armed Schnellauswahl composition where the map is clicked", async () => {
