@@ -34,6 +34,9 @@ export async function reopenOperationAction(
   revalidateStatusChange(operationId);
 }
 
+// Liefert nie ein `ActionResult`: Erfolg leitet um, ein Fehler fliegt als
+// Ausnahme weiter und erscheint in der Rückfrage als allgemeine Meldung. Der
+// Typ passt nur zu `ConfirmationModal.onConfirm`.
 export async function deleteOperationAction(
   operationId: string,
 ): Promise<ActionResult> {
