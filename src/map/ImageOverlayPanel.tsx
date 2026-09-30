@@ -10,8 +10,8 @@ import {
   Text,
 } from "@mantine/core";
 import type { ReactNode } from "react";
-import { useState } from "react";
 import type { ActionResult } from "@/app/action-result";
+import { useActionRunner } from "@/app/useActionRunner";
 import { WRAPPING_SWITCH_LABEL } from "./wrapping-switch-label";
 
 export interface ImageOverlayItem {
@@ -39,23 +39,11 @@ export function ImageOverlayPanel({
   onEdit,
   renderEditor,
 }: ImageOverlayPanelProps) {
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  const run = async (action: Promise<ActionResult>): Promise<ActionResult> => {
-    setBusy(true);
-    try {
-      const result = await action;
-      setError(result.error ?? null);
-      return result;
-    } finally {
-      setBusy(false);
-    }
-  };
+  const { busy, error, run } = useActionRunner();
 
   const add = (file: File | null) => {
     if (!file) return;
-    void run(onAdd(file));
+    void run(() => onAdd(file));
   };
 
   return (
@@ -99,7 +87,7 @@ export function ImageOverlayPanel({
                     checked={overlay.visible}
                     disabled={busy}
                     onChange={(e) =>
-                      run(
+                      run(() =>
                         onToggleVisibility(overlay.id, e.currentTarget.checked),
                       )
                     }

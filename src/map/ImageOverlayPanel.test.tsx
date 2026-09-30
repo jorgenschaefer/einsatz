@@ -1,5 +1,6 @@
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
+import { redirectError } from "@/test/redirect-error";
 import { render, screen, waitFor, within } from "@/test/render";
 import {
   type ImageOverlayItem,
@@ -91,6 +92,61 @@ describe("ImageOverlayPanel", () => {
     expect(
       row.queryByRole("button", { name: "Bearbeiten" }),
     ).not.toBeInTheDocument();
+  });
+
+  describe("when an action does not come back with a result", () => {
+    const add = () =>
+      userEvent.upload(
+        screen.getByLabelText(/Bild-Overlay einbinden/),
+        new File(["%PDF-1.4"], "plan.pdf", { type: "application/pdf" }),
+      );
+    const visibilitySwitch = () =>
+      screen.getByRole("switch", { name: /Lageplan/ });
+    const toggle = () => userEvent.click(visibilitySwitch());
+
+    const userActions: [
+      string,
+      "onAdd" | "onToggleVisibility",
+      () => Promise<void>,
+    ][] = [
+      ["adding an image", "onAdd", add],
+      ["toggling visibility", "onToggleVisibility", toggle],
+    ];
+
+    it.each(userActions)(
+      "shows the failure when %s throws and leaves the switch usable",
+      async (_, prop, perform) => {
+        renderPanel({
+          overlays: [overlay],
+          [prop]: vi.fn(async () => {
+            throw new Error("offline");
+          }),
+        });
+
+        await perform();
+
+        expect(await screen.findByRole("alert")).toHaveTextContent(
+          "Das hat nicht geklappt. Bitte erneut versuchen.",
+        );
+        expect(visibilitySwitch()).toBeEnabled();
+        expect(visibilitySwitch()).toBeChecked();
+      },
+    );
+
+    it.each(userActions)(
+      "shows no failure when %s redirects to the login",
+      async (_, prop, perform) => {
+        const action = vi.fn(async () => {
+          throw redirectError();
+        });
+        renderPanel({ overlays: [overlay], [prop]: action });
+
+        await perform();
+
+        await waitFor(() => expect(action).toHaveBeenCalled());
+        expect(screen.queryByRole("alert")).toBeNull();
+      },
+    );
   });
 
   it("surfaces an add error", async () => {

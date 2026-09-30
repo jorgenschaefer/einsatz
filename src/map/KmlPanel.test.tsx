@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { ActionResult } from "@/app/action-result";
 import { buttonColor } from "@/test/button-color";
 import { clickModalOverlay } from "@/test/modal-overlay";
+import { redirectError } from "@/test/redirect-error";
 import { fireEvent, render, screen, waitFor, within } from "@/test/render";
 import { type KmlOverlayView, KmlPanel, type KmlPanelProps } from "./KmlPanel";
 
@@ -324,6 +325,94 @@ describe("KmlPanel", () => {
       expect(screen.getByRole("dialog")).toBe(dialog);
       expect(onRemove).toHaveBeenCalledTimes(1);
     });
+  });
+
+  describe("when an action does not come back with a result", () => {
+    const addFile = () =>
+      userEvent.upload(
+        screen.getByLabelText(/Datei einbinden/),
+        new File(["<kml/>"], "zonen.kml"),
+      );
+    const addUrl = async () => {
+      fireEvent.change(screen.getByLabelText("Name"), {
+        target: { value: "Strecke" },
+      });
+      fireEvent.change(screen.getByLabelText("KML-/KMZ-URL"), {
+        target: { value: "https://maps.example/x.kml" },
+      });
+      await userEvent.click(
+        screen.getByRole("button", { name: "Per URL einbinden" }),
+      );
+    };
+    const toggle = () =>
+      userEvent.click(screen.getByRole("switch", { name: /Laufstrecke/ }));
+    const reloadButton = () =>
+      screen.getByRole("button", { name: "Neu laden" });
+    const reload = () => userEvent.click(reloadButton());
+
+    const userActions: [
+      string,
+      "onAddFile" | "onAddUrl" | "onToggleVisibility" | "onReload",
+      () => Promise<void>,
+    ][] = [
+      ["adding a file", "onAddFile", addFile],
+      ["adding by URL", "onAddUrl", addUrl],
+      ["toggling visibility", "onToggleVisibility", toggle],
+      ["reloading", "onReload", reload],
+    ];
+
+    it.each(userActions)(
+      "shows the failure when %s throws and leaves the panel usable",
+      async (_, prop, perform) => {
+        renderPanel({
+          overlays: [urlOverlay],
+          [prop]: vi.fn(async () => {
+            throw new Error("offline");
+          }),
+        });
+
+        await perform();
+
+        expect(await screen.findByRole("alert")).toHaveTextContent(
+          "Das hat nicht geklappt. Bitte erneut versuchen.",
+        );
+        expect(reloadButton()).toBeEnabled();
+        expect(
+          screen.getByRole("switch", { name: /Laufstrecke/ }),
+        ).toBeChecked();
+      },
+    );
+
+    it("keeps name and URL in the fields when adding by URL throws", async () => {
+      renderPanel({
+        onAddUrl: vi.fn(async () => {
+          throw new Error("offline");
+        }),
+      });
+
+      await addUrl();
+
+      await screen.findByRole("alert");
+      expect(screen.getByLabelText("Name")).toHaveValue("Strecke");
+      expect(screen.getByLabelText("KML-/KMZ-URL")).toHaveValue(
+        "https://maps.example/x.kml",
+      );
+    });
+
+    it.each(userActions)(
+      "shows no failure when %s redirects to the login",
+      async (_, prop, perform) => {
+        const action = vi.fn(async () => {
+          throw redirectError();
+        });
+        renderPanel({ overlays: [urlOverlay], [prop]: action });
+
+        await perform();
+
+        await waitFor(() => expect(action).toHaveBeenCalled());
+        expect(screen.queryByRole("alert")).toBeNull();
+      },
+    );
   });
 
   it("surfaces an action error", async () => {

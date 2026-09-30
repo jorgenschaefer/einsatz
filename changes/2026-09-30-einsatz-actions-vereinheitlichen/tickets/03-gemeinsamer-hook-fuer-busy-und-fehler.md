@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:    AC-2, AC-3, AC-7
 advances:
 after:     01-ansichtslink-live-und-pflicht-props
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -129,3 +129,32 @@ Erkennung und den Text.
   parallel laufen kann.
 
 ## Left standing
+- **AC-7 ist im Client nur zur Hälfte durch Tests belegt.** Die Tests zeigen
+  für jede Aktion aus AC-2 und AC-3, dass bei einem Redirect keine Meldung
+  erscheint (und der Hook im Ladezustand bleibt). Dass tatsächlich die
+  Anmeldeseite kommt, macht der Router von Next; das prüft kein Test. Der
+  Review hat im laufenden App die eigene Sitzung gelöscht und dann KML-
+  Sichtbarkeit, Ansichtslink erzeugen (360 px) und Deckkraft (1920 px)
+  ausgelöst: jedes Mal `/login`, bei den beiden letzten ohne Meldung davor.
+  Beim KML-Schalter stand noch eine Meldung aus einem früheren Schritt, dort
+  belegt es nur der Test. „Neu laden“ wurde im Browser gar nicht geprüft
+  (keine erreichbare KML-URL), nur im Test.
+- **Kein Überlauf der Meldung bei 360 px** (Plan Schritt 7) ist nicht
+  automatisch geprüft; der Review hat es im Browser gesehen: In „Ansichtslinks
+  teilen“ bricht die Meldung auf zwei Zeilen um und endet bei x=326 von 360,
+  im Ebenen-Panel bei x=348.
+- **Abweichung vom Plan, Schritt 1:** Die Redirect-Fälle waren nicht über eine
+  Assertion rot („kein Alert“ stimmte schon vorher), sondern nur, weil die
+  unbehandelte Rejection den Lauf scheitern ließ. Im Hook-Test (Schritt 3)
+  waren die beiden Wurf-Fälle rot durch den durchgereichten Fehler, nicht
+  durch einen Soll/Ist-Vergleich.
+- **Zusätzlich zum Plan:** `src/test/redirect-error.ts` erzeugt den
+  Redirect-Fehler für alle Tests, auch für `ConfirmationModal.test.tsx`
+  (Ziel dort jetzt `/login` statt `/operations`, für dessen Prüfungen ohne
+  Belang). `vitest.config.mts` nimmt `src/app/use*.test.ts` ins DOM-Projekt,
+  sonst läuft `renderHook` nicht.
+- **Vom Review gesehen, nicht geändert (war vorher schon so):** Der
+  Sichtbarkeits-Schalter in `KmlPanel` hat kein `disabled={busy}`, der in
+  `ImageOverlayPanel` schon. Und mehrere schnelle Speichervorgänge im
+  Bild-Overlay-Editor teilen sich ein `busy`; der erste, der fertig wird,
+  beendet den Ladezustand.

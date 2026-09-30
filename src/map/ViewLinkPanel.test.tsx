@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { ActionResult } from "@/app/action-result";
 import { buttonColor } from "@/test/button-color";
 import { clickModalOverlay } from "@/test/modal-overlay";
+import { redirectError } from "@/test/redirect-error";
 import { act, fireEvent, render, screen, waitFor, within } from "@/test/render";
 import { ViewLinkPanel, type ViewLinkPanelProps } from "./ViewLinkPanel";
 
@@ -53,6 +54,74 @@ describe("ViewLinkPanel", () => {
     // Ladezustand beenden) abwarten, damit es innerhalb act() flusht.
     resolve({});
     await waitFor(() => expect(button).toBeEnabled());
+  });
+
+  describe("when creating fails", () => {
+    const createLeitstelle = async () => {
+      fireEvent.change(screen.getByLabelText(/Bezeichnung/i), {
+        target: { value: "Leitstelle" },
+      });
+      await userEvent.click(
+        screen.getByRole("button", { name: /Ansichtslink erzeugen/i }),
+      );
+    };
+
+    it.each([
+      [
+        "a returned error",
+        async () => ({ error: "Bezeichnung zu lang." }),
+        "Bezeichnung zu lang.",
+      ],
+      [
+        "a thrown failure",
+        async (): Promise<ActionResult> => {
+          throw new Error("offline");
+        },
+        "Das hat nicht geklappt. Bitte erneut versuchen.",
+      ],
+    ])(
+      "shows %s and keeps the label for another try",
+      async (_, onCreate, message) => {
+        setup({ onCreate });
+
+        await createLeitstelle();
+
+        expect(await screen.findByRole("alert")).toHaveTextContent(message);
+        expect(screen.getByLabelText(/Bezeichnung/i)).toHaveValue("Leitstelle");
+        expect(
+          screen.getByRole("button", { name: /Ansichtslink erzeugen/i }),
+        ).toBeEnabled();
+      },
+    );
+
+    it("clears the failure and the field once a retry succeeds", async () => {
+      const onCreate = vi
+        .fn<ViewLinkPanelProps["onCreate"]>()
+        .mockRejectedValueOnce(new Error("offline"))
+        .mockResolvedValueOnce({});
+      setup({ onCreate });
+      await createLeitstelle();
+      await screen.findByRole("alert");
+
+      await userEvent.click(
+        screen.getByRole("button", { name: /Ansichtslink erzeugen/i }),
+      );
+
+      await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+      expect(screen.getByLabelText(/Bezeichnung/i)).toHaveValue("");
+    });
+
+    it("shows no failure when it redirects to the login", async () => {
+      const onCreate = vi.fn(async () => {
+        throw redirectError();
+      });
+      setup({ onCreate });
+
+      await createLeitstelle();
+
+      await waitFor(() => expect(onCreate).toHaveBeenCalled());
+      expect(screen.queryByRole("alert")).toBeNull();
+    });
   });
 
   it("lists links with their label and shows a fallback for a blank one", () => {

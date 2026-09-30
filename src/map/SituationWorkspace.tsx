@@ -20,6 +20,7 @@ import {
   JournalPanel,
 } from "@/app/operations/[id]/JournalPanel";
 import { LageansichtShell } from "@/app/operations/[id]/LageansichtShell";
+import { useActionRunner } from "@/app/useActionRunner";
 import type { EntryContent } from "@/journal/entry-route";
 import type { GeoHit } from "@/server/geocoder/geocoder";
 import type { KmlSourceType } from "@/server/kml/kml-overlays";
@@ -247,8 +248,12 @@ export function SituationWorkspace({
   // Fehlerkanal für die Karten-Interaktionen ohne eigenes Panel (Platzieren,
   // Zeichnen); wird als Alert über der Karte gezeigt.
   const [mapError, setMapError] = useState<string | null>(null);
-  const [imageError, setImageError] = useState<string | null>(null);
-  const [imageBusy, setImageBusy] = useState(false);
+  const {
+    busy: imageBusy,
+    error: imageError,
+    setError: setImageError,
+    run: persistImage,
+  } = useActionRunner();
   const endMode = () => {
     setImageError(null);
     resetMode();
@@ -404,21 +409,13 @@ export function SituationWorkspace({
     if (movingCircleId && !movingCircle) endMoveCircle(movingCircleId);
   }, [movingCircleId, movingCircle, endMoveCircle]);
 
-  // Platzierungs-/Deckkraft-/Ersetzen-Änderungen speichern, ohne den
-  // Bearbeiten-Modus zu verlassen (nur „Fertig"/„Löschen" beenden ihn).
-  const persistImage = async (op: () => Promise<ActionResult>) => {
-    setImageBusy(true);
-    try {
-      setImageError((await op()).error ?? null);
-    } finally {
-      setImageBusy(false);
-    }
-  };
   const startEditImage = (id: string) => {
     setImageError(null);
     armImageEdit(id);
     closeSheetOnPhone();
   };
+  // Platzierungs-/Deckkraft-/Ersetzen-Änderungen speichern, ohne den
+  // Bearbeiten-Modus zu verlassen (nur „Fertig"/„Löschen" beenden ihn).
   const saveImagePlacement = (id: string, placement: ImagePlacement) =>
     persistImage(() => onUpdateImagePlacement(id, placement));
   const changeImageOpacity = (opacity: number) => {

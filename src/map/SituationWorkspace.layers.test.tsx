@@ -1,6 +1,7 @@
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { ActionResult } from "@/app/action-result";
+import { redirectError } from "@/test/redirect-error";
 import { act, screen, waitFor, within } from "@/test/render";
 import type { ImagePlacement } from "./image-overlay";
 import {
@@ -201,6 +202,85 @@ describe("SituationWorkspace", () => {
       await screen.findByRole("slider", { name: "Deckkraft" }),
     ).toBeInTheDocument();
     expect(adapter.stopImageOverlayEdit).not.toHaveBeenCalled();
+  });
+
+  describe("when saving an edited image overlay does not come back with a result", () => {
+    const moveOnMap = async (
+      adapter: ReturnType<typeof renderWorkspace>["adapter"],
+    ) => {
+      await waitFor(() =>
+        expect(adapter.startImageOverlayEdit).toHaveBeenCalled(),
+      );
+      const onChange = adapter.startImageOverlayEdit.mock.calls.at(-1)![1] as (
+        p: unknown,
+      ) => void;
+      await act(async () =>
+        onChange({ ...anImageOverlay.placement, scaleM: 800 }),
+      );
+    };
+    const changeOpacity = async () => {
+      const slider = await screen.findByRole("slider", { name: "Deckkraft" });
+      act(() => slider.focus());
+      await userEvent.keyboard("{ArrowRight}");
+    };
+    const replace = () =>
+      userEvent.upload(
+        screen.getByLabelText("Datei ersetzen"),
+        new File(["%PDF-1.4"], "neu.pdf", { type: "application/pdf" }),
+      );
+
+    const userActions: [
+      string,
+      "onUpdateImagePlacement" | "onReplaceImage",
+      (adapter: ReturnType<typeof renderWorkspace>["adapter"]) => Promise<void>,
+    ][] = [
+      ["moving it on the map", "onUpdateImagePlacement", moveOnMap],
+      ["changing the opacity", "onUpdateImagePlacement", changeOpacity],
+      ["replacing the file", "onReplaceImage", replace],
+    ];
+
+    it.each(userActions)(
+      "shows the failure in the editor when %s throws and leaves it usable",
+      async (_, prop, perform) => {
+        const { adapter } = renderWorkspace({
+          imageOverlays: [anImageOverlay],
+          [prop]: vi.fn(async () => {
+            throw new Error("offline");
+          }),
+        });
+        await openImageEditor();
+
+        await perform(adapter);
+
+        const panel = within(mapPanel("Ebenen"));
+        expect(await panel.findByRole("alert")).toHaveTextContent(
+          "Das hat nicht geklappt. Bitte erneut versuchen.",
+        );
+        expect(
+          panel.getByRole("button", { name: "Datei ersetzen" }),
+        ).toBeEnabled();
+        expect(modeBand("Bild-Overlay bearbeiten")).toBeInTheDocument();
+      },
+    );
+
+    it.each(userActions)(
+      "shows no failure when %s redirects to the login",
+      async (_, prop, perform) => {
+        const action = vi.fn(async () => {
+          throw redirectError();
+        });
+        const { adapter } = renderWorkspace({
+          imageOverlays: [anImageOverlay],
+          [prop]: action,
+        });
+        await openImageEditor();
+
+        await perform(adapter);
+
+        await waitFor(() => expect(action).toHaveBeenCalled());
+        expect(screen.queryByRole("alert")).toBeNull();
+      },
+    );
   });
 
   describe("confirming in the Ebenen panel", () => {

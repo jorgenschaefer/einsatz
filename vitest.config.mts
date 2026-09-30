@@ -5,6 +5,7 @@ import { defineConfig } from "vitest/config";
 /** .ts-Tests, die trotzdem ein DOM brauchen (Browser-Hooks, Leaflet, Storage). */
 const browserTestsInTs = [
   "src/map/use*.test.ts",
+  "src/app/use*.test.ts",
   "src/map/leaflet-adapter.*.test.ts",
   "src/map/last-view-storage.test.ts",
   "src/journal/entry-route-storage.test.ts",

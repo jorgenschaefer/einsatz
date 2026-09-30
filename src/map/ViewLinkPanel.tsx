@@ -1,10 +1,19 @@
 "use client";
 
-import { Box, Button, Group, Stack, Text, TextInput } from "@mantine/core";
+import {
+  Alert,
+  Box,
+  Button,
+  Group,
+  Stack,
+  Text,
+  TextInput,
+} from "@mantine/core";
 import { useState } from "react";
 import QRCode from "react-qr-code";
 import type { ActionResult } from "@/app/action-result";
 import { ConfirmationModal } from "@/app/ConfirmationModal";
+import { useActionRunner } from "@/app/useActionRunner";
 import { useClipboardCopy } from "./useClipboardCopy";
 
 export interface ViewLinkItem {
@@ -30,24 +39,24 @@ export function ViewLinkPanel({
   onDelete,
 }: ViewLinkPanelProps) {
   const [label, setLabel] = useState("");
-  const [creating, setCreating] = useState(false);
+  const { busy: creating, error, run } = useActionRunner();
   // Bleibt nach dem Schließen gesetzt, damit der Titel beim Ausblenden
   // stehen bleibt.
   const [deleteTarget, setDeleteTarget] = useState<ViewLinkItem | null>(null);
   const [deleteAsked, setDeleteAsked] = useState(false);
 
   const create = async () => {
-    setCreating(true);
-    try {
-      await onCreate(label.trim());
-      setLabel("");
-    } finally {
-      setCreating(false);
-    }
+    const result = await run(() => onCreate(label.trim()));
+    if (result && !result.error) setLabel("");
   };
 
   return (
     <Stack gap="md">
+      {error && (
+        <Alert color="red" role="alert">
+          {error}
+        </Alert>
+      )}
       <Group align="flex-end" gap="xs" wrap="nowrap">
         <TextInput
           label="Bezeichnung"

@@ -13,6 +13,7 @@ import {
 import { useState } from "react";
 import type { ActionResult } from "@/app/action-result";
 import { ConfirmationModal } from "@/app/ConfirmationModal";
+import { useActionRunner } from "@/app/useActionRunner";
 import { extractKml } from "@/kml/kmz";
 import type { KmlSourceType } from "@/server/kml/kml-overlays";
 import { ValidationError } from "@/server/validation";
@@ -42,8 +43,7 @@ export function KmlPanel({
   onReload,
   onRemove,
 }: KmlPanelProps) {
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const { busy, error, setError, run } = useActionRunner();
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
   // Bleibt nach dem Schließen gesetzt, damit der Titel beim Ausblenden
@@ -51,20 +51,9 @@ export function KmlPanel({
   const [removeTarget, setRemoveTarget] = useState<KmlOverlayView | null>(null);
   const [removeAsked, setRemoveAsked] = useState(false);
 
-  const run = async (action: Promise<ActionResult>): Promise<ActionResult> => {
-    setBusy(true);
-    try {
-      const result = await action;
-      setError(result.error ?? null);
-      return result;
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const addUrl = async () => {
-    const result = await run(onAddUrl(name.trim(), url.trim()));
-    if (!result.error) {
+    const result = await run(() => onAddUrl(name.trim(), url.trim()));
+    if (result && !result.error) {
       setName("");
       setUrl("");
     }
@@ -84,7 +73,7 @@ export function KmlPanel({
       );
       return;
     }
-    await run(onAddFile(file.name, content));
+    await run(() => onAddFile(file.name, content));
   };
 
   const remove = async (): Promise<ActionResult> => {
@@ -103,7 +92,7 @@ export function KmlPanel({
           label={overlay.name}
           checked={overlay.visible}
           onChange={(e) =>
-            run(onToggleVisibility(overlay.id, e.currentTarget.checked))
+            run(() => onToggleVisibility(overlay.id, e.currentTarget.checked))
           }
         />
         <Group gap="xs" wrap="nowrap" style={{ marginLeft: "auto" }}>
@@ -112,7 +101,7 @@ export function KmlPanel({
               size="xs"
               variant="light"
               loading={busy}
-              onClick={() => run(onReload(overlay.id))}
+              onClick={() => run(() => onReload(overlay.id))}
             >
               Neu laden
             </Button>
