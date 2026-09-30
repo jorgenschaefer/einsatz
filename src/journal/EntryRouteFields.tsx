@@ -9,7 +9,11 @@ import {
   UnstyledButton,
 } from "@mantine/core";
 import { type KeyboardEvent, type KeyboardEventHandler, useState } from "react";
-import { type LastUsed, orderCorrespondents } from "./entry-route";
+import {
+  type LastUsed,
+  orderCorrespondents,
+  sameCorrespondent,
+} from "./entry-route";
 import "./entry-route-fields.css";
 
 const CHANNELS = ["Funk", "Telefon", "Persönlich"];
@@ -239,11 +243,3 @@ const withValue = (options: string[], value: string | null) =>
   value === null || options.some((option) => sameCorrespondent(option, value))
     ? options
     : [...options, value];
-
-/**
- * Ein Gesprächspartner ohne Rücksicht auf Groß- und Kleinschreibung: Der Chip
- * „UHSt 2" steht auch für einen Eintrag mit „UHST 2", dessen Schreibweise
- * gespeichert bleibt, solange niemand den Chip antippt.
- */
-const sameCorrespondent = (a: string, b: string | null) =>
-  b !== null && a.localeCompare(b, "de", { sensitivity: "accent" }) === 0;

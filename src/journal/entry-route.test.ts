@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { formatEntryRoute, orderCorrespondents } from "./entry-route";
+import {
+  formatEntryRoute,
+  orderCorrespondents,
+  sameCorrespondent,
+} from "./entry-route";
 
 describe("formatEntryRoute", () => {
   it.each([
@@ -69,5 +73,17 @@ describe("orderCorrespondents", () => {
 
   it("sorts the others alphabetically regardless of case", () => {
     expect(orderCorrespondents(["b", "C", "a"], {})).toEqual(["a", "b", "C"]);
+  });
+});
+
+describe("sameCorrespondent", () => {
+  it.each([
+    ["UHSt 2", "UHSt 2", true],
+    ["UHSt 2", "uhst 2", true],
+    ["Straße", "STRASSE", false],
+    ["UHSt 2", "UHSt 3", false],
+    ["UHSt 2", null, false],
+  ])("compares %s with %s", (a, b, same) => {
+    expect(sameCorrespondent(a, b)).toBe(same);
   });
 });

@@ -1,4 +1,9 @@
-import { type EntryRoute, type LastUsed, trimRouteValue } from "./entry-route";
+import {
+  correspondentKey,
+  type EntryRoute,
+  type LastUsed,
+  trimRouteValue,
+} from "./entry-route";
 
 /** Was ein Gerät sich je Gesamteinsatz von seinen neuen ETB-Einträgen merkt. */
 export interface EntryRouteMemory {
@@ -51,7 +56,7 @@ export function rememberEntryRoute(
 function withUse(lastUsed: LastUsed, value: string | null): LastUsed {
   if (value === null) return lastUsed;
   const latest = Math.max(0, ...Object.values(lastUsed));
-  return { ...lastUsed, [value.toLowerCase()]: latest + 1 };
+  return { ...lastUsed, [correspondentKey(value)]: latest + 1 };
 }
 
 function isEntryRouteMemory(value: unknown): value is EntryRouteMemory {

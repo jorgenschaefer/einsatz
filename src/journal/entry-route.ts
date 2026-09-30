@@ -44,8 +44,21 @@ export const NO_ROUTE: EntryRoute = {
 };
 
 /**
- * Wann ein Gesprächspartner zuletzt in Von oder An benutzt wurde, je Wert klein
- * geschrieben; die größere Zahl ist die jüngere Verwendung.
+ * Ein Gesprächspartner ohne Rücksicht auf Groß- und Kleinschreibung, wie der
+ * Server sie mit `lower()` zusammenfasst.
+ */
+export const correspondentKey = (value: string) => value.toLowerCase();
+
+/**
+ * Ob zwei Werte derselbe Gesprächspartner sind: Der Chip „UHSt 2" steht auch
+ * für einen Eintrag mit „UHST 2".
+ */
+export const sameCorrespondent = (a: string, b: string | null) =>
+  b !== null && correspondentKey(a) === correspondentKey(b);
+
+/**
+ * Wann ein Gesprächspartner zuletzt in Von oder An benutzt wurde, je
+ * {@link correspondentKey}; die größere Zahl ist die jüngere Verwendung.
  */
 export type LastUsed = Record<string, number>;
 
@@ -58,7 +71,7 @@ export function orderCorrespondents(
   lastUsed: LastUsed,
 ): string[] {
   const usedAt = (value: string) => {
-    const key = value.toLowerCase();
+    const key = correspondentKey(value);
     return Object.hasOwn(lastUsed, key) ? lastUsed[key] : 0;
   };
   return values.toSorted(
