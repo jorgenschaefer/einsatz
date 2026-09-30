@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:
 advances:  AC-1, AC-2, AC-3, AC-4, AC-5, AC-10
 after:     01-bestaetigungs-modal
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -72,3 +72,31 @@ Tests: `src/map/ImageOverlayEditor.test.tsx` („deletes the overlay“, Zeile ~
 - Sichtbarkeit umschalten, Neu laden, Datei ersetzen, Deckkraft: bleiben ohne Rückfrage.
 - Lage und Auffälligkeit der Lösch-Knöpfe: Sie bleiben, wo und wie sie sind.
 - Verhalten, wenn das Objekt anderswo gelöscht wird, während seine Rückfrage offen ist. Es wird nicht eigens gebaut oder getestet.
+
+## Record
+Bringt voran (für Bild-Overlay löschen und KML-Overlay entfernen):
+- **AC-1**: `src/map/KmlPanel.test.tsx`, Block „removing an overlay“: „asks for confirmation first and removes only once confirmed“ und „does not remove when cancelled with Abbrechen / on Escape / on a click beside the confirmation“ (Overlay noch gelistet); `src/map/ImageOverlayEditor.test.tsx`, Block „deleting“: „asks for confirmation first and deletes only once confirmed“ und „does not delete when cancelled with Abbrechen / on Escape / on a click beside the confirmation“. Im Workspace: `SituationWorkspace.test.tsx`, Block „confirming in the Ebenen panel“, „deletes a Bild-Overlay only once confirmed and ends editing it“ und „removes a KML-Overlay only once confirmed“.
+- **AC-2**: die beiden „asks for confirmation first …“-Tests (Titel `KML-Overlay „Zonen“ entfernen` bzw. „Bild-Overlay löschen“ als Dialog-Name, Text aus der Tabelle, Bestätigungsknopf rot über `buttonColor`).
+- **AC-3**: „stays locked while removing“ (`KmlPanel`) und „stays locked while deleting“ (`ImageOverlayEditor`): nach dem Bestätigen Escape, Overlay-Klick und zweiter Klick – Rückfrage bleibt, „Abbrechen“ gesperrt, Action einmal gerufen. Den Ladezustand des Knopfs belegt `ConfirmationModal.test.tsx` (Ticket 01).
+- **AC-4**: „shows a returned error / a thrown failure in the open confirmation, not atop the panel“ (`KmlPanel`: einziger Alert steht in der Rückfrage, Overlay gelistet, beide Knöpfe aktiv); „shows a returned error / a thrown failure in the open confirmation“ (`ImageOverlayEditor`); im Workspace „shows a returned error / a thrown failure in the open confirmation and keeps editing the Bild-Overlay“ (einziger Alert in der Rückfrage, Bearbeiten-Modus bleibt).
+- **AC-5**: „deletes a Bild-Overlay only once confirmed and ends editing it“ (Rückfrage zu, `adapter.stopImageOverlayEdit` gerufen, Deckkraft-Regler weg).
+- **AC-10**: im Browser mit `run-einsatz` (Subagent, zusätzlich vom Reviewer) bei 390×844 (Touch) und 1280×800 geprüft: KML-Datei mit 80 Zeichen ohne Leerzeichen im Namen – Titel dreizeilig umgebrochen, nicht abgeschnitten; beide Knöpfe im Viewport; `scrollWidth == innerWidth`; Escape und Klick neben die Rückfrage schließen sie, Overlay bleibt; Bestätigen entfernt es. Bild-Overlay: Rückfrage vollständig sichtbar, „Abbrechen“ lässt den Bearbeiten-Modus stehen, „Endgültig löschen“ beendet ihn und entfernt das Bild. Keine Konsolenfehler aus den Rückfragen.
+
+Zusätzlich aus Browser-Check und Review:
+- „returns focus to the Entfernen button when the first confirmation is cancelled“: Die KML-Rückfrage wurde anfangs erst beim ersten Öffnen gemountet, schon offen; Mantine merkte sich dann nicht, wohin der Fokus zurück soll. Sie ist jetzt immer gemountet, der Titel nimmt das zuletzt gefragte Overlay.
+- „clears an earlier panel error once the overlay is removed“ / „keeps an earlier panel error when the removal fails“: Früher lief „Entfernen“ über `run` und räumte bei Erfolg den Alert oben im Panel ab; das tut das Entfernen jetzt selbst, bei Fehler nicht.
+- `clickModalOverlay` in `src/test/modal-overlay.ts` ersetzt vier gleiche Test-Helfer (`ConfirmationModal`, `DeviceLinkPanel`, `ImageOverlayEditor`, `KmlPanel`) und `clickConfirmationOverlay` in `SituationWorkspace.test.tsx`.
+
+Kommando: `docker compose -f docker-compose.test.yml up -d && npm run check` – 117 Dateien, 1165 Tests grün, tsc und Biome ohne Befund.
+
+### Left standing
+- Abweichung vom Plan, Schritt 4: `deleteImage` nimmt die id als Parameter (`onDelete={() => deleteImage(editingImage.id)}`) statt `editingImageId` zu lesen; so entfällt der Wächter für eine fehlende id.
+- Abweichung vom Plan, Schritt 2: `removeTarget` bleibt nach dem Schließen gesetzt, dazu ein eigener Boolean `removeAsked`, damit der Titel beim Ausblenden nicht zu `KML-Overlay „“ entfernen` wird und die Rückfrage von Anfang an gemountet ist (Fokus-Rückgabe, s. o.).
+- Die Workspace-Tests „deletes a Bild-Overlay …“ und „shows a thrown failure …“ waren schon grün, bevor `deleteImage` umgebaut wurde (der Editor hatte da schon seine Rückfrage); rot war „shows a returned error …“, weil der Fehler zusätzlich im Editor stand.
+- „Löschen“ im Bild-Overlay-Editor behält `loading={busy}`, damit es wie bisher sperrt, während Deckkraft oder Datei gespeichert werden (wie bei Ticket 02).
+- Review-Nit, nicht geändert: Das Verhalten des `ConfirmationModal` (drei Abbrechen-Wege, Sperre, Fehlertext) wird in jedem Aufrufer erneut getestet; so halten es die Tickets 01–03, der Ticket-Plan verlangt es.
+- Nicht behoben, außerhalb des Tickets (Browser-Check): Ein langer KML-Name bricht in der Zeile nicht um und schiebt „Entfernen“ aus dem Panel (am Handy bei x≈826 von 390, nur per Wischen zur Seite erreichbar); „Lage und Auffälligkeit der Lösch-Knöpfe“ gehört nicht hierher, verdient aber ein eigenes Ticket.
+- Nicht behoben, außerhalb des Tickets (Browser-Check): KML-Punkte zeigen kein Symbol; Leaflet lädt `/operations/marker-icon.png` relativ, der Server liest `marker-icon.png` als Einsatz-id und antwortet mit 500 (`invalid input syntax for type uuid`) – dazu: eine ungültige id ergibt 500 statt 404.
+- Nicht behoben, wie in Ticket 02/03: Beim Öffnen liegt der Fokus auf dem Schließen-X der Rückfrage statt auf „Abbrechen“. Am Handy schließt „Bearbeiten“ das Ebenen-Panel, „Löschen“ erscheint erst nach erneutem Öffnen (schon vorher so).
+- Die Browserprüfung hat den Dev-Server selbst gestartet und am Ende gestoppt (dabei lief die Browserprüfung des Reviewers möglicherweise noch gegen denselben Server); die Einsätze „QA-Ebenen“ und der des Reviewers wurden angelegt und wieder gelöscht; keine Migration, kein Seed.
+- Nicht gemacht: `SituationWorkspace.tsx` bzw. seine Test-Datei vor dem Ändern aufteilen (wie in Ticket 02/03, `REFACTORING.md` Punkt 10).

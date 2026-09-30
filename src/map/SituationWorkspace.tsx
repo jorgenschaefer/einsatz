@@ -317,10 +317,12 @@ export function SituationWorkspace({
   // können aber sehr wohl scheitern (eine überlange Bezeichnung aus dem
   // Erweitert-Formular, eine entartete Geometrie), daher zeigen sie ihren
   // `{error}` über den `mapError`-Kanal. Was eine Rückfrage hat – „Kartenzeichen
-  // löschen", „Bereich löschen" (AreaEditor), „Gerätelink neu generieren",
-  // „Standard-Ausschnitt festlegen" (MapControls) –, zeigt seinen Fehler in der Rückfrage. Nur die strukturell
-  // stets gültigen Interaktionen bleiben bewusst fire-and-forget: onMove (Drag
-  // auf gültige Koordinaten) und „Gerätelink erzeugen" (nur eine Objekt-id).
+  // löschen", „Bereich löschen" (AreaEditor), „Bild-Overlay löschen"
+  // (ImageOverlayEditor), „KML-Overlay entfernen" (KmlPanel), „Gerätelink neu
+  // generieren", „Standard-Ausschnitt festlegen" (MapControls) –, zeigt seinen
+  // Fehler in der Rückfrage. Nur die strukturell stets gültigen Interaktionen
+  // bleiben bewusst fire-and-forget: onMove (Drag auf gültige Koordinaten) und
+  // „Gerätelink erzeugen" (nur eine Objekt-id).
   const runDetail = async (op: () => Promise<ActionResult>) => {
     setDetailBusy(true);
     try {
@@ -609,16 +611,10 @@ export function SituationWorkspace({
     if (!editingImageId) return;
     void persistImage(() => onReplaceImage(editingImageId, file));
   };
-  const deleteImage = async () => {
-    if (!editingImageId) return;
-    setImageBusy(true);
-    try {
-      const result = await onDeleteImage(editingImageId);
-      if (result.error) setImageError(result.error);
-      else endMode();
-    } finally {
-      setImageBusy(false);
-    }
+  const deleteImage = async (id: string) => {
+    const result = await onDeleteImage(id);
+    if (!result.error) endMode();
+    return result;
   };
 
   const mainViewBar = (
@@ -895,7 +891,7 @@ export function SituationWorkspace({
                               opacity={editingImage.placement.opacity}
                               onOpacityChange={changeImageOpacity}
                               onReplace={replaceImage}
-                              onDelete={deleteImage}
+                              onDelete={() => deleteImage(editingImage.id)}
                               onDone={endMode}
                               busy={imageBusy}
                               error={imageError}

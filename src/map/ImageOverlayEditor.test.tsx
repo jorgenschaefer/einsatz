@@ -1,6 +1,9 @@
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { act, render, screen } from "@/test/render";
+import type { ActionResult } from "@/app/operations/[id]/action-result";
+import { buttonColor } from "@/test/button-color";
+import { clickModalOverlay } from "@/test/modal-overlay";
+import { act, render, screen, waitFor, within } from "@/test/render";
 import {
   ImageOverlayEditor,
   type ImageOverlayEditorProps,
@@ -11,7 +14,7 @@ function setup(over: Partial<ImageOverlayEditorProps> = {}) {
     opacity: 0.8,
     onOpacityChange: vi.fn(),
     onReplace: vi.fn(),
-    onDelete: vi.fn(),
+    onDelete: vi.fn(async () => ({})),
     onDone: vi.fn(),
     ...over,
   };
@@ -52,10 +55,96 @@ describe("ImageOverlayEditor", () => {
     expect(props.onDone).toHaveBeenCalled();
   });
 
-  it("deletes the overlay", async () => {
-    const props = setup();
-    await userEvent.click(screen.getByRole("button", { name: "Löschen" }));
-    expect(props.onDelete).toHaveBeenCalled();
+  describe("deleting", () => {
+    const askToDelete = async () => {
+      await userEvent.click(screen.getByRole("button", { name: "Löschen" }));
+      return screen.findByRole("dialog", { name: "Bild-Overlay löschen" });
+    };
+
+    const confirmButton = (dialog: HTMLElement) =>
+      within(dialog).getByRole("button", { name: "Endgültig löschen" });
+
+    it("asks for confirmation first and deletes only once confirmed", async () => {
+      const onDelete = vi.fn(async () => ({}));
+      setup({ onDelete });
+
+      const dialog = await askToDelete();
+
+      expect(onDelete).not.toHaveBeenCalled();
+      expect(dialog).toHaveTextContent(
+        "Das Bild wird mit seiner Datei gelöscht. Das lässt sich nicht rückgängig machen.",
+      );
+      expect(buttonColor(confirmButton(dialog))).toBe("red");
+
+      await userEvent.click(confirmButton(dialog));
+
+      expect(onDelete).toHaveBeenCalledTimes(1);
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    });
+
+    it.each([
+      [
+        "with Abbrechen",
+        (dialog: HTMLElement) =>
+          userEvent.click(
+            within(dialog).getByRole("button", { name: "Abbrechen" }),
+          ),
+      ],
+      ["on Escape", () => userEvent.keyboard("{Escape}")],
+      ["on a click beside the confirmation", () => clickModalOverlay()],
+    ])("does not delete when cancelled %s", async (_, cancel) => {
+      const onDelete = vi.fn(async () => ({}));
+      setup({ onDelete });
+      const dialog = await askToDelete();
+
+      await cancel(dialog);
+
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+      expect(onDelete).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      [
+        "a returned error",
+        async () => ({ error: "Bild-Overlay nicht gefunden." }),
+        "Bild-Overlay nicht gefunden.",
+      ],
+      [
+        "a thrown failure",
+        async (): Promise<ActionResult> => {
+          throw new Error("offline");
+        },
+        "Das hat nicht geklappt. Bitte erneut versuchen.",
+      ],
+    ])("shows %s in the open confirmation", async (_, onDelete, message) => {
+      setup({ onDelete });
+      const dialog = await askToDelete();
+
+      await userEvent.click(confirmButton(dialog));
+
+      expect(within(dialog).getByRole("alert")).toHaveTextContent(message);
+      expect(confirmButton(dialog)).toBeEnabled();
+      expect(
+        within(dialog).getByRole("button", { name: "Abbrechen" }),
+      ).toBeEnabled();
+    });
+
+    it("stays locked while deleting", async () => {
+      const onDelete = vi.fn(() => new Promise<ActionResult>(() => {}));
+      setup({ onDelete });
+      const dialog = await askToDelete();
+
+      await userEvent.click(confirmButton(dialog));
+      await userEvent.keyboard("{Escape}");
+      await clickModalOverlay();
+      await userEvent.click(confirmButton(dialog), { pointerEventsCheck: 0 });
+
+      expect(
+        within(dialog).getByRole("button", { name: "Abbrechen" }),
+      ).toBeDisabled();
+      expect(screen.getByRole("dialog")).toBe(dialog);
+      expect(onDelete).toHaveBeenCalledTimes(1);
+    });
   });
 
   it("disables controls while busy and shows an error", () => {

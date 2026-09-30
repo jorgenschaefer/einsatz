@@ -2,6 +2,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { ActionResult } from "@/app/operations/[id]/action-result";
 import { buttonColor } from "@/test/button-color";
+import { clickModalOverlay } from "@/test/modal-overlay";
 import { act, render, screen, waitFor, within } from "@/test/render";
 import { DeviceLinkPanel, type DeviceLinkPanelProps } from "./DeviceLinkPanel";
 
@@ -28,12 +29,6 @@ const askToRegenerate = async () => {
 
 const confirmButton = (dialog: HTMLElement) =>
   within(dialog).getByRole("button", { name: "Neu generieren" });
-
-function clickOverlay() {
-  const overlay = document.querySelector(".mantine-Modal-overlay");
-  if (!overlay) throw new Error("no overlay");
-  return userEvent.click(overlay);
-}
 
 describe("DeviceLinkPanel", () => {
   it("offers to generate a device link when there is none", async () => {
@@ -101,7 +96,7 @@ describe("DeviceLinkPanel", () => {
       const props = setup({ token: "secret-token-123" });
       await askToRegenerate();
 
-      await clickOverlay();
+      await clickModalOverlay();
 
       await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
       expect(props.onGenerate).not.toHaveBeenCalled();
@@ -144,7 +139,7 @@ describe("DeviceLinkPanel", () => {
 
       await userEvent.click(confirmButton(dialog));
       await userEvent.keyboard("{Escape}");
-      await clickOverlay();
+      await clickModalOverlay();
       await userEvent.click(confirmButton(dialog), { pointerEventsCheck: 0 });
 
       expect(

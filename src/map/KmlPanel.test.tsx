@@ -1,6 +1,9 @@
 import userEvent from "@testing-library/user-event";
 import { strToU8, zipSync } from "fflate";
 import { describe, expect, it, vi } from "vitest";
+import type { ActionResult } from "@/app/operations/[id]/action-result";
+import { buttonColor } from "@/test/button-color";
+import { clickModalOverlay } from "@/test/modal-overlay";
 import { fireEvent, render, screen, waitFor, within } from "@/test/render";
 import { type KmlOverlayView, KmlPanel, type KmlPanelProps } from "./KmlPanel";
 
@@ -125,15 +128,166 @@ describe("KmlPanel", () => {
     ).toBeNull();
   });
 
-  it("removes an overlay", async () => {
-    const onRemove = vi.fn(async () => ({}));
-    renderPanel({ overlays: [fileOverlay], onRemove });
-    await userEvent.click(
-      within(screen.getByTestId("kml-k2")).getByRole("button", {
-        name: "Entfernen",
-      }),
+  describe("removing an overlay", () => {
+    const askToRemove = async () => {
+      await userEvent.click(
+        within(screen.getByTestId("kml-k2")).getByRole("button", {
+          name: "Entfernen",
+        }),
+      );
+      return screen.findByRole("dialog", {
+        name: "KML-Overlay „Zonen“ entfernen",
+      });
+    };
+
+    const confirmButton = (dialog: HTMLElement) =>
+      within(dialog).getByRole("button", { name: "Entfernen" });
+
+    it("asks for confirmation first and removes only once confirmed", async () => {
+      const onRemove = vi.fn(async () => ({}));
+      renderPanel({ overlays: [urlOverlay, fileOverlay], onRemove });
+
+      const dialog = await askToRemove();
+
+      expect(onRemove).not.toHaveBeenCalled();
+      expect(dialog).toHaveTextContent(
+        "Um es wieder anzuzeigen, muss die Datei oder URL neu eingebunden werden.",
+      );
+      expect(buttonColor(confirmButton(dialog))).toBe("red");
+
+      await userEvent.click(confirmButton(dialog));
+
+      expect(onRemove).toHaveBeenCalledWith("k2");
+      expect(onRemove).toHaveBeenCalledTimes(1);
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    });
+
+    it.each([
+      [
+        "with Abbrechen",
+        (dialog: HTMLElement) =>
+          userEvent.click(
+            within(dialog).getByRole("button", { name: "Abbrechen" }),
+          ),
+      ],
+      ["on Escape", () => userEvent.keyboard("{Escape}")],
+      ["on a click beside the confirmation", () => clickModalOverlay()],
+    ])("does not remove when cancelled %s", async (_, cancel) => {
+      const onRemove = vi.fn(async () => ({}));
+      renderPanel({ overlays: [fileOverlay], onRemove });
+      const dialog = await askToRemove();
+
+      await cancel(dialog);
+
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+      expect(onRemove).not.toHaveBeenCalled();
+      expect(screen.getByTestId("kml-k2")).toBeInTheDocument();
+    });
+
+    it.each([
+      [
+        "a returned error",
+        async () => ({ error: "KML-Overlay nicht gefunden." }),
+        "KML-Overlay nicht gefunden.",
+      ],
+      [
+        "a thrown failure",
+        async (): Promise<ActionResult> => {
+          throw new Error("offline");
+        },
+        "Das hat nicht geklappt. Bitte erneut versuchen.",
+      ],
+    ])(
+      "shows %s in the open confirmation, not atop the panel",
+      async (_, onRemove, message) => {
+        renderPanel({ overlays: [fileOverlay], onRemove });
+        const dialog = await askToRemove();
+
+        await userEvent.click(confirmButton(dialog));
+
+        const alerts = await screen.findAllByRole("alert");
+        expect(alerts).toHaveLength(1);
+        expect(within(dialog).getByRole("alert")).toHaveTextContent(message);
+        expect(screen.getByTestId("kml-k2")).toBeInTheDocument();
+        expect(confirmButton(dialog)).toBeEnabled();
+        expect(
+          within(dialog).getByRole("button", { name: "Abbrechen" }),
+        ).toBeEnabled();
+      },
     );
-    expect(onRemove).toHaveBeenCalledWith("k2");
+
+    it("returns focus to the Entfernen button when the first confirmation is cancelled", async () => {
+      renderPanel({ overlays: [fileOverlay] });
+      await askToRemove();
+
+      await userEvent.keyboard("{Escape}");
+
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+      await waitFor(() =>
+        expect(
+          within(screen.getByTestId("kml-k2")).getByRole("button", {
+            name: "Entfernen",
+          }),
+        ).toHaveFocus(),
+      );
+    });
+
+    it("clears an earlier panel error once the overlay is removed", async () => {
+      const onReload = vi.fn(async () => ({
+        error: "KML konnte nicht geladen werden (404).",
+      }));
+      renderPanel({ overlays: [urlOverlay, fileOverlay], onReload });
+      await userEvent.click(
+        within(screen.getByTestId("kml-k1")).getByRole("button", {
+          name: "Neu laden",
+        }),
+      );
+      expect(await screen.findByRole("alert")).toBeInTheDocument();
+      const dialog = await askToRemove();
+
+      await userEvent.click(confirmButton(dialog));
+
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+      expect(screen.queryByRole("alert")).toBeNull();
+    });
+
+    it("keeps an earlier panel error when the removal fails", async () => {
+      const onReload = vi.fn(async () => ({
+        error: "KML konnte nicht geladen werden (404).",
+      }));
+      const onRemove = vi.fn(async () => ({ error: "Gesperrt." }));
+      renderPanel({ overlays: [urlOverlay, fileOverlay], onReload, onRemove });
+      await userEvent.click(
+        within(screen.getByTestId("kml-k1")).getByRole("button", {
+          name: "Neu laden",
+        }),
+      );
+      await screen.findByRole("alert");
+      const dialog = await askToRemove();
+
+      await userEvent.click(confirmButton(dialog));
+
+      expect(
+        await screen.findByText("KML konnte nicht geladen werden (404)."),
+      ).toBeInTheDocument();
+    });
+
+    it("stays locked while removing", async () => {
+      const onRemove = vi.fn(() => new Promise<ActionResult>(() => {}));
+      renderPanel({ overlays: [fileOverlay], onRemove });
+      const dialog = await askToRemove();
+
+      await userEvent.click(confirmButton(dialog));
+      await userEvent.keyboard("{Escape}");
+      await clickModalOverlay();
+      await userEvent.click(confirmButton(dialog), { pointerEventsCheck: 0 });
+
+      expect(
+        within(dialog).getByRole("button", { name: "Abbrechen" }),
+      ).toBeDisabled();
+      expect(screen.getByRole("dialog")).toBe(dialog);
+      expect(onRemove).toHaveBeenCalledTimes(1);
+    });
   });
 
   it("surfaces an action error", async () => {

@@ -5,6 +5,7 @@ import type { ActionResult } from "@/app/operations/[id]/action-result";
 import type { JournalEntryView } from "@/app/operations/[id]/JournalPanel";
 import { buttonColor } from "@/test/button-color";
 import { stubMatchMedia } from "@/test/match-media";
+import { clickModalOverlay } from "@/test/modal-overlay";
 import {
   act,
   fireEvent,
@@ -3223,14 +3224,6 @@ describe("SituationWorkspace", () => {
     );
   });
 
-  const clickConfirmationOverlay = () => {
-    const overlay = [...document.querySelectorAll(".mantine-Modal-overlay")].at(
-      -1,
-    );
-    if (!overlay) throw new Error("no overlay");
-    return userEvent.click(overlay);
-  };
-
   const hanging = () => new Promise<ActionResult>(() => {});
 
   const cancelWays = [
@@ -3242,7 +3235,7 @@ describe("SituationWorkspace", () => {
         ),
     ],
     ["Escape", () => userEvent.keyboard("{Escape}")],
-    ["a click beside the confirmation", () => clickConfirmationOverlay()],
+    ["a click beside the confirmation", () => clickModalOverlay()],
   ] as const;
 
   describe("confirming in the Kartenzeichen detail", () => {
@@ -3335,7 +3328,7 @@ describe("SituationWorkspace", () => {
           }),
         );
         await userEvent.keyboard("{Escape}");
-        await clickConfirmationOverlay();
+        await clickModalOverlay();
 
         expect(
           screen.getByRole("dialog", { name: confirmation.title }),
@@ -3584,13 +3577,108 @@ describe("SituationWorkspace", () => {
         within(dialog).getByRole("button", { name: "Endgültig löschen" }),
       );
       await userEvent.keyboard("{Escape}");
-      await clickConfirmationOverlay();
+      await clickModalOverlay();
 
       expect(
         screen.getByRole("dialog", { name: "Bereich löschen" }),
       ).toBeInTheDocument();
       expect(editorDialog()).toBeInTheDocument();
       expect(onDeleteArea).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("confirming in the Ebenen panel", () => {
+    const askToDeleteImage = async () => {
+      await userEvent.click(
+        within(mapPanel("Ebenen")).getByRole("button", { name: "Löschen" }),
+      );
+      return screen.findByRole("dialog", { name: "Bild-Overlay löschen" });
+    };
+
+    it("deletes a Bild-Overlay only once confirmed and ends editing it", async () => {
+      const onDeleteImage = vi.fn(async () => ({}));
+      const { adapter } = renderWorkspace({
+        imageOverlays: [anImageOverlay],
+        onDeleteImage,
+      });
+      await openImageEditor();
+      const dialog = await askToDeleteImage();
+      expect(onDeleteImage).not.toHaveBeenCalled();
+
+      await userEvent.click(
+        within(dialog).getByRole("button", { name: "Endgültig löschen" }),
+      );
+
+      expect(onDeleteImage).toHaveBeenCalledWith("i1");
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+      expect(adapter.stopImageOverlayEdit).toHaveBeenCalled();
+      expect(screen.queryByRole("slider", { name: "Deckkraft" })).toBeNull();
+    });
+
+    it.each([
+      [
+        "a returned error",
+        async () => ({ error: "Bild-Overlay nicht gefunden." }),
+        "Bild-Overlay nicht gefunden.",
+      ],
+      [
+        "a thrown failure",
+        async (): Promise<ActionResult> => {
+          throw new Error("offline");
+        },
+        "Das hat nicht geklappt. Bitte erneut versuchen.",
+      ],
+    ])(
+      "shows %s in the open confirmation and keeps editing the Bild-Overlay",
+      async (_, onDeleteImage, message) => {
+        const { adapter } = renderWorkspace({
+          imageOverlays: [anImageOverlay],
+          onDeleteImage,
+        });
+        await openImageEditor();
+        const dialog = await askToDeleteImage();
+
+        await userEvent.click(
+          within(dialog).getByRole("button", { name: "Endgültig löschen" }),
+        );
+
+        expect(screen.getAllByRole("alert")).toEqual([
+          within(dialog).getByRole("alert"),
+        ]);
+        expect(within(dialog).getByRole("alert")).toHaveTextContent(message);
+        expect(modeBand("Bild-Overlay bearbeiten")).toBeInTheDocument();
+        expect(adapter.stopImageOverlayEdit).not.toHaveBeenCalled();
+      },
+    );
+
+    it("removes a KML-Overlay only once confirmed", async () => {
+      const onRemoveKml = vi.fn(async () => ({}));
+      renderWorkspace({
+        kmlOverlays: [
+          {
+            id: "k1",
+            name: "Zonen",
+            sourceType: "file",
+            visible: true,
+            content: "<kml/>",
+          },
+        ],
+        onRemoveKml,
+      });
+      await openPanel("Ebenen");
+      await userEvent.click(
+        within(mapPanel("Ebenen")).getByRole("button", { name: "Entfernen" }),
+      );
+      const dialog = await screen.findByRole("dialog", {
+        name: "KML-Overlay „Zonen“ entfernen",
+      });
+      expect(onRemoveKml).not.toHaveBeenCalled();
+
+      await userEvent.click(
+        within(dialog).getByRole("button", { name: "Entfernen" }),
+      );
+
+      expect(onRemoveKml).toHaveBeenCalledWith("k1");
     });
   });
 });

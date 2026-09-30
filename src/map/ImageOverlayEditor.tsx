@@ -1,14 +1,16 @@
 "use client";
 
 import { Alert, Button, Group, Slider, Stack, Text } from "@mantine/core";
-import { useRef } from "react";
+import { useRef, useState } from "react";
+import { ConfirmationModal } from "@/app/ConfirmationModal";
+import type { ActionResult } from "@/app/operations/[id]/action-result";
 
 export interface ImageOverlayEditorProps {
   /** Aktuelle Deckkraft (0–1). */
   opacity: number;
   onOpacityChange: (opacity: number) => void | Promise<void>;
   onReplace: (file: File) => void | Promise<void>;
-  onDelete: () => void | Promise<void>;
+  onDelete: () => Promise<ActionResult>;
   onDone: () => void;
   busy?: boolean;
   error?: string | null;
@@ -24,6 +26,7 @@ export function ImageOverlayEditor({
   error = null,
 }: ImageOverlayEditorProps) {
   const fileRef = useRef<HTMLInputElement>(null);
+  const [deleteAsked, setDeleteAsked] = useState(false);
 
   return (
     <Stack gap="xs" mt="xs">
@@ -81,12 +84,23 @@ export function ImageOverlayEditor({
         <Button
           variant="light"
           color="red"
-          onClick={() => onDelete()}
+          onClick={() => setDeleteAsked(true)}
           loading={busy}
         >
           Löschen
         </Button>
       </Group>
+      <ConfirmationModal
+        opened={deleteAsked}
+        onClose={() => setDeleteAsked(false)}
+        title="Bild-Overlay löschen"
+        confirmLabel="Endgültig löschen"
+        confirmColor="red"
+        onConfirm={onDelete}
+      >
+        Das Bild wird mit seiner Datei gelöscht. Das lässt sich nicht rückgängig
+        machen.
+      </ConfirmationModal>
     </Stack>
   );
 }

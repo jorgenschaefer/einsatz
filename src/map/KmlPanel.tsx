@@ -11,6 +11,7 @@ import {
   TextInput,
 } from "@mantine/core";
 import { useState } from "react";
+import { ConfirmationModal } from "@/app/ConfirmationModal";
 import type { ActionResult } from "@/app/operations/[id]/action-result";
 import { extractKml } from "@/kml/kmz";
 import type { KmlSourceType } from "@/server/kml/kml-overlays";
@@ -44,6 +45,10 @@ export function KmlPanel({
   const [busy, setBusy] = useState(false);
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
+  // Bleibt nach dem Schließen gesetzt, damit der Titel beim Ausblenden
+  // stehen bleibt.
+  const [removeTarget, setRemoveTarget] = useState<KmlOverlayView | null>(null);
+  const [removeAsked, setRemoveAsked] = useState(false);
 
   const run = async (action: Promise<ActionResult>): Promise<ActionResult> => {
     setBusy(true);
@@ -81,6 +86,13 @@ export function KmlPanel({
     await run(onAddFile(file.name, content));
   };
 
+  const remove = async (): Promise<ActionResult> => {
+    if (!removeTarget) return {};
+    const result = await onRemove(removeTarget.id);
+    if (!result.error) setError(null);
+    return result;
+  };
+
   const overlayRow = (overlay: KmlOverlayView) => (
     <Paper key={overlay.id} data-testid={`kml-${overlay.id}`} withBorder p="sm">
       <Group justify="space-between" wrap="nowrap">
@@ -106,7 +118,10 @@ export function KmlPanel({
             size="xs"
             variant="light"
             color="red"
-            onClick={() => run(onRemove(overlay.id))}
+            onClick={() => {
+              setRemoveTarget(overlay);
+              setRemoveAsked(true);
+            }}
           >
             Entfernen
           </Button>
@@ -178,6 +193,17 @@ export function KmlPanel({
           urlOverlays.map(overlayRow)
         )}
       </Stack>
+
+      <ConfirmationModal
+        opened={removeAsked}
+        onClose={() => setRemoveAsked(false)}
+        title={`KML-Overlay „${removeTarget?.name}“ entfernen`}
+        confirmLabel="Entfernen"
+        confirmColor="red"
+        onConfirm={remove}
+      >
+        Um es wieder anzuzeigen, muss die Datei oder URL neu eingebunden werden.
+      </ConfirmationModal>
     </Stack>
   );
 }

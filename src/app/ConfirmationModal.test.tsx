@@ -4,6 +4,7 @@ import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import type { ActionResult } from "@/app/operations/[id]/action-result";
 import { buttonColor } from "@/test/button-color";
+import { clickModalOverlay } from "@/test/modal-overlay";
 import { render, screen, waitFor, within } from "@/test/render";
 import { ConfirmationModal } from "./ConfirmationModal";
 
@@ -28,12 +29,6 @@ const hanging = () => new Promise<ActionResult>(() => {});
 
 const button = (dialog: HTMLElement, name: string) =>
   within(dialog).getByRole("button", { name });
-
-function clickOverlay() {
-  const overlay = document.querySelector(".mantine-Modal-overlay");
-  if (!overlay) throw new Error("no overlay");
-  return userEvent.click(overlay);
-}
 
 describe("ConfirmationModal", () => {
   it("colours the confirm button as told", () => {
@@ -131,7 +126,7 @@ describe("ConfirmationModal", () => {
       await userEvent.click(button(dialog, "Annullieren"));
 
       await userEvent.keyboard("{Escape}");
-      await clickOverlay();
+      await clickModalOverlay();
 
       expect(onClose).not.toHaveBeenCalled();
     });
@@ -230,7 +225,7 @@ describe("ConfirmationModal", () => {
       const onConfirm = vi.fn(async () => ({}));
       const { onClose } = setup(onConfirm);
 
-      await clickOverlay();
+      await clickModalOverlay();
 
       await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
       expect(onConfirm).not.toHaveBeenCalled();
