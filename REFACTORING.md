@@ -65,20 +65,19 @@ Wege müssen zusammenpassen.
 
 ## Server-Actions
 
-### 4. Ansichtslink-Actions über `operationAction`
+### 4. `createViewLinkAction` über `operationAction`
 
-**Heute.** `createViewLinkAction` und `deleteViewLinkAction` liefern `void`
-statt `ActionResult`, zeigen keine Fehler an und senden kein Live-Ereignis
-(`view-link-actions.ts`). Alle anderen Einsatz-Mutationen laufen über
-`operationAction`.
+**Heute.** `createViewLinkAction` liefert `void` statt `ActionResult`, zeigt
+keine Fehler an und sendet kein Live-Ereignis (`view-link-actions.ts`). Alle
+anderen Einsatz-Mutationen laufen über `operationAction`.
 
-**Vorschlag.** Beide über `operationAction` führen; `ViewLinkPanel` zeigt
-`{error}` wie die übrigen Panels.
+**Vorschlag.** `createViewLinkAction` über `operationAction` führen; `ViewLinkPanel` zeigt
+`{error}` beim Erzeugen wie die übrigen Panels.
 
 **Bringt.** Ein Ablauf für alle Mutationen; Fehler werden sichtbar statt
 verschluckt.
 
-**Kostet.** Andere offene Clients laden bei jeder Ansichtslink-Änderung neu
+**Kostet.** Andere offene Clients laden bei jedem neuen Ansichtslink neu
 (ein zusätzlicher Refresh, fachlich harmlos).
 
 ### 5. Catch-all der KML- und Bild-Actions in `operationAction`

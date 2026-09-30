@@ -1,6 +1,8 @@
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { clickModalOverlay } from "@/test/modal-overlay";
 import { render, screen, waitFor, within } from "@/test/render";
+import type { ActionResult } from "./action-result";
 import { LageansichtShell } from "./LageansichtShell";
 
 const CONNECTION_LOST_LABEL =
@@ -128,6 +130,75 @@ describe("LageansichtShell", () => {
       await screen.findByRole("menuitem", { name: "Teilen" }),
     );
     expect(await screen.findByText("Leitstelle")).toBeInTheDocument();
+  });
+
+  describe("deleting a view link from Teilen", () => {
+    async function askToDelete(
+      onDeleteViewLink: (id: string) => Promise<ActionResult> = vi.fn(
+        async () => ({}),
+      ),
+    ) {
+      render(
+        <LageansichtShell
+          operationName="Hochwasser"
+          status="active"
+          viewLinks={[{ id: "1", label: "Leitstelle", token: "tok-a" }]}
+          onDeleteViewLink={onDeleteViewLink}
+        >
+          <div>Karte</div>
+        </LageansichtShell>,
+      );
+      await userEvent.click(screen.getByRole("button", { name: "Teilen" }));
+      await userEvent.click(
+        await screen.findByRole("button", { name: "Leitstelle löschen" }),
+      );
+      return screen.findByRole("dialog", {
+        name: "Ansichtslink „Leitstelle“ löschen",
+      });
+    }
+
+    const shareDialog = () =>
+      screen.getByRole("dialog", { name: "Ansichtslinks teilen" });
+
+    it.each([
+      ["on Escape", () => userEvent.keyboard("{Escape}")],
+      ["on a click beside the confirmation", () => clickModalOverlay()],
+    ])(
+      "closes only the confirmation %s and returns to Teilen with the link",
+      async (_, cancel) => {
+        await askToDelete();
+
+        await cancel();
+
+        await waitFor(() =>
+          expect(
+            screen.queryByRole("dialog", {
+              name: "Ansichtslink „Leitstelle“ löschen",
+            }),
+          ).toBeNull(),
+        );
+        expect(within(shareDialog()).getByText("Leitstelle")).toBeVisible();
+      },
+    );
+
+    it.each([
+      ["on Escape", () => userEvent.keyboard("{Escape}")],
+      ["on a click beside the confirmation", () => clickModalOverlay()],
+    ])("keeps both dialogs open %s while deleting", async (_, cancel) => {
+      const onDeleteViewLink = vi.fn(() => new Promise<ActionResult>(() => {}));
+      const confirmation = await askToDelete(onDeleteViewLink);
+
+      await userEvent.click(
+        within(confirmation).getByRole("button", {
+          name: "Endgültig löschen",
+        }),
+      );
+      await cancel();
+
+      expect(onDeleteViewLink).toHaveBeenCalledWith("1");
+      expect(confirmation).toBeInTheDocument();
+      expect(shareDialog()).toBeInTheDocument();
+    });
   });
 
   it("offers a Zurück zu Einsätze link in the ⋮ menu", async () => {

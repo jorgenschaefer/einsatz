@@ -3,6 +3,8 @@
 import { Box, Button, Group, Stack, Text, TextInput } from "@mantine/core";
 import { useState } from "react";
 import QRCode from "react-qr-code";
+import { ConfirmationModal } from "@/app/ConfirmationModal";
+import type { ActionResult } from "@/app/operations/[id]/action-result";
 import { useClipboardCopy } from "./useClipboardCopy";
 
 export interface ViewLinkItem {
@@ -14,7 +16,7 @@ export interface ViewLinkItem {
 export interface ViewLinkPanelProps {
   links: ViewLinkItem[];
   onCreate: (label: string) => void | Promise<void>;
-  onDelete: (id: string) => void | Promise<void>;
+  onDelete: (id: string) => Promise<ActionResult>;
 }
 
 const viewUrl = (token: string): string => {
@@ -29,6 +31,10 @@ export function ViewLinkPanel({
 }: ViewLinkPanelProps) {
   const [label, setLabel] = useState("");
   const [creating, setCreating] = useState(false);
+  // Bleibt nach dem Schließen gesetzt, damit der Titel beim Ausblenden
+  // stehen bleibt.
+  const [deleteTarget, setDeleteTarget] = useState<ViewLinkItem | null>(null);
+  const [deleteAsked, setDeleteAsked] = useState(false);
 
   const create = async () => {
     setCreating(true);
@@ -63,25 +69,46 @@ export function ViewLinkPanel({
       ) : (
         <Stack gap="xs">
           {links.map((link) => (
-            <ViewLinkRow key={link.id} link={link} onDelete={onDelete} />
+            <ViewLinkRow
+              key={link.id}
+              link={link}
+              onAskDelete={() => {
+                setDeleteTarget(link);
+                setDeleteAsked(true);
+              }}
+            />
           ))}
         </Stack>
       )}
+
+      <ConfirmationModal
+        stackId="ansichtslink-loeschen"
+        opened={deleteAsked}
+        onClose={() => setDeleteAsked(false)}
+        title={`Ansichtslink „${deleteTarget ? linkName(deleteTarget) : ""}“ löschen`}
+        confirmLabel="Endgültig löschen"
+        confirmColor="red"
+        onConfirm={async () => (deleteTarget ? onDelete(deleteTarget.id) : {})}
+      >
+        Wer diesen Link hat, sieht die Lage sofort nicht mehr.
+      </ConfirmationModal>
     </Stack>
   );
 }
 
+const linkName = (link: ViewLinkItem): string =>
+  link.label.trim() || "Ansichtslink";
+
 function ViewLinkRow({
   link,
-  onDelete,
+  onAskDelete,
 }: {
   link: ViewLinkItem;
-  onDelete: (id: string) => void | Promise<void>;
+  onAskDelete: () => void;
 }) {
   const [qrOpen, setQrOpen] = useState(false);
-  const [confirming, setConfirming] = useState(false);
   const { status: copyStatus, copy } = useClipboardCopy();
-  const name = link.label.trim() || "Ansichtslink";
+  const name = linkName(link);
   const url = viewUrl(link.token);
 
   return (
@@ -118,7 +145,7 @@ function ViewLinkRow({
             variant="subtle"
             color="red"
             aria-label={`${name} löschen`}
-            onClick={() => setConfirming(true)}
+            onClick={onAskDelete}
           >
             löschen
           </Button>
@@ -140,28 +167,6 @@ function ViewLinkRow({
       {qrOpen && (
         <Group justify="center" mt="xs">
           <QRCode value={url} size={160} />
-        </Group>
-      )}
-
-      {confirming && (
-        <Group justify="flex-end" gap="xs" mt="xs">
-          <Text size="sm" c="dimmed" style={{ flex: 1, minWidth: 0 }}>
-            Zugang für diesen Link sofort beenden?
-          </Text>
-          <Button
-            size="compact-xs"
-            variant="default"
-            onClick={() => setConfirming(false)}
-          >
-            Abbrechen
-          </Button>
-          <Button
-            size="compact-xs"
-            color="red"
-            onClick={() => onDelete(link.id)}
-          >
-            Endgültig löschen
-          </Button>
         </Group>
       )}
     </Box>

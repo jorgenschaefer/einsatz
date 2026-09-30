@@ -116,7 +116,7 @@ export interface SituationWorkspaceProps {
   currentUsername: string;
   viewLinks?: ViewLinkItem[];
   onCreateViewLink?: (label: string) => void | Promise<void>;
-  onDeleteViewLink?: (id: string) => void | Promise<void>;
+  onDeleteViewLink?: (id: string) => Promise<ActionResult>;
   operationDefaultView: MapView | null;
   tileUrl: string;
   attribution: string;

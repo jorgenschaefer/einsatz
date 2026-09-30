@@ -81,7 +81,7 @@ function buildProps(over: Partial<SituationWorkspaceProps> = {}) {
     currentUsername: "anna",
     viewLinks: [],
     onCreateViewLink: vi.fn(async () => {}),
-    onDeleteViewLink: vi.fn(async () => {}),
+    onDeleteViewLink: vi.fn(async () => ({})),
     operationDefaultView: null,
     tileUrl: "t",
     attribution: "© OpenStreetMap",

@@ -24,6 +24,7 @@ import {
 import { hashPassword } from "@/server/auth/password";
 import { insertSession } from "@/server/auth/sessions";
 import { insertUser } from "@/server/auth/users";
+import { subscribeOperation } from "@/server/events/operation-events";
 import { insertOperation } from "@/server/operations/operations";
 import { createViewLink, listViewLinks } from "@/server/viewlinks/view-links";
 import { freshDb } from "@/test/db";
@@ -79,6 +80,36 @@ describe("view link actions", () => {
     await deleteViewLinkAction(op.id, link.id);
 
     expect(await listViewLinks(state.db as Db, op.id)).toHaveLength(0);
+  });
+
+  it("reports a deleted view link as a success without an error", async () => {
+    await login();
+    const op = await anOperation();
+    const link = await createViewLink(state.db as Db, {
+      operationId: op.id,
+      label: "Leitstelle",
+    });
+
+    expect(await deleteViewLinkAction(op.id, link.id)).toEqual({});
+  });
+
+  it("tells other open clients of the Einsatz that a view link was deleted", async () => {
+    await login();
+    const op = await anOperation();
+    const link = await createViewLink(state.db as Db, {
+      operationId: op.id,
+      label: "Leitstelle",
+    });
+    const listener = vi.fn();
+    const unsubscribe = subscribeOperation(op.id, listener);
+
+    try {
+      await deleteViewLinkAction(op.id, link.id);
+    } finally {
+      unsubscribe();
+    }
+
+    expect(listener).toHaveBeenCalledTimes(1);
   });
 
   it("refuses to create a link without a session and writes nothing", async () => {

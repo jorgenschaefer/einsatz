@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:    AC-1, AC-7
 advances:  AC-2, AC-3, AC-4, AC-10
 after:     01-bestaetigungs-modal, 02-kartenzeichen-und-geraetelink, 03-bereich, 04-ebenen-overlays
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -70,3 +70,25 @@ Text aus der Tabelle unter „Agreed design“:
 - Konto: Ticket 06. Einsatz: Ticket 07.
 - Lage und Auffälligkeit der Lösch-Knöpfe: Sie bleiben, wo und wie sie sind.
 - Verhalten, wenn das Objekt anderswo gelöscht wird, während seine Rückfrage offen ist. Es wird nicht eigens gebaut oder getestet.
+
+## Record
+Schließt:
+- **AC-1**, für Ansichtslink löschen: `src/map/ViewLinkPanel.test.tsx`, Block „deleting a link“: „asks in a dialog, not inline in the row, and deletes only once confirmed“ (`onDelete` erst nach „Endgültig löschen“) und „does not delete when cancelled with Abbrechen / on Escape / on a click beside the confirmation“ (Link noch gelistet); über dem Teilen-Modal `src/app/operations/[id]/LageansichtShell.test.tsx`, Block „deleting a view link from Teilen“: „closes only the confirmation on Escape / on a click beside the confirmation and returns to Teilen with the link“. Für die übrigen fünf Aktionen aus den Tickets 02–04: Kartenzeichen löschen – `SituationWorkspace.test.tsx`, Block „confirming in the Kartenzeichen detail“, „keeps the detail and its unsaved input after cancelling with Abbrechen / Escape / a click beside the confirmation“ und „deletes the Kartenzeichen only once confirmed and closes both dialogs“; Gerätelink neu generieren – `DeviceLinkPanel.test.tsx` „asks for confirmation first and regenerates only once confirmed“ und „does not regenerate when cancelled / on Escape / on a click beside the confirmation“; Bereich löschen – `SituationWorkspace.test.tsx`, Block „confirming in the Bereich editor“, die drei Abbrechen-Tests und „deletes the Bereich only once confirmed and closes both dialogs“, dazu `AreaEditor.test.tsx` „deleting › deletes the area only once confirmed“; KML-Overlay entfernen – `KmlPanel.test.tsx`, Block „removing an overlay“, „asks for confirmation first and removes only once confirmed“ und „does not remove when cancelled …“; Bild-Overlay löschen – `ImageOverlayEditor.test.tsx`, Block „deleting“, „asks for confirmation first and deletes only once confirmed“ und „does not delete when cancelled …“, im Workspace „deletes a Bild-Overlay only once confirmed and ends editing it“ / „removes a KML-Overlay only once confirmed“.
+- **AC-7**: „asks in a dialog, not inline in the row, …“ prüft, dass „Zugang für diesen Link sofort beenden?“ nicht mehr erscheint; die Inline-Bestätigung ist aus `ViewLinkRow` entfernt.
+
+Bringt voran (für Ansichtslink löschen):
+- **AC-2**: „asks in a dialog, not inline in the row, …“ (Dialog-Name `Ansichtslink „Leitstelle“ löschen`, Text aus der Tabelle, „Endgültig löschen“ rot über `buttonColor`); „names a link without a label „Ansichtslink“ in the title“.
+- **AC-3**: `ViewLinkPanel.test.tsx` „stays locked while deleting“ (Escape, Overlay-Klick, zweiter Klick: Rückfrage bleibt, „Abbrechen“ gesperrt, `onDelete` einmal); `LageansichtShell.test.tsx` „keeps both dialogs open on Escape / on a click beside the confirmation while deleting“ (Rückfrage und Teilen-Modal bleiben). Ladezustand des Knopfs: `ConfirmationModal.test.tsx` (Ticket 01).
+- **AC-4**: „shows a returned error / a thrown failure in the open confirmation and keeps the link“ (Meldung in der Rückfrage, Link gelistet, beide Knöpfe aktiv). Server: `view-link-actions.test.ts` „reports a deleted view link as a success without an error“ (liefert `{}`), „tells other open clients of the Einsatz that a view link was deleted“ (Live-Ereignis über den echten Event-Bus); „deletes a view link for a logged-in user“ und „refuses to delete a link without a session and keeps it“ bleiben grün.
+- **AC-10**: im Browser mit `run-einsatz` (Subagent) bei 390×844 (Touch) und 1280×800 geprüft: Bezeichnung aus 80 Zeichen ohne Leerzeichen im Titel auf 4 bzw. 3 Zeilen umgebrochen, nicht abgeschnitten; Rückfrage vollständig sichtbar, beide Knöpfe im Viewport und oberstes Element an ihrer Stelle; `scrollWidth <= innerWidth`; Escape, Overlay-Klick und „Abbrechen“ schließen nur die Rückfrage, das Teilen-Modal kommt mit beiden Links zurück; „Endgültig löschen“ entfernt den Link, Teilen bleibt offen; keine Konsolenfehler.
+
+Kommando: `docker compose -f docker-compose.test.yml up -d && npm run check` – 117 Dateien, 1178 Tests grün, tsc und Biome ohne Befund.
+
+### Left standing
+- Abweichung vom Plan, Schritt 2: Die Rückfrage steht einmal im `ViewLinkPanel`, nicht je Zeile; `ViewLinkRow` meldet nur `onAskDelete`. So gibt es eine `stackId` statt einer je Link, und die Rückfrage ist von Anfang an gemountet (wie beim `KmlPanel` in Ticket 04, wegen des Titels beim Ausblenden und der Fokus-Rückgabe). Der `{}`-Zweig in `onConfirm` ohne `deleteTarget` ist nicht erreichbar und steht nur für TypeScript da (Review-Nit, nicht geändert).
+- Abweichung vom Plan, Schritt 2: Der Default in `LageansichtShell` ist ein eigenes `deleteNothing` (liefert `{}`), weil `noop` weiter für `onCreateViewLink` gilt.
+- Abweichung vom Nudge „Punkt 1 wird aus `REFACTORING.md` entfernt“: nicht hier – `## Not here` gibt das Ticket 07. Nur Punkt 4 ist gekürzt.
+- Der Test „keeps both dialogs open … on a click beside the confirmation while deleting“ im Shell-Test und „closes only the confirmation on a click beside …“ fallen nicht, wenn der `Modal.Stack` fehlt – der Klick trifft immer das Overlay der obersten Rückfrage. Gegen einen fehlenden Stapel sichern die Escape-Varianten (ohne `stackId="ansichtslinks-teilen"` geprüft: beide rot). Der Plan-Schritt 3 erwartete Rot nur bei Escape; so war es.
+- Aus Review Runde 1 behoben: Overlay-Klick während des Löschens im Stapel getestet; Live-Ereignis beim Löschen gepinnt; Import `./action-result` in `LageansichtShell`. Runde 2: Nit zu „Sie“ in `REFACTORING.md` Punkt 4 behoben.
+- Nicht behoben, Browser-Check, gehört nicht hierher („Lage und Auffälligkeit der Lösch-Knöpfe“ bzw. wie in 02–04): Die Zeilen-Knöpfe „kopieren“, „QR“, „löschen“ sind am Handy nur 22 px hoch und eng nebeneinander; „löschen“ hebt sich farblich kaum von „kopieren“/„QR“ ab; „Endgültig löschen“ ist Mantines hellere `red`. Eine lange Bezeichnung wird in der Zeile mit „…“ abgeschnitten und ist nirgends ganz lesbar außer in der Rückfrage. Nach dem Abbrechen landet der Fokus auf dem Schließen-X des Teilen-Modals statt auf „löschen“ (wie bei Kartenzeichen/Bereich); Enter schließt dann das Teilen-Modal. Am Handy liegt „Teilen“ im ⋮-Menü.
+- Die Browserprüfung hat den Dev-Server selbst gestartet und gestoppt, den Einsatz „QA-Ansichtslink“ angelegt und wieder gelöscht; keine Migration, kein Seed.

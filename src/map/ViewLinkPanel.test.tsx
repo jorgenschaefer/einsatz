@@ -1,13 +1,16 @@
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { act, fireEvent, render, screen, waitFor } from "@/test/render";
+import type { ActionResult } from "@/app/operations/[id]/action-result";
+import { buttonColor } from "@/test/button-color";
+import { clickModalOverlay } from "@/test/modal-overlay";
+import { act, fireEvent, render, screen, waitFor, within } from "@/test/render";
 import { ViewLinkPanel, type ViewLinkPanelProps } from "./ViewLinkPanel";
 
 function setup(over: Partial<ViewLinkPanelProps> = {}) {
   const props: ViewLinkPanelProps = {
     links: [],
     onCreate: vi.fn(),
-    onDelete: vi.fn(),
+    onDelete: vi.fn(async () => ({})),
     ...over,
   };
   render(<ViewLinkPanel {...props} />);
@@ -160,17 +163,118 @@ describe("ViewLinkPanel", () => {
     expect(document.querySelector("svg")).toBeInTheDocument();
   });
 
-  it("deletes a link only after confirmation", async () => {
-    const props = setup({
-      links: [{ id: "1", label: "Leitstelle", token: "tok-a" }],
+  describe("deleting a link", () => {
+    const leitstelle = { id: "1", label: "Leitstelle", token: "tok-a" };
+
+    const askToDelete = async (name = "Leitstelle") => {
+      await userEvent.click(
+        screen.getByRole("button", { name: `${name} löschen` }),
+      );
+      return screen.findByRole("dialog", {
+        name: `Ansichtslink „${name}“ löschen`,
+      });
+    };
+
+    const confirmButton = (dialog: HTMLElement) =>
+      within(dialog).getByRole("button", { name: "Endgültig löschen" });
+
+    it("asks in a dialog, not inline in the row, and deletes only once confirmed", async () => {
+      const onDelete = vi.fn(async () => ({}));
+      setup({ links: [leitstelle], onDelete });
+
+      const dialog = await askToDelete();
+
+      expect(onDelete).not.toHaveBeenCalled();
+      expect(dialog).toHaveTextContent(
+        "Wer diesen Link hat, sieht die Lage sofort nicht mehr.",
+      );
+      expect(buttonColor(confirmButton(dialog))).toBe("red");
+      expect(
+        screen.queryByText("Zugang für diesen Link sofort beenden?"),
+      ).toBeNull();
+
+      await userEvent.click(confirmButton(dialog));
+
+      expect(onDelete).toHaveBeenCalledWith("1");
+      expect(onDelete).toHaveBeenCalledTimes(1);
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     });
-    await userEvent.click(
-      screen.getByRole("button", { name: /Leitstelle löschen/i }),
+
+    it("names a link without a label „Ansichtslink“ in the title", async () => {
+      setup({ links: [{ id: "2", label: "  ", token: "tok-b" }] });
+
+      expect(await askToDelete("Ansichtslink")).toBeInTheDocument();
+    });
+
+    it.each([
+      [
+        "with Abbrechen",
+        (dialog: HTMLElement) =>
+          userEvent.click(
+            within(dialog).getByRole("button", { name: "Abbrechen" }),
+          ),
+      ],
+      ["on Escape", () => userEvent.keyboard("{Escape}")],
+      ["on a click beside the confirmation", () => clickModalOverlay()],
+    ])("does not delete when cancelled %s", async (_, cancel) => {
+      const onDelete = vi.fn(async () => ({}));
+      setup({ links: [leitstelle], onDelete });
+      const dialog = await askToDelete();
+
+      await cancel(dialog);
+
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+      expect(onDelete).not.toHaveBeenCalled();
+      expect(screen.getByText("Leitstelle")).toBeInTheDocument();
+    });
+
+    it.each([
+      [
+        "a returned error",
+        async () => ({ error: "Ansichtslink nicht gefunden." }),
+        "Ansichtslink nicht gefunden.",
+      ],
+      [
+        "a thrown failure",
+        async (): Promise<ActionResult> => {
+          throw new Error("offline");
+        },
+        "Das hat nicht geklappt. Bitte erneut versuchen.",
+      ],
+    ])(
+      "shows %s in the open confirmation and keeps the link",
+      async (_, onDelete, message) => {
+        setup({ links: [leitstelle], onDelete });
+        const dialog = await askToDelete();
+
+        await userEvent.click(confirmButton(dialog));
+
+        expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+          message,
+        );
+        expect(screen.getByText("Leitstelle")).toBeInTheDocument();
+        expect(confirmButton(dialog)).toBeEnabled();
+        expect(
+          within(dialog).getByRole("button", { name: "Abbrechen" }),
+        ).toBeEnabled();
+      },
     );
-    expect(props.onDelete).not.toHaveBeenCalled();
-    await userEvent.click(
-      screen.getByRole("button", { name: /endgültig löschen/i }),
-    );
-    expect(props.onDelete).toHaveBeenCalledWith("1");
+
+    it("stays locked while deleting", async () => {
+      const onDelete = vi.fn(() => new Promise<ActionResult>(() => {}));
+      setup({ links: [leitstelle], onDelete });
+      const dialog = await askToDelete();
+
+      await userEvent.click(confirmButton(dialog));
+      await userEvent.keyboard("{Escape}");
+      await clickModalOverlay();
+      await userEvent.click(confirmButton(dialog), { pointerEventsCheck: 0 });
+
+      expect(
+        within(dialog).getByRole("button", { name: "Abbrechen" }),
+      ).toBeDisabled();
+      expect(screen.getByRole("dialog")).toBe(dialog);
+      expect(onDelete).toHaveBeenCalledTimes(1);
+    });
   });
 });

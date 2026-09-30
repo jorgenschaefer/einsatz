@@ -22,6 +22,7 @@ import { BackLink } from "@/app/BackLink";
 import { useKeyboardOpen } from "@/map/useKeyboardOpen";
 import { type ViewLinkItem, ViewLinkPanel } from "@/map/ViewLinkPanel";
 import type { OperationStatus } from "@/server/operations/operations";
+import type { ActionResult } from "./action-result";
 
 const HEADER_HEIGHT = { base: 40, sm: 56 };
 const FOOTER_HEIGHT = 56;
@@ -29,6 +30,7 @@ const CONNECTION_LOST_LABEL =
   "Verbindung getrennt – wird automatisch wiederhergestellt";
 
 const noop = async () => {};
+const deleteNothing = async (): Promise<ActionResult> => ({});
 
 function ConnectionIndicator() {
   return (
@@ -55,7 +57,7 @@ export function LageansichtShell({
   connected = true,
   viewLinks = [],
   onCreateViewLink = noop,
-  onDeleteViewLink = noop,
+  onDeleteViewLink = deleteNothing,
   navigation = null,
   children,
 }: {
@@ -65,7 +67,7 @@ export function LageansichtShell({
   connected?: boolean;
   viewLinks?: ViewLinkItem[];
   onCreateViewLink?: (label: string) => void | Promise<void>;
-  onDeleteViewLink?: (id: string) => void | Promise<void>;
+  onDeleteViewLink?: (id: string) => Promise<ActionResult>;
   /** Die Hauptansichten-Leiste unten am Handy. */
   navigation?: ReactNode;
   children: ReactNode;
@@ -174,17 +176,20 @@ export function LageansichtShell({
           {children}
         </Box>
       </AppShell.Main>
-      <Modal
-        opened={shareOpened}
-        onClose={share.close}
-        title="Ansichtslinks teilen"
-      >
-        <ViewLinkPanel
-          links={viewLinks}
-          onCreate={onCreateViewLink}
-          onDelete={onDeleteViewLink}
-        />
-      </Modal>
+      <Modal.Stack>
+        <Modal
+          stackId="ansichtslinks-teilen"
+          opened={shareOpened}
+          onClose={share.close}
+          title="Ansichtslinks teilen"
+        >
+          <ViewLinkPanel
+            links={viewLinks}
+            onCreate={onCreateViewLink}
+            onDelete={onDeleteViewLink}
+          />
+        </Modal>
+      </Modal.Stack>
     </AppShell>
   );
 }
