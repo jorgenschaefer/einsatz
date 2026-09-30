@@ -225,6 +225,34 @@ describe("renameStation", () => {
     expect(await listEntries(db, op.id)).toHaveLength(1);
   });
 
+  it("records when the Stelle got its new name", async () => {
+    const db = await freshDb();
+    const { station } = await aStation(db, "UHSt 3");
+    const createdNamedAt = await namedAt(db, station.id);
+
+    await renameStation(db, {
+      stationId: station.id,
+      name: "Uhst 3",
+      author: "bernd",
+    });
+
+    expect(await namedAt(db, station.id)).toBeGreaterThan(createdNamedAt);
+  });
+
+  it("keeps when the Stelle was named when the name stays the same", async () => {
+    const db = await freshDb();
+    const { station } = await aStation(db, "UHSt 3");
+    const createdNamedAt = await namedAt(db, station.id);
+
+    await renameStation(db, {
+      stationId: station.id,
+      name: "UHSt 3",
+      author: "bernd",
+    });
+
+    expect(await namedAt(db, station.id)).toBe(createdNamedAt);
+  });
+
   it("rejects a rename onto another Stelle's name without writing anything", async () => {
     const db = await freshDb();
     const { op, station } = await aStation(db, "UHSt 3");
@@ -292,3 +320,12 @@ describe("renameStation", () => {
     ]);
   });
 });
+
+/** Wann die Stelle ihren Namen bekommen hat, in Mikrosekunden seit 1970. */
+async function namedAt(db: TestDb, stationId: string): Promise<number> {
+  const { rows } = await db.query<{ micros: string }>(
+    "SELECT (extract(epoch FROM named_at) * 1000000)::bigint AS micros FROM stations WHERE id = $1",
+    [stationId],
+  );
+  return Number(rows[0].micros);
+}

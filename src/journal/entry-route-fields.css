@@ -1,0 +1,39 @@
+/* Von und An: je eine Zeile, die nie umbricht; weitere Chips erreicht man
+   durch waagerechtes Wischen. Der rechte Rand blendet weich aus und zeigt so,
+   dass es weitergeht. */
+.entry-route-chips {
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-xs);
+  /* fieldset: ohne Rahmen, und schmaler als seine Chips (Standard ist min-content). */
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.entry-route-chips-label {
+  flex: none;
+  width: 28px;
+  font-size: var(--mantine-font-size-sm);
+  color: var(--mantine-color-dimmed);
+}
+
+.entry-route-chips-row {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  mask-image: linear-gradient(to right, #000 85%, transparent);
+}
+
+.entry-route-chips-row::-webkit-scrollbar {
+  display: none;
+}
+
+.entry-route-chips-row > * {
+  flex: none;
+}

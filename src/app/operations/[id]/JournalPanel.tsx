@@ -20,8 +20,13 @@ import { ConfirmationModal } from "@/app/ConfirmationModal";
 import {
   DEFAULT_CHANNEL,
   EntryChannelSelect,
+  EntryRouteChips,
 } from "@/journal/EntryRouteFields";
-import { type EntryRoute, formatEntryRoute } from "@/journal/entry-route";
+import {
+  type EntryRoute,
+  formatEntryRoute,
+  NO_ROUTE,
+} from "@/journal/entry-route";
 import type {
   JournalEntryState,
   JournalEntryType,
@@ -49,6 +54,8 @@ export interface JournalEntryView extends EntryRoute {
 
 export interface JournalPanelProps {
   entries: JournalEntryView[];
+  /** Die Werte für Von und An eines neuen Eintrags. */
+  correspondents: string[];
   onAdd: (entry: { text: string } & EntryRoute) => Promise<ActionResult>;
   onCorrect: (id: string, text: string) => Promise<ActionResult>;
   onAnnul: (id: string) => Promise<ActionResult>;
@@ -71,6 +78,7 @@ const isAutomatic = (entry: JournalEntryView) =>
 
 export function JournalPanel({
   entries,
+  correspondents,
   onAdd,
   onCorrect,
   onAnnul,
@@ -79,7 +87,10 @@ export function JournalPanel({
 }: JournalPanelProps) {
   const [hideAuto, setHideAuto] = useState(false);
   const [draft, setDraft] = useState("");
-  const [channel, setChannel] = useState<string | null>(DEFAULT_CHANNEL);
+  const [route, setRoute] = useState<EntryRoute>({
+    ...NO_ROUTE,
+    channel: DEFAULT_CHANNEL,
+  });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [annulTarget, setAnnulTarget] = useState<JournalEntryView | null>(null);
@@ -93,17 +104,13 @@ export function JournalPanel({
     const text = draft.trim();
     if (!text) return;
     try {
-      const { error: err } = await onAdd({
-        text,
-        sender: null,
-        recipient: null,
-        channel,
-      });
+      const { error: err } = await onAdd({ text, ...route });
       if (err) {
         setError(err);
         return;
       }
       setDraft("");
+      setRoute((current) => ({ ...current, sender: null, recipient: null }));
       setError(null);
       scroll.scrollToEnd();
     } catch {
@@ -280,6 +287,18 @@ export function JournalPanel({
       </Stack>
 
       <Stack gap="xs" className="journal-new-entry" ref={scroll.newEntryRef}>
+        <EntryRouteChips
+          label="Von"
+          value={route.sender}
+          onChange={(sender) => setRoute({ ...route, sender })}
+          options={correspondents}
+        />
+        <EntryRouteChips
+          label="An"
+          value={route.recipient}
+          onChange={(recipient) => setRoute({ ...route, recipient })}
+          options={correspondents}
+        />
         <Textarea
           ref={newEntryRef}
           aria-label="Neuer Eintrag"
@@ -290,8 +309,8 @@ export function JournalPanel({
         />
         <Group justify="space-between" wrap="nowrap">
           <EntryChannelSelect
-            value={channel}
-            onChange={setChannel}
+            value={route.channel}
+            onChange={(channel) => setRoute({ ...route, channel })}
             onKeyDown={submitOnCtrlEnter(submitNew)}
           />
           <Button onClick={submitNew}>Eintrag hinzufügen</Button>

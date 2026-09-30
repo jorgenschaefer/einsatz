@@ -29,6 +29,7 @@ export function panelProps(
 ): JournalPanelProps {
   return {
     entries: [entry()],
+    correspondents: [],
     onAdd: vi.fn(async () => ({})),
     onCorrect: vi.fn(async () => ({})),
     onAnnul: vi.fn(async () => ({})),

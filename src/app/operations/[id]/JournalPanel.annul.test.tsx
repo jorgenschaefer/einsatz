@@ -102,6 +102,7 @@ describe("JournalPanel – Annullieren", () => {
       <MantineProvider>
         <JournalPanel
           entries={[entry()]}
+          correspondents={[]}
           onAdd={vi.fn()}
           onCorrect={vi.fn()}
           onAnnul={onAnnul}

@@ -77,10 +77,10 @@ export async function renameStation(
       route: NO_ROUTE,
     });
     await rejectingDuplicateName(() =>
-      tx.query("UPDATE stations SET name = $2 WHERE id = $1", [
-        station.id,
-        name,
-      ]),
+      tx.query(
+        "UPDATE stations SET name = $2, named_at = now() WHERE id = $1",
+        [station.id, name],
+      ),
     );
     return station.operationId;
   });

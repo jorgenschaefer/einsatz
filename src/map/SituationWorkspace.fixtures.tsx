@@ -66,6 +66,7 @@ export function buildProps(over: Partial<SituationWorkspaceProps> = {}) {
     attribution: "© OpenStreetMap",
     symbols: [],
     journalEntries: [],
+    correspondents: [],
     onAddJournalEntry: vi.fn(async () => ({})),
     onCorrectJournalEntry: vi.fn(async () => ({})),
     onAnnulJournalEntry: vi.fn(async () => ({})),

@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:    AC-1, AC-2, AC-4, AC-7, AC-12
 advances:  AC-8, AC-13, AC-14, AC-15
 after:     02-weg-und-kopfzeile
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -136,3 +136,65 @@ hinterlegt.
 - Aus *Out of scope*: Abgleich ähnlicher Schreibweisen über Groß- und Kleinschreibung hinaus („UHSt2“ und „UHSt 2“).
 
 ## Left standing
+- Review-Nit nicht umgesetzt: Ist ein Chip gewählt und benennt ein anderes
+  Gerät die Stelle nur in Groß- und Kleinschreibung um („UHSt 1“ → „Uhst 1“),
+  zeigt die Zeile beide Schreibweisen, und Speichern macht die alte wieder zur
+  jüngsten. Der gewählte Wert bleibt absichtlich als Chip stehen (siehe unten);
+  ihn stattdessen still auf die neue Schreibweise umzustellen, hieße, etwas
+  anderes zu speichern, als der Nutzer angetippt hat. Der Fall ist selten und
+  heilt sich mit dem nächsten Eintrag. Ich habe ihn gelassen.
+- Review-Nit nicht umgesetzt: Jeder Chip ist ein eigener Tab-Halt (Mantine
+  `Chip` ist eine Checkbox). Bei 13 Gesprächspartnern liegen 26 Tab-Halte
+  zwischen Liste und Textfeld. Eine Tastatur-Führung mit einem Halt je Zeile
+  verlangt kein Kriterium dieses Tickets.
+- Offen für Ticket 04: Trägt ein Eintrag denselben Wert in Von und An in
+  verschiedener Schreibweise („Eal“ / „EAL“), haben beide denselben Zeitpunkt,
+  und `listCorrespondents` wählt eine davon ohne feste Regel. Mit Chips allein
+  entsteht das nicht, mit freier Eingabe schon.
+- Zusätzlich zum Plan (Should-fix aus der ersten Review): Verschwindet der
+  gewählte Wert aus den Gesprächspartnern (Stelle umbenannt, einziger Eintrag
+  annulliert), bleibt er als gewählter Chip stehen. Vorher blieb er unsichtbar
+  gewählt und wurde trotzdem gespeichert. Gepinnt in `EntryRouteFields.test.tsx`.
+- AC-1 (kein Umbruch, waagerechtes Wischen) und AC-14 prüft kein
+  automatischer Test, das ist CSS. Der Reviewer hat es im Browser geprüft: Mit
+  12–15 Chips bleibt jede Zeile einzeilig (28 px hoch, 290 px sichtbar), ein
+  Wischen am Handy scrollt die Zeile, ohne einen Chip zu wählen. Bei 360 px ist
+  `scrollWidth` gleich `clientWidth`, nichts ragt über den rechten Rand. Keine
+  sichtbare Scrollbar, rechter Rand blendet aus, gewählt DRK-Rot hell.
+- AC-13 prüft kein automatischer Test, sondern der Reviewer im Browser. Höhe von
+  `.journal-new-entry`: Desktop-Seitenleiste (1920×1080) und Handy bei 360 px
+  je 178,375 px, gegenüber 102,375 px vor dieser Änderung (Ticket 02): +76 px.
+  Ohne Gesprächspartner (nur die Labels) 165,75 px. Ticket 04 bleiben also
+  4 px Spielraum, wenn „andere …“ in dieselben Zeilen kommt.
+- AC-12: Der Test in `JournalPanel.route.test.tsx` rendert das Panel mit neuen
+  Props neu; den Weg über SSE und `router.refresh()` prüft er nicht. Den hat
+  der Reviewer mit zwei Browserfenstern geprüft: Eintrag samt Kopfzeile und
+  eine neu angelegte Stelle als Chip erschienen im anderen Fenster ohne
+  Neuladen.
+- Abweichung vom Plan, Schritt 3: `listCorrespondents` sortiert nicht, die
+  Reihenfolge legt nur `EntryRouteChips` fest (alphabetisch, `localeCompare`
+  mit `de`). So steht die Reihenfolge an einer Stelle, und Ticket 06 ändert
+  sie dort. Die Tests in `correspondents.test.ts` vergleichen deshalb sortiert.
+- Abweichung vom Plan, Schritt 2: `createStation` setzt `named_at` nicht
+  selbst; das tut der Spaltenvorgabewert `now()` beim Anlegen.
+- Abweichung vom Plan, Schritt 5: Die Zeile ist ein `<fieldset>` mit
+  `aria-label` statt eines `div` mit `role="group"`, weil Biome das verlangt.
+  Die Chips sind Mantine-`Chip`s, also Checkboxen; Strg/⌘+Enter tut auf ihnen
+  nichts.
+- Abweichung vom Plan, Schritt 7: Im Browser habe ich nicht selbst geprüft.
+  Das hat der Reviewer übernommen, mit den Messwerten oben.
+- Zu den Nudges: `EntryRouteChips` ist so gebaut, dass Ticket 05 es beim
+  Korrigieren wiederverwenden kann; den Eingabebereich selbst habe ich nicht in
+  ein eigenes Bauteil gezogen, das gehört zum Korrigieren. `JournalPanel` hält
+  jetzt, wie Ticket 02 es vorsah, eine ganze `EntryRoute` im Zustand.
+- Zum TDD-Ablauf: Einige Tests liefen gleich grün, weil ihr Erwartungswert
+  „nichts“ ist: „has none in a new Gesamteinsatz“, „does not list the Weg“,
+  „leaves out the Von and An of an annulled entry“, „leaves out the Stellen
+  and entries of another Gesamteinsatz“, „unchooses the value on a second
+  tap“, „unchooses Von and An and keeps the Weg after adding“, „keeps when the
+  Stelle was named when the name stays the same“, „starts a new entry without
+  Von and An“, „adds a new entry with only Weg / none of them“ und „adds
+  nothing without text“. Für die ersten fünf und „unchooses Von and An …“ habe
+  ich den Code probeweise kaputt gemacht (Filter entfernt, Abwählen und
+  Zurücksetzen gestrichen); sie schlugen dann fehl. Die übrigen habe ich so
+  nicht geprüft.

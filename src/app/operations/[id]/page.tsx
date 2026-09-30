@@ -13,7 +13,11 @@ import { getDb } from "@/server/db/pg";
 import { GEOCODER_ATTRIBUTION } from "@/server/geocoder/photon";
 import { listImageOverlays } from "@/server/image-overlays/image-overlays";
 import { overlayCacheToken } from "@/server/image-overlays/image-storage";
-import { type JournalEntry, listEntries } from "@/server/journal/journal";
+import {
+  type JournalEntry,
+  listCorrespondents,
+  listEntries,
+} from "@/server/journal/journal";
 import { listKmlOverlays } from "@/server/kml/kml-overlays";
 import { listMapSymbols } from "@/server/mapsymbols/map-symbols";
 import { getOperation } from "@/server/operations/operations";
@@ -100,6 +104,7 @@ export default async function LageansichtPage({
   if (!operation) notFound();
 
   const entries = (await listEntries(db, operation.id)).map(toView);
+  const correspondents = await listCorrespondents(db, operation.id);
   const symbols: WorkspaceSymbol[] = (
     await listMapSymbols(db, operation.id)
   ).map((s) => ({
@@ -180,6 +185,7 @@ export default async function LageansichtPage({
       attribution={attribution}
       symbols={symbols}
       journalEntries={entries}
+      correspondents={correspondents}
       onAddJournalEntry={addJournalEntryAction.bind(null, operation.id)}
       onCorrectJournalEntry={correctEntryAction}
       onAnnulJournalEntry={annulEntryAction}

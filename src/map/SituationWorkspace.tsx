@@ -101,6 +101,8 @@ export interface SituationWorkspaceProps {
   attribution: string;
   symbols: WorkspaceSymbol[];
   journalEntries: JournalEntryView[];
+  /** Die Werte für Von und An eines neuen ETB-Eintrags. */
+  correspondents: string[];
   onAddJournalEntry: (
     entry: { text: string } & EntryRoute,
   ) => Promise<ActionResult>;
@@ -179,6 +181,7 @@ export function SituationWorkspace({
   attribution,
   symbols,
   journalEntries,
+  correspondents,
   onAddJournalEntry,
   onCorrectJournalEntry,
   onAnnulJournalEntry,
@@ -657,6 +660,7 @@ export function SituationWorkspace({
         >
           <JournalPanel
             entries={journalEntries}
+            correspondents={correspondents}
             onAdd={onAddJournalEntry}
             onCorrect={onCorrectJournalEntry}
             onAnnul={onAnnulJournalEntry}

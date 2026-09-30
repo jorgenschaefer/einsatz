@@ -1,8 +1,8 @@
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { describe, expect, it } from "vitest";
-import { render, screen } from "@/test/render";
-import { EntryChannelSelect } from "./EntryRouteFields";
+import { render, screen, within } from "@/test/render";
+import { EntryChannelSelect, EntryRouteChips } from "./EntryRouteFields";
 
 /** Hält den Weg, wie es der Eingabebereich tut, und zeigt ihn zum Prüfen. */
 function ChannelHarness({ initial }: { initial: string | null }) {
@@ -53,5 +53,110 @@ describe("EntryChannelSelect", () => {
     await userEvent.selectOptions(channelSelect(), "ohne");
 
     expect(chosenChannel()).toBe("null");
+  });
+});
+
+/** Hält Von, wie es der Eingabebereich tut, und zeigt es zum Prüfen. */
+function ChipsHarness({
+  initial = null,
+  options,
+}: {
+  initial?: string | null;
+  options: string[];
+}) {
+  const [sender, setSender] = useState(initial);
+  return (
+    <>
+      <EntryRouteChips
+        label="Von"
+        value={sender}
+        onChange={setSender}
+        options={options}
+      />
+      <output>{JSON.stringify(sender)}</output>
+    </>
+  );
+}
+
+const chipRow = () => screen.getByRole("group", { name: "Von" });
+const chip = (name: string) =>
+  within(chipRow()).getByRole("checkbox", { name });
+const chipNames = () =>
+  within(chipRow())
+    .getAllByRole("checkbox")
+    .map((c) => (c as HTMLInputElement).labels?.[0]?.textContent);
+const chosenSender = () => screen.getByRole("status").textContent;
+
+describe("EntryRouteChips", () => {
+  it("offers the values alphabetically as chips", () => {
+    render(
+      <ChipsHarness
+        options={["UHSt 2", "EAL", "Ärztlicher Leiter", "bürgermeister"]}
+      />,
+    );
+
+    expect(chipNames()).toEqual([
+      "Ärztlicher Leiter",
+      "bürgermeister",
+      "EAL",
+      "UHSt 2",
+    ]);
+  });
+
+  it("shows the chosen value as the only chosen chip", () => {
+    render(<ChipsHarness initial="EAL" options={["EAL", "UHSt 2"]} />);
+
+    expect(chip("EAL")).toBeChecked();
+    expect(chip("UHSt 2")).not.toBeChecked();
+  });
+
+  it("chooses a value on a tap", async () => {
+    render(<ChipsHarness options={["EAL", "UHSt 2"]} />);
+
+    await userEvent.click(chip("EAL"));
+
+    expect(chosenSender()).toBe('"EAL"');
+  });
+
+  it("unchooses the value on a second tap", async () => {
+    render(<ChipsHarness options={["EAL", "UHSt 2"]} />);
+
+    await userEvent.click(chip("EAL"));
+    await userEvent.click(chip("EAL"));
+
+    expect(chosenSender()).toBe("null");
+  });
+
+  it("switches to another value on a tap on it", async () => {
+    render(<ChipsHarness options={["EAL", "UHSt 2"]} />);
+
+    await userEvent.click(chip("EAL"));
+    await userEvent.click(chip("UHSt 2"));
+
+    expect(chosenSender()).toBe('"UHSt 2"');
+    expect(chip("EAL")).not.toBeChecked();
+  });
+
+  it("keeps showing the chosen value once it has left the values", async () => {
+    const { rerender } = render(
+      <EntryRouteChips
+        label="Von"
+        value="ELW 1"
+        onChange={() => {}}
+        options={["EAL", "ELW 1"]}
+      />,
+    );
+
+    rerender(
+      <EntryRouteChips
+        label="Von"
+        value="ELW 1"
+        onChange={() => {}}
+        options={["EAL", "ELW 2"]}
+      />,
+    );
+
+    expect(chipNames()).toEqual(["EAL", "ELW 1", "ELW 2"]);
+    expect(chip("ELW 1")).toBeChecked();
   });
 });
