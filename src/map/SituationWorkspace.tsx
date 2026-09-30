@@ -36,8 +36,8 @@ import { ImageOverlayEditor } from "./ImageOverlayEditor";
 import { ImageOverlayPanel } from "./ImageOverlayPanel";
 import type { ImagePlacement } from "./image-overlay";
 import { KmlPanel } from "./KmlPanel";
-import { type MainView, MainViewBar } from "./MainViewBar";
-import { MAP_PANEL_LABEL, MapControls, type MapPanel } from "./MapControls";
+import { MainViewBar } from "./MainViewBar";
+import { MAP_PANEL_LABEL, MapControls } from "./MapControls";
 import { ModeBand } from "./ModeBand";
 import { toPlacedSymbols } from "./placed-symbols";
 import { QUICK_SELECT } from "./quick-select";
@@ -50,8 +50,7 @@ import {
 } from "./SituationMap";
 import { SymbolDetailModal } from "./SymbolDetailModal";
 import { SymbolsPanel } from "./SymbolsPanel";
-import { countUnseenEntries } from "./unseen-entries";
-import { useIsDesktop } from "./useIsDesktop";
+import { useMainView } from "./useMainView";
 import { useMapFocus } from "./useMapFocus";
 import { useMapMode } from "./useMapMode";
 import { useMapSearch } from "./useMapSearch";
@@ -219,23 +218,7 @@ export function SituationWorkspace({
   const { connected } = eventsHook(`/operations/${operationId}/events`, () =>
     router.refresh(),
   );
-  const [openPanel, setOpenPanel] = useState<MapPanel | null>(null);
   const mapRef = useRef<SituationMapHandle>(null);
-  const [mainView, setMainView] = useState<MainView>("etb");
-  const isDesktop = useIsDesktop();
-  const newEntryRef = useRef<HTMLTextAreaElement>(null);
-  const [newEntryFocusRequests, setNewEntryFocusRequests] = useState(0);
-  const latestEntryNumber = Math.max(
-    0,
-    ...journalEntries.map((entry) => entry.number),
-  );
-  // Höchste Eintragsnummer, die im ETB zu sehen war; beim Laden gilt alles
-  // Vorhandene als gesehen. Lebt nur in dieser Seite.
-  const [seenUpTo, setSeenUpTo] = useState(latestEntryNumber);
-  const newEtbEntries =
-    mainView === "map" || mainView === "strength"
-      ? countUnseenEntries(journalEntries, seenUpTo, currentUsername)
-      : 0;
   const {
     armedQuickId,
     armedCustom,
@@ -259,6 +242,22 @@ export function SituationWorkspace({
   const [mapError, setMapError] = useState<string | null>(null);
   const [imageError, setImageError] = useState<string | null>(null);
   const [imageBusy, setImageBusy] = useState(false);
+  const endMode = () => {
+    setImageError(null);
+    resetMode();
+  };
+  const {
+    isDesktop,
+    mainView,
+    selectMainView,
+    newEtbEntries,
+    newEntryRef,
+    mapShown,
+    shownPanel,
+    selectMapPanel,
+    closeSheet,
+    closeSheetOnPhone,
+  } = useMainView({ journalEntries, currentUsername, onMapHidden: endMode });
   const now = useStalenessClock();
   const {
     query: searchQuery,
@@ -286,27 +285,6 @@ export function SituationWorkspace({
   const editingImage =
     imageOverlays.find((o) => o.id === editingImageId) ?? null;
 
-  // Am Desktop steht unter „Lagekarte" in der Seitenleiste immer ein Panel;
-  // am Handy ist das Panel ein Blatt über der Karte, das auch zu sein kann.
-  const shownPanel: MapPanel | null = isDesktop
-    ? mainView === "map"
-      ? (openPanel ?? "symbols")
-      : null
-    : openPanel;
-  const selectMapPanel = (panel: MapPanel) => {
-    if (!isDesktop) {
-      setOpenPanel((open) => (open === panel ? null : panel));
-      return;
-    }
-    setOpenPanel(panel);
-    switchMainView("map");
-  };
-  // Am Handy liegt das Blatt über der unteren Kartenhälfte; wer dort auf der
-  // Karte weiterarbeitet (platzieren, zeichnen, angesprungenes Ziel ansehen),
-  // braucht die Fläche. Am Desktop steht das Panel in der Seitenleiste und bleibt.
-  const closeSheetOnPhone = () => {
-    if (!isDesktop) setOpenPanel(null);
-  };
   const armQuickSymbol = (quickId: string | null) => {
     armQuick(quickId);
     if (quickId) closeSheetOnPhone();
@@ -434,34 +412,6 @@ export function SituationWorkspace({
     armImageEdit(id);
     closeSheetOnPhone();
   };
-  const endMode = () => {
-    setImageError(null);
-    resetMode();
-  };
-  // Verschwindet die Karte (Wechsel am Handy, Fenster schmaler als 48 em),
-  // endet jeder Karten-Modus, sonst platziert ein späterer Tap auf die wieder
-  // gezeigte Karte unerwartet ein Zeichen.
-  const mapShown = isMapShown(isDesktop, mainView);
-  const [mapWasShown, setMapWasShown] = useState(mapShown);
-  if (mapShown !== mapWasShown) {
-    setMapWasShown(mapShown);
-    if (!mapShown) endMode();
-  }
-  const switchMainView = (view: MainView) => {
-    if (view === mainView) return;
-    setMainView(view);
-    if (view === "etb" || mainView === "etb") setSeenUpTo(latestEntryNumber);
-  };
-  // Am Desktop setzt jeder Klick auf „ETB" den Cursor ins Eingabefeld, auch
-  // wenn das ETB schon gezeigt wird. Der Effekt fokussiert erst nach dem
-  // Rendern, wenn das Feld sichtbar ist.
-  const selectMainView = (view: MainView) => {
-    switchMainView(view);
-    if (view === "etb" && isDesktop) setNewEntryFocusRequests((n) => n + 1);
-  };
-  useEffect(() => {
-    if (newEntryFocusRequests > 0) newEntryRef.current?.focus();
-  }, [newEntryFocusRequests]);
   const saveImagePlacement = (id: string, placement: ImagePlacement) =>
     persistImage(() => onUpdateImagePlacement(id, placement));
   const changeImageOpacity = (opacity: number) => {
@@ -622,10 +572,7 @@ export function SituationWorkspace({
                   {MAP_PANEL_LABEL[shownPanel]}
                 </Text>
                 {!isDesktop && (
-                  <CloseButton
-                    aria-label="Schließen"
-                    onClick={() => setOpenPanel(null)}
-                  />
+                  <CloseButton aria-label="Schließen" onClick={closeSheet} />
                 )}
               </Group>
               <Box className="map-panel__content" p="sm">
@@ -768,12 +715,4 @@ export function SituationWorkspace({
       </Box>
     </LageansichtShell>
   );
-}
-
-/**
- * Am Desktop steht die Karte immer neben der Seitenleiste, am Handy nur unter
- * „Lagekarte". Bei unbekannter Breite (vor dem Mount) entscheidet das CSS.
- */
-function isMapShown(isDesktop: boolean | null, mainView: MainView) {
-  return isDesktop !== false || mainView === "map";
 }
