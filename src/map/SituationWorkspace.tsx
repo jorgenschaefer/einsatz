@@ -30,13 +30,9 @@ import { type StationView, StrengthPanel } from "@/strength/StrengthPanel";
 import type { StrengthValues } from "@/strength/strength";
 import { AdvancedSymbolForm } from "./AdvancedSymbolForm";
 import { AreaEditor } from "./AreaEditor";
+import { AreasPanel } from "./AreasPanel";
 import type { MapAdapterFactory } from "./adapter";
-import {
-  type AreaGeometry,
-  type AreaShape,
-  type AreaStyle,
-  areaCenter,
-} from "./area";
+import type { AreaGeometry, AreaShape, AreaStyle } from "./area";
 import type { SymbolComposition } from "./composition";
 import { DeviceLinkPanel } from "./DeviceLinkPanel";
 import { ImageOverlayEditor } from "./ImageOverlayEditor";
@@ -46,7 +42,6 @@ import { KmlPanel } from "./KmlPanel";
 import { type MainView, MainViewBar } from "./MainViewBar";
 import { MAP_PANEL_LABEL, MapControls, type MapPanel } from "./MapControls";
 import { ModeBand } from "./ModeBand";
-import { PanelRow } from "./PanelRow";
 import { toPlacedSymbols } from "./placed-symbols";
 import { QUICK_SELECT } from "./quick-select";
 import { SearchBar } from "./SearchBar";
@@ -66,16 +61,6 @@ import { type LiveConnection, useOperationEvents } from "./useOperationEvents";
 import { useStalenessClock } from "./useStalenessClock";
 import type { ViewLinkItem } from "./ViewLinkPanel";
 import type { MapView } from "./view";
-
-const AREA_SHAPES: { shape: AreaShape; label: string }[] = [
-  { shape: "polygon", label: "Polygon" },
-  { shape: "line", label: "Linie" },
-  { shape: "circle", label: "Kreis" },
-];
-
-const SHAPE_LABEL = Object.fromEntries(
-  AREA_SHAPES.map(({ shape, label }) => [shape, label]),
-) as Record<AreaShape, string>;
 
 export interface WorkspaceSymbol {
   id: string;
@@ -750,57 +735,13 @@ export function SituationWorkspace({
                   />
                 )}
                 {shownPanel === "areas" && (
-                  <Stack gap="sm">
-                    <Group gap="xs">
-                      {AREA_SHAPES.map(({ shape, label }) => (
-                        <Button
-                          key={shape}
-                          size="xs"
-                          variant={drawShape === shape ? "filled" : "default"}
-                          aria-pressed={drawShape === shape}
-                          onClick={() => toggleAreaDraw(shape)}
-                        >
-                          {label}
-                        </Button>
-                      ))}
-                    </Group>
-                    {areas.length === 0 ? (
-                      <Text c="dimmed" size="sm">
-                        Noch keine Bereiche. Form wählen und auf die Karte
-                        zeichnen.
-                      </Text>
-                    ) : (
-                      <Stack gap={4}>
-                        {areas.map((area) => (
-                          <PanelRow
-                            key={area.id}
-                            name={area.label || "Bereich"}
-                            onJump={() => {
-                              const center = areaCenter(area.geometry);
-                              jumpFromPanel(center.lat, center.lng);
-                            }}
-                            onEdit={() => setSelectedAreaId(area.id)}
-                            icon={
-                              <Box
-                                w={14}
-                                h={14}
-                                style={{
-                                  background: area.color,
-                                  borderRadius: 3,
-                                  flex: "none",
-                                }}
-                              />
-                            }
-                            meta={
-                              <Text size="xs" c="dimmed">
-                                {SHAPE_LABEL[area.geometry.shape]}
-                              </Text>
-                            }
-                          />
-                        ))}
-                      </Stack>
-                    )}
-                  </Stack>
+                  <AreasPanel
+                    areas={areas}
+                    drawShape={drawShape}
+                    onToggleDraw={toggleAreaDraw}
+                    onJump={jumpFromPanel}
+                    onEdit={setSelectedAreaId}
+                  />
                 )}
                 {shownPanel === "layers" && (
                   <Stack>
