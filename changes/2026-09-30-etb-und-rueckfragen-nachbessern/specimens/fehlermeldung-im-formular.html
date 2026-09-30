@@ -1,0 +1,150 @@
+<title>ETB-Fehlermeldung im Formular</title>
+<style>
+  /* Layout: drei Rahmen nebeneinander (umbrechend), je ein Zustand; nachgebaut im Mantine-Look der App. */
+  :root {
+    --bg: #eef0f3;
+    --surface: #ffffff;
+    --fg: #1f2328;
+    --dimmed: #6b7280;
+    --border: #d5d9df;
+    --primary: #ea1120;
+    --primary-fg: #ffffff;
+    --chip-bg: #f1f3f5;
+    --chip-on-bg: #ffe8ea;
+    --chip-on-fg: #bb000b;
+    --alert-bg: #ffe8ea;
+    --alert-fg: #a30003;
+    --alert-edge: #ea1120;
+    --note: #4b5563;
+    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #141517; --surface: #242529; --fg: #e6e7ea; --dimmed: #9aa0a8;
+      --border: #3a3c42; --primary: #ea1120; --primary-fg: #ffffff;
+      --chip-bg: #2e3035; --chip-on-bg: #4a1519; --chip-on-fg: #ffb3b9;
+      --alert-bg: #3b1417; --alert-fg: #ffb3b9; --alert-edge: #ed3a45; --note: #b4b9c0;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #141517; --surface: #242529; --fg: #e6e7ea; --dimmed: #9aa0a8;
+    --border: #3a3c42; --primary: #ea1120; --primary-fg: #ffffff;
+    --chip-bg: #2e3035; --chip-on-bg: #4a1519; --chip-on-fg: #ffb3b9;
+    --alert-bg: #3b1417; --alert-fg: #ffb3b9; --alert-edge: #ed3a45; --note: #b4b9c0;
+    color-scheme: dark;
+  }
+  body { background: var(--bg); color: var(--fg); font-family: var(--font); }
+  main { padding: 24px 16px 40px; max-width: 1240px; margin: 0 auto; display: grid; gap: 20px; }
+  h1 { font-size: 20px; margin: 0; text-wrap: balance; }
+  .lead { margin: 0; color: var(--note); max-width: 65ch; line-height: 1.5; }
+  .frames { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
+  figure { margin: 0; display: grid; gap: 8px; min-width: 0; }
+  figcaption { font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: var(--dimmed); }
+  .frame { width: 360px; max-width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .frame.desktop { width: 420px; height: 560px; display: flex; flex-direction: column; }
+  .pad { padding: 12px; display: grid; gap: 10px; }
+
+  .entry { border: 1px solid var(--border); border-radius: 6px; padding: 10px; display: grid; gap: 4px; }
+  .entry .head { display: flex; gap: 8px; align-items: baseline; font-size: 13px; }
+  .entry .head b { font-size: 14px; }
+  .meta { color: var(--dimmed); font-size: 12px; }
+  .route { font-size: 12px; color: var(--dimmed); }
+
+  .form { display: grid; gap: 8px; }
+  .chips { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .chips .lbl { width: 28px; flex: none; font-size: 13px; color: var(--dimmed); }
+  .row { display: flex; gap: 6px; flex: 1; min-width: 0; overflow: hidden; mask-image: linear-gradient(to right, #000 85%, transparent); }
+  .chip { flex: none; font-size: 13px; padding: 4px 12px; border-radius: 999px; background: var(--chip-bg); white-space: nowrap; }
+  .chip.on { background: var(--chip-on-bg); color: var(--chip-on-fg); }
+  .other { flex: none; font-size: 13px; padding: 4px 10px; border-radius: 999px; border: 1px dashed var(--border); color: var(--dimmed); }
+  .textarea { border: 1px solid var(--border); border-radius: 4px; padding: 8px 10px; min-height: 52px; font-size: 14px; }
+  .alert { display: flex; gap: 8px; align-items: flex-start; background: var(--alert-bg); color: var(--alert-fg); border-radius: 4px; border-left: 3px solid var(--alert-edge); padding: 8px 10px; font-size: 13px; line-height: 1.4; }
+  .alert span { flex: 1; min-width: 0; }
+  .alert .x { flex: none; font-size: 16px; line-height: 1; opacity: .8; }
+  .actions { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .select { border: 1px solid var(--border); border-radius: 4px; padding: 6px 28px 6px 10px; font-size: 14px; position: relative; }
+  .select::after { content: "▾"; position: absolute; right: 9px; color: var(--dimmed); }
+  .btn { background: var(--primary); color: var(--primary-fg); border-radius: 4px; padding: 7px 14px; font-size: 14px; font-weight: 600; white-space: nowrap; }
+  .btn.subtle { background: transparent; color: var(--primary); }
+  .compact .select, .compact .btn { font-size: 12px; padding-block: 5px; }
+  .compact .textarea { font-size: 13px; }
+
+  .list { flex: 1; min-height: 0; overflow: hidden; padding: 12px 12px 0; display: grid; gap: 8px; align-content: end; }
+  .fixed { border-top: 1px solid var(--border); padding: 12px; }
+  .check { font-size: 13px; display: flex; gap: 6px; align-items: center; padding: 12px 12px 0; }
+  .box { width: 14px; height: 14px; border: 1px solid var(--border); border-radius: 3px; }
+  .viewport { border-top: 2px dashed var(--dimmed); margin-top: 4px; padding-top: 4px; font-size: 11px; color: var(--dimmed); text-align: center; }
+</style>
+
+<main>
+  <h1>Speichern fehlgeschlagen: die Meldung steht im Formular</h1>
+  <p class="lead">Die Meldung steht zwischen Textfeld und der Zeile mit Weg und Knopf, also dort, wo man gerade getippt hat. Oben im ETB erscheint keine Meldung mehr. Bei einer Korrektur steht sie an derselben Stelle im korrigierten Eintrag. Das „×“ schließt die Meldung, nach dem nächsten erfolgreichen Speichern verschwindet sie von selbst.</p>
+
+  <div class="frames">
+    <figure>
+      <figcaption>Handy, 360 px · Neuer Eintrag</figcaption>
+      <div class="frame">
+        <div class="pad">
+          <div class="entry">
+            <div class="head"><b>#41</b><span class="meta">30.09.26, 14:02</span></div>
+            <div class="route">UHSt 2 → ELW · Funk</div>
+            <div>San-Trupp B mit Patient unterwegs zur UHSt 2.</div>
+          </div>
+          <div class="form">
+            <div class="chips"><span class="lbl">Von</span><div class="row"><span class="chip on">UHSt 2</span><span class="chip">San-Trupp B</span><span class="chip">ELW</span><span class="chip">UHSt 1</span></div><span class="other">andere …</span></div>
+            <div class="chips"><span class="lbl">An</span><div class="row"><span class="chip on">ELW</span><span class="chip">UHSt 1</span><span class="chip">San-Trupp A</span></div><span class="other">andere …</span></div>
+            <div class="textarea">Patient an RTW übergeben, UHSt 2 wieder frei.</div>
+            <div class="alert" role="alert"><span>Speichern fehlgeschlagen. Bitte erneut versuchen.</span><span class="x" aria-hidden="true">×</span></div>
+            <div class="actions"><span class="select">Funk</span><span class="btn">Eintrag hinzufügen</span></div>
+          </div>
+          <div class="viewport">Ende des sichtbaren Bereichs</div>
+        </div>
+      </div>
+    </figure>
+
+    <figure>
+      <figcaption>Handy, 360 px · Korrektur</figcaption>
+      <div class="frame">
+        <div class="pad">
+          <div class="entry compact">
+            <div class="head"><b>#38</b><span class="meta">30.09.26, 13:47</span></div>
+            <div class="route">San-Trupp A → ELW · Telefon</div>
+            <div>Lage an Start/Ziel ruhig.</div>
+            <div class="form" style="margin-top:6px">
+              <div class="chips"><span class="lbl">Von</span><div class="row"><span class="chip on">San-Trupp A</span><span class="chip">UHSt 2</span><span class="chip">ELW</span></div><span class="other">andere …</span></div>
+              <div class="chips"><span class="lbl">An</span><div class="row"><span class="chip on">ELW</span><span class="chip">UHSt 1</span><span class="chip">UHSt 2</span></div><span class="other">andere …</span></div>
+              <div class="textarea">Lage an Start/Ziel ruhig, 2 Patienten versorgt.</div>
+              <div class="alert" role="alert"><span>Speichern fehlgeschlagen. Bitte erneut versuchen.</span><span class="x" aria-hidden="true">×</span></div>
+              <div class="actions"><span class="select">Telefon</span><span style="display:flex;gap:4px"><span class="btn">Speichern</span><span class="btn subtle">Abbrechen</span></span></div>
+            </div>
+          </div>
+          <div class="entry">
+            <div class="head"><b>#39</b><span class="meta">30.09.26, 13:51</span></div>
+            <div>UHSt 1 meldet Stärke 0/2/6/8.</div>
+          </div>
+        </div>
+      </div>
+    </figure>
+
+    <figure>
+      <figcaption>Desktop · Seitenleiste ETB</figcaption>
+      <div class="frame desktop">
+        <div class="check"><span class="box"></span>Automatische ausblenden</div>
+        <div class="list">
+          <div class="entry"><div class="head"><b>#40</b><span class="meta">30.09.26, 13:58</span></div><div>ELW an alle: Funkkanal bleibt 42.</div></div>
+          <div class="entry"><div class="head"><b>#41</b><span class="meta">30.09.26, 14:02</span></div><div class="route">UHSt 2 → ELW · Funk</div><div>San-Trupp B mit Patient unterwegs zur UHSt 2.</div></div>
+        </div>
+        <div class="fixed">
+          <div class="form">
+            <div class="chips"><span class="lbl">Von</span><div class="row"><span class="chip on">UHSt 2</span><span class="chip">San-Trupp B</span><span class="chip">ELW</span><span class="chip">UHSt 1</span></div><span class="other">andere …</span></div>
+            <div class="chips"><span class="lbl">An</span><div class="row"><span class="chip on">ELW</span><span class="chip">UHSt 1</span><span class="chip">San-Trupp A</span></div><span class="other">andere …</span></div>
+            <div class="textarea">Patient an RTW übergeben, UHSt 2 wieder frei.</div>
+            <div class="alert" role="alert"><span>Speichern fehlgeschlagen. Bitte erneut versuchen.</span><span class="x" aria-hidden="true">×</span></div>
+            <div class="actions"><span class="select">Funk</span><span class="btn">Eintrag hinzufügen</span></div>
+          </div>
+        </div>
+      </div>
+    </figure>
+  </div>
+</main>
