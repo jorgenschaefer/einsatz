@@ -3,12 +3,10 @@
 import "./situation-workspace.css";
 import {
   Alert,
-  Badge,
   Box,
   Button,
   CloseButton,
   Group,
-  Image,
   Modal,
   Stack,
   Text,
@@ -50,7 +48,6 @@ import { MAP_PANEL_LABEL, MapControls, type MapPanel } from "./MapControls";
 import { ModeBand } from "./ModeBand";
 import { PanelRow } from "./PanelRow";
 import { toPlacedSymbols } from "./placed-symbols";
-import { QuickSelectToolbar } from "./QuickSelectToolbar";
 import { QUICK_SELECT } from "./quick-select";
 import { SearchBar } from "./SearchBar";
 import {
@@ -59,7 +56,7 @@ import {
   SituationMap,
   type SituationMapHandle,
 } from "./SituationMap";
-import { renderSymbolDataUrl } from "./tactical-symbol";
+import { SymbolsPanel } from "./SymbolsPanel";
 import { countUnseenEntries } from "./unseen-entries";
 import { useIsDesktop } from "./useIsDesktop";
 import { useMapFocus } from "./useMapFocus";
@@ -342,35 +339,10 @@ export function SituationWorkspace({
     }
   };
 
-  const toolbarItems = useMemo(
-    () =>
-      QUICK_SELECT.map((i) => ({
-        id: i.id,
-        label: i.label,
-        iconUrl: renderSymbolDataUrl(i.composition),
-      })),
-    [],
-  );
   const placed = useMemo<PlacedSymbol[]>(
     () => toPlacedSymbols(symbols, now),
     [symbols, now],
   );
-  const symbolRows = useMemo(() => {
-    const placedById = new Map(placed.map((p) => [p.id, p]));
-    return symbols.map((s) => {
-      const marker = placedById.get(s.id);
-      return {
-        id: s.id,
-        iconUrl: marker?.iconUrl ?? renderSymbolDataUrl(s.composition),
-        name: s.composition.text?.trim() || "Ohne Bezeichnung",
-        stale: (marker?.opacity ?? 1) < 1,
-        device: s.positionSource === "device",
-        lat: s.lat,
-        lng: s.lng,
-      };
-    });
-  }, [placed, symbols]);
-
   const armedComposition =
     armedCustom ??
     QUICK_SELECT.find((i) => i.id === armedQuickId)?.composition ??
@@ -767,49 +739,15 @@ export function SituationWorkspace({
               </Group>
               <Box className="map-panel__content" p="sm">
                 {shownPanel === "symbols" && (
-                  <Stack gap="sm">
-                    <Group gap="xs" align="flex-start">
-                      <QuickSelectToolbar
-                        items={toolbarItems}
-                        armedId={armedQuickId}
-                        onArm={armQuickSymbol}
-                      />
-                      <Button size="xs" variant="light" onClick={advanced.open}>
-                        Erweitert …
-                      </Button>
-                    </Group>
-                    {symbolRows.length === 0 ? (
-                      <Text c="dimmed" size="sm">
-                        Noch keine Kartenzeichen. Zeichen wählen und auf die
-                        Karte tippen.
-                      </Text>
-                    ) : (
-                      <Stack gap={4}>
-                        {symbolRows.map((row) => (
-                          <PanelRow
-                            key={row.id}
-                            name={row.name}
-                            onJump={() => jumpFromPanel(row.lat, row.lng)}
-                            onEdit={() => openDetail(row.id)}
-                            icon={
-                              <Image src={row.iconUrl} alt="" w={22} h={22} />
-                            }
-                            meta={
-                              row.stale ? (
-                                <Badge size="xs" color="orange">
-                                  veraltet
-                                </Badge>
-                              ) : row.device ? (
-                                <Badge size="xs" color="green">
-                                  live
-                                </Badge>
-                              ) : null
-                            }
-                          />
-                        ))}
-                      </Stack>
-                    )}
-                  </Stack>
+                  <SymbolsPanel
+                    symbols={symbols}
+                    placed={placed}
+                    armedQuickId={armedQuickId}
+                    onArmQuick={armQuickSymbol}
+                    onOpenAdvanced={advanced.open}
+                    onJump={jumpFromPanel}
+                    onEdit={openDetail}
+                  />
                 )}
                 {shownPanel === "areas" && (
                   <Stack gap="sm">
