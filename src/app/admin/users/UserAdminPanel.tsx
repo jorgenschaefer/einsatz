@@ -6,7 +6,6 @@ import {
   Button,
   Checkbox,
   Group,
-  Modal,
   Paper,
   PasswordInput,
   Stack,
@@ -15,15 +14,13 @@ import {
   Title,
 } from "@mantine/core";
 import { useState } from "react";
+import { ConfirmationModal } from "@/app/ConfirmationModal";
+import type { ActionResult } from "@/app/operations/[id]/action-result";
 
 export interface AccountSummary {
   id: string;
   username: string;
   role: "admin" | "user";
-}
-
-interface ActionResult {
-  error?: string;
 }
 
 export interface UserAdminPanelProps {
@@ -83,12 +80,6 @@ export function UserAdminPanel({
     }
   };
 
-  const confirmDelete = async () => {
-    if (!deletingId) return;
-    await run(onDelete(deletingId));
-    setDeletingId(null);
-  };
-
   return (
     <Stack>
       {error && (
@@ -128,8 +119,10 @@ export function UserAdminPanel({
         {accounts.map((account) => (
           <Paper key={account.id} data-account withBorder p="sm">
             <Group justify="space-between" wrap="nowrap">
-              <Group gap="xs">
-                <Text fw={600}>{account.username}</Text>
+              <Group gap="xs" miw={0}>
+                <Text fw={600} style={{ overflowWrap: "anywhere" }}>
+                  {account.username}
+                </Text>
                 <Badge color={account.role === "admin" ? "drk" : "gray"}>
                   {account.role === "admin" ? "Admin" : "Nutzer"}
                 </Badge>
@@ -170,7 +163,10 @@ export function UserAdminPanel({
                   variant="light"
                   color="red"
                   disabled={pending}
-                  onClick={() => setDeletingId(account.id)}
+                  onClick={() => {
+                    setError(null);
+                    setDeletingId(account.id);
+                  }}
                 >
                   Löschen
                 </Button>
@@ -196,26 +192,21 @@ export function UserAdminPanel({
         ))}
       </Stack>
 
-      <Modal
+      <ConfirmationModal
         opened={deletingAccount !== null}
         onClose={() => setDeletingId(null)}
         title="Konto löschen"
+        confirmLabel="Endgültig löschen"
+        confirmColor="red"
+        onConfirm={async () =>
+          deletingAccount ? onDelete(deletingAccount.id) : {}
+        }
       >
-        <Stack>
-          <Text>
-            Das Konto <strong>{deletingAccount?.username}</strong> wird
-            unwiderruflich gelöscht.
-          </Text>
-          <Group justify="flex-end">
-            <Button variant="default" onClick={() => setDeletingId(null)}>
-              Abbrechen
-            </Button>
-            <Button color="red" onClick={confirmDelete} disabled={pending}>
-              Endgültig löschen
-            </Button>
-          </Group>
-        </Stack>
-      </Modal>
+        <Text style={{ overflowWrap: "anywhere" }}>
+          Das Konto <strong>{deletingAccount?.username}</strong> wird
+          unwiderruflich gelöscht.
+        </Text>
+      </ConfirmationModal>
     </Stack>
   );
 }

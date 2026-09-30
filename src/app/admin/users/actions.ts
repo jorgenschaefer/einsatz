@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import type { ActionResult } from "@/app/operations/[id]/action-result";
 import {
   createAccount,
   deleteAccount,
@@ -11,13 +12,9 @@ import { requireAdmin } from "@/server/auth/current-user";
 import { getDb } from "@/server/db/pg";
 import { ValidationError } from "@/server/validation";
 
-interface Result {
-  error?: string;
-}
-
 const ADMIN_USERS_PATH = "/admin/users";
 
-async function guarded(fn: () => Promise<unknown>): Promise<Result> {
+async function guarded(fn: () => Promise<unknown>): Promise<ActionResult> {
   await requireAdmin();
   try {
     await fn();
@@ -33,7 +30,7 @@ export async function createAccountAction(
   username: string,
   password: string,
   admin: boolean,
-): Promise<Result> {
+): Promise<ActionResult> {
   return guarded(() =>
     createAccount(getDb(), {
       username,
@@ -46,17 +43,17 @@ export async function createAccountAction(
 export async function setRoleAction(
   id: string,
   role: "admin" | "user",
-): Promise<Result> {
+): Promise<ActionResult> {
   return guarded(() => setRole(getDb(), id, role));
 }
 
 export async function resetPasswordAction(
   id: string,
   password: string,
-): Promise<Result> {
+): Promise<ActionResult> {
   return guarded(() => resetPassword(getDb(), id, password));
 }
 
-export async function deleteAccountAction(id: string): Promise<Result> {
+export async function deleteAccountAction(id: string): Promise<ActionResult> {
   return guarded(() => deleteAccount(getDb(), id));
 }

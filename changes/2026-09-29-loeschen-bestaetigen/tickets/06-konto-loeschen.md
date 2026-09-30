@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:
 advances:  AC-2, AC-3, AC-4, AC-9, AC-10
 after:     01-bestaetigungs-modal
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -50,3 +50,26 @@ Tests: `src/app/admin/users/UserAdminPanel.test.tsx` („requires explicit confi
 - Einsatz löschen: Ticket 07. Die übrigen Rückfragen: Tickets 01–05.
 - Rolle ändern und Passwort zurücksetzen: bleiben ohne Rückfrage und zeigen ihren Fehler weiter oben über der Kontenliste.
 - Lage und Auffälligkeit der Lösch-Knöpfe: Sie bleiben, wo und wie sie sind.
+
+## Record
+Schließt: nichts (`closes:` ist leer).
+
+Bringt voran (für Konto löschen), alle in `src/app/admin/users/UserAdminPanel.test.tsx`, Block „deleting an account“:
+- **AC-2**: „asks in a dialog and deletes only once confirmed“ (Dialog-Name „Konto löschen“, Text „Das Konto anna wird unwiderruflich gelöscht.“, „Endgültig löschen“ rot über `buttonColor`, `onDelete("u1")` erst nach dem Bestätigen, Dialog danach zu). Lage „rechts unten“ kommt aus `ConfirmationModal` (Ticket 01) und ist im Browser gesehen.
+- **AC-3**: „stays locked while deleting“ (Bestätigungsknopf `data-loading`, „Abbrechen“ gesperrt, Escape und Klick aufs Overlay lassen die Rückfrage offen, zweiter Klick ruft `onDelete` nicht noch einmal). Dazu „does not delete when cancelled with Abbrechen / on Escape / on a click beside the confirmation“.
+- **AC-4**: „shows a returned error / a thrown failure in the open confirmation, not above the account list“ (Meldung bzw. „Das hat nicht geklappt. Bitte erneut versuchen.“ in der offenen Rückfrage, Konto gelistet, beide Knöpfe aktiv); „deletes on a second confirmation after a failure“ (erneutes Bestätigen ruft `onDelete` noch einmal, Dialog schließt bei Erfolg).
+- **AC-9**: dieselben zwei Fehler-Tests: genau ein `alert` auf der Seite, und zwar im Dialog; die geworfene Ausnahme erreicht die Seite nicht mehr (vorher „Unhandled Rejection“). Dazu „dismisses an earlier error above the account list when asking“.
+- **AC-10**: im Browser mit `run-einsatz` (Subagent) bei 390×844 (Touch) und 1280×800: Konto mit 80 Zeichen ohne Leerzeichen angelegt; Rückfrage vollständig sichtbar, Name im Text auf 3 bzw. 2 Zeilen umgebrochen, beide Knöpfe im Viewport und oberstes Element; `scrollWidth == innerWidth` mit offener und geschlossener Rückfrage; Escape/„Abbrechen“ schließen, „Endgültig löschen“ entfernt das Konto; „letzter Admin“ zeigt die Meldung nur im Dialog; keine Konsolenfehler der App. Testkonten wieder gelöscht.
+
+Die vier Tests zu Sperre, erneutem Bestätigen und den beiden Fehlern sind gegen das alte `UserAdminPanel` rot gelaufen; die übrigen Löschtests pinnen Verhalten, das es schon vorher gab.
+
+Kommando: `docker compose -f docker-compose.test.yml up -d && npm run check` – 117 Dateien, 1185 Tests grün, tsc und Biome ohne Befund.
+
+### Left standing
+- Über den Plan hinaus: Der Nutzername in der **Kontenzeile** bricht jetzt auch um (`miw={0}` an der Gruppe, `overflowWrap: "anywhere"` am Namen). Ohne das war die Seite am Handy mit einem 80-Zeichen-Namen 926 px breit, und „Löschen“ lag außerhalb des Bildschirms – AC-10 „die Seite scrollt nicht horizontal“ war nicht erfüllt. Die Knöpfe bleiben an ihrer Stelle und in ihrem Aussehen (`## Not here`). Nur im Browser geprüft, kein Unit-Test (jsdom misst kein Layout).
+- Über den Plan hinaus: „Löschen“ in der Zeile räumt eine ältere Meldung oberhalb der Kontenliste weg. Vorher tat das `run` beim Löschen; ohne das stünde nach erfolgreichem Löschen noch ein alter Fehler von „Rolle ändern“ da (Review Runde 1). Gepinnt durch „dismisses an earlier error above the account list when asking“.
+- Mitgenommen: `actions.ts` nutzt statt seines lokalen `interface Result` das gemeinsame `ActionResult`; dessen Doc-Kommentar nennt jetzt auch die Nutzerverwaltung (Review-Nits). Die Datei liegt weiter unter `src/app/operations/[id]/` – ein Umzug hätte alle Importe angefasst.
+- Nicht behoben, Review-Nit: `onConfirm={async () => deletingAccount ? onDelete(deletingAccount.id) : {}}` – der `{}`-Zweig ist nicht erreichbar und steht für TypeScript da (wie in Ticket 05).
+- Nicht behoben, Review-Nit: Die Zusicherung „Konto noch gelistet“ in den Fehlertests kann im Komponententest nicht fallen, weil die Liste aus den Props kommt. Dass das Konto serverseitig bleibt, hängt an `guarded` (revalidiert nur bei Erfolg und löscht bei `ValidationError` nichts); im Browser für „letzter Admin“ gesehen.
+- Browser-Befunde außerhalb dieses Tickets: Am Handy stehen die drei Zeilen-Knöpfe untereinander neben dem Namen, die Zeile wird hoch (Lage der Knöpfe: `## Not here`). Nach einer Ablehnung bleibt „Endgültig löschen“ aktiv und liefert beim erneuten Tippen dieselbe Meldung – so von AC-4 verlangt.
+- Die Browserprüfungen (eigene und die des Reviewers) haben den Dev-Server gestartet und gestoppt und Testkonten in der Dev-DB angelegt und wieder gelöscht; keine Migration, kein Seed.
