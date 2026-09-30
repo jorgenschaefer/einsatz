@@ -30,7 +30,7 @@ const CONNECTION_LOST_LABEL =
   "Verbindung getrennt – wird automatisch wiederhergestellt";
 
 const noop = async () => {};
-const deleteNothing = async (): Promise<ActionResult> => ({});
+const succeed = async (): Promise<ActionResult> => ({});
 
 function ConnectionIndicator() {
   return (
@@ -57,7 +57,7 @@ export function LageansichtShell({
   connected = true,
   viewLinks = [],
   onCreateViewLink = noop,
-  onDeleteViewLink = deleteNothing,
+  onDeleteViewLink = succeed,
   navigation = null,
   children,
 }: {
