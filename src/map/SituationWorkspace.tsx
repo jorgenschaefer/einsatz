@@ -1033,7 +1033,6 @@ export function SituationWorkspace({
                   onClose={() => setDeleteAskedFor(null)}
                   title="Kartenzeichen löschen"
                   confirmLabel="Endgültig löschen"
-                  confirmColor="red"
                   onConfirm={() => deleteSymbol(selected.id)}
                 >
                   Das Kartenzeichen verschwindet von der Lagekarte, ein

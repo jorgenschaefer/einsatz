@@ -79,7 +79,6 @@ export function DeviceLinkPanel({
             onClose={regenerateConfirmation.close}
             title="Gerätelink neu generieren"
             confirmLabel="Neu generieren"
-            confirmColor="red"
             onConfirm={onGenerate}
           >
             Der bisherige Link funktioniert sofort nicht mehr. Das Gerät muss

@@ -283,7 +283,6 @@ export function StrengthPanel({
           onClose={annulConfirmation.close}
           title={`${selectedStation?.name} · Meldung ${berlinTimeOfDay(annulTarget.reportedAt)} (#${annulTarget.number}) annullieren`}
           confirmLabel="Annullieren"
-          confirmColor="red"
           onConfirm={() => onAnnulStrengthReport(annulTarget.id)}
         >
           <Text>
@@ -347,6 +346,7 @@ function TotalCard({
         onClose={confirmation.close}
         title="Gesamtstärke melden"
         confirmLabel="Melden"
+        confirmColor="blue"
         onConfirm={onReport}
       >
         <Counts counts={total} />

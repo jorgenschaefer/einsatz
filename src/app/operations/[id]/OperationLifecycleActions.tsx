@@ -50,7 +50,6 @@ export function OperationLifecycleActions({
         onClose={confirm.close}
         title="Einsatz löschen"
         confirmLabel="Endgültig löschen"
-        confirmColor="red"
         onConfirm={onDelete}
       >
         <Text>

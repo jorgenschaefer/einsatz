@@ -95,7 +95,6 @@ export function ImageOverlayEditor({
         onClose={() => setDeleteAsked(false)}
         title="Bild-Overlay löschen"
         confirmLabel="Endgültig löschen"
-        confirmColor="red"
         onConfirm={onDelete}
       >
         Das Bild wird mit seiner Datei gelöscht. Das lässt sich nicht rückgängig

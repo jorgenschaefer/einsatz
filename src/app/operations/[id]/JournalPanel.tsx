@@ -286,7 +286,6 @@ export function JournalPanel({
           onClose={annulConfirmation.close}
           title={`Eintrag #${annulTarget.number} annullieren`}
           confirmLabel="Annullieren"
-          confirmColor="red"
           onConfirm={() => onAnnul(annulTarget.id)}
         >
           <Text>

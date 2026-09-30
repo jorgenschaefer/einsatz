@@ -10,15 +10,17 @@ const FAILURE = "Das hat nicht geklappt. Bitte erneut versuchen.";
 /**
  * Bestätigt eine Action, bevor sie läuft; ihr Fehler erscheint im offenen
  * Dialog statt oben im Bereich, der oft weit weggescrollt ist. Bei Erfolg
- * schließt er sich. Der Bestätigungsknopf ist blau statt in der Primärfarbe
- * DRK-Rot, damit Rot den zerstörerischen Aktionen vorbehalten bleibt.
+ * schließt er sich. Der Bestätigungsknopf ist rot, weil fast jede Rückfrage
+ * etwas Unwiderrufliches bestätigt; die übrigen setzen ausdrücklich Blau statt
+ * der Primärfarbe DRK-Rot, damit Rot den zerstörerischen Aktionen vorbehalten
+ * bleibt.
  */
 export function ConfirmationModal({
   opened,
   onClose,
   title,
   confirmLabel,
-  confirmColor = "blue",
+  confirmColor = "red",
   onConfirm,
   stackId,
   children,

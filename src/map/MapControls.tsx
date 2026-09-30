@@ -88,6 +88,7 @@ export function MapControls({
         onClose={confirm.close}
         title="Standard-Ausschnitt festlegen"
         confirmLabel="Festlegen"
+        confirmColor="blue"
         onConfirm={onSetDefault}
       >
         <Text>

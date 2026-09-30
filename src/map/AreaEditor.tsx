@@ -129,7 +129,6 @@ export function AreaEditor({
         onClose={() => setDeleteAsked(false)}
         title="Bereich löschen"
         confirmLabel="Endgültig löschen"
-        confirmColor="red"
         onConfirm={onDelete}
       >
         Der Bereich verschwindet von der Lagekarte. Das lässt sich nicht

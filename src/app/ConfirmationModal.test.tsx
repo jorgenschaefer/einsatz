@@ -17,7 +17,6 @@ function setup(onConfirm: () => Promise<ActionResult>) {
       onClose={onClose}
       title="Eintrag #3 annullieren"
       confirmLabel="Annullieren"
-      confirmColor="red"
       onConfirm={onConfirm}
     >
       Das lässt sich nicht rückgängig machen.
@@ -32,19 +31,20 @@ const button = (dialog: HTMLElement, name: string) =>
   within(dialog).getByRole("button", { name });
 
 describe("ConfirmationModal", () => {
-  it("colours the confirm button as told", () => {
+  it("colours the confirm button red unless told otherwise", () => {
     const { dialog } = setup(vi.fn(async () => ({})));
 
     expect(buttonColor(button(dialog, "Annullieren"))).toBe("red");
   });
 
-  it("colours the confirm button blue unless told otherwise", () => {
+  it("colours the confirm button as told", () => {
     render(
       <ConfirmationModal
         opened
         onClose={vi.fn()}
         title="Gesamtstärke melden"
         confirmLabel="Melden"
+        confirmColor="blue"
         onConfirm={vi.fn(async () => ({}))}
       >
         Die Summe wird eingetragen.

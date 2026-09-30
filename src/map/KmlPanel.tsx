@@ -199,7 +199,6 @@ export function KmlPanel({
         onClose={() => setRemoveAsked(false)}
         title={`KML-Overlay „${removeTarget?.name}“ entfernen`}
         confirmLabel="Entfernen"
-        confirmColor="red"
         onConfirm={remove}
       >
         Um es wieder anzuzeigen, muss die Datei oder URL neu eingebunden werden.

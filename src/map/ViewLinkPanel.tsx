@@ -87,7 +87,6 @@ export function ViewLinkPanel({
         onClose={() => setDeleteAsked(false)}
         title={`Ansichtslink „${deleteTarget ? linkName(deleteTarget) : ""}“ löschen`}
         confirmLabel="Endgültig löschen"
-        confirmColor="red"
         onConfirm={async () => (deleteTarget ? onDelete(deleteTarget.id) : {})}
       >
         Wer diesen Link hat, sieht die Lage sofort nicht mehr.

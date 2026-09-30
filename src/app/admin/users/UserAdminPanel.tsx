@@ -200,7 +200,6 @@ export function UserAdminPanel({
         onClose={() => setDeleteAsked(false)}
         title="Konto löschen"
         confirmLabel="Endgültig löschen"
-        confirmColor="red"
         onConfirm={async () => (deleteTarget ? onDelete(deleteTarget.id) : {})}
       >
         <Text style={{ overflowWrap: "anywhere" }}>
