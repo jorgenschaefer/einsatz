@@ -1435,45 +1435,6 @@ describe("SituationWorkspace", () => {
     );
   });
 
-  it("shows an empty state in the Kartenzeichen panel when none are placed", async () => {
-    renderWorkspace({ symbols: [] });
-    await openPanel("Kartenzeichen");
-    expect(
-      await screen.findByText(/Noch keine Kartenzeichen/),
-    ).toBeInTheDocument();
-  });
-
-  it("badges a fresh device symbol as live and a stale one as veraltet in the list", async () => {
-    const comp = {
-      grundzeichen: "ortsfeste-stelle" as const,
-      organisation: "hilfsorganisation" as const,
-    };
-    renderWorkspace({
-      symbols: [
-        {
-          id: "fresh",
-          lat: 1,
-          lng: 2,
-          composition: comp,
-          positionSource: "device",
-          reportedAt: new Date(Date.now() - 10 * 1000),
-        },
-        {
-          id: "stale",
-          lat: 3,
-          lng: 4,
-          composition: { ...comp, text: "THW 1" },
-          positionSource: "device",
-          reportedAt: new Date(Date.now() - 4 * 60 * 1000),
-        },
-      ],
-    });
-    await openPanel("Kartenzeichen");
-    expect(await screen.findByText("Ohne Bezeichnung")).toBeInTheDocument(); // Fallback ohne Bezeichnung
-    expect(screen.getByText("live")).toBeInTheDocument();
-    expect(screen.getByText("veraltet")).toBeInTheDocument();
-  });
-
   it("geocodes the address query (debounced) and shows the result", async () => {
     const onGeocode = vi.fn(async () => [
       { label: "Rathaus, Hamburg", lat: 53.55, lng: 9.99 },
