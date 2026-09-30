@@ -11,8 +11,8 @@ import {
   TextInput,
 } from "@mantine/core";
 import { useState } from "react";
+import type { ActionResult } from "@/app/action-result";
 import { ConfirmationModal } from "@/app/ConfirmationModal";
-import type { ActionResult } from "@/app/operations/[id]/action-result";
 import { extractKml } from "@/kml/kmz";
 import type { KmlSourceType } from "@/server/kml/kml-overlays";
 import { ValidationError } from "@/server/validation";

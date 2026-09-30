@@ -18,11 +18,11 @@ import { useDisclosure } from "@mantine/hooks";
 import { IconWifiOff } from "@tabler/icons-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import type { ActionResult } from "@/app/action-result";
 import { BackLink } from "@/app/BackLink";
 import { useKeyboardOpen } from "@/map/useKeyboardOpen";
 import { type ViewLinkItem, ViewLinkPanel } from "@/map/ViewLinkPanel";
 import type { OperationStatus } from "@/server/operations/operations";
-import type { ActionResult } from "./action-result";
 
 const HEADER_HEIGHT = { base: 40, sm: 56 };
 const FOOTER_HEIGHT = 56;

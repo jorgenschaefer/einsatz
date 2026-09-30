@@ -1,8 +1,8 @@
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
+import type { ActionResult } from "@/app/action-result";
 import { clickModalOverlay } from "@/test/modal-overlay";
 import { render, screen, waitFor, within } from "@/test/render";
-import type { ActionResult } from "./action-result";
 import { LageansichtShell } from "./LageansichtShell";
 
 const CONNECTION_LOST_LABEL =

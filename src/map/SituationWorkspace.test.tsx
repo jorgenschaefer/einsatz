@@ -1,7 +1,7 @@
 import userEvent from "@testing-library/user-event";
 import { renderToString } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ActionResult } from "@/app/operations/[id]/action-result";
+import type { ActionResult } from "@/app/action-result";
 import type { JournalEntryView } from "@/app/operations/[id]/JournalPanel";
 import { buttonColor } from "@/test/button-color";
 import { stubMatchMedia } from "@/test/match-media";

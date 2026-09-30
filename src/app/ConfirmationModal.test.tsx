@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { redirect } from "next/navigation";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
-import type { ActionResult } from "@/app/operations/[id]/action-result";
+import type { ActionResult } from "@/app/action-result";
 import { buttonColor } from "@/test/button-color";
 import { clickModalOverlay } from "@/test/modal-overlay";
 import { render, screen, waitFor, within } from "@/test/render";

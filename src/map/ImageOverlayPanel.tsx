@@ -11,7 +11,7 @@ import {
 } from "@mantine/core";
 import type { ReactNode } from "react";
 import { useState } from "react";
-import type { ActionResult } from "@/app/operations/[id]/action-result";
+import type { ActionResult } from "@/app/action-result";
 
 export interface ImageOverlayItem {
   id: string;

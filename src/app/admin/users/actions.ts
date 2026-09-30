@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import type { ActionResult } from "@/app/operations/[id]/action-result";
+import type { ActionResult } from "@/app/action-result";
 import {
   createAccount,
   deleteAccount,

@@ -19,8 +19,8 @@ import { useDisclosure } from "@mantine/hooks";
 import { IconPencil } from "@tabler/icons-react";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import type { ActionResult } from "@/app/action-result";
 import { ConfirmationModal } from "@/app/ConfirmationModal";
-import type { ActionResult } from "@/app/operations/[id]/action-result";
 import {
   type JournalEntryView,
   JournalPanel,

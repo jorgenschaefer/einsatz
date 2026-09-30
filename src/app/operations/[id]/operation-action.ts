@@ -1,12 +1,12 @@
 import "server-only";
 import { revalidatePath } from "next/cache";
+import type { ActionResult } from "@/app/action-result";
 import { requireUser } from "@/server/auth/current-user";
 import type { AuthenticatedUser } from "@/server/auth/users";
 import type { Db } from "@/server/db/db";
 import { getDb } from "@/server/db/pg";
 import { publishOperationChanged } from "@/server/events/operation-events";
 import { ValidationError } from "@/server/validation";
-import type { ActionResult } from "./action-result";
 
 export type { ActionResult };
 

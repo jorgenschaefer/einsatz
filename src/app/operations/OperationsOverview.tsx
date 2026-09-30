@@ -13,7 +13,7 @@ import {
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import Link from "next/link";
-import type { ActionResult } from "./[id]/action-result";
+import type { ActionResult } from "@/app/action-result";
 import { OperationLifecycleActions } from "./[id]/OperationLifecycleActions";
 import { NewOperationForm, type OperationFormAction } from "./NewOperationForm";
 

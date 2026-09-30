@@ -3,8 +3,8 @@
 import { Box, Button, Group, Stack, Text, TextInput } from "@mantine/core";
 import { useState } from "react";
 import QRCode from "react-qr-code";
+import type { ActionResult } from "@/app/action-result";
 import { ConfirmationModal } from "@/app/ConfirmationModal";
-import type { ActionResult } from "@/app/operations/[id]/action-result";
 import { useClipboardCopy } from "./useClipboardCopy";
 
 export interface ViewLinkItem {

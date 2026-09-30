@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import type { ActionResult } from "@/app/action-result";
 import { requireUser } from "@/server/auth/current-user";
 import { getDb } from "@/server/db/pg";
 import { publishOperationChanged } from "@/server/events/operation-events";
@@ -10,7 +11,6 @@ import {
   closeOperation,
   reopenOperation,
 } from "@/server/operations/operation-lifecycle";
-import type { ActionResult } from "./action-result";
 import { revalidateOperation } from "./operation-action";
 
 // Bespoke – nicht über `operationAction`: close/reopen revalidieren zusätzlich

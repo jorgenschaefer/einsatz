@@ -3,8 +3,8 @@
 import { Button, Group, Stack, Text, TextInput } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import QRCode from "react-qr-code";
+import type { ActionResult } from "@/app/action-result";
 import { ConfirmationModal } from "@/app/ConfirmationModal";
-import type { ActionResult } from "@/app/operations/[id]/action-result";
 import type { PositionSource } from "@/server/mapsymbols/map-symbols";
 import { useClipboardCopy } from "./useClipboardCopy";
 

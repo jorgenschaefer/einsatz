@@ -9,8 +9,8 @@ import {
   TextInput,
 } from "@mantine/core";
 import { useState } from "react";
+import type { ActionResult } from "@/app/action-result";
 import { ConfirmationModal } from "@/app/ConfirmationModal";
-import type { ActionResult } from "@/app/operations/[id]/action-result";
 import type { AreaStyle } from "./area";
 
 export interface AreaEditorProps {

@@ -2,7 +2,7 @@ import { MantineProvider } from "@mantine/core";
 import { render as rtlRender } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import type { ActionResult } from "@/app/operations/[id]/action-result";
+import type { ActionResult } from "@/app/action-result";
 import { buttonColor } from "@/test/button-color";
 import { clickModalOverlay } from "@/test/modal-overlay";
 import { fireEvent, render, screen, waitFor, within } from "@/test/render";

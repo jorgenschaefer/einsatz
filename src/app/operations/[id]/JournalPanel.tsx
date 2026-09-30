@@ -15,12 +15,12 @@ import {
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { type Ref, useEffect, useRef, useState } from "react";
+import type { ActionResult } from "@/app/action-result";
 import { ConfirmationModal } from "@/app/ConfirmationModal";
 import type {
   JournalEntryState,
   JournalEntryType,
 } from "@/server/journal/journal";
-import type { ActionResult } from "./action-result";
 
 const SAVE_ERROR = "Speichern fehlgeschlagen. Bitte erneut versuchen.";
 

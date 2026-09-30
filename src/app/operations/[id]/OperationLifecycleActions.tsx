@@ -2,8 +2,8 @@
 
 import { ActionIcon, Menu, Text } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
+import type { ActionResult } from "@/app/action-result";
 import { ConfirmationModal } from "@/app/ConfirmationModal";
-import type { ActionResult } from "./action-result";
 
 export interface OperationLifecycleActionsProps {
   status: "active" | "closed";

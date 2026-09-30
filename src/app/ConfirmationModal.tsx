@@ -3,7 +3,7 @@
 import { Alert, Button, Group, Modal, Stack } from "@mantine/core";
 import { unstable_rethrow } from "next/navigation";
 import { type ReactNode, useState } from "react";
-import type { ActionResult } from "@/app/operations/[id]/action-result";
+import type { ActionResult } from "@/app/action-result";
 
 const FAILURE = "Das hat nicht geklappt. Bitte erneut versuchen.";
 
