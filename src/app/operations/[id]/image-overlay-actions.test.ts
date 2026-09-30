@@ -334,7 +334,7 @@ describe("deleteImageOverlayAction", () => {
     // Prämisse: die Löschung ist wirklich gescheitert, die Zeile lebt noch.
     expect(await getImageOverlay(state.db as Db, overlay.id)).not.toBeNull();
     expect(errorLog).toHaveBeenCalledWith(
-      "Bild-Overlay-Verarbeitung fehlgeschlagen:",
+      "Einsatz-Action fehlgeschlagen:",
       dbDown,
     );
   });

@@ -151,10 +151,10 @@ export async function deleteImageOverlayAction(
 }
 
 function toError(err: unknown, fallback: string): ActionResult {
-  // Unerwartete Fehler (z. B. aus dem Datei-IO) serverseitig sichtbar machen –
-  // der Nutzer bekommt nur `fallback`.
+  // Unerwartete Fehler serverseitig sichtbar machen – unter demselben Präfix
+  // wie in `operationAction`; der Nutzer bekommt nur `fallback`.
   if (!(err instanceof ValidationError)) {
-    console.error("Bild-Overlay-Verarbeitung fehlgeschlagen:", err);
+    console.error("Einsatz-Action fehlgeschlagen:", err);
   }
   return toFormError(err, fallback);
 }
