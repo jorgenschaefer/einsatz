@@ -96,7 +96,11 @@ export function JournalPanel({
   const [annulTarget, setAnnulTarget] = useState<JournalEntryView | null>(null);
   const [annulConfirmationOpen, annulConfirmation] = useDisclosure(false);
   const [newEntryError, setNewEntryError] = useState<string | null>(null);
-  const [correctionError, setCorrectionError] = useState<string | null>(null);
+  // Je Eintrag: Ein Speichern kann enden, wenn schon eine andere Korrektur offen ist.
+  const [correctionError, setCorrectionError] = useState<{
+    entryId: string;
+    message: string;
+  } | null>(null);
   const memory = useEntryRouteMemory(operationId);
 
   const shown = hideAuto ? entries.filter((e) => !isAutomatic(e)) : entries;
@@ -125,17 +129,18 @@ export function JournalPanel({
   };
 
   const correctEditedEntry = async (content: EntryContent) => {
-    if (editingId === null) return false;
+    const entryId = editingId;
+    if (entryId === null) return false;
     try {
-      const { error } = await onCorrect(editingId, content);
+      const { error } = await onCorrect(entryId, content);
       if (error) {
-        setCorrectionError(error);
+        setCorrectionError({ entryId, message: error });
         return false;
       }
-      closeCorrection();
+      setEditingId((current) => (current === entryId ? null : current));
       return true;
     } catch {
-      setCorrectionError(SAVE_ERROR);
+      setCorrectionError({ entryId, message: SAVE_ERROR });
       return false;
     }
   };
@@ -145,8 +150,6 @@ export function JournalPanel({
     setEditingId(id);
     setCorrectionError(null);
   };
-
-  const closeCorrection = () => setEditingId(null);
 
   const openAnnulConfirmation = (entry: JournalEntryView) => {
     setAnnulTarget(entry);
@@ -267,8 +270,12 @@ export function JournalPanel({
                     lastUsed={memory.remembered}
                     submitLabel="Speichern"
                     onSubmit={correctEditedEntry}
-                    onCancel={closeCorrection}
-                    error={correctionError}
+                    onCancel={() => setEditingId(null)}
+                    error={
+                      correctionError?.entryId === entry.id
+                        ? correctionError.message
+                        : null
+                    }
                     onDismissError={() => setCorrectionError(null)}
                   />
                 </Box>

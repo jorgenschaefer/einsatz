@@ -8,7 +8,7 @@ import {
   type MockInstance,
   vi,
 } from "vitest";
-import { screen, within } from "@/test/render";
+import { act, screen, within } from "@/test/render";
 import type { JournalPanelProps } from "./JournalPanel";
 import {
   addButton,
@@ -234,6 +234,52 @@ describe("JournalPanel – Meldung, wenn das Speichern scheitert", () => {
 
       expect(correctionField()).toHaveValue("Pegel steigt");
       expect(screen.queryByRole("alert")).toBeNull();
+    });
+
+    describe("when the save ends after another correction was opened", () => {
+      const twoEntries = [
+        entry(),
+        entry({ id: "e2", number: 2, text: "Pegel steigt" }),
+      ];
+
+      it("keeps the failure out of the other correction", async () => {
+        let fail = (_: Error) => {};
+        setup({
+          entries: twoEntries,
+          onCorrect: vi.fn(
+            () =>
+              new Promise<never>((_, reject) => {
+                fail = reject;
+              }),
+          ),
+        });
+
+        await correct("Neuer Text");
+        await chooseAction(2, "Korrigieren");
+        await act(async () => fail(new Error("offline")));
+
+        expect(correctionField()).toHaveValue("Pegel steigt");
+        expect(screen.queryByRole("alert")).toBeNull();
+      });
+
+      it("leaves the other correction open on success", async () => {
+        let succeed = (_: object) => {};
+        setup({
+          entries: twoEntries,
+          onCorrect: vi.fn(
+            () =>
+              new Promise<object>((resolve) => {
+                succeed = resolve;
+              }),
+          ),
+        });
+
+        await correct("Neuer Text");
+        await chooseAction(2, "Korrigieren");
+        await act(async () => succeed({}));
+
+        expect(correctionField()).toHaveValue("Pegel steigt");
+      });
     });
 
     it("drops the error on its ×", async () => {
