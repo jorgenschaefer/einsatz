@@ -2,12 +2,15 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@/test/render";
 import { JournalPanel, type JournalPanelProps } from "./JournalPanel";
-import { entry, panelProps, setup } from "./JournalPanel.fixtures";
+import {
+  addButton,
+  entry,
+  newEntryField,
+  panelProps,
+  setup,
+} from "./JournalPanel.fixtures";
 
-const newEntryField = () => screen.getByLabelText("Neuer Eintrag");
 const channelSelect = () => screen.getByRole("combobox", { name: "Weg" });
-const addButton = () =>
-  screen.getByRole("button", { name: "Eintrag hinzufügen" });
 const chipRow = (label: "Von" | "An") =>
   screen.getByRole("group", { name: label });
 const chip = (label: "Von" | "An", name: string) =>

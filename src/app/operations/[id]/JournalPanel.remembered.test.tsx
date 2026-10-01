@@ -4,29 +4,24 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, Providers, render, screen, within } from "@/test/render";
 import { JournalPanel, type JournalPanelProps } from "./JournalPanel";
 import {
+  addButton,
   chooseAction,
+  correctionForm,
   entry,
+  newEntry,
+  newEntryField,
   panelProps,
   setup,
 } from "./JournalPanel.fixtures";
 
-const newEntryField = () => screen.getByLabelText("Neuer Eintrag");
-const newEntry = () =>
-  newEntryField().closest(".journal-new-entry") as HTMLElement;
 /** Die Weg-Auswahl, oder nach „Andere …" das Freitextfeld. */
 const channelField = () =>
   within(newEntry()).queryByRole("combobox", { name: "Weg" }) ??
   within(newEntry()).getByRole("textbox", { name: "Weg" });
-const addButton = () =>
-  screen.getByRole("button", { name: "Eintrag hinzufügen" });
 const chipNames = (label: "Von" | "An", container = newEntry()) =>
   within(within(container).getByRole("group", { name: label }))
     .getAllByRole("checkbox")
     .map((c) => (c as HTMLInputElement).labels?.[0]?.textContent);
-
-/** Das Korrekturformular im Eintrag. */
-const correctionForm = () =>
-  screen.getByLabelText("Korrektur").closest("[data-entry]") as HTMLElement;
 
 const CORRESPONDENTS = ["UHSt 2", "EAL", "Leitstelle", "Deichwache"];
 

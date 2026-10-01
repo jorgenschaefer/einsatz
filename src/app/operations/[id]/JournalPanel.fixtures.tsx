@@ -45,6 +45,18 @@ export function setup(over: Partial<JournalPanelProps> = {}) {
   return props;
 }
 
+export const newEntryField = () => screen.getByLabelText("Neuer Eintrag");
+/** Der Bereich „Neuer Eintrag" unter der Liste. */
+export const newEntry = () =>
+  newEntryField().closest(".journal-new-entry") as HTMLElement;
+export const addButton = () =>
+  screen.getByRole("button", { name: "Eintrag hinzufügen" });
+
+export const correctionField = () => screen.getByLabelText("Korrektur");
+/** Das Korrekturformular im Eintrag, getrennt von „Neuer Eintrag". */
+export const correctionForm = () =>
+  correctionField().closest("[data-entry]") as HTMLElement;
+
 export async function chooseAction(number: number, name: string) {
   await userEvent.click(
     screen.getByRole("button", { name: `Aktionen für Eintrag #${number}` }),

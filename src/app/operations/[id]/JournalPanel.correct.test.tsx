@@ -2,14 +2,14 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { NO_ROUTE } from "@/journal/entry-route";
 import { fireEvent, screen, within } from "@/test/render";
-import { chooseAction, entry, setup } from "./JournalPanel.fixtures";
+import {
+  chooseAction,
+  correctionForm,
+  entry,
+  setup,
+} from "./JournalPanel.fixtures";
 
-/** Das Korrekturformular im Eintrag, getrennt vom Eingabebereich darunter. */
-const correction = () => {
-  const form = screen.getByLabelText("Korrektur").closest("[data-entry]");
-  if (!(form instanceof HTMLElement)) throw new Error("no correction form");
-  return within(form);
-};
+const correction = () => within(correctionForm());
 const chipRow = (label: "Von" | "An") =>
   correction().getByRole("group", { name: label });
 const chipNames = (label: "Von" | "An") =>

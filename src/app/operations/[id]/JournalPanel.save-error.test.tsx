@@ -10,20 +10,20 @@ import {
 } from "vitest";
 import { screen, within } from "@/test/render";
 import type { JournalPanelProps } from "./JournalPanel";
-import { chooseAction, setup } from "./JournalPanel.fixtures";
+import {
+  addButton,
+  chooseAction,
+  correctionField,
+  correctionForm,
+  newEntry,
+  newEntryField,
+  setup,
+} from "./JournalPanel.fixtures";
 
 const SAVE_ERROR = "Speichern fehlgeschlagen. Bitte erneut versuchen.";
 
-const newEntryField = () => screen.getByLabelText("Neuer Eintrag");
-const newEntry = () =>
-  newEntryField().closest(".journal-new-entry") as HTMLElement;
-const addButton = () =>
-  screen.getByRole("button", { name: "Eintrag hinzufügen" });
-const correctionField = () => screen.getByLabelText("Korrektur");
-const correction = () =>
-  correctionField().closest("[data-entry]") as HTMLElement;
 const saveButton = () =>
-  within(correction()).getByRole("button", { name: "Speichern" });
+  within(correctionForm()).getByRole("button", { name: "Speichern" });
 const dismissButton = () =>
   screen.getByRole("button", { name: "Meldung schließen" });
 
@@ -111,7 +111,7 @@ describe("JournalPanel – Meldung, wenn das Speichern scheitert", () => {
       await add("Neue Lage");
       await screen.findByRole("alert");
 
-      expect(within(correction()).queryByRole("alert")).toBeNull();
+      expect(within(correctionForm()).queryByRole("alert")).toBeNull();
     });
 
     describe("scrolling", () => {
@@ -146,7 +146,7 @@ describe("JournalPanel – Meldung, wenn das Speichern scheitert", () => {
       const alert = await screen.findByRole("alert");
       expect(screen.getAllByRole("alert")).toHaveLength(1);
       expect(alert).toHaveTextContent(SAVE_ERROR);
-      expect(correction()).toContainElement(alert);
+      expect(correctionForm()).toContainElement(alert);
       expect(isBetween(alert, correctionField(), saveButton())).toBe(true);
       expect(within(newEntry()).queryByRole("alert")).toBeNull();
     });
@@ -160,7 +160,7 @@ describe("JournalPanel – Meldung, wenn das Speichern scheitert", () => {
 
       await correct("Neuer Text");
 
-      expect(within(correction()).getByRole("alert")).toHaveTextContent(
+      expect(within(correctionForm()).getByRole("alert")).toHaveTextContent(
         "Annullierte Einträge können nicht geändert werden.",
       );
     });
@@ -169,7 +169,7 @@ describe("JournalPanel – Meldung, wenn das Speichern scheitert", () => {
       setup({ correspondents: ["EAL", "UHSt 2"], onCorrect: failing() });
 
       await chooseAction(1, "Korrigieren");
-      const form = within(correction());
+      const form = within(correctionForm());
       await userEvent.click(
         within(form.getByRole("group", { name: "Von" })).getByRole("checkbox", {
           name: "UHSt 2",
@@ -211,7 +211,7 @@ describe("JournalPanel – Meldung, wenn das Speichern scheitert", () => {
       await correct("Neuer Text");
       await screen.findByRole("alert");
       await userEvent.click(
-        within(correction()).getByRole("button", { name: "Abbrechen" }),
+        within(correctionForm()).getByRole("button", { name: "Abbrechen" }),
       );
       await chooseAction(1, "Korrigieren");
 
