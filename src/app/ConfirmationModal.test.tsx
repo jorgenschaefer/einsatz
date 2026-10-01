@@ -200,17 +200,27 @@ describe("ConfirmationModal", () => {
       );
     }
 
-    it("returns the focus to that button when cancelled", async () => {
-      render(<Unstacked />);
-      const opener = screen.getByRole("button", { name: "Entfernen" });
-      await userEvent.click(opener);
-      const dialog = await screen.findByRole("dialog");
-      await waitFor(() => expect(button(dialog, "Abbrechen")).toHaveFocus());
+    it.each([
+      [
+        "Abbrechen",
+        (dialog: HTMLElement) => userEvent.click(button(dialog, "Abbrechen")),
+      ],
+      ["×", (dialog: HTMLElement) => clickModalCloseButton(dialog)],
+      ["Escape", () => userEvent.keyboard("{Escape}")],
+    ])(
+      "returns the focus to that button when closed with %s",
+      async (_, closeConfirmation) => {
+        render(<Unstacked />);
+        const opener = screen.getByRole("button", { name: "Entfernen" });
+        await userEvent.click(opener);
+        const dialog = await screen.findByRole("dialog");
+        await waitFor(() => expect(button(dialog, "Abbrechen")).toHaveFocus());
 
-      await userEvent.click(button(dialog, "Abbrechen"));
+        await closeConfirmation(dialog);
 
-      await waitFor(() => expect(opener).toHaveFocus());
-    });
+        await waitFor(() => expect(opener).toHaveFocus());
+      },
+    );
   });
 
   describe("on top of another dialog in a Modal.Stack", () => {
