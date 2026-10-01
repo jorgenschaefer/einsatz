@@ -17,6 +17,16 @@ const chipNames = (label: "Von" | "An") =>
     .getAllByRole("checkbox")
     .map((c) => (c as HTMLInputElement).labels?.[0]?.textContent);
 
+const chipRowScrollable = (label: "Von" | "An") =>
+  chipRow(label).querySelector(".entry-route-chips-row") as HTMLElement;
+const chipRowScroll = (label: "Von" | "An") =>
+  chipRowScrollable(label).scrollLeft;
+/** jsdom misst kein Layout, merkt sich aber, wohin gescrollt wurde. */
+const scrollChipRows = (left: number) => {
+  chipRowScrollable("Von").scrollLeft = left;
+  chipRowScrollable("An").scrollLeft = left;
+};
+
 const CORRESPONDENTS = ["UHSt 2", "EAL", "Leitstelle"];
 
 async function writeEntry(text: string, channel: string) {
@@ -257,6 +267,40 @@ describe("JournalPanel – Von, An und Weg", () => {
     );
     expect(chip("Von", "UHSt 2")).toBeChecked();
     expect(chip("An", "EAL")).toBeChecked();
+  });
+
+  it("scrolls the Von and An rows back to their start after adding", async () => {
+    setup({ correspondents: CORRESPONDENTS });
+
+    scrollChipRows(200);
+    await userEvent.type(newEntryField(), "Deich hält");
+    await userEvent.click(addButton());
+
+    expect(chipRowScroll("Von")).toBe(0);
+    expect(chipRowScroll("An")).toBe(0);
+  });
+
+  it("keeps the Von and An rows scrolled and the input when adding fails", async () => {
+    setup({
+      correspondents: CORRESPONDENTS,
+      onAdd: vi.fn<JournalPanelProps["onAdd"]>(async () => {
+        throw new Error("offline");
+      }),
+    });
+
+    await userEvent.click(chip("Von", "UHSt 2"));
+    await userEvent.click(chip("An", "EAL"));
+    await writeEntry("Deich hält", "Telefon");
+    scrollChipRows(200);
+    await userEvent.click(addButton());
+
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(chipRowScroll("Von")).toBe(200);
+    expect(chipRowScroll("An")).toBe(200);
+    expect(newEntryField()).toHaveValue("Deich hält");
+    expect(chip("Von", "UHSt 2")).toBeChecked();
+    expect(chip("An", "EAL")).toBeChecked();
+    expect(channelSelect()).toHaveDisplayValue("Telefon");
   });
 
   it("adds the entry with Von and An on Strg+Enter in the text field", async () => {

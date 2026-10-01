@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:    AC-1, AC-2, AC-3, AC-4, AC-5, AC-6
 advances:
 after:
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -139,3 +139,27 @@ lässt sich leicht ändern und betrifft keine andere Stelle.
 - `ConfirmationModal` und seine Fehleranzeige nicht anfassen.
 
 ## Left standing
+- **Checked only in the browser, not by a test:** AC-1's first chip fully
+  visible at 360 px, AC-3's message plus „Eintrag hinzufügen" in view without
+  scrolling at 360 px, and AC-6's fixed layout at desktop width. jsdom measures
+  no layout. The tests pin `scrollLeft` returning to 0, where the message sits in
+  the DOM, the `scrollIntoView({ block: "end" })` on `.journal-new-entry`, and
+  the form staying outside `.journal-entries`. The reviewer drove the app at
+  360×740 and 1280×800, and all of these held. At 360 px „Eintrag hinzufügen"
+  clears the bottom navigation by only about 0.2 px.
+- **How the failure was produced in the browser:** the reviewer made the
+  server-action `fetch` reject instead of going offline or stopping the DB.
+  Server-returned messages (`{ error }`) were checked only by unit tests. No real
+  phone was used, so it is unchecked whether the message stays in view with the
+  soft keyboard open.
+- **Same error twice:** the scroll after a failure runs on a change of
+  `newEntryError`. When a second failure has the same text, it does not scroll
+  again. I left that because the user has just acted inside the form, so it is
+  already in view.
+- **Tests moved:** the three old save-error tests in `JournalPanel.test.tsx`
+  and `JournalPanel.correct.test.tsx` are replaced by
+  `JournalPanel.save-error.test.tsx`. I put the new tests in their own file
+  instead of growing those two files, which are about 380 lines each. This is a
+  departure from plan step 3.
+- The `×` has the accessible name „Meldung schließen". The specimen does not
+  name it.

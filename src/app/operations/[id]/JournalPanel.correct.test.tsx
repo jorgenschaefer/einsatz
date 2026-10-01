@@ -2,7 +2,6 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { NO_ROUTE } from "@/journal/entry-route";
 import { fireEvent, screen, within } from "@/test/render";
-import type { JournalPanelProps } from "./JournalPanel";
 import { chooseAction, entry, setup } from "./JournalPanel.fixtures";
 
 /** Das Korrekturformular im Eintrag, getrennt vom Eingabebereich darunter. */
@@ -339,36 +338,6 @@ describe("JournalPanel – Korrigieren", () => {
       text: "Deich hält nicht",
       ...NO_ROUTE,
     });
-  });
-
-  it("surfaces a save error when a correction fails", async () => {
-    const onCorrect = vi
-      .fn<JournalPanelProps["onCorrect"]>()
-      .mockRejectedValue(new Error("boom"));
-    setup({ onCorrect });
-    await chooseAction(1, "Korrigieren");
-    const field = screen.getByLabelText(/Korrektur/);
-    fireEvent.change(field, { target: { value: "Neuer Text" } });
-    await userEvent.click(screen.getByRole("button", { name: /Speichern/ }));
-    expect(await screen.findByRole("alert")).toBeInTheDocument();
-  });
-
-  it("surfaces a returned {error} from a correction (business ValidationError)", async () => {
-    const onCorrect = vi
-      .fn<JournalPanelProps["onCorrect"]>()
-      .mockResolvedValue({
-        error: "Annullierte Einträge können nicht geändert werden.",
-      });
-    setup({ onCorrect });
-    await chooseAction(1, "Korrigieren");
-    const field = screen.getByLabelText(/Korrektur/);
-    fireEvent.change(field, { target: { value: "Neuer Text" } });
-    await userEvent.click(screen.getByRole("button", { name: /Speichern/ }));
-    expect(
-      await screen.findByText(
-        "Annullierte Einträge können nicht geändert werden.",
-      ),
-    ).toBeInTheDocument();
   });
 
   it("shows a correction timestamp on a corrected entry", () => {

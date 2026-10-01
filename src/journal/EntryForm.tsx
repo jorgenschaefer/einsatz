@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Group, Stack, Textarea } from "@mantine/core";
+import { Alert, Button, Group, Stack, Textarea } from "@mantine/core";
 import { type Ref, useEffect, useRef, useState } from "react";
 import {
   EntryChannelSelect,
@@ -30,6 +30,8 @@ export function EntryForm({
   submitLabel,
   onSubmit,
   onCancel,
+  error,
+  onDismissError,
 }: {
   /** Das unsichtbare Label des Textfelds. */
   label: string;
@@ -52,6 +54,9 @@ export function EntryForm({
   /** Liefert, ob gespeichert wurde. */
   onSubmit: (content: EntryContent) => Promise<boolean>;
   onCancel?: () => void;
+  /** Warum das letzte Speichern scheiterte; steht über Weg und Knöpfen. */
+  error: string | null;
+  onDismissError: () => void;
 }) {
   const [text, setText] = useState(initial.text);
   const [route, setRoute] = useState<EntryRoute>({
@@ -60,6 +65,8 @@ export function EntryForm({
     channel: initial.channel,
   });
   const [otherOpen, setOtherOpen] = useState(NO_OTHER_OPEN);
+  // Neu gemountet stehen die Chip-Zeilen für den nächsten Eintrag wieder vorne.
+  const [saved, setSaved] = useState(0);
   const channelChosen = useRef(false);
   const size = compact ? "xs" : "sm";
 
@@ -76,11 +83,13 @@ export function EntryForm({
     setText("");
     setRoute((current) => ({ ...current, sender: null, recipient: null }));
     setOtherOpen(NO_OTHER_OPEN);
+    setSaved((count) => count + 1);
   };
 
   return (
     <Stack gap="xs">
       <EntryRouteChips
+        key={`sender-${saved}`}
         label="Von"
         value={route.sender}
         onChange={(sender) => setRoute({ ...route, sender })}
@@ -92,6 +101,7 @@ export function EntryForm({
         onSubmit={(sender) => submit({ sender })}
       />
       <EntryRouteChips
+        key={`recipient-${saved}`}
         label="An"
         value={route.recipient}
         onChange={(recipient) => setRoute({ ...route, recipient })}
@@ -112,6 +122,17 @@ export function EntryForm({
         onKeyDown={submitOnCtrlEnter(submit)}
         placeholder={placeholder}
       />
+      {error && (
+        <Alert
+          color="red"
+          role="alert"
+          withCloseButton
+          closeButtonLabel="Meldung schließen"
+          onClose={onDismissError}
+        >
+          {error}
+        </Alert>
+      )}
       {/* gap="sm": Neben dem 150 px breiten Freitext-Weg bleibt „Eintrag
           hinzufügen" bei 360 px ungekürzt. Passen die Knöpfe nicht daneben,
           etwa neben dem Freitext-Weg einer Korrektur, rutschen sie in die

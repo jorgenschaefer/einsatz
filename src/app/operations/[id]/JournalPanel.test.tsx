@@ -10,7 +10,7 @@ import {
   vi,
 } from "vitest";
 import { act, fireEvent, render, screen, within } from "@/test/render";
-import { JournalPanel, type JournalPanelProps } from "./JournalPanel";
+import { JournalPanel } from "./JournalPanel";
 import { entry, panelProps, setup } from "./JournalPanel.fixtures";
 
 describe("JournalPanel", () => {
@@ -183,21 +183,6 @@ describe("JournalPanel", () => {
     expect(
       screen.queryByRole("button", { name: /Aktionen für Eintrag/ }),
     ).toBeNull();
-  });
-
-  it("surfaces a save error and keeps the draft when adding fails", async () => {
-    const onAdd = vi
-      .fn<JournalPanelProps["onAdd"]>()
-      .mockRejectedValue(new Error("boom"));
-    setup({ onAdd });
-    fireEvent.change(screen.getByLabelText(/Neuer Eintrag/), {
-      target: { value: "Neue Lage" },
-    });
-    await userEvent.click(
-      screen.getByRole("button", { name: /Eintrag hinzufügen/ }),
-    );
-    expect(await screen.findByRole("alert")).toBeInTheDocument();
-    expect(screen.getByLabelText(/Neuer Eintrag/)).toHaveValue("Neue Lage");
   });
 
   it("hides automatic entries when the filter is enabled, keeping manual ones", async () => {

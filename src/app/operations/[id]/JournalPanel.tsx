@@ -2,7 +2,6 @@
 
 import {
   ActionIcon,
-  Alert,
   Badge,
   Box,
   Checkbox,
@@ -31,6 +30,7 @@ import type {
 } from "@/server/journal/journal";
 
 const SAVE_ERROR = "Speichern fehlgeschlagen. Bitte erneut versuchen.";
+const SHOW_END: ScrollIntoViewOptions = { block: "end" };
 
 interface JournalRevisionView extends EntryRoute {
   text: string;
@@ -95,25 +95,31 @@ export function JournalPanel({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [annulTarget, setAnnulTarget] = useState<JournalEntryView | null>(null);
   const [annulConfirmationOpen, annulConfirmation] = useDisclosure(false);
-  const [error, setError] = useState<string | null>(null);
+  const [newEntryError, setNewEntryError] = useState<string | null>(null);
+  const [correctionError, setCorrectionError] = useState<string | null>(null);
   const memory = useEntryRouteMemory(operationId);
 
   const shown = hideAuto ? entries.filter((e) => !isAutomatic(e)) : entries;
   const scroll = useScrollToEnd(visible, entries.at(-1)?.id);
 
+  // Am Handy steht die Meldung mit „Eintrag hinzufügen" darunter im Bild.
+  useEffect(() => {
+    if (newEntryError) scroll.newEntryRef.current?.scrollIntoView(SHOW_END);
+  }, [newEntryError, scroll.newEntryRef]);
+
   const addEntry = async (content: EntryContent) => {
     try {
-      const { error: err } = await onAdd(content);
-      if (err) {
-        setError(err);
+      const { error } = await onAdd(content);
+      if (error) {
+        setNewEntryError(error);
         return false;
       }
       memory.remember(content);
-      setError(null);
+      setNewEntryError(null);
       scroll.scrollToEnd();
       return true;
     } catch {
-      setError(SAVE_ERROR);
+      setNewEntryError(SAVE_ERROR);
       return false;
     }
   };
@@ -121,18 +127,27 @@ export function JournalPanel({
   const correctEditedEntry = async (content: EntryContent) => {
     if (editingId === null) return false;
     try {
-      const { error: err } = await onCorrect(editingId, content);
-      if (err) {
-        setError(err);
+      const { error } = await onCorrect(editingId, content);
+      if (error) {
+        setCorrectionError(error);
         return false;
       }
-      setEditingId(null);
-      setError(null);
+      closeCorrection();
       return true;
     } catch {
-      setError(SAVE_ERROR);
+      setCorrectionError(SAVE_ERROR);
       return false;
     }
+  };
+
+  const openCorrection = (id: string) => {
+    setEditingId(id);
+    setCorrectionError(null);
+  };
+
+  const closeCorrection = () => {
+    setEditingId(null);
+    setCorrectionError(null);
   };
 
   const openAnnulConfirmation = (entry: JournalEntryView) => {
@@ -145,16 +160,6 @@ export function JournalPanel({
   return (
     // Lange Wörter umbrechen statt waagerecht zu scrollen (360 px).
     <Stack className="journal-panel" style={{ overflowWrap: "break-word" }}>
-      {error && (
-        <Alert
-          color="red"
-          role="alert"
-          onClose={() => setError(null)}
-          withCloseButton
-        >
-          {error}
-        </Alert>
-      )}
       <Checkbox
         label="Automatische ausblenden"
         checked={hideAuto}
@@ -203,7 +208,7 @@ export function JournalPanel({
                       </Menu.Target>
                       <Menu.Dropdown>
                         {canCorrect && (
-                          <Menu.Item onClick={() => setEditingId(entry.id)}>
+                          <Menu.Item onClick={() => openCorrection(entry.id)}>
                             Korrigieren
                           </Menu.Item>
                         )}
@@ -264,7 +269,9 @@ export function JournalPanel({
                     lastUsed={memory.remembered}
                     submitLabel="Speichern"
                     onSubmit={correctEditedEntry}
-                    onCancel={() => setEditingId(null)}
+                    onCancel={closeCorrection}
+                    error={correctionError}
+                    onDismissError={() => setCorrectionError(null)}
                   />
                 </Box>
               )}
@@ -291,6 +298,8 @@ export function JournalPanel({
           presetChannel={memory.remembered.channel}
           submitLabel="Eintrag hinzufügen"
           onSubmit={addEntry}
+          error={newEntryError}
+          onDismissError={() => setNewEntryError(null)}
         />
       </div>
 
@@ -359,6 +368,6 @@ function useScrollToEnd(visible: boolean, lastEntryId: string | undefined) {
  * dort gehört Neuer Eintrag unter dem letzten Eintrag mit ins Bild.
  */
 function scrollToEnd(listEnd: Element | null, newEntry: Element | null) {
-  listEnd?.scrollIntoView({ block: "end" });
-  newEntry?.scrollIntoView({ block: "end" });
+  listEnd?.scrollIntoView(SHOW_END);
+  newEntry?.scrollIntoView(SHOW_END);
 }
