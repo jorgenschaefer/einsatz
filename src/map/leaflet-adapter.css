@@ -54,23 +54,3 @@
   border-radius: 50%;
   cursor: move;
 }
-
-/*
- * KML-Punkt ohne verwertbares Bild: die 32-px-Box ist die Tippfläche, mittig
- * darin ein Kreis von 14 px in der KML-Farbe mit 2,5 px weißem Rand
- * (zusammen 19 px; `KML_CIRCLE_RADIUS` in `kml-layer.ts`). Der Rand ist ein
- * Schatten, keine `border`: Chromium rundet Randbreiten auf ganze Gerätepixel
- * ab, aus 2,5 px würden 2 px.
- */
-.kml-point {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.kml-point-circle {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  box-shadow: 0 0 0 2.5px #fff;
-}
