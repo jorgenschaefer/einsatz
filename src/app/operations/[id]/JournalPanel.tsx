@@ -140,15 +140,13 @@ export function JournalPanel({
     }
   };
 
+  // Die Meldung steht nur in der offenen Korrektur; jede beginnt ohne.
   const openCorrection = (id: string) => {
     setEditingId(id);
     setCorrectionError(null);
   };
 
-  const closeCorrection = () => {
-    setEditingId(null);
-    setCorrectionError(null);
-  };
+  const closeCorrection = () => setEditingId(null);
 
   const openAnnulConfirmation = (entry: JournalEntryView) => {
     setAnnulTarget(entry);

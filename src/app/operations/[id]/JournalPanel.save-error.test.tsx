@@ -15,6 +15,7 @@ import {
   chooseAction,
   correctionField,
   correctionForm,
+  entry,
   newEntry,
   newEntryField,
   setup,
@@ -215,6 +216,23 @@ describe("JournalPanel – Meldung, wenn das Speichern scheitert", () => {
       );
       await chooseAction(1, "Korrigieren");
 
+      expect(screen.queryByRole("alert")).toBeNull();
+    });
+
+    it("leaves the error behind when correcting another entry", async () => {
+      setup({
+        entries: [
+          entry(),
+          entry({ id: "e2", number: 2, text: "Pegel steigt" }),
+        ],
+        onCorrect: failing(),
+      });
+
+      await correct("Neuer Text");
+      await screen.findByRole("alert");
+      await chooseAction(2, "Korrigieren");
+
+      expect(correctionField()).toHaveValue("Pegel steigt");
       expect(screen.queryByRole("alert")).toBeNull();
     });
 
