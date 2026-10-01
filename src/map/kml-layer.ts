@@ -5,6 +5,16 @@ import L from "leaflet";
 // Skalierungsfaktor, keine Pixelmaße.
 const KML_ICON_BASE = 32;
 
+// Kreis für Punkte ohne Bild: Tippfläche (px) und Außenradius (px) aus 7 px
+// Fläche und 2,5 px weißem Rand (`.kml-point-circle` in
+// `leaflet-adapter.css`), aufgerundet; das Popup setzt dort an statt mitten im
+// Kreis.
+const KML_POINT_TAP_AREA = 32;
+const KML_CIRCLE_RADIUS = 10;
+
+// Leaflets Standardfarbe für Pfade, also auch die ungestylter KML-Linien.
+const KML_DEFAULT_COLOR = "#3388ff";
+
 /** Rechnet einen Hotspot-Achsenwert in Pixel um; `null` für nicht unterstützte
  *  Einheiten (dann fällt der Aufrufer auf die Mitte zurück). */
 function hotspotAxisToPixels(
@@ -40,8 +50,8 @@ function kmlIconAnchor(
 
 /**
  * Baut aus den von togeojson gelieferten Punkt-Eigenschaften die Leaflet-Icon-
- * Optionen. `null`, wenn kein verwertbares Bild vorliegt – dann bleibt der
- * Standardmarker. `icon` kann bei `<IconStyle><color>` eine Farbe statt einer
+ * Optionen. `null`, wenn kein verwertbares Bild vorliegt – dann wird der Punkt
+ * ein Kreis. `icon` kann bei `<IconStyle><color>` eine Farbe statt einer
  * URL enthalten; daher nur echte URL-/Data-Verweise akzeptieren.
  */
 export function kmlIconOptions(
@@ -112,10 +122,11 @@ export function kmlPopupContent(
 }
 
 /**
- * Wandelt KML-Text in eine Leaflet-GeoJSON-Ebene. Punkte mit `<IconStyle>`
- * erhalten ihr Symbol (sonst der Standardmarker). Fehlerhaftes XML (DOMParser
- * liefert dann ein <parsererror>, statt zu werfen) und Parse-Ausnahmen ergeben
- * null, damit ein kaputtes Overlay die Lagekarte nicht abstürzen lässt.
+ * Wandelt KML-Text in eine Leaflet-GeoJSON-Ebene. Punkte mit verwertbarem
+ * `<IconStyle>`-Bild erhalten ihr Symbol, alle anderen einen Kreis.
+ * Fehlerhaftes XML (DOMParser liefert dann ein <parsererror>, statt zu werfen)
+ * und Parse-Ausnahmen ergeben null, damit ein kaputtes Overlay die Lagekarte
+ * nicht abstürzen lässt.
  */
 export function parseKml(content: string): L.GeoJSON | null {
   try {
@@ -124,10 +135,11 @@ export function parseKml(content: string): L.GeoJSON | null {
     return L.geoJSON(kmlToGeoJson(doc), {
       style: (feature) => kmlPathStyle(feature?.properties ?? {}),
       pointToLayer: (feature, latlng) => {
-        const opts = kmlIconOptions(feature.properties ?? {});
-        return opts
-          ? L.marker(latlng, { icon: L.icon(opts) })
-          : L.marker(latlng);
+        const props = feature.properties ?? {};
+        const opts = kmlIconOptions(props);
+        return L.marker(latlng, {
+          icon: opts ? L.icon(opts) : kmlPointCircle(props),
+        });
       },
       onEachFeature: (feature, layer) => {
         const popup = kmlPopupContent(feature.properties ?? {});
@@ -137,4 +149,27 @@ export function parseKml(content: string): L.GeoJSON | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * Kreis für einen KML-Punkt ohne verwertbares Bild: 32-px-Tippfläche, mittig
+ * der Kreis in der `<IconStyle>`-Farbe (Größe und Rand: `leaflet-adapter.css`).
+ * Die Farbe ist Fremddaten und gilt nur als Hex-Wert; die Deckkraft aus der
+ * KML bleibt unbeachtet, der Kreis ist immer voll deckend.
+ */
+function kmlPointCircle(props: Record<string, unknown>): L.DivIcon {
+  const color = props["icon-color"];
+  const circle = document.createElement("span");
+  circle.className = "kml-point-circle";
+  circle.style.backgroundColor =
+    typeof color === "string" && /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(color)
+      ? color
+      : KML_DEFAULT_COLOR;
+  return L.divIcon({
+    className: "kml-point",
+    html: circle,
+    iconSize: [KML_POINT_TAP_AREA, KML_POINT_TAP_AREA],
+    iconAnchor: [KML_POINT_TAP_AREA / 2, KML_POINT_TAP_AREA / 2],
+    popupAnchor: [0, -KML_CIRCLE_RADIUS],
+  });
 }

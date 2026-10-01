@@ -91,6 +91,46 @@ describe("parseKml", () => {
   });
 });
 
+describe("parseKml point without a usable icon", () => {
+  const circleOf = (iconStyle: string) => {
+    const kml = `<?xml version="1.0"?>
+      <kml xmlns="http://www.opengis.net/kml/2.2"><Document>
+        <Style id="s">${iconStyle}</Style>
+        <Placemark><styleUrl>#s</styleUrl>
+          <Point><coordinates>9.99,53.55,0</coordinates></Point>
+        </Placemark>
+      </Document></kml>`;
+    const marker = parseKml(kml)?.getLayers()[0] as L.Marker;
+    const options = marker.options.icon?.options as L.DivIconOptions;
+    const html = options?.html;
+    expect(html).toBeInstanceOf(HTMLElement);
+    return html as HTMLElement;
+  };
+
+  it("fills the circle with the IconStyle color", () => {
+    const circle = circleOf("<IconStyle><color>ff4a9e2e</color></IconStyle>");
+    expect(circle.style.backgroundColor).toBe("rgb(46, 158, 74)");
+  });
+
+  it("falls back to the default KML line color without an IconStyle color", () => {
+    expect(circleOf("").style.backgroundColor).toBe("rgb(51, 136, 255)");
+  });
+
+  it("stays fully opaque when the KML color is transparent", () => {
+    const circle = circleOf("<IconStyle><color>004a9e2e</color></IconStyle>");
+    expect(circle.style.backgroundColor).toBe("rgb(46, 158, 74)");
+    expect(circle.style.opacity).toBe("");
+  });
+
+  it("falls back to the default color for a color that is not hex", () => {
+    const circle = circleOf(
+      `<IconStyle><color>zz"&gt;&lt;b</color></IconStyle>`,
+    );
+    expect(circle.style.backgroundColor).toBe("rgb(51, 136, 255)");
+    expect(circle.querySelector("b")).toBeNull();
+  });
+});
+
 describe("kmlPopupContent", () => {
   it("returns null when neither name nor description is present", () => {
     expect(kmlPopupContent({})).toBeNull();

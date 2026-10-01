@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:    AC-8, AC-9, AC-10, AC-11, AC-12
 advances:
 after:     01-kml-ebene-aus-dem-leaflet-adapter
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -129,3 +129,32 @@ Standardmarker mit kaputtem Bild.
   der Kreis braucht es nicht.
 
 ## Left standing
+- Abweichung vom Plan, Schritt 4: Der weiße Rand ist ein `box-shadow`
+  (`0 0 0 2.5px #fff`), keine `border`. Grund: Der erste Review hat im
+  Browser gemessen, dass Chromium bei Pixeldichte 1 eine 2,5-px-`border` auf
+  2 px abrundet; der Kreis maß dann 18 statt 19 px. Mit dem Schatten misst er
+  im zweiten Review 14 px Fläche plus 2,5 px Rand je Seite, etwa 19 px.
+- Über den Plan hinaus: Der Kreis hat einen `popupAnchor` von 10 px nach oben,
+  damit die Spitze des Popups über dem Kreis endet statt die obere Hälfte zu
+  verdecken (Hinweis des ersten Reviews, durch einen Test gepinnt). Die
+  CSS-Klassen heißen `kml-point` / `kml-point-circle` statt `kml-punkt`
+  wie im Plan, weil „Punkt“ und „Kreis“ keine Begriffe aus dem Glossar sind
+  und der Code englisch benennt.
+- Ohne automatischen Test (AC-8): Durchmesser 14 px, weißer Rand 2,5 px und
+  die Mitte in der 32-px-Box stehen nur im CSS, das jsdom nicht lädt. Beide
+  Reviews haben das in Chromium bei Pixeldichte 1 gemessen (Führungsansicht
+  1600 px, Ansichtslink und Geräteansicht 360 px). Andere Pixeldichten,
+  andere Browser und echte Handys hat niemand geprüft.
+- AC-10 ist im Test so bewiesen: Im gezeichneten DOM gibt es kein `img` für
+  den Punkt und keines mit `marker-` im `src`. Dass keine Anfrage scheitert,
+  haben die Reviews über die Ressourcenliste des Browsers und die Konsole
+  geprüft, ohne vollständigen Netzwerk-Tab.
+- AC-11 im Browser: Klicks und Tipps 14–15 px neben der Mitte (waagerecht,
+  senkrecht, diagonal) öffneten das Popup in allen drei Ansichten. Im Test ist
+  die 32-px-Box mit −16 px Rand und das Popup per Klick belegt.
+- Plan, Schritt 5: Den Browser habe ich nicht selbst geprüft; das haben beide
+  Reviews getan, wie oben beschrieben. Die Geräteansicht war über einen
+  Gerätelink erreichbar und wurde mitgeprüft.
+- Gesehen, nicht Teil dieses Tickets: In der Geräteansicht öffnet das Popup
+  eines Punkts nahe am oberen Rand unter dem Suchfeld und dem Hinweis
+  „Standort pausiert“. Das gilt für jedes Popup dort, nicht nur für den Kreis.
