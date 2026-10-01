@@ -3,8 +3,8 @@
 import { Button, Group, Paper, Stack, Switch, Text } from "@mantine/core";
 import type { ReactNode } from "react";
 import type { ActionResult } from "@/app/action-result";
-import { ErrorAlert } from "@/app/ErrorAlert";
-import { useActionRunner } from "@/app/useActionRunner";
+import { useNotifyingActionRunner } from "@/app/useNotifyingActionRunner";
+import { IMAGE_OVERLAYS } from "./notification-sources";
 import { WRAPPING_SWITCH_LABEL } from "./wrapping-switch-label";
 
 export interface ImageOverlayItem {
@@ -32,7 +32,7 @@ export function ImageOverlayPanel({
   onEdit,
   renderEditor,
 }: ImageOverlayPanelProps) {
-  const { busy, error, setError, run } = useActionRunner();
+  const { busy, run, closeError } = useNotifyingActionRunner(IMAGE_OVERLAYS);
 
   const add = (file: File | null) => {
     if (!file) return;
@@ -41,8 +41,6 @@ export function ImageOverlayPanel({
 
   return (
     <Stack>
-      <ErrorAlert error={error} onClose={() => setError(null)} />
-
       <input
         type="file"
         accept=".pdf,.png,application/pdf,image/png"
@@ -88,7 +86,7 @@ export function ImageOverlayPanel({
                       variant="light"
                       style={{ flexShrink: 0 }}
                       onClick={() => {
-                        setError(null);
+                        closeError();
                         onEdit(overlay.id);
                       }}
                     >

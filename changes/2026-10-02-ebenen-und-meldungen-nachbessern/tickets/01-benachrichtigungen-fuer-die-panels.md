@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:    AC-3, AC-7, AC-9
 advances:  AC-1, AC-2, AC-4, AC-5, AC-6, AC-8
 after:
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -214,3 +214,83 @@ Von den ACs unter `## Toward` wird hier wahr:
 - Kein Objektname im Titel, keine Erfolgsmeldungen (Out of scope).
 
 ## Left standing
+
+**Review-Befunde, nicht behoben**
+
+- *Die Benachrichtigung verdeckt das Suchfeld der Karte* (Review 2, should-fix).
+  Betroffen sind das Handy und Desktops unter etwa 1164 px. Das folgt aus der
+  vereinbarten Platzierung: Das Specimen sagt selbst „On the phone it covers
+  the search bar while it is open“. Das ist eine Designfrage und nicht in
+  diesem Ticket zu entscheiden.
+- *Über einer Rückfrage verdeckt sie deren Titel und „ד* (Review 2,
+  should-fix). Am Desktop (1440 px) liegt sie über Titel und „ד der
+  Entfernen-Rückfrage, am Handy (360 px) über Titel, „ד und „Bezeichnung“
+  im Dialog „Ansichtslinks teilen“. AC-7 verlangt, dass sie über dem Dialog
+  liegt; dass sie ihn dabei teilweise verdeckt, folgt aus der vereinbarten
+  Position. Auch das ist eine Designfrage.
+- *Die Einblend- und Ausblend-Animation am Desktop* (Nit). Mantines `top-right`
+  schiebt die Benachrichtigung von rechts herein; etwa 250 ms lang streift
+  sie dabei die Seitenleiste. Mantine hat keine Animation je Position, und
+  `overflow: hidden` am Container würde den Schatten abschneiden.
+- *Funktionsnamen* (Nit). `showActionError`, `closeActionError` und
+  `closeError` heißen so, wie der Plan sie nennt. Der Reviewer schlägt
+  Namen mit `notification` vor; das ist offen für Ticket 03, das denselben
+  Hook übernimmt.
+- *`SIDEBAR_WIDTH` (360) steht doppelt* (Nit): in `src/app/lageansicht-sizes.ts`
+  und in `src/map/situation-workspace.css`, nur über einen Kommentar
+  verbunden, wie im Plan.
+
+**Ohne automatischen Test geprüft**
+
+- AC-1: Die Lage unter der Kopfzeile, links der Seitenleiste und ganz im
+  Fenster lässt sich in jsdom nicht messen. Die Tests prüfen Position und
+  Abstände als Stil (`ActionNotifications.test.tsx`). Die Reviewer haben
+  „Per URL einbinden“ mit `http://localhost/` im Browser ausgelöst und die
+  Lage gemessen: bei 360 px oben mittig ab y 52 (Kopfzeile endet bei 40),
+  bei 800 px x 12–428, bei 1440 und 1920 px links der Seitenleiste.
+  Teilen, Status und Menü blieben frei. Ebenso im Browser geprüft: kein
+  leerer Container fängt Klicks ab (Anmeldeseite, Einsatzliste,
+  Lageansicht).
+- AC-7: „Über dem Dialog sichtbar“ prüfen die Tests nur so weit, dass die
+  Benachrichtigung außerhalb des Dialogs steht und ihr z-Index über 200
+  liegt. Dass sie tatsächlich darüber liegt und ihr „ד schließt, hat der
+  Reviewer im Browser gesehen.
+- AC-8: Die Tests prüfen, dass keine Benachrichtigung erscheint. Dass danach
+  die Anmeldeseite kommt, hat der Reviewer im Browser mit gelöschtem
+  Sitzungs-Cookie geprüft.
+- AC-9 hat der Reviewer zusätzlich im Browser über „Einsätze“ geprüft.
+
+**Abweichungen vom Plan**
+
+- Die Konstanten der Quellen heißen `KML_OVERLAYS`, `IMAGE_OVERLAYS`,
+  `VIEW_LINKS` und `SITUATION_MAP` statt `KML_EBENEN` … `KARTE`, weil die
+  Coding Standards englische Bezeichner nach dem Glossar verlangen
+  (Review 1). Ticket 03 muss `SITUATION_MAP` statt `KARTE` importieren.
+- `LAGEANSICHT_SOURCES` wird nicht exportiert. `notification-sources.ts`
+  bietet stattdessen `closeLageansichtNotifications()`, und
+  `SituationWorkspace` ruft es im Cleanup eines `useEffect` auf.
+- `ActionNotifications` setzt an jedem Container `bottom: auto`. Mantine gibt
+  den Stil allen sechs Containern; ohne das reichten die unbenutzten unten
+  über die ganze Seite und fingen Klicks ab (Blocker aus Review 1). Der
+  Abstand zur Kopfzeile ist `--mantine-spacing-sm` (12 px) wie im Specimen.
+- Der Test-Wrapper setzt über das Theme `transitionDuration: 0` für
+  `Notifications`, damit eine geschlossene Benachrichtigung sofort aus dem
+  DOM ist, wie die übrigen Transitions unter `env="test"`. Den Probetest aus
+  Schritt 2 gibt es nicht; den Wrapper prüfen die Notification-Tests mit.
+- Die zwei Tests „clears a failure that arrived while the confirmation was
+  open …“ aus `KmlPanel.test.tsx` und `ViewLinkPanel.test.tsx` sind nicht
+  umbenannt, sondern in die neuen `*.notification.test.tsx`-Dateien
+  umgezogen („closes the notification once the removal/deletion is
+  confirmed“).
+- `ImageOverlayPanel.notification.test.tsx` prüft nur Titel und Ort. Die
+  schließenden Aktionen von AC-4 (Datei wählen, Sichtbarkeit, „Bearbeiten“)
+  sind schon in `ImageOverlayPanel.test.tsx` gepinnt und laufen dort jetzt
+  gegen die Benachrichtigung.
+- TDD: Die Tests für Ansichtslinks und Bild-Overlays sind erst nach der
+  Umstellung der Panels entstanden. Rot war jeder dieser Tests trotzdem,
+  nämlich gegen die alten Panels: Die Änderungen an den Panels waren dafür
+  per `git stash` zurückgenommen. Einige neue Tests aus Schritt 1 waren von
+  Anfang an grün, weil die alte Meldung über dem Panel das Verhalten schon
+  hatte; sie sichern es jetzt für die Benachrichtigung ab.
+- `src/map/SituationWorkspace.tsx` (493 Zeilen) bekommt zwei Zeilen, ohne
+  vorher aufgeteilt zu werden; der Plan sieht dafür keinen eigenen Split vor.

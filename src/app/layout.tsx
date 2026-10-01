@@ -6,7 +6,7 @@ import {
   MantineProvider,
   mantineHtmlProps,
 } from "@mantine/core";
-import { Notifications } from "@mantine/notifications";
+import { ActionNotifications } from "./ActionNotifications";
 import { AppFooter } from "./AppFooter";
 import { theme } from "./theme";
 
@@ -25,7 +25,7 @@ export default function RootLayout({
       </head>
       <body>
         <MantineProvider theme={theme} defaultColorScheme="light">
-          <Notifications />
+          <ActionNotifications />
           {children}
           <AppFooter />
         </MantineProvider>

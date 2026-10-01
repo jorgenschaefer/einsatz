@@ -4,7 +4,7 @@ import "./situation-workspace.css";
 import { Box, Modal, Stack } from "@mantine/core";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ActionResult } from "@/app/action-result";
 import {
   type JournalEntryView,
@@ -30,6 +30,7 @@ import { MapControls } from "./MapControls";
 import { MapErrorAlert } from "./MapErrorAlert";
 import { MapModeBands } from "./MapModeBands";
 import { MapPanelSheet } from "./MapPanelSheet";
+import { closeLageansichtNotifications } from "./notification-sources";
 import { type StatefulSymbol, toPlacedSymbols } from "./placed-symbols";
 import { SearchBar } from "./SearchBar";
 import {
@@ -212,6 +213,7 @@ export function SituationWorkspace({
   const { connected } = eventsHook(`/operations/${operationId}/events`, () =>
     router.refresh(),
   );
+  useEffect(() => closeLageansichtNotifications, []);
   const mapRef = useRef<SituationMapHandle>(null);
   const mode = useMapMode();
   const { editingImageId, drawShape, movingCircleId } = mode;

@@ -1,4 +1,5 @@
-import { MantineProvider } from "@mantine/core";
+import { MantineProvider, mergeThemeOverrides } from "@mantine/core";
+import { Notifications } from "@mantine/notifications";
 import {
   type RenderOptions,
   render as rtlRender,
@@ -9,6 +10,7 @@ import {
 } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import type { ReactElement, ReactNode } from "react";
 import { vi } from "vitest";
+import { ActionNotifications } from "@/app/ActionNotifications";
 import { theme } from "@/app/theme";
 
 // Stub-Router, damit Client-Komponenten mit useRouter() (z. B. router.refresh) in Tests laufen.
@@ -23,12 +25,23 @@ const stubRouter: AppRouterInstance = {
   bfcacheId: "stub",
 };
 
+// Benachrichtigungen verschwinden ohne Ausblenden, wie die übrigen
+// Transitions unter env="test".
+const testTheme = mergeThemeOverrides(theme, {
+  components: {
+    Notifications: Notifications.extend({
+      defaultProps: { transitionDuration: 0 },
+    }),
+  },
+});
+
 export function Providers({ children }: { children: ReactNode }) {
   return (
     <AppRouterContext.Provider value={stubRouter}>
       {/* env="test": keine Transitions/Portale, und Popover blenden sich nicht
           aus, weil jsdom alles mit 0×0 misst (sonst Flake unter Last). */}
-      <MantineProvider theme={theme} env="test">
+      <MantineProvider theme={testTheme} env="test">
+        <ActionNotifications />
         {children}
       </MantineProvider>
     </AppRouterContext.Provider>

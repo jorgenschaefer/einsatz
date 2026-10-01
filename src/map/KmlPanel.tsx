@@ -12,11 +12,11 @@ import {
 import { useState } from "react";
 import type { ActionResult } from "@/app/action-result";
 import { ConfirmationModal } from "@/app/ConfirmationModal";
-import { ErrorAlert } from "@/app/ErrorAlert";
-import { useActionRunner } from "@/app/useActionRunner";
+import { useNotifyingActionRunner } from "@/app/useNotifyingActionRunner";
 import { extractKml } from "@/kml/kmz";
 import type { KmlSourceType } from "@/server/kml/kml-overlays";
 import { ValidationError } from "@/server/validation";
+import { KML_OVERLAYS } from "./notification-sources";
 import { WRAPPING_SWITCH_LABEL } from "./wrapping-switch-label";
 
 export interface KmlOverlayView {
@@ -43,7 +43,7 @@ export function KmlPanel({
   onReload,
   onRemove,
 }: KmlPanelProps) {
-  const { busy, error, setError, run } = useActionRunner();
+  const { busy, run, closeError } = useNotifyingActionRunner(KML_OVERLAYS);
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
   // Bleibt nach dem Schließen gesetzt, damit der Titel beim Ausblenden
@@ -69,9 +69,8 @@ export function KmlPanel({
 
   const remove = async (): Promise<ActionResult> => {
     if (!removeTarget) return {};
-    const result = await onRemove(removeTarget.id);
-    if (!result.error) setError(null);
-    return result;
+    closeError();
+    return onRemove(removeTarget.id);
   };
 
   const overlayRow = (overlay: KmlOverlayView) => (
@@ -103,7 +102,7 @@ export function KmlPanel({
             variant="light"
             color="red"
             onClick={() => {
-              setError(null);
+              closeError();
               setRemoveTarget(overlay);
               setRemoveAsked(true);
             }}
@@ -120,8 +119,6 @@ export function KmlPanel({
 
   return (
     <Stack>
-      <ErrorAlert error={error} onClose={() => setError(null)} />
-
       <Stack component="section" aria-labelledby="kml-file-heading" gap="xs">
         <Text id="kml-file-heading" fw={600} size="sm">
           KML-Datei

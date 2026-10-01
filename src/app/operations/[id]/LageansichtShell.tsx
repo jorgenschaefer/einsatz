@@ -20,11 +20,11 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import type { ActionResult } from "@/app/action-result";
 import { BackLink } from "@/app/BackLink";
+import { HEADER_HEIGHT } from "@/app/lageansicht-sizes";
 import { useKeyboardOpen } from "@/map/useKeyboardOpen";
 import { type ViewLinkItem, ViewLinkPanel } from "@/map/ViewLinkPanel";
 import type { OperationStatus } from "@/server/operations/operations";
 
-const HEADER_HEIGHT = { base: 40, sm: 56 };
 const FOOTER_HEIGHT = 56;
 const CONNECTION_LOST_LABEL =
   "Verbindung getrennt – wird automatisch wiederhergestellt";

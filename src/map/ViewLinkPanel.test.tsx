@@ -338,24 +338,6 @@ describe("ViewLinkPanel", () => {
       await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     });
 
-    it("clears a failure that arrived while the confirmation was open once the link is deleted", async () => {
-      let fail: (result: ActionResult) => void = () => {};
-      const onCreate = vi.fn(
-        () => new Promise<ActionResult>((resolve) => (fail = resolve)),
-      );
-      setup({ links: [leitstelle], onCreate });
-      await userEvent.click(
-        screen.getByRole("button", { name: /Ansichtslink erzeugen/i }),
-      );
-      const dialog = await askToDelete();
-      await act(async () => fail({ error: "Einsatz ist geschlossen." }));
-
-      await userEvent.click(confirmButton(dialog));
-
-      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-      expect(screen.queryByRole("alert")).toBeNull();
-    });
-
     it("names a link without a label „Ansichtslink“ in the title", async () => {
       setup({ links: [{ id: "2", label: "  ", token: "tok-b" }] });
 

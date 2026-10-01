@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ACTION_FAILED, isNextNavigation } from "@/app/action-failure";
+import { settleAction } from "@/app/action-failure";
 import type { ActionResult } from "@/app/action-result";
 
 /**
@@ -20,13 +20,8 @@ export function useActionRunner() {
   ): Promise<ActionResult | null> => {
     setBusy(true);
     setError(null);
-    let result: ActionResult;
-    try {
-      result = await action();
-    } catch (thrown) {
-      if (isNextNavigation(thrown)) return null;
-      result = { error: ACTION_FAILED };
-    }
+    const result = await settleAction(action);
+    if (!result) return null;
     setError(result.error ?? null);
     setBusy(false);
     return result;

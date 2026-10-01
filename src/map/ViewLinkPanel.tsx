@@ -5,8 +5,8 @@ import { useState } from "react";
 import QRCode from "react-qr-code";
 import type { ActionResult } from "@/app/action-result";
 import { ConfirmationModal } from "@/app/ConfirmationModal";
-import { ErrorAlert } from "@/app/ErrorAlert";
-import { useActionRunner } from "@/app/useActionRunner";
+import { useNotifyingActionRunner } from "@/app/useNotifyingActionRunner";
+import { VIEW_LINKS } from "./notification-sources";
 import { useClipboardCopy } from "./useClipboardCopy";
 
 export interface ViewLinkItem {
@@ -32,7 +32,11 @@ export function ViewLinkPanel({
   onDelete,
 }: ViewLinkPanelProps) {
   const [label, setLabel] = useState("");
-  const { busy: creating, error, setError, run } = useActionRunner();
+  const {
+    busy: creating,
+    run,
+    closeError,
+  } = useNotifyingActionRunner(VIEW_LINKS);
   // Bleibt nach dem Schließen gesetzt, damit der Titel beim Ausblenden
   // stehen bleibt.
   const [deleteTarget, setDeleteTarget] = useState<ViewLinkItem | null>(null);
@@ -45,14 +49,12 @@ export function ViewLinkPanel({
 
   const deleteLink = async (): Promise<ActionResult> => {
     if (!deleteTarget) return {};
-    const result = await onDelete(deleteTarget.id);
-    if (!result.error) setError(null);
-    return result;
+    closeError();
+    return onDelete(deleteTarget.id);
   };
 
   return (
     <Stack gap="md">
-      <ErrorAlert error={error} onClose={() => setError(null)} />
       <Group align="flex-end" gap="xs" wrap="nowrap">
         <TextInput
           label="Bezeichnung"
@@ -78,7 +80,7 @@ export function ViewLinkPanel({
               key={link.id}
               link={link}
               onAskDelete={() => {
-                setError(null);
+                closeError();
                 setDeleteTarget(link);
                 setDeleteAsked(true);
               }}

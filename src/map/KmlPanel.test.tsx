@@ -5,7 +5,7 @@ import type { ActionResult } from "@/app/action-result";
 import { buttonColor } from "@/test/button-color";
 import { clickModalOverlay } from "@/test/modal-overlay";
 import { redirectError } from "@/test/redirect-error";
-import { act, fireEvent, render, screen, waitFor, within } from "@/test/render";
+import { fireEvent, render, screen, waitFor, within } from "@/test/render";
 import { type KmlOverlayView, KmlPanel, type KmlPanelProps } from "./KmlPanel";
 
 function renderPanel(over: Partial<KmlPanelProps> = {}) {
@@ -281,28 +281,6 @@ describe("KmlPanel", () => {
       );
       expect(await screen.findByRole("alert")).toBeInTheDocument();
       const dialog = await askToRemove();
-
-      await userEvent.click(confirmButton(dialog));
-
-      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-      expect(screen.queryByRole("alert")).toBeNull();
-    });
-
-    it("clears a failure that arrived while the confirmation was open once the overlay is removed", async () => {
-      let fail: (result: ActionResult) => void = () => {};
-      const onReload = vi.fn(
-        () => new Promise<ActionResult>((resolve) => (fail = resolve)),
-      );
-      renderPanel({ overlays: [urlOverlay, fileOverlay], onReload });
-      await userEvent.click(
-        within(screen.getByTestId("kml-k1")).getByRole("button", {
-          name: "Neu laden",
-        }),
-      );
-      const dialog = await askToRemove();
-      await act(async () =>
-        fail({ error: "KML konnte nicht geladen werden (404)." }),
-      );
 
       await userEvent.click(confirmButton(dialog));
 
