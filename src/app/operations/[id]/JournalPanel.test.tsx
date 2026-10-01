@@ -11,7 +11,13 @@ import {
 } from "vitest";
 import { act, fireEvent, render, screen, within } from "@/test/render";
 import { JournalPanel } from "./JournalPanel";
-import { entry, panelProps, setup } from "./JournalPanel.fixtures";
+import {
+  entry,
+  newEntry,
+  newEntryField,
+  panelProps,
+  setup,
+} from "./JournalPanel.fixtures";
 
 describe("JournalPanel", () => {
   it("shows each entry with its number, text and author", () => {
@@ -212,7 +218,7 @@ describe("JournalPanel", () => {
   it("hands out the Neuer Eintrag field through newEntryRef", () => {
     const newEntryRef = createRef<HTMLTextAreaElement>();
     setup({ newEntryRef });
-    expect(newEntryRef.current).toBe(screen.getByLabelText("Neuer Eintrag"));
+    expect(newEntryRef.current).toBe(newEntryField());
   });
 
   // Am Desktop scrollt nur die Liste; das Feld steht fest darunter
@@ -223,7 +229,7 @@ describe("JournalPanel", () => {
       .getByText("Deich hält")
       .closest(".journal-entries") as HTMLElement | null;
     expect(list).not.toBeNull();
-    expect(list).not.toContainElement(screen.getByLabelText("Neuer Eintrag"));
+    expect(list).not.toContainElement(newEntryField());
     expect(list).not.toContainElement(
       screen.getByRole("button", { name: "Eintrag hinzufügen" }),
     );
@@ -277,10 +283,7 @@ describe("JournalPanel", () => {
     it("brings Neuer Eintrag into view below the latest entry", () => {
       render(<JournalPanel {...panelProps()} />);
 
-      const newEntry = screen
-        .getByLabelText("Neuer Eintrag")
-        .closest(".journal-new-entry");
-      expect(scrollIntoView.mock.contexts.at(-1)).toBe(newEntry);
+      expect(scrollIntoView.mock.contexts.at(-1)).toBe(newEntry());
     });
 
     it("shows the latest entry once it becomes visible", () => {
@@ -299,10 +302,7 @@ describe("JournalPanel", () => {
       reportEndVisible(false);
       scrollIntoView.mockClear();
 
-      await userEvent.type(
-        screen.getByLabelText("Neuer Eintrag"),
-        "Pegel steigt",
-      );
+      await userEvent.type(newEntryField(), "Pegel steigt");
       await userEvent.click(
         screen.getByRole("button", { name: "Eintrag hinzufügen" }),
       );
@@ -314,10 +314,7 @@ describe("JournalPanel", () => {
       const props = panelProps();
       const { rerender } = render(<JournalPanel {...props} />);
       reportEndVisible(false);
-      await userEvent.type(
-        screen.getByLabelText("Neuer Eintrag"),
-        "Pegel steigt",
-      );
+      await userEvent.type(newEntryField(), "Pegel steigt");
       await userEvent.click(
         screen.getByRole("button", { name: "Eintrag hinzufügen" }),
       );
