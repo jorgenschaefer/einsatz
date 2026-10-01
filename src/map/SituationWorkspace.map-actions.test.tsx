@@ -113,6 +113,25 @@ describe("SituationWorkspace map actions", () => {
     },
   );
 
+  it("closes the failure at the map with its ×", async () => {
+    const [, failing, perform] = mapActions[0];
+    const workspace = renderWorkspace(
+      failing(
+        vi.fn(async (): Promise<ActionResult> => {
+          throw new Error("db down");
+        }),
+      ),
+    );
+    await perform(workspace);
+    await screen.findByRole("alert");
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Meldung schließen" }),
+    );
+
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
   it.each(mapActions)(
     "shows no failure when %s redirects to the login",
     async (_, failing, perform) => {

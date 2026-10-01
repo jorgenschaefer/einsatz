@@ -1,7 +1,8 @@
 "use client";
 
-import { Alert, Button, Group, Stack, Textarea } from "@mantine/core";
+import { Button, Group, Stack, Textarea } from "@mantine/core";
 import { type Ref, useEffect, useRef, useState } from "react";
+import { ErrorAlert } from "@/app/ErrorAlert";
 import {
   EntryChannelSelect,
   EntryRouteChips,
@@ -122,17 +123,7 @@ export function EntryForm({
         onKeyDown={submitOnCtrlEnter(submit)}
         placeholder={placeholder}
       />
-      {error && (
-        <Alert
-          color="red"
-          role="alert"
-          withCloseButton
-          closeButtonLabel="Meldung schließen"
-          onClose={onDismissError}
-        >
-          {error}
-        </Alert>
-      )}
+      <ErrorAlert error={error} onClose={onDismissError} />
       {/* gap="sm": Neben dem 150 px breiten Freitext-Weg bleibt „Eintrag
           hinzufügen" bei 360 px ungekürzt. Passen die Knöpfe nicht daneben,
           etwa neben dem Freitext-Weg einer Korrektur, rutschen sie in die

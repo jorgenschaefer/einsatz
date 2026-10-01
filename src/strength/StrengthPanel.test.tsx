@@ -834,6 +834,22 @@ describe("StrengthPanel", () => {
       ).toBeInTheDocument();
     });
 
+    it("closes the error with its ×", async () => {
+      setup({
+        onRecordStrengthReport: vi.fn(async () => {
+          throw new Error("offline");
+        }),
+      });
+      await openReport("UHSt 3");
+      await userEvent.click(screen.getByRole("button", { name: "Melden" }));
+
+      await userEvent.click(
+        screen.getByRole("button", { name: "Meldung schließen" }),
+      );
+
+      expect(screen.queryByRole("alert")).toBeNull();
+    });
+
     it("keeps another Stelle's form open when an earlier report finishes saving", async () => {
       let finish = (_: ActionResult) => {};
       const { onRecordStrengthReport } = setup({

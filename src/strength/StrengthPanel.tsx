@@ -2,7 +2,6 @@
 
 import {
   ActionIcon,
-  Alert,
   Box,
   Button,
   Group,
@@ -29,6 +28,7 @@ import {
 } from "react";
 import type { ActionResult } from "@/app/action-result";
 import { ConfirmationModal } from "@/app/ConfirmationModal";
+import { ErrorAlert } from "@/app/ErrorAlert";
 import {
   berlinTimeOfDay,
   isReportStale,
@@ -134,16 +134,7 @@ export function StrengthPanel({
   return (
     // Lange Wörter umbrechen statt waagerecht zu scrollen (360 px).
     <Stack style={{ overflowWrap: "break-word" }}>
-      {error && (
-        <Alert
-          color="red"
-          role="alert"
-          onClose={() => setError(null)}
-          withCloseButton
-        >
-          {error}
-        </Alert>
-      )}
+      <ErrorAlert error={error} onClose={() => setError(null)} />
 
       {selectedStation ? (
         <>

@@ -1,21 +1,14 @@
 "use client";
 
 import "./situation-workspace.css";
-import {
-  Alert,
-  Box,
-  CloseButton,
-  Group,
-  Modal,
-  Stack,
-  Text,
-} from "@mantine/core";
+import { Box, CloseButton, Group, Modal, Stack, Text } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ACTION_FAILED, isNextNavigation } from "@/app/action-failure";
 import type { ActionResult } from "@/app/action-result";
+import { ErrorAlert } from "@/app/ErrorAlert";
 import {
   type JournalEntryView,
   JournalPanel,
@@ -498,16 +491,12 @@ export function SituationWorkspace({
                 right={64}
                 style={{ zIndex: 1200 }}
               >
-                <Alert
-                  color="red"
+                <ErrorAlert
+                  error={mapError}
+                  onClose={() => setMapError(null)}
                   radius="sm"
                   py="xs"
-                  role="alert"
-                  withCloseButton
-                  onClose={() => setMapError(null)}
-                >
-                  {mapError}
-                </Alert>
+                />
               </Box>
             )}
             <Box className="map-search">

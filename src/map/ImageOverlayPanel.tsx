@@ -1,16 +1,9 @@
 "use client";
 
-import {
-  Alert,
-  Button,
-  Group,
-  Paper,
-  Stack,
-  Switch,
-  Text,
-} from "@mantine/core";
+import { Button, Group, Paper, Stack, Switch, Text } from "@mantine/core";
 import type { ReactNode } from "react";
 import type { ActionResult } from "@/app/action-result";
+import { ErrorAlert } from "@/app/ErrorAlert";
 import { useActionRunner } from "@/app/useActionRunner";
 import { WRAPPING_SWITCH_LABEL } from "./wrapping-switch-label";
 
@@ -48,17 +41,7 @@ export function ImageOverlayPanel({
 
   return (
     <Stack>
-      {error && (
-        <Alert
-          color="red"
-          role="alert"
-          withCloseButton
-          closeButtonLabel="Meldung schließen"
-          onClose={() => setError(null)}
-        >
-          {error}
-        </Alert>
-      )}
+      <ErrorAlert error={error} onClose={() => setError(null)} />
 
       <input
         type="file"

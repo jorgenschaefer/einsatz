@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  Alert,
   Button,
   Group,
   Paper,
@@ -13,6 +12,7 @@ import {
 import { useState } from "react";
 import type { ActionResult } from "@/app/action-result";
 import { ConfirmationModal } from "@/app/ConfirmationModal";
+import { ErrorAlert } from "@/app/ErrorAlert";
 import { useActionRunner } from "@/app/useActionRunner";
 import { extractKml } from "@/kml/kmz";
 import type { KmlSourceType } from "@/server/kml/kml-overlays";
@@ -120,17 +120,7 @@ export function KmlPanel({
 
   return (
     <Stack>
-      {error && (
-        <Alert
-          color="red"
-          role="alert"
-          withCloseButton
-          closeButtonLabel="Meldung schließen"
-          onClose={() => setError(null)}
-        >
-          {error}
-        </Alert>
-      )}
+      <ErrorAlert error={error} onClose={() => setError(null)} />
 
       <Stack component="section" aria-labelledby="kml-file-heading" gap="xs">
         <Text id="kml-file-heading" fw={600} size="sm">

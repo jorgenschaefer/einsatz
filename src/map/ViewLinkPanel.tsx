@@ -1,18 +1,11 @@
 "use client";
 
-import {
-  Alert,
-  Box,
-  Button,
-  Group,
-  Stack,
-  Text,
-  TextInput,
-} from "@mantine/core";
+import { Box, Button, Group, Stack, Text, TextInput } from "@mantine/core";
 import { useState } from "react";
 import QRCode from "react-qr-code";
 import type { ActionResult } from "@/app/action-result";
 import { ConfirmationModal } from "@/app/ConfirmationModal";
+import { ErrorAlert } from "@/app/ErrorAlert";
 import { useActionRunner } from "@/app/useActionRunner";
 import { useClipboardCopy } from "./useClipboardCopy";
 
@@ -52,17 +45,7 @@ export function ViewLinkPanel({
 
   return (
     <Stack gap="md">
-      {error && (
-        <Alert
-          color="red"
-          role="alert"
-          withCloseButton
-          closeButtonLabel="Meldung schließen"
-          onClose={() => setError(null)}
-        >
-          {error}
-        </Alert>
-      )}
+      <ErrorAlert error={error} onClose={() => setError(null)} />
       <Group align="flex-end" gap="xs" wrap="nowrap">
         <TextInput
           label="Bezeichnung"
