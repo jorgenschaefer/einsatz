@@ -54,6 +54,27 @@ const watch = (p) => {
   p.on("pageerror", (e) => errors.push(String(e)));
 };
 watch(page);
+// Every request with its outcome, for `requests`.
+const requests = [];
+page.on("requestfinished", async (r) =>
+  requests.push(
+    `${(await r.response())?.status() ?? "?"} ${r.method()} ${r.url()}`,
+  ),
+);
+page.on("requestfailed", (r) =>
+  requests.push(`FAILED(${r.failure()?.errorText}) ${r.method()} ${r.url()}`),
+);
+// Server actions are POSTs with a Next-Action header; `hold-actions on`
+// keeps them pending until `release-actions`, to look at the page while
+// an action runs.
+let holding = false;
+const held = [];
+await page.route("**/*", (route) => {
+  const req = route.request();
+  if (holding && req.method() === "POST" && req.headers()["next-action"])
+    held.push(route);
+  else route.fallback();
+});
 let shotNo = 0;
 
 // Selector syntax: anything page.locator() accepts (css, text=…,
@@ -198,6 +219,27 @@ const commands = {
   },
   async url() {
     return page.url();
+  },
+  // Drops the session cookie, as if the session had expired.
+  async "clear-cookies"() {
+    await context.clearCookies();
+  },
+  // offline on|off: cuts the network, so server actions throw in the client.
+  async offline(state) {
+    await context.setOffline(state.trim() === "on");
+  },
+  async "hold-actions"(state) {
+    holding = state.trim() !== "off";
+  },
+  async "release-actions"() {
+    const n = held.length;
+    for (const route of held.splice(0)) await route.continue();
+    return `${n} released`;
+  },
+  // requests [substring]: prints and clears the request log.
+  async requests(filter) {
+    const out = requests.splice(0).filter((r) => !filter || r.includes(filter));
+    return out.length ? `\n${out.join("\n")}` : "(none)";
   },
   async errors() {
     const out = errors.splice(0);

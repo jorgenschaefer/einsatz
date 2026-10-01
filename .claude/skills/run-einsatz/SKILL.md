@@ -143,10 +143,33 @@ timeout 300 node --env-file=.env .claude/skills/run-einsatz/driver.mjs < "${TMPD
 | `viewport WxH` | resizes the viewport, e.g. `390x844` for phone layout, then waits for the AppShell animation |
 | `text [sel]` / `eval <js>` / `url` | inspects the page |
 | `errors` | prints and clears browser console errors and page errors |
+| `requests [substring]` | prints and clears the request log (status or `FAILED(…)`, method, URL), e.g. to prove a file is never fetched |
+| `offline on\|off` | cuts the browser's network, so the next server action throws in the client (the "unexpected failure" path) |
+| `hold-actions on\|off` / `release-actions` | keeps server actions (POSTs with a `Next-Action` header) pending until released, to look at the page while an action runs |
+| `clear-cookies` | drops the session cookie; the next action behaves as with an expired session (redirect to `/login`) |
 | `quit` | closes the browser |
 
 Selectors: anything `page.locator()` accepts (`text=…`, `role=button[name="…"]`,
 CSS with `:has-text()`), plus `label=<label substring>` for Mantine form fields.
+
+## Provoking failures
+
+- **A real panel error without mocks:** "Per URL einbinden" with a private
+  address (`http://10.0.0.1/x.kml`) answers "Diese Adresse ist nicht erlaubt.";
+  a text file named `.png` as Bild-Overlay answers "Das Bild konnte nicht
+  verarbeitet werden."
+- **A thrown action:** `offline on`, trigger it, `offline off`. Shows
+  "Das hat nicht geklappt. Bitte erneut versuchen."
+- **Recording a message that only flashes:** before the action, `eval` a
+  `MutationObserver` that appends each `.mantine-Alert-root` text to
+  `sessionStorage`; it survives the redirect to `/login`.
+- **`[role=alert]` also matches Next's hidden route announcer** (Playwright
+  pierces its shadow root), so `wait-for [role=alert]` returns at once. Wait
+  for `.mantine-Alert-root` instead.
+- **On a phone viewport the Lagekarte opens on the ETB tab;** click
+  `role=button[name="Lagekarte"] >> nth=0` before the map controls.
+- Overlay files live under `data/uploads/<operation id>/`; deleting the
+  Einsatz removes only files still in the DB.
 
 ## Test
 
