@@ -19,11 +19,11 @@ festgehalten.
 - **AC-4** Die Wahl eines anderen Adresstreffers setzt die Markierung auf diesen Treffer; es gibt nie mehr als eine Markierung.
 - **AC-5** Leeren der Suche – über „Suche löschen" (×) oder durch Löschen des Textes – entfernt die Markierung.
 - **AC-6** Die Wahl eines Treffers unter „Einsatzobjekte" entfernt die Markierung.
-- **AC-7** Die Markierung liegt über Kartenzeichen, Bereichen, KML- und Bild-Overlays.
+- **AC-7** Die Markierung liegt über Kartenzeichen samt Bezeichnung, Bereichen samt Beschriftung, KML- und Bild-Overlays.
 - **AC-8** Ein Tap auf die Markierung wirkt, als wäre sie nicht da: Ist ein Kartenzeichen zum Platzieren gewählt, wird es an der getippten Stelle gesetzt; ein Kartenzeichen unter der Markierung lässt sich antippen.
 - **AC-9** Die Markierung sieht nur, wer gesucht hat: Andere Clients sehen sie nicht, und nach dem Neuladen der Seite ist sie weg.
 - **AC-10** Nach der Wahl eines Treffers – Adresse oder Einsatzobjekt – schließt sich die Trefferliste; der Suchtext bleibt im Feld stehen.
-- **AC-11** Enthält das Suchfeld Text, öffnet die Trefferliste sich wieder, sobald das Feld den Fokus bekommt (Tap, Klick oder Tastatur) oder der Suchtext geändert wird.
+- **AC-11** Enthält das Suchfeld Text, öffnet die Trefferliste sich wieder, sobald das Feld den Fokus bekommt (Tap, Klick oder Tastatur), in das Feld getippt oder geklickt wird – auch wenn es den Fokus schon hat – oder der Suchtext geändert wird.
 - **AC-14** Ein Tap oder Klick außerhalb von Suchfeld und Trefferliste sowie Escape schließen die Trefferliste; der Suchtext und die Markierung bleiben.
 - **AC-12** Die Wahl eines Treffers zentriert die Karte auf ihn. Ist die Karte weiter herausgezoomt als Zoomstufe 16, zoomt sie auf 16; ist sie auf 16 oder näher, bleibt die Zoomstufe.
 - **AC-13** Für jeden anderen Sprung zu einem Punkt gilt dasselbe wie in AC-12: Springen aus dem Kartenzeichen- und dem Bereichs-Panel, Sprung zur eigenen Position in der Geräteansicht und Auswahl eines Kartenzeichens in der Ansicht.
