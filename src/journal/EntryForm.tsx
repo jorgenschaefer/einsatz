@@ -66,7 +66,7 @@ export function EntryForm({
   });
   const [otherOpen, setOtherOpen] = useState(NO_OTHER_OPEN);
   // Neu gemountet stehen die Chip-Zeilen für den nächsten Eintrag wieder vorne.
-  const [saved, setSaved] = useState(0);
+  const [chipRowsKey, setChipRowsKey] = useState(0);
   const channelChosen = useRef(false);
   const size = compact ? "xs" : "sm";
 
@@ -83,13 +83,13 @@ export function EntryForm({
     setText("");
     setRoute((current) => ({ ...current, sender: null, recipient: null }));
     setOtherOpen(NO_OTHER_OPEN);
-    setSaved((count) => count + 1);
+    setChipRowsKey((key) => key + 1);
   };
 
   return (
     <Stack gap="xs">
       <EntryRouteChips
-        key={`sender-${saved}`}
+        key={`sender-${chipRowsKey}`}
         label="Von"
         value={route.sender}
         onChange={(sender) => setRoute({ ...route, sender })}
@@ -101,7 +101,7 @@ export function EntryForm({
         onSubmit={(sender) => submit({ sender })}
       />
       <EntryRouteChips
-        key={`recipient-${saved}`}
+        key={`recipient-${chipRowsKey}`}
         label="An"
         value={route.recipient}
         onChange={(recipient) => setRoute({ ...route, recipient })}
