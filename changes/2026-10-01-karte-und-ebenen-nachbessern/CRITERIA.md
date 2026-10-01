@@ -36,7 +36,7 @@ Einen Vorfall im Einsatz gab es nicht.
 - **AC-5** Scheitert Kartenzeichen platzieren, Bereich zeichnen, Bereich neu zeichnen oder Kreis verschieben unerwartet (die Action wirft), steht unten auf der Karte „Das hat nicht geklappt. Bitte erneut versuchen.“.
 - **AC-6** Ist die Sitzung abgelaufen und man löst eine dieser Kartenaktionen aus, erscheint die Anmeldeseite, ohne dass vorher eine Meldung auf der Karte zu sehen ist.
 - **AC-7** Solange eine Aktion des KML-Panels läuft (Einbinden per Datei oder URL, „Neu laden“, Sichtbarkeit schalten), sind die Sichtbarkeits-Schalter aller KML-Overlays gesperrt – wie die der Bild-Overlays.
-- **AC-8** Ein KML-Punkt ohne verwendbare Bild-URL im `<IconStyle>` (verwendbar ist eine `http://`-, `https://`- oder `data:`-URL) erscheint in Führungs-, Ansichts- und Geräteansicht als Kreis von 14 px Durchmesser mit 2,5 px weißem Rand, wie im Specimen. Das gilt auch für Punkte mit relativer oder fehlender `<href>`.
+- **AC-8** Ein KML-Punkt ohne verwendbare Bild-URL im `<IconStyle>` (verwendbar ist eine `http://`-, `https://`- oder `data:`-URL) erscheint in Führungs-, Ansichts- und Geräteansicht als farbiger Kreis von 14 px Durchmesser mit einem 2,5 px breiten weißen Rand außen herum (zusammen 19 px), wie im Specimen. Das gilt auch für Punkte mit relativer oder fehlender `<href>`.
 - **AC-9** Hat der Punkt `<IconStyle><color>`, ist der Kreis in dieser Farbe, sonst in `#3388ff`, der Standardfarbe der KML-Linien. Der Kreis ist immer voll deckend; eine Deckkraft aus der KML-Farbe bleibt unbeachtet.
 - **AC-10** Beim Anzeigen einer KML-Ebene mit solchen Punkten wird weder `marker-icon.png` noch `marker-shadow.png` angefragt, und keine durch die Punkte ausgelöste Anfrage endet mit einem Fehler.
 - **AC-11** Die Tippfläche eines solchen Kreises ist mindestens 32 × 32 px groß und um den Punkt zentriert; Tippen oder Klicken öffnet wie bisher das Popup mit Name und Beschreibung.
@@ -51,8 +51,8 @@ Die Panel-Meldungen folgen dem Muster von `StrengthPanel`: ein roter `Alert`
 mit „×“ über dem Panel, der verschwindet, sobald man im Panel etwas Neues
 beginnt.
 
-Ein KML-Punkt ohne eigenes Symbol ist ein Kreis von 14 px mit 2,5 px weißem
-Rand in der KML-Farbe, ohne Bilddatei, mit einer Tippfläche von mindestens
+Ein KML-Punkt ohne eigenes Symbol ist ein Kreis von 14 px in der KML-Farbe
+mit 2,5 px weißem Rand außen herum (zusammen 19 px), ohne Bilddatei, mit einer Tippfläche von mindestens
 32 px. Specimen:
 [Artifact](https://claude.ai/artifact/BbUoqbRZvFMrF35m4XjAma), Kopie in
 [`specimens/kml-punkt-ohne-symbol.html`](specimens/kml-punkt-ohne-symbol.html).

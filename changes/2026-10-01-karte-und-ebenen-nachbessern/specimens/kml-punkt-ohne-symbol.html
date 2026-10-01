@@ -47,9 +47,9 @@ const base=`
 </g>`;
 const variants=[
   {tag:"Vereinbart",title:"Kreis-Marker in KML-Farbe",
-  text:"Ein Kreis von 14 px mit 2,5 px weißem Rand, als Vektor gezeichnet und ohne Bild. Er übernimmt die Farbe aus der KML-Datei, ohne Farbe ist er in der Farbe der KML-Linien.",
+  text:"Ein farbiger Kreis von 14 px mit 2,5 px weißem Rand außen herum (zusammen 19 px), als Vektor gezeichnet und ohne Bild. Er übernimmt die Farbe aus der KML-Datei, ohne Farbe ist er in der Farbe der KML-Linien.",
   bullets:["Kein Bild, das fehlen kann.","Klein und unaufdringlich. Kartenzeichen bleiben das Wichtigste auf der Karte.","Die Mitte ist der Punkt.","Die Tippfläche ist mindestens 32 × 32 px groß und um den Kreis zentriert, auch wenn der Kreis kleiner ist."],
-  draw:p=>`<circle cx="${p.x}" cy="${p.y}" r="7" fill="${p.color||"var(--kml-line)"}" stroke="#fff" stroke-width="2.5"/>`},
+  draw:p=>`<circle cx="${p.x}" cy="${p.y}" r="9.5" fill="#fff"/><circle cx="${p.x}" cy="${p.y}" r="7" fill="${p.color||"var(--kml-line)"}"/>`},
 ];
 document.getElementById("grid").innerHTML=variants.map(v=>`
 <figure><svg viewBox="0 0 360 230" role="img" aria-label="${v.title}">${base}${points.map(v.draw).join("")}</svg>
