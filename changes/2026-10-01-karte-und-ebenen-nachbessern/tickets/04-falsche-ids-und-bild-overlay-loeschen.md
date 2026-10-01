@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:    AC-13, AC-14, AC-15
 advances:
 after:
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -139,3 +139,29 @@ sein Verhalten ändert.
 - Andere Fehlertexte – out of scope.
 
 ## Left standing
+- Nicht übernommene Review-Meldung (Kleinigkeit): Der Review schlug vor, die
+  Fälle aus `src/app/overlay-routes.not-a-uuid.test.ts` neben die Routen in
+  deren `route.test.ts` zu legen. Sie bleiben, wo der Plan sie vorsieht. Grund:
+  Die vorhandenen `route.test.ts` unter `view/…` und `device/…` mocken
+  `getImageOverlay` und den Zugang komplett, für AC-14 muss der echte Lookup
+  mit echter DB laufen. Beides in einer Datei hieße, die Mocks je Test
+  umzubauen.
+- Abweichung vom Plan, Schritt 6 (Kleinigkeit): Das `try`/`catch` um das
+  Aufräumen der Datei steht in einer Hilfsfunktion `cleanUpOverlayFile`, die
+  innerhalb von `run` aufgerufen wird. Das Verhalten ist dasselbe.
+- Plan, Schritt 3: Die Fälle mit einer UUID in Großbuchstaben waren schon vor
+  der Änderung grün, weil Postgres sie annimmt. Sie pinnen, dass die neue
+  Prüfung sie nicht abweist (und damit das `i` im regulären Ausdruck).
+- Plan, Schritt 7: Den Browser habe ich nicht selbst geprüft; das hat der
+  Review getan. `/operations/marker-icon.png` zeigt angemeldet die Seite
+  „nicht gefunden“ (1280 × 800 und 390 × 844), `/operations/<id>/overlays/x`
+  antwortet mit 404, und ein Bild-Overlay hochladen und löschen funktioniert
+  wie bisher (Liste, Karte, Datei im Volume weg, keine Meldung). Das Löschen
+  lief nur in Desktop-Größe. Die Ansichtslink- und Geräte-Routen hat niemand
+  im Browser aufgerufen; sie sind durch die neuen Tests belegt.
+- AC-15 „verschwindet bei allen Clients“: Im Test ist belegt, dass revalidiert
+  und das Live-Ereignis gesendet wird. Dass ein zweiter, gleichzeitig offener
+  Client das Overlay verliert, hat niemand im Browser geprüft.
+- Gesehen, nicht Teil dieses Tickets: Die Seite „nicht gefunden“ ist Nexts
+  englische Standardseite („This page could not be found.“), auch für eine
+  gültige, aber unbekannte UUID.

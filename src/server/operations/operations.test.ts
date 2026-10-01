@@ -35,6 +35,22 @@ describe("operations repository", () => {
     ).toBeNull();
   });
 
+  it("returns null for an id that is not a UUID", async () => {
+    const db = await freshDb();
+    expect(await getOperation(db, "marker-icon.png")).toBeNull();
+  });
+
+  it("finds an operation by its id in upper case", async () => {
+    const db = await freshDb();
+    const created = await insertOperation(db, {
+      name: "Hochwasser",
+      description: null,
+    });
+    expect(await getOperation(db, created.id.toUpperCase())).toMatchObject({
+      id: created.id,
+    });
+  });
+
   it("persists a default map view that reads back on the operation", async () => {
     const db = await freshDb();
     const op = await insertOperation(db, {

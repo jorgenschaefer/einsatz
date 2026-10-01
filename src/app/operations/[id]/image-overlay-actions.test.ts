@@ -46,6 +46,7 @@ import * as storage from "@/server/image-overlays/image-storage";
 import { storeOverlayImage } from "@/server/image-overlays/image-storage";
 import { insertOperation } from "@/server/operations/operations";
 import { freshDb } from "@/test/db";
+import { redirectError } from "@/test/redirect-error";
 
 const EMBED_FAILED = "Das Bild konnte nicht eingebunden werden.";
 
@@ -313,6 +314,21 @@ describe("deleteImageOverlayAction", () => {
     expect(errorLog).toHaveBeenCalledWith(
       `Overlay-Datei konnte nicht aufgeräumt werden (${overlay.filePath}):`,
       volumeUnavailable,
+    );
+  });
+
+  it("lets a redirect thrown while deleting through instead of reporting an error", async () => {
+    await login();
+    const op = await insertOperation(state.db as Db, {
+      name: "Lage",
+      description: null,
+    });
+    const { overlay } = await anOverlayWithStoredFile(op.id);
+    const redirect = redirectError();
+    vi.spyOn(repo, "deleteImageOverlay").mockRejectedValueOnce(redirect);
+
+    await expect(deleteImageOverlayAction(op.id, overlay.id)).rejects.toBe(
+      redirect,
     );
   });
 

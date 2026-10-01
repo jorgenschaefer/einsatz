@@ -4,8 +4,6 @@ import {
   defaultImagePlacement,
   type ImagePlacement,
 } from "@/map/image-overlay";
-import { requireUser } from "@/server/auth/current-user";
-import { getDb } from "@/server/db/pg";
 import {
   createImageOverlay,
   deleteImageOverlay,
@@ -25,12 +23,7 @@ import {
 } from "@/server/image-overlays/image-upload";
 import { getOperation } from "@/server/operations/operations";
 import { ValidationError } from "@/server/validation";
-import {
-  type ActionResult,
-  operationAction,
-  revalidateOperation,
-  toFormError,
-} from "./operation-action";
+import { type ActionResult, operationAction } from "./operation-action";
 
 const EMBED_FAILED = "Das Bild konnte nicht eingebunden werden.";
 const DELETE_FAILED = "Das Bild-Overlay konnte nicht gelöscht werden.";
@@ -118,45 +111,32 @@ export async function setImageOverlayVisibilityAction(
   });
 }
 
+// Ist die Zeile gelöscht, ist die Löschung vollzogen: Ein Fehler beim
+// Aufräumen der Datei (verwaiste Datei im Volume) ist Server-Hygiene, kein
+// Nutzerfehler. Er darf `run` nicht verlassen, sonst würde nicht revalidiert
+// und das gelöschte Overlay bei allen Clients weiter gerendert.
 export async function deleteImageOverlayAction(
   operationId: string,
   id: string,
 ): Promise<ActionResult> {
-  // Nicht über `operationAction`: das Datei-Aufräumen (Datei-IO) kann scheitern,
-  // nachdem die Zeile schon gelöscht ist. Sobald die Zeile weg ist, ist die
-  // Löschung vollzogen – ab da wird immer revalidiert (sonst rendert das
-  // gelöschte Overlay bei allen Clients weiter), und ein reiner Aufräum-Fehler
-  // (verwaiste Datei im Volume) ist Server-Hygiene, kein Nutzerfehler.
-  await requireUser();
-  try {
-    const db = getDb();
+  return operationAction(async (db) => {
     const overlay = await getImageOverlay(db, id);
     await deleteImageOverlay(db, id);
-    revalidateOperation(operationId);
-    if (overlay) {
-      try {
-        await deleteOverlayFiles([overlay.filePath]);
-      } catch (err) {
-        // Pfad mitloggen, damit die verwaiste Datei im Volume auffindbar bleibt.
-        console.error(
-          `Overlay-Datei konnte nicht aufgeräumt werden (${overlay.filePath}):`,
-          err,
-        );
-      }
-    }
-    return {};
-  } catch (err) {
-    return toError(err, DELETE_FAILED);
-  }
+    if (overlay) await cleanUpOverlayFile(overlay.filePath);
+    return operationId;
+  }, DELETE_FAILED);
 }
 
-function toError(err: unknown, fallback: string): ActionResult {
-  // Unerwartete Fehler serverseitig sichtbar machen – unter demselben Präfix
-  // wie in `operationAction`; der Nutzer bekommt nur `fallback`.
-  if (!(err instanceof ValidationError)) {
-    console.error("Einsatz-Action fehlgeschlagen:", err);
+async function cleanUpOverlayFile(filePath: string): Promise<void> {
+  try {
+    await deleteOverlayFiles([filePath]);
+  } catch (err) {
+    // Pfad mitloggen, damit die verwaiste Datei im Volume auffindbar bleibt.
+    console.error(
+      `Overlay-Datei konnte nicht aufgeräumt werden (${filePath}):`,
+      err,
+    );
   }
-  return toFormError(err, fallback);
 }
 
 /** Prüft eine hochgeladene PDF-/PNG-Datei und bereitet sie als WebP auf. */

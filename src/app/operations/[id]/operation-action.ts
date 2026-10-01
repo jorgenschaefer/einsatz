@@ -21,17 +21,6 @@ export function revalidateOperation(operationId: string): void {
 }
 
 /**
- * Übersetzt einen Fehler in einen Formularfehler: eine Business-
- * {@link ValidationError} trägt ihre Meldung, alles andere fällt auf `fallback`
- * zurück. Nur noch für das Löschen eines Bild-Overlays, das nicht über
- * {@link operationAction} läuft.
- */
-export function toFormError(err: unknown, fallback: string): ActionResult {
-  if (err instanceof ValidationError) return { error: err.message };
-  return { error: fallback };
-}
-
-/**
  * Gemeinsamer Ablauf mutierender Einsatz-Actions – der eine Choke-Point, den die
  * Auth-Tests (S2) absichern, analog zum `guarded` der Nutzerverwaltung: erzwingt
  * die Anmeldung, führt die Domänenlogik aus, revalidiert danach den Einsatz und

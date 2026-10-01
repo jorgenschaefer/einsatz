@@ -55,6 +55,27 @@ describe("image overlays repository", () => {
     });
   });
 
+  it("returns null for an id that is not a UUID", async () => {
+    const db = await freshDb();
+    expect(await getImageOverlay(db, "marker-icon.png")).toBeNull();
+  });
+
+  it("finds an overlay by its id in upper case", async () => {
+    const db = await freshDb();
+    const op = await anOperation(db);
+    const overlay = await createImageOverlay(db, {
+      operationId: op.id,
+      filePath: "op/x/plan.png",
+      name: "Lageplan",
+      widthPx: 1200,
+      heightPx: 800,
+      placement: A_PLACEMENT,
+    });
+    expect(await getImageOverlay(db, overlay.id.toUpperCase())).toMatchObject({
+      id: overlay.id,
+    });
+  });
+
   it("updates placement, toggles visibility, and deletes; scoped to the operation", async () => {
     const db = await freshDb();
     const op = await anOperation(db);

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { MAX_TILE_ZOOM, type MapView } from "@/map/view";
 import type { Queryable } from "@/server/db/db";
+import { isUuid } from "@/server/db/uuid";
 import { assertLatLng, ValidationError } from "@/server/validation";
 
 export type OperationStatus = "active" | "closed";
@@ -49,6 +50,7 @@ export async function getOperation(
   db: Queryable,
   id: string,
 ): Promise<Operation | null> {
+  if (!isUuid(id)) return null;
   const { rows } = await db.query<OperationRow>(
     `SELECT ${COLUMNS} FROM operations WHERE id = $1`,
     [id],

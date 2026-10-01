@@ -17,7 +17,7 @@ vi.mock("@/server/events/operation-events", () => ({
 
 import { redirect } from "next/navigation";
 import { ValidationError } from "@/server/validation";
-import { operationAction, toFormError } from "./operation-action";
+import { operationAction } from "./operation-action";
 
 const A_USER = { id: "u1", username: "anna", role: "user" as const };
 
@@ -91,17 +91,6 @@ describe("operationAction", () => {
           redirect("/login");
         }, "Das ging schief."),
       ).rejects.toThrow("NEXT_REDIRECT");
-    });
-  });
-});
-
-describe("toFormError", () => {
-  it("uses the ValidationError message and the fallback for anything else", () => {
-    expect(toFormError(new ValidationError("zu groß"), "Fallback")).toEqual({
-      error: "zu groß",
-    });
-    expect(toFormError(new Error("boom"), "Fallback")).toEqual({
-      error: "Fallback",
     });
   });
 });

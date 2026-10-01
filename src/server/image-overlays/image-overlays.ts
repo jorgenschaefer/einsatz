@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { ImagePlacement } from "@/map/image-overlay";
 import type { Queryable } from "@/server/db/db";
+import { isUuid } from "@/server/db/uuid";
 import {
   assertLatLng,
   assertOpacity,
@@ -118,6 +119,7 @@ export async function getImageOverlay(
   db: Queryable,
   id: string,
 ): Promise<ImageOverlay | null> {
+  if (!isUuid(id)) return null;
   const { rows } = await db.query<ImageRow>(
     `SELECT ${COLUMNS} FROM image_overlays WHERE id = $1`,
     [id],
