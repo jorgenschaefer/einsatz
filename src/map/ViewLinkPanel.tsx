@@ -43,6 +43,13 @@ export function ViewLinkPanel({
     if (result && !result.error) setLabel("");
   };
 
+  const deleteLink = async (): Promise<ActionResult> => {
+    if (!deleteTarget) return {};
+    const result = await onDelete(deleteTarget.id);
+    if (!result.error) setError(null);
+    return result;
+  };
+
   return (
     <Stack gap="md">
       <ErrorAlert error={error} onClose={() => setError(null)} />
@@ -86,7 +93,7 @@ export function ViewLinkPanel({
         onClose={() => setDeleteAsked(false)}
         title={`Ansichtslink „${deleteTarget ? linkName(deleteTarget) : ""}“ löschen`}
         confirmLabel="Endgültig löschen"
-        onConfirm={async () => (deleteTarget ? onDelete(deleteTarget.id) : {})}
+        onConfirm={deleteLink}
       >
         Wer diesen Link hat, sieht die Lage sofort nicht mehr.
       </ConfirmationModal>
