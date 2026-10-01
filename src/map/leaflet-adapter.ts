@@ -413,6 +413,12 @@ export const leafletMapAdapterFactory: MapAdapterFactory = {
           clearHandles();
         }
       },
+      restoreImageOverlay: (id) => {
+        const spec = imageSpecs.get(id);
+        if (!spec) return;
+        imageSigs.delete(id);
+        adapter.setImageOverlay(id, spec);
+      },
       startImageOverlayEdit: (id, onChange) => {
         editing = { id, onChange };
         renderHandles();

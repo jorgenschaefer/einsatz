@@ -2,14 +2,18 @@
 
 import type { ActionResult } from "@/app/action-result";
 import { useActionRunner } from "@/app/useActionRunner";
+import { useNotifyingActionRunner } from "@/app/useNotifyingActionRunner";
 import type { ImagePlacement } from "./image-overlay";
+import { IMAGE_OVERLAYS } from "./notification-sources";
 import type { WorkspaceImageOverlay } from "./SituationWorkspace";
 import type { MapModeControls } from "./useMapMode";
 
 /**
  * Das Bearbeiten eines Bild-Overlays: Platzierung, Deckkraft, Ersetzen und
  * Löschen, mit Fortschritt und Fehler fürs Panel. Der Fehler gehört zu einem
- * Bearbeiten: Jedes neue beginnt ohne ihn.
+ * Bearbeiten: Jedes neue beginnt ohne ihn. Scheitert eine Platzierung auf der
+ * Karte, meldet das die Benachrichtigung „Bild-Overlays“, und das Bild springt
+ * auf die gespeicherte Platzierung zurück.
  */
 export function useImageOverlayEditing({
   imageOverlays,
@@ -17,6 +21,7 @@ export function useImageOverlayEditing({
   onUpdateImagePlacement,
   onReplaceImage,
   onDeleteImage,
+  restoreImagePlacement,
 }: {
   imageOverlays: WorkspaceImageOverlay[];
   mode: Pick<MapModeControls, "editingImageId" | "armImageEdit" | "reset">;
@@ -26,9 +31,12 @@ export function useImageOverlayEditing({
   ) => Promise<ActionResult>;
   onReplaceImage: (id: string, file: File) => Promise<ActionResult>;
   onDeleteImage: (id: string) => Promise<ActionResult>;
+  /** Puts the image and its handles on the map back on the saved placement. */
+  restoreImagePlacement: (id: string) => void;
 }) {
   const { editingImageId } = mode;
   const { busy, error, setError, run: persistImage } = useActionRunner();
+  const placementSaving = useNotifyingActionRunner(IMAGE_OVERLAYS);
   const editingImage =
     imageOverlays.find((o) => o.id === editingImageId) ?? null;
 
@@ -38,10 +46,16 @@ export function useImageOverlayEditing({
   };
   // Platzierungs-/Deckkraft-/Ersetzen-Änderungen speichern, ohne den
   // Bearbeiten-Modus zu verlassen (nur „Fertig"/„Löschen" beenden ihn).
-  const saveImagePlacement = (id: string, placement: ImagePlacement) =>
-    persistImage(() => onUpdateImagePlacement(id, placement));
+  const saveImagePlacement = async (id: string, placement: ImagePlacement) => {
+    setError(null);
+    const result = await placementSaving.run(() =>
+      onUpdateImagePlacement(id, placement),
+    );
+    if (result?.error) restoreImagePlacement(id);
+  };
   const changeImageOpacity = (opacity: number) => {
     if (!editingImage) return;
+    placementSaving.closeError();
     void persistImage(() =>
       onUpdateImagePlacement(editingImage.id, {
         ...editingImage.placement,
@@ -51,23 +65,30 @@ export function useImageOverlayEditing({
   };
   const replaceImage = (file: File) => {
     if (!editingImageId) return;
+    placementSaving.closeError();
     void persistImage(() => onReplaceImage(editingImageId, file));
   };
   const deleteImage = async (id: string) => {
+    placementSaving.closeError();
     const result = await onDeleteImage(id);
     if (!result.error) mode.reset();
     return result;
   };
+  const finishEdit = () => {
+    placementSaving.closeError();
+    mode.reset();
+  };
 
   return {
     editingImage,
-    busy,
+    busy: busy || placementSaving.busy,
     error,
     startEditImage,
     saveImagePlacement,
     changeImageOpacity,
     replaceImage,
     deleteImage,
+    finishEdit,
   };
 }
 

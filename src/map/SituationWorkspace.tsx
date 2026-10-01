@@ -224,6 +224,7 @@ export function SituationWorkspace({
     onUpdateImagePlacement,
     onReplaceImage,
     onDeleteImage,
+    restoreImagePlacement: (id) => mapRef.current?.restoreImagePlacement(id),
   });
   const {
     isDesktop,
@@ -353,7 +354,9 @@ export function SituationWorkspace({
                   drawingArea={drawShape !== null}
                   movingCircle={movingCircleId !== null}
                   editingImage={editingImageId !== null}
-                  onEndMode={mode.reset}
+                  onEndMode={
+                    editingImageId ? imageEditing.finishEdit : mode.reset
+                  }
                   onSetCircleHere={areaFlows.setCircleHere}
                   circleMoveSaving={areaFlows.circleMoveSaving}
                 />
@@ -407,7 +410,6 @@ export function SituationWorkspace({
                   onSetImageVisibility={onSetImageVisibility}
                   onEditImage={startEditImage}
                   imageEditing={imageEditing}
-                  onEndMode={mode.reset}
                 />
               )}
             </MapPanelSheet>

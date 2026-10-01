@@ -58,6 +58,8 @@ export interface RenderedImageOverlay {
 export interface SituationMapHandle {
   /** Der aktuelle Ausschnitt, oder null, solange die Karte noch nicht steht. */
   getView(): MapView | null;
+  /** Puts the Bild-Overlay and its handles back on its saved placement. */
+  restoreImagePlacement(id: string): void;
 }
 
 export interface SituationMapProps {
@@ -137,6 +139,7 @@ export function SituationMap({
 
   useImperativeHandle(ref, () => ({
     getView: () => adapterRef.current?.getView() ?? null,
+    restoreImagePlacement: (id) => adapterRef.current?.restoreImageOverlay(id),
   }));
 
   // Marker-Callbacks lesen jeweils die aktuellen Props, damit die Marker-Specs

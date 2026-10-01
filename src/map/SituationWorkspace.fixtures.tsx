@@ -1,9 +1,10 @@
 import userEvent from "@testing-library/user-event";
-import { vi } from "vitest";
+import { expect, vi } from "vitest";
 import type { JournalEntryView } from "@/app/operations/[id]/JournalPanel";
 import { NO_ROUTE } from "@/journal/entry-route";
-import { render, screen, within } from "@/test/render";
+import { act, render, screen, waitFor, within } from "@/test/render";
 import { fakeMapAdapterFactory } from "./adapter.fixtures";
+import type { ImagePlacement } from "./image-overlay";
 import {
   SituationWorkspace,
   type SituationWorkspaceProps,
@@ -158,6 +159,17 @@ export const startEditingImage = async () => {
 export const openImageEditor = async () => {
   await startEditingImage();
   await openPanel("Ebenen");
+};
+
+/** Ends a gesture on the map that scales the edited Bild-Overlay. */
+export const scaleOnMap = async (
+  adapter: ReturnType<typeof renderWorkspace>["adapter"],
+) => {
+  await waitFor(() => expect(adapter.startImageOverlayEdit).toHaveBeenCalled());
+  const onChange = adapter.startImageOverlayEdit.mock.calls.at(-1)?.[1] as (
+    placement: ImagePlacement,
+  ) => void;
+  await act(async () => onChange({ ...anImageOverlay.placement, scaleM: 800 }));
 };
 
 export const anImageOverlay = {

@@ -11,6 +11,7 @@ import {
   openImageEditor,
   openPanel,
   renderWorkspace,
+  scaleOnMap,
   startEditingImage,
 } from "./SituationWorkspace.fixtures";
 
@@ -205,19 +206,6 @@ describe("SituationWorkspace", () => {
   });
 
   describe("when saving an edited image overlay does not come back with a result", () => {
-    const moveOnMap = async (
-      adapter: ReturnType<typeof renderWorkspace>["adapter"],
-    ) => {
-      await waitFor(() =>
-        expect(adapter.startImageOverlayEdit).toHaveBeenCalled(),
-      );
-      const onChange = adapter.startImageOverlayEdit.mock.calls.at(-1)![1] as (
-        p: unknown,
-      ) => void;
-      await act(async () =>
-        onChange({ ...anImageOverlay.placement, scaleM: 800 }),
-      );
-    };
     const changeOpacity = async () => {
       const slider = await screen.findByRole("slider", { name: "Deckkraft" });
       act(() => slider.focus());
@@ -229,17 +217,17 @@ describe("SituationWorkspace", () => {
         new File(["%PDF-1.4"], "neu.pdf", { type: "application/pdf" }),
       );
 
-    const userActions: [
+    type UserAction = [
       string,
       "onUpdateImagePlacement" | "onReplaceImage",
       (adapter: ReturnType<typeof renderWorkspace>["adapter"]) => Promise<void>,
-    ][] = [
-      ["moving it on the map", "onUpdateImagePlacement", moveOnMap],
+    ];
+    const editorActions: UserAction[] = [
       ["changing the opacity", "onUpdateImagePlacement", changeOpacity],
       ["replacing the file", "onReplaceImage", replace],
     ];
 
-    it.each(userActions)(
+    it.each(editorActions)(
       "shows the failure in the editor when %s throws and leaves it usable",
       async (_, prop, perform) => {
         const { adapter } = renderWorkspace({
@@ -269,14 +257,14 @@ describe("SituationWorkspace", () => {
     ])(
       "forgets the failure once editing is finished from %s",
       async (_, finishFrom) => {
-        const { adapter } = renderWorkspace({
+        renderWorkspace({
           imageOverlays: [anImageOverlay],
           onUpdateImagePlacement: vi.fn(async () => {
             throw new Error("offline");
           }),
         });
         await openImageEditor();
-        await moveOnMap(adapter);
+        await changeOpacity();
         expect(
           await within(mapPanel("Ebenen")).findByRole("alert"),
         ).toBeInTheDocument();
@@ -289,7 +277,10 @@ describe("SituationWorkspace", () => {
       },
     );
 
-    it.each(userActions)(
+    it.each<UserAction>([
+      ["scaling it on the map", "onUpdateImagePlacement", scaleOnMap],
+      ...editorActions,
+    ])(
       "shows no failure when %s redirects to the login",
       async (_, prop, perform) => {
         const action = vi.fn(async () => {

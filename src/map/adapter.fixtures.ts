@@ -22,6 +22,7 @@ export function fakeMapAdapterFactory(
     removeKmlOverlay: vi.fn(),
     setImageOverlay: vi.fn(),
     removeImageOverlay: vi.fn(),
+    restoreImageOverlay: vi.fn(),
     startImageOverlayEdit: vi.fn(),
     stopImageOverlayEdit: vi.fn(),
     startDrawing: vi.fn(),

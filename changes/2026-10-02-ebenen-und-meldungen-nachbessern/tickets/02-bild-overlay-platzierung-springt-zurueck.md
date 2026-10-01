@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:    AC-12
 advances:  AC-4
 after:     01-benachrichtigungen-fuer-die-panels
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -116,3 +116,63 @@ im Editor wie im Band über der Karte.
 - Wo ein neues Bild-Overlay startet: Ticket 04.
 
 ## Left standing
+
+**Review-Befunde, nicht behoben**
+
+- *Am Handy verdeckt die Benachrichtigung das Band „Bild-Overlay
+  bearbeiten“ samt „Fertig“* (Review 1, should-fix). Bei 360 px liegt sie
+  oben mittig (y 52–135) über dem Band; ein Tipp auf „Fertig“ im Band trifft
+  die Benachrichtigung. Weil sie sich nicht von selbst schließt, ist das
+  Band nach jeder gescheiterten Geste verdeckt, bis man sie mit „ד schließt
+  oder das Ebenen-Blatt öffnet. Die Position stammt aus Ticket 01 (AC-1).
+  Das muss auf der Ebene der Kriterien entschieden werden, nicht hier.
+  Ticket 03 bekommt dasselbe für „Karte“ über jedem Modus-Band.
+- *Ein Name für „zurück auf die gespeicherte Platzierung“* (Review 2, Nit,
+  teilweise behoben). Kartenhandle und Hook heißen jetzt beide
+  `restoreImagePlacement`. Die Adapter-Methode heißt weiter
+  `restoreImageOverlay`, passend zu `setImageOverlay` und
+  `removeImageOverlay` im selben Interface.
+
+**Ohne automatischen Test geprüft**
+
+- AC-12, „Bild und alle Griffe stehen danach auf der gespeicherten
+  Platzierung“: `leaflet-adapter.image-restore.test.ts` prüft das in jsdom
+  an den Leaflet-Objekten (Griff-Positionen, Ecken der Ebene auf der Karte),
+  nicht am gezeichneten Bild. Der Reviewer hat im Browser bei 1920 px (Maus)
+  und 360 px (Touch) Verschieben, Skalieren und Drehen offline scheitern
+  lassen. Bild und alle sechs Griffe sprangen jeweils auf die gespeicherte
+  Platzierung zurück, die Benachrichtigung erschien, und der Editor zeigte
+  nichts. Im Browser nur mit geworfenem Fehler geprüft; einen vom Server
+  zurückgegebenen Fehler decken nur die Tests ab.
+- AC-4 (Teil): Das Schließen hat der Reviewer am Desktop für alle sechs
+  Aktionen gesehen, am Handy nur für „Fertig“ im Editor. Die übrigen Fälle
+  am Handy decken die Tests ab.
+
+**Abweichungen vom Plan**
+
+- Schritt 2: Der Adapter-Test prüft nicht den letzten Aufruf von
+  `L.imageOverlay.rotated`, weil der schon beim ersten Setzen die
+  gespeicherten Ecken bekommt und der Test dann auch ohne Zurückstellen grün
+  wäre. Er liest stattdessen `_topLeft`, `_topRight` und `_bottomLeft` der
+  einen Ebene, die auf der Karte liegt. Das sind private Felder des Plugins.
+- Schritt 5: Die Redirect-Zeile für die Geste auf der Karte bleibt, statt auf
+  Deckkraft oder Ersetzen umgestellt zu werden. Für beide gibt es schon
+  eigene Zeilen, und dass eine Geste bei einer Weiterleitung nichts meldet,
+  gilt weiter. Der Helfer heißt jetzt `scaleOnMap` und liegt in
+  `SituationWorkspace.fixtures.tsx`, weil beide Testdateien ihn brauchen
+  (Review 2). Die Zeile heißt deshalb „scaling it on the map“.
+- Zusätzlich: Eine gespeicherte Platzierung löscht weiter die Meldung einer
+  gescheiterten Deckkraft-Änderung im Editor. Vorher lief beides über
+  denselben Runner; nach der Trennung wäre das stillschweigend weggefallen.
+  Ein Test in `SituationWorkspace.image-placement.test.tsx` pinnt es.
+- Zusätzlich: Dass der Editor während des Speicherns einer Platzierung
+  gesperrt ist (`busy` aus beiden Runnern), pinnt ein Test (Review 1,
+  should-fix).
+- `LayersPanel` hat die Prop `onEndMode` nicht mehr. „Fertig“ im Editor ruft
+  `imageEditing.finishEdit`; das Band wählt in `SituationWorkspace` inline
+  zwischen `finishEdit` (beim Bearbeiten eines Bildes) und `mode.reset`.
+- `src/map/SituationWorkspace.tsx` (jetzt 497 Zeilen) und
+  `src/map/leaflet-adapter.ts` (467) wachsen um ein paar Zeilen, ohne vorher
+  aufgeteilt zu werden. Der Plan sieht dafür kein eigenes Ticket vor.
+
+Von den Nudges bin ich nicht abgewichen.

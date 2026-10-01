@@ -65,6 +65,11 @@ export interface MapAdapter {
   setImageOverlay(id: string, overlay: ImageOverlaySpec): void;
   removeImageOverlay(id: string): void;
   /**
+   * Draws the overlay and, while it is edited, its handles on the placement
+   * last set, undoing a gesture whose saving failed.
+   */
+  restoreImageOverlay(id: string): void;
+  /**
    * Zeigt Griffe (Ecken zum Skalieren, Dreh-Griff, Bildfläche zum Verschieben)
    * für das Overlay und meldet jede fertige Geste über `onChange`.
    */
