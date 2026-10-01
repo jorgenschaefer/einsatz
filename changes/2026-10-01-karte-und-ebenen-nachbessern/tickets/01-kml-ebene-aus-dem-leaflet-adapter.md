@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:
 advances:
 after:
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -72,3 +72,11 @@ Das Verhalten ändert sich nicht.
   ändert dort nur wenige Zeilen in `runMapAction`, ohne Code hinzuzufügen.
 
 ## Left standing
+- Nicht im Browser geprüft: Weder Build noch Review haben die Lagekarte mit
+  einer KML-Ebene angesehen. Begründung: Code und Tests sind byte-gleich
+  verschoben (per `diff` gegen `HEAD` geprüft), `parseKml` wird weiter nur
+  über den dynamisch geladenen Adapter erreicht; die 33 Tests in
+  `kml-layer.test.ts` und `leaflet-adapter.*` laufen wie vorher alle grün.
+- Abweichung vom Plan (Kleinigkeit): Im neuen `kml-layer.test.ts` wird
+  `leaflet` als `import type L` importiert, weil der Test `L` nur noch für
+  Typen braucht. Der Inhalt der Tests ist unverändert.
