@@ -263,6 +263,32 @@ describe("SituationWorkspace", () => {
       },
     );
 
+    it.each([
+      ["the band", () => modeBand("Bild-Overlay bearbeiten")],
+      ["the Ebenen panel", () => mapPanel("Ebenen")],
+    ])(
+      "forgets the failure once editing is finished from %s",
+      async (_, finishFrom) => {
+        const { adapter } = renderWorkspace({
+          imageOverlays: [anImageOverlay],
+          onUpdateImagePlacement: vi.fn(async () => {
+            throw new Error("offline");
+          }),
+        });
+        await openImageEditor();
+        await moveOnMap(adapter);
+        expect(
+          await within(mapPanel("Ebenen")).findByRole("alert"),
+        ).toBeInTheDocument();
+
+        await userEvent.click(within(finishFrom()).getByText("Fertig"));
+        await openPanel("Ebenen"); // schließt das noch offene Panel
+        await openImageEditor();
+
+        expect(within(mapPanel("Ebenen")).queryByRole("alert")).toBeNull();
+      },
+    );
+
     it.each(userActions)(
       "shows no failure when %s redirects to the login",
       async (_, prop, perform) => {

@@ -25,6 +25,7 @@ export function LayersPanel({
   onSetImageVisibility,
   onEditImage,
   imageEditing,
+  onEndMode,
 }: {
   kmlOverlays: WorkspaceKmlOverlay[];
   onAddKmlFile: (name: string, content: string) => Promise<ActionResult>;
@@ -46,8 +47,9 @@ export function LayersPanel({
     | "changeImageOpacity"
     | "replaceImage"
     | "deleteImage"
-    | "finishEditImage"
   >;
+  /** „Fertig" im Editor: beendet das Bearbeiten wie jeden Karten-Modus. */
+  onEndMode: () => void;
 }) {
   const { editingImage } = imageEditing;
   return (
@@ -81,7 +83,7 @@ export function LayersPanel({
                 onOpacityChange={imageEditing.changeImageOpacity}
                 onReplace={imageEditing.replaceImage}
                 onDelete={() => imageEditing.deleteImage(editingImage.id)}
-                onDone={imageEditing.finishEditImage}
+                onDone={onEndMode}
                 busy={imageEditing.busy}
                 error={imageEditing.error}
               />

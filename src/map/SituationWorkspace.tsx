@@ -223,12 +223,6 @@ export function SituationWorkspace({
     onReplaceImage,
     onDeleteImage,
   });
-  // Beendet jeden Karten-Modus; ein Fehler aus dem Bild-Bearbeiten gehört
-  // zu dessen Modus und verschwindet mit ihm.
-  const endMode = () => {
-    imageEditing.clearError();
-    mode.reset();
-  };
   const {
     isDesktop,
     mainView,
@@ -240,7 +234,7 @@ export function SituationWorkspace({
     selectMapPanel,
     closeSheet,
     closeSheetOnPhone,
-  } = useMainView({ journalEntries, currentUsername, onMapHidden: endMode });
+  } = useMainView({ journalEntries, currentUsername, onMapHidden: mode.reset });
   const now = useStalenessClock();
   const { focusTarget, jumpTo, returnToDefaultView } =
     useMapFocus(operationDefaultView);
@@ -357,7 +351,7 @@ export function SituationWorkspace({
                   drawingArea={drawShape !== null}
                   movingCircle={movingCircleId !== null}
                   editingImage={editingImageId !== null}
-                  onEndMode={endMode}
+                  onEndMode={mode.reset}
                   onSetCircleHere={areaFlows.setCircleHere}
                   circleMoveSaving={areaFlows.circleMoveSaving}
                 />
@@ -411,6 +405,7 @@ export function SituationWorkspace({
                   onSetImageVisibility={onSetImageVisibility}
                   onEditImage={startEditImage}
                   imageEditing={imageEditing}
+                  onEndMode={mode.reset}
                 />
               )}
             </MapPanelSheet>
