@@ -4,6 +4,7 @@ import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import type { ActionResult } from "@/app/action-result";
 import { buttonColor } from "@/test/button-color";
+import { clickModalCloseButton } from "@/test/modal-close-button";
 import { clickModalOverlay } from "@/test/modal-overlay";
 import { redirectError } from "@/test/redirect-error";
 import { render, screen, waitFor, within } from "@/test/render";
@@ -54,6 +55,12 @@ describe("ConfirmationModal", () => {
     expect(buttonColor(screen.getByRole("button", { name: "Melden" }))).toBe(
       "blue",
     );
+  });
+
+  it("puts the focus on Abbrechen when it opens", async () => {
+    const { dialog } = setup(vi.fn(async () => ({})));
+
+    await waitFor(() => expect(button(dialog, "Abbrechen")).toHaveFocus());
   });
 
   it("shows its title, its consequence and both buttons", () => {
@@ -174,15 +181,50 @@ describe("ConfirmationModal", () => {
     });
   });
 
+  describe("opened from a button outside any dialog", () => {
+    function Unstacked() {
+      const [asking, setAsking] = useState(false);
+      return (
+        <>
+          <Button onClick={() => setAsking(true)}>Entfernen</Button>
+          <ConfirmationModal
+            opened={asking}
+            onClose={() => setAsking(false)}
+            title="Ebene entfernen"
+            confirmLabel="Entfernen"
+            onConfirm={vi.fn(async () => ({}))}
+          >
+            Das lässt sich nicht rückgängig machen.
+          </ConfirmationModal>
+        </>
+      );
+    }
+
+    it("returns the focus to that button when cancelled", async () => {
+      render(<Unstacked />);
+      const opener = screen.getByRole("button", { name: "Entfernen" });
+      await userEvent.click(opener);
+      const dialog = await screen.findByRole("dialog");
+      await waitFor(() => expect(button(dialog, "Abbrechen")).toHaveFocus());
+
+      await userEvent.click(button(dialog, "Abbrechen"));
+
+      await waitFor(() => expect(opener).toHaveFocus());
+    });
+  });
+
   describe("on top of another dialog in a Modal.Stack", () => {
     function Stacked({
       onCloseBelow,
       onClose,
+      removesOpenerOnConfirm = false,
     }: {
       onCloseBelow: () => void;
       onClose: () => void;
+      removesOpenerOnConfirm?: boolean;
     }) {
       const [asking, setAsking] = useState(false);
+      const [deleted, setDeleted] = useState(false);
       return (
         <Modal.Stack>
           <Modal
@@ -191,7 +233,9 @@ describe("ConfirmationModal", () => {
             onClose={onCloseBelow}
             title="Kartenzeichen"
           >
-            <Button onClick={() => setAsking(true)}>Löschen</Button>
+            {!deleted && (
+              <Button onClick={() => setAsking(true)}>Löschen</Button>
+            )}
             <ConfirmationModal
               stackId="oben"
               opened={asking}
@@ -202,7 +246,10 @@ describe("ConfirmationModal", () => {
               title="Kartenzeichen löschen"
               confirmLabel="Endgültig löschen"
               confirmColor="red"
-              onConfirm={vi.fn(async () => ({}))}
+              onConfirm={async () => {
+                if (removesOpenerOnConfirm) setDeleted(true);
+                return {};
+              }}
             >
               Das lässt sich nicht rückgängig machen.
             </ConfirmationModal>
@@ -211,10 +258,16 @@ describe("ConfirmationModal", () => {
       );
     }
 
-    async function setupStacked() {
+    async function setupStacked({ removesOpenerOnConfirm = false } = {}) {
       const onCloseBelow = vi.fn();
       const onClose = vi.fn();
-      render(<Stacked onCloseBelow={onCloseBelow} onClose={onClose} />);
+      render(
+        <Stacked
+          onCloseBelow={onCloseBelow}
+          onClose={onClose}
+          removesOpenerOnConfirm={removesOpenerOnConfirm}
+        />,
+      );
       await userEvent.click(screen.getByRole("button", { name: "Löschen" }));
       await screen.findByRole("dialog", { name: "Kartenzeichen löschen" });
       return { onCloseBelow, onClose };
@@ -226,6 +279,61 @@ describe("ConfirmationModal", () => {
       await userEvent.keyboard("{Escape}");
 
       expect(onClose).toHaveBeenCalledTimes(1);
+      expect(onCloseBelow).not.toHaveBeenCalled();
+    });
+
+    const confirmation = () =>
+      screen.getByRole("dialog", { name: "Kartenzeichen löschen" });
+    const opener = () => screen.getByRole("button", { name: "Löschen" });
+
+    it("puts the focus on Abbrechen when it opens", async () => {
+      await setupStacked();
+
+      await waitFor(() =>
+        expect(button(confirmation(), "Abbrechen")).toHaveFocus(),
+      );
+    });
+
+    it.each([
+      ["Abbrechen", () => userEvent.click(button(confirmation(), "Abbrechen"))],
+      ["×", () => clickModalCloseButton(confirmation())],
+      ["Escape", () => userEvent.keyboard("{Escape}")],
+    ])(
+      "returns the focus to the button that opened it when closed with %s",
+      async (_, closeConfirmation) => {
+        const { onCloseBelow } = await setupStacked();
+        await waitFor(() =>
+          expect(button(confirmation(), "Abbrechen")).toHaveFocus(),
+        );
+
+        await closeConfirmation();
+
+        await waitFor(() => expect(opener()).toHaveFocus());
+        expect(screen.getByRole("dialog", { name: "Kartenzeichen" })).toBe(
+          screen.getByRole("dialog"),
+        );
+        expect(onCloseBelow).not.toHaveBeenCalled();
+      },
+    );
+
+    it("returns the focus to the button that opened it after confirming", async () => {
+      await setupStacked();
+
+      await userEvent.click(button(confirmation(), "Endgültig löschen"));
+
+      await waitFor(() => expect(opener()).toHaveFocus());
+    });
+
+    it("focuses the dialog below when the button that opened it is gone", async () => {
+      const { onCloseBelow } = await setupStacked({
+        removesOpenerOnConfirm: true,
+      });
+
+      await userEvent.click(button(confirmation(), "Endgültig löschen"));
+
+      const below = screen.getByRole("dialog", { name: "Kartenzeichen" });
+      await waitFor(() => expect(below).toHaveFocus());
+      await userEvent.keyboard("{Enter}");
       expect(onCloseBelow).not.toHaveBeenCalled();
     });
   });

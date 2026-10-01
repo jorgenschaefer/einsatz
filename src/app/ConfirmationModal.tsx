@@ -1,7 +1,7 @@
 "use client";
 
 import { Alert, Button, Group, Modal, Stack } from "@mantine/core";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useLayoutEffect, useRef, useState } from "react";
 import { ACTION_FAILED, isNextNavigation } from "@/app/action-failure";
 import type { ActionResult } from "@/app/action-result";
 
@@ -37,6 +37,7 @@ export function ConfirmationModal({
 }) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const returnFocus = useFocusReturnAfterExit(opened);
 
   const close = () => {
     if (pending) return;
@@ -62,7 +63,13 @@ export function ConfirmationModal({
   };
 
   return (
-    <Modal stackId={stackId} opened={opened} onClose={close} title={title}>
+    <Modal
+      stackId={stackId}
+      opened={opened}
+      onClose={close}
+      onExitTransitionEnd={returnFocus}
+      title={title}
+    >
       <Stack>
         {error && (
           <Alert color="red" role="alert">
@@ -74,6 +81,7 @@ export function ConfirmationModal({
           <Button
             variant="default"
             style={TAP_TARGET}
+            data-autofocus
             disabled={pending}
             onClick={close}
           >
@@ -91,4 +99,32 @@ export function ConfirmationModal({
       </Stack>
     </Modal>
   );
+}
+
+/**
+ * Mantine gibt den Fokus im `Modal.Stack` nicht zurück: Wird der Dialog
+ * darunter wieder oberster, fokussiert seine Fokusfalle ihr erstes Element.
+ * Deshalb merkt sich die Rückfrage beim Öffnen das fokussierte Element und
+ * fokussiert es nach dem Ausblenden wieder, also nach der Fokusfalle. Ist es
+ * inzwischen weg, bekommt der Dialog, in dem es lag, den Fokus.
+ */
+function useFocusReturnAfterExit(opened: boolean) {
+  const opener = useRef<HTMLElement | null>(null);
+  const dialogBelow = useRef<HTMLElement | null>(null);
+
+  useLayoutEffect(() => {
+    if (opened && document.activeElement instanceof HTMLElement) {
+      opener.current = document.activeElement;
+      dialogBelow.current = opener.current.closest('[role="dialog"]');
+    }
+  }, [opened]);
+
+  return () => {
+    const target = [opener.current, dialogBelow.current].find(
+      (element) => element?.isConnected,
+    );
+    opener.current = null;
+    dialogBelow.current = null;
+    target?.focus({ preventScroll: true });
+  };
 }

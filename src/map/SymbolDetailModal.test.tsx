@@ -3,6 +3,7 @@ import type { ComponentProps } from "react";
 import { describe, expect, it, vi } from "vitest";
 import type { ActionResult } from "@/app/action-result";
 import { buttonColor } from "@/test/button-color";
+import { clickModalCloseButton } from "@/test/modal-close-button";
 import { clickModalOverlay } from "@/test/modal-overlay";
 import { render, screen, waitFor, within } from "@/test/render";
 import { SymbolDetailModal } from "./SymbolDetailModal";
@@ -64,6 +65,7 @@ const cancelWays = [
         within(dialog).getByRole("button", { name: "Abbrechen" }),
       ),
   ],
+  ["×", (dialog: HTMLElement) => clickModalCloseButton(dialog)],
   ["Escape", () => userEvent.keyboard("{Escape}")],
   ["a click beside the confirmation", () => clickModalOverlay()],
 ] as const;
@@ -134,17 +136,15 @@ describe("SymbolDetailModal", () => {
       {
         name: "deleting",
         title: "Kartenzeichen löschen",
-        ask: () => userEvent.click(screen.getByText("Löschen")),
+        opener: () => screen.getByRole("button", { name: "Löschen" }),
         confirmLabel: "Endgültig löschen",
         action: "onDelete",
       },
       {
         name: "regenerating the device link",
         title: "Gerätelink neu generieren",
-        ask: () =>
-          userEvent.click(
-            screen.getByRole("button", { name: "Gerätelink neu generieren" }),
-          ),
+        opener: () =>
+          screen.getByRole("button", { name: "Gerätelink neu generieren" }),
         confirmLabel: "Neu generieren",
         action: "onGenerateDeviceLink",
       },
@@ -152,12 +152,12 @@ describe("SymbolDetailModal", () => {
 
     describe.each(confirmations)("when $name", (confirmation) => {
       const ask = async () => {
-        await confirmation.ask();
+        await userEvent.click(confirmation.opener());
         return screen.findByRole("dialog", { name: confirmation.title });
       };
 
       it.each(cancelWays)(
-        "keeps the detail and its unsaved input after cancelling with %s",
+        "keeps the detail and its unsaved input and returns the focus after cancelling with %s",
         async (_, cancel) => {
           const action = vi.fn(async () => ({}));
           await openDetail({ [confirmation.action]: action });
@@ -174,6 +174,7 @@ describe("SymbolDetailModal", () => {
           expect(action).not.toHaveBeenCalled();
           expect(detailDialog()).toBeInTheDocument();
           expect(screen.getByLabelText("Bezeichnung")).toHaveValue("RK 9");
+          await waitFor(() => expect(confirmation.opener()).toHaveFocus());
         },
       );
 
@@ -295,6 +296,11 @@ describe("SymbolDetailModal", () => {
         ).toBeNull(),
       );
       expect(detailDialog()).toBeInTheDocument();
+      await waitFor(() =>
+        expect(
+          screen.getByRole("button", { name: "Gerätelink neu generieren" }),
+        ).toHaveFocus(),
+      );
 
       rerenderWith({ symbol: rk1("fresh-token") });
 

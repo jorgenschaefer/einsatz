@@ -1,6 +1,7 @@
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { ActionResult } from "@/app/action-result";
+import { clickModalCloseButton } from "@/test/modal-close-button";
 import { clickModalOverlay } from "@/test/modal-overlay";
 import { render, screen, waitFor, within } from "@/test/render";
 import { LageansichtShell } from "./LageansichtShell";
@@ -162,43 +163,60 @@ describe("LageansichtShell", () => {
   });
 
   describe("deleting a view link from Teilen", () => {
+    const shell = (
+      onDeleteViewLink: (id: string) => Promise<ActionResult>,
+      viewLinks = [{ id: "1", label: "Leitstelle", token: "tok-a" }],
+    ) => (
+      <LageansichtShell
+        operationName="Hochwasser"
+        status="active"
+        {...shareProps}
+        viewLinks={viewLinks}
+        onDeleteViewLink={onDeleteViewLink}
+      >
+        <div>Karte</div>
+      </LageansichtShell>
+    );
+
     async function askToDelete(
       onDeleteViewLink: (id: string) => Promise<ActionResult> = vi.fn(
         async () => ({}),
       ),
     ) {
-      render(
-        <LageansichtShell
-          operationName="Hochwasser"
-          status="active"
-          {...shareProps}
-          viewLinks={[{ id: "1", label: "Leitstelle", token: "tok-a" }]}
-          onDeleteViewLink={onDeleteViewLink}
-        >
-          <div>Karte</div>
-        </LageansichtShell>,
-      );
+      const { rerender } = render(shell(onDeleteViewLink));
       await userEvent.click(screen.getByRole("button", { name: "Teilen" }));
       await userEvent.click(
         await screen.findByRole("button", { name: "Leitstelle löschen" }),
       );
-      return screen.findByRole("dialog", {
+      const confirmation = await screen.findByRole("dialog", {
         name: "Ansichtslink „Leitstelle“ löschen",
       });
+      return { confirmation, rerender };
     }
 
     const shareDialog = () =>
       screen.getByRole("dialog", { name: "Ansichtslinks teilen" });
 
     it.each([
+      [
+        "on Abbrechen",
+        (confirmation: HTMLElement) =>
+          userEvent.click(
+            within(confirmation).getByRole("button", { name: "Abbrechen" }),
+          ),
+      ],
+      [
+        "on ×",
+        (confirmation: HTMLElement) => clickModalCloseButton(confirmation),
+      ],
       ["on Escape", () => userEvent.keyboard("{Escape}")],
       ["on a click beside the confirmation", () => clickModalOverlay()],
     ])(
       "closes only the confirmation %s and returns to Teilen with the link",
       async (_, cancel) => {
-        await askToDelete();
+        const { confirmation } = await askToDelete();
 
-        await cancel();
+        await cancel(confirmation);
 
         await waitFor(() =>
           expect(
@@ -208,15 +226,39 @@ describe("LageansichtShell", () => {
           ).toBeNull(),
         );
         expect(within(shareDialog()).getByText("Leitstelle")).toBeVisible();
+        await waitFor(() =>
+          expect(
+            screen.getByRole("button", { name: "Leitstelle löschen" }),
+          ).toHaveFocus(),
+        );
       },
     );
+
+    it("keeps the focus in Teilen after the link is deleted, so Enter does not close it", async () => {
+      const onDeleteViewLink = vi.fn(async () => {
+        rerender(shell(onDeleteViewLink, []));
+        return {};
+      });
+      const { confirmation, rerender } = await askToDelete(onDeleteViewLink);
+
+      await userEvent.click(
+        within(confirmation).getByRole("button", {
+          name: "Endgültig löschen",
+        }),
+      );
+
+      await waitFor(() => expect(shareDialog()).toHaveFocus());
+      await userEvent.keyboard("{Enter}");
+      expect(shareDialog()).toBeInTheDocument();
+      expect(within(shareDialog()).queryByText("Leitstelle")).toBeNull();
+    });
 
     it.each([
       ["on Escape", () => userEvent.keyboard("{Escape}")],
       ["on a click beside the confirmation", () => clickModalOverlay()],
     ])("keeps both dialogs open %s while deleting", async (_, cancel) => {
       const onDeleteViewLink = vi.fn(() => new Promise<ActionResult>(() => {}));
-      const confirmation = await askToDelete(onDeleteViewLink);
+      const { confirmation } = await askToDelete(onDeleteViewLink);
 
       await userEvent.click(
         within(confirmation).getByRole("button", {

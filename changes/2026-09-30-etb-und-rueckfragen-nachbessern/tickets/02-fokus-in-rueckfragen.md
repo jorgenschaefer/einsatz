@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:    AC-7, AC-8, AC-9, AC-10, AC-11, AC-12
 advances:
 after:
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -127,3 +127,28 @@ sie über einem anderen Dialog lag. Jede Rückfrage öffnet mit dem Fokus auf
 - Andere Fehlertexte sind out of scope.
 
 ## Left standing
+- **Checked in the browser, not only by tests:** jsdom does not run the real
+  transition, so the timing in the browser (focus comes back after the exit
+  transition, which ends after the focus trap below has moved focus) was checked
+  by the reviewer. They used the keyboard at 360×740 and 1920×1080 on all four
+  confirmations from AC-8 (Abbrechen, ×, Escape), confirmed „Neu generieren“,
+  deleted a view link and then pressed Enter, and cancelled KML „Entfernen“.
+  Focus landed as AC-7 to AC-12 require, with a visible focus ring. 1920×1080
+  was the reviewer's choice; no widest size is documented.
+- **Timing depends on the exit transition:** focus is returned in
+  `onExitTransitionEnd`. With a transition of length 0 (e.g. if
+  `respectReducedMotion` is turned on in the theme for users who prefer reduced
+  motion), this would fire before the focus trap below takes focus, and the X
+  would win again. Nothing in `src` turns that on today, so I left it.
+- **Unstacked confirmations** now return focus twice: Mantine's own
+  `returnFocus` after 10 ms, and again after the exit transition. Both target
+  the same button. If someone moves the focus within those ~200 ms, it is pulled
+  back. Mantine's own return stops after Tab, but ours does not. I left that
+  because it is a short window right after a close.
+- **The „×“ in Mantine's modals has no accessible name.** Tests find it by
+  CSS class via the new `src/test/modal-close-button.ts`. Naming it (e.g.
+  „Schließen“) is a separate change and is out of scope here.
+- **Plan step 3** said the cancel tests would be red and the unstacked tests
+  green. That held, except that I added the focus assertions to the existing
+  cancel tables (which also cover a click beside the confirmation) instead of
+  writing separate tests. To get the red run, I disabled the fix temporarily.

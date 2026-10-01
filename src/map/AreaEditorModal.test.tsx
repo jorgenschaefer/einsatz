@@ -3,6 +3,7 @@ import type { ComponentProps } from "react";
 import { describe, expect, it, vi } from "vitest";
 import type { ActionResult } from "@/app/action-result";
 import { buttonColor } from "@/test/button-color";
+import { clickModalCloseButton } from "@/test/modal-close-button";
 import { clickModalOverlay } from "@/test/modal-overlay";
 import { render, screen, waitFor, within } from "@/test/render";
 import { AreaEditorModal } from "./AreaEditorModal";
@@ -63,6 +64,7 @@ const cancelWays = [
         within(dialog).getByRole("button", { name: "Abbrechen" }),
       ),
   ],
+  ["×", (dialog: HTMLElement) => clickModalCloseButton(dialog)],
   ["Escape", () => userEvent.keyboard("{Escape}")],
   ["a click beside the confirmation", () => clickModalOverlay()],
 ] as const;
@@ -282,7 +284,7 @@ describe("AreaEditorModal", () => {
     };
 
     it.each(cancelWays)(
-      "keeps the editor and its unsaved input after cancelling with %s",
+      "keeps the editor and its unsaved input and returns the focus after cancelling with %s",
       async (_, cancel) => {
         const { props, editor } = await openEditor();
         await editLabel();
@@ -298,6 +300,11 @@ describe("AreaEditorModal", () => {
         expect(props.onDeleteArea).not.toHaveBeenCalled();
         expect(editorDialog()).toBeInTheDocument();
         expect(screen.getByLabelText("Beschriftung")).toHaveValue("Zone Süd");
+        await waitFor(() =>
+          expect(
+            within(editor).getByRole("button", { name: "Löschen" }),
+          ).toHaveFocus(),
+        );
       },
     );
 
