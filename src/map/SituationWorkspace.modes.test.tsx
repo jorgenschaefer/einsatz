@@ -2,10 +2,10 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { stubMatchMedia } from "@/test/match-media";
 import { act, screen, waitFor, within } from "@/test/render";
+import type { fakeMapAdapterFactory } from "./adapter.fixtures";
 import {
   anImageOverlay,
   buttonWithText,
-  type fakeFactory,
   modeBand,
   openPanel,
   renderWorkspace,
@@ -108,7 +108,7 @@ describe("SituationWorkspace", () => {
     });
 
     const clickMap = async (
-      captured: ReturnType<typeof fakeFactory>["captured"],
+      captured: ReturnType<typeof fakeMapAdapterFactory>["captured"],
     ) => {
       await act(async () => {
         captured.options!.onMapClick!({ lat: 50, lng: 8 });

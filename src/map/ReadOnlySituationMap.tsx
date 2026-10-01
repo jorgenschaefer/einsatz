@@ -95,12 +95,7 @@ export function ReadOnlySituationMap({
       onGeocode ? onGeocode(q) : tokenGeocode(basePath, token, q),
     [onGeocode, basePath, token],
   );
-  const {
-    query: searchQuery,
-    setQuery: setSearchQuery,
-    objectResults,
-    addressResults,
-  } = useMapSearch(symbols, geocode);
+  const search = useMapSearch(symbols, geocode, jumpTo);
 
   const placed = useMemo<PlacedSymbol[]>(
     () => toPlacedSymbols(symbols, now),
@@ -126,6 +121,7 @@ export function ReadOnlySituationMap({
         areas={areas}
         kmlOverlays={kmlOverlays}
         imageOverlays={imageOverlays}
+        searchHit={search.searchHit}
         factory={factory}
       />
       <Box
@@ -136,12 +132,13 @@ export function ReadOnlySituationMap({
         style={{ zIndex: 1100 }}
       >
         <SearchBar
-          query={searchQuery}
-          onQueryChange={setSearchQuery}
-          objectResults={objectResults}
-          addressResults={addressResults}
+          query={search.query}
+          onQueryChange={search.setQuery}
+          objectResults={search.objectResults}
+          addressResults={search.addressResults}
           attribution={geocoderAttribution}
-          onJump={jumpTo}
+          onChooseAddress={search.chooseAddress}
+          onChooseObject={search.chooseObject}
         />
       </Box>
       {!connected && (

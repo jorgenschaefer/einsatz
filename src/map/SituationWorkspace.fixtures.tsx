@@ -3,41 +3,12 @@ import { vi } from "vitest";
 import type { JournalEntryView } from "@/app/operations/[id]/JournalPanel";
 import { NO_ROUTE } from "@/journal/entry-route";
 import { render, screen, within } from "@/test/render";
-import type { CreateMapOptions, MapAdapterFactory } from "./adapter";
+import { fakeMapAdapterFactory } from "./adapter.fixtures";
 import {
   SituationWorkspace,
   type SituationWorkspaceProps,
 } from "./SituationWorkspace";
 import { aSymbol } from "./symbol.fixtures";
-
-export function fakeFactory() {
-  const captured: { options?: CreateMapOptions } = {};
-  const adapter = {
-    getView: () => ({ lat: 0, lng: 0, zoom: 1 }),
-    setView: vi.fn(),
-    setMarker: vi.fn(),
-    removeMarker: vi.fn(),
-    setArea: vi.fn(),
-    removeArea: vi.fn(),
-    setKmlOverlay: vi.fn(),
-    removeKmlOverlay: vi.fn(),
-    setImageOverlay: vi.fn(),
-    removeImageOverlay: vi.fn(),
-    startImageOverlayEdit: vi.fn(),
-    stopImageOverlayEdit: vi.fn(),
-    startDrawing: vi.fn(),
-    cancelDrawing: vi.fn(),
-    startCirclePreview: vi.fn(),
-    stopCirclePreview: vi.fn(),
-    destroy: vi.fn(),
-  };
-  const create = vi.fn((_c: HTMLElement, options: CreateMapOptions) => {
-    captured.options = options;
-    return adapter;
-  });
-  const factory: MapAdapterFactory = { create };
-  return { factory, captured, adapter };
-}
 
 export const selectMainView = (name: "Lagekarte" | "ETB" | "Stärke") =>
   userEvent.click(screen.getAllByText(name)[0]);
@@ -53,7 +24,7 @@ export const footerOffsetReleased = () =>
   );
 
 export function buildProps(over: Partial<SituationWorkspaceProps> = {}) {
-  const fake = fakeFactory();
+  const fake = fakeMapAdapterFactory();
   const props: SituationWorkspaceProps = {
     operationId: "op-x",
     operationName: "Hochwasser",

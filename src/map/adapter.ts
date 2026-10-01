@@ -85,6 +85,12 @@ export interface MapAdapter {
    */
   startCirclePreview(spec: CirclePreviewSpec): void;
   stopCirclePreview(): void;
+  /**
+   * Marks the Suchtreffer with a pin above every other layer; taps pass
+   * through the pin. Calling it again moves the one pin.
+   */
+  setSearchHit(position: LatLng): void;
+  clearSearchHit(): void;
   destroy(): void;
 }
 

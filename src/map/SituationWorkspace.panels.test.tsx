@@ -3,12 +3,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { stubMatchMedia } from "@/test/match-media";
 import { act, fireEvent, screen, waitFor, within } from "@/test/render";
 import type { MarkerSpec } from "./adapter";
+import type { fakeMapAdapterFactory } from "./adapter.fixtures";
 import type { SituationWorkspaceProps } from "./SituationWorkspace";
 import {
   AREA,
   anImageOverlay,
   anyMapPanel,
-  type fakeFactory,
   mapPanel,
   openPanel,
   type PanelName,
@@ -169,7 +169,7 @@ describe("SituationWorkspace", () => {
     };
 
     const expectMapUntouchedAndClickable = async (
-      adapter: ReturnType<typeof fakeFactory>["adapter"],
+      adapter: ReturnType<typeof fakeMapAdapterFactory>["adapter"],
     ) => {
       expect(
         screen.getByLabelText("Zum Standard-Ausschnitt zurück", {

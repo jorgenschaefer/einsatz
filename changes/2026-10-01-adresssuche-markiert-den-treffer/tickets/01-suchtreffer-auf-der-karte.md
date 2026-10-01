@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:    AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-7, AC-8, AC-9
 advances:
 after:     04-situation-workspace-aufteilen
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -158,3 +158,52 @@ Entscheidungen, die schwer zurückzunehmen sind: der Name `SearchHit` /
   dieser Ticket legt dort nur Verdrahtung dazu, keine Logik.
 
 ## Left standing
+- Abweichung vom Nudge (wie im Ticket vorgesehen): Die Stecknadel steht nicht
+  per hohem `zIndexOffset` im Marker-Pane, sondern in einem eigenen Pane
+  `searchHitPane` (z-index 660, `pointer-events: none`), weil die
+  Bezeichnungen der Kartenzeichen und die Beschriftungen der Bereiche im
+  Tooltip-Pane (650) über jedem Marker-Pane liegen.
+- Abweichung vom Plan, Schritt 3: Pane und Stecknadel stehen in einer eigenen
+  Datei `src/map/search-hit-pin.ts` statt in `leaflet-adapter.ts` (456 Zeilen);
+  der Adapter ruft sie nur auf. Getestet wird weiter über den Adapter in
+  `leaflet-adapter.search-hit.test.ts`.
+- Abweichung vom Plan, Schritt 2: Statt die zwei Methoden in vier (tatsächlich
+  fünf, eine steckte inline in `SituationMap.test.tsx`) Fake-Adaptern
+  nachzutragen, liegt der Fake jetzt einmal in `src/map/adapter.fixtures.ts`;
+  er merkt sich den gezeichneten Suchtreffer (`drawn.searchHit`), damit die
+  Ansichts-Tests den Zustand der Karte prüfen statt einzelner Aufrufe. Die
+  vorhandenen Suchtests aus `SituationWorkspace.symbols.test.tsx` sind
+  unverändert nach `SituationWorkspace.search.test.tsx` umgezogen.
+- Über das Ticket hinaus: Liefert der Geocoder dieselbe Adresse zweimal
+  (gleiche Bezeichnung und Position), steht sie nur einmal in der
+  Trefferliste. Vorher warf React dabei eine Warnung wegen doppelter Keys (im
+  Review mit Photon gesehen).
+- Die Stecknadel ist samt weißem Rand 28 × 42 px groß, nicht 26 × 40 px. Das
+  ist die Fläche, die der Pfad aus dem Specimen mit seinem Rand braucht.
+- Kein automatischer Test beweist AC-2, AC-7 und AC-8 im echten Browser und
+  das Verschieben und Zoomen aus AC-3. Die Unit-Tests prüfen nur die
+  Pane-Reihenfolge, `pointer-events` und die Lage der Spitze. Der Review hat
+  die laufende App in zwei Runden auf 1280×800 und auf 390×844 mit Touch
+  gefahren:
+  - AC-2: Abgleich mit `drawPin`.
+  - AC-7: Stecknadel über Kartenzeichen samt Bezeichnung, über einem Kreis samt
+    Beschriftung, über einem deckenden KML-Polygon und -Punkt und über einem
+    Bild-Overlay. Das hat nur die erste Runde geprüft.
+  - AC-8: Ein scharfgestellter KTW wird an der geklickten Stelle auf der
+    Stecknadel gesetzt. Ein Kartenzeichen unter der Stecknadel öffnet sich per
+    Klick und am Telefon per Tap. Platzieren durch die Stecknadel ist nur am
+    Desktop geprüft, weil der Review am Telefon kein Kartenzeichen
+    scharfstellen konnte.
+  - AC-3: Ziehen, Zoom-Knöpfe und Pinch-Zoom.
+  - AC-9: Ein zweiter Browser sieht keine Stecknadel; nach dem Neuladen ist sie
+    weg.
+- Review-Nit nicht behoben: Leeren auf `""`/`"   "` und Ändern des Textes sind
+  sowohl in `useMapSearch.test.ts` als auch in
+  `SituationWorkspace.search.test.tsx` getestet. Das bleibt so, weil AC-5 und
+  AC-3 dort gepinnt sind, wo die Nutzerin oder der Nutzer handelt: im Suchfeld
+  der Führungsansicht.
+- Offener Punkt aus dem Review, kein Befund: Zweimal ist nach der Wahl einer
+  Adresse am Telefon die Karte nicht oder erst verzögert gesprungen, während
+  die Stecknadel richtig stand. Beim Wiederholen trat das nicht mehr auf. Den
+  Sprung selbst ändert dieses Ticket nicht. Vermutlich hat die Messung die
+  Pan-Animation erwischt, nachgewiesen ist das nicht.

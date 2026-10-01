@@ -1,6 +1,6 @@
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { act, fireEvent, render, screen, waitFor, within } from "@/test/render";
+import { act, render, screen, waitFor, within } from "@/test/render";
 import type { MarkerSpec } from "./adapter";
 import { QUICK_SELECT } from "./quick-select";
 import {
@@ -12,7 +12,6 @@ import {
   openPanel,
   renderWorkspace,
   SYMBOL,
-  selectMainView,
 } from "./SituationWorkspace.fixtures";
 import { aSymbol } from "./symbol.fixtures";
 
@@ -174,96 +173,6 @@ describe("SituationWorkspace", () => {
     expect(await screen.findByLabelText("Bezeichnung")).toHaveValue(
       "Rotkreuz 83/1",
     );
-  });
-
-  it("geocodes the address query (debounced) and shows the result", async () => {
-    const onGeocode = vi.fn(async () => [
-      { label: "Rathaus, Hamburg", lat: 53.55, lng: 9.99 },
-    ]);
-    renderWorkspace({ onGeocode });
-    await selectMainView("Lagekarte");
-    fireEvent.change(screen.getByLabelText("Suche"), {
-      target: { value: "Hamburg" },
-    });
-    await waitFor(() => expect(onGeocode).toHaveBeenCalledWith("Hamburg"));
-    expect(await screen.findByText(/Rathaus, Hamburg/)).toBeInTheDocument();
-  });
-
-  it("jumps the map to a searched Kartenzeichen", async () => {
-    const { adapter } = renderWorkspace({
-      symbols: [
-        aSymbol({
-          composition: {
-            grundzeichen: "taktische-formation",
-            organisation: "hilfsorganisation",
-            text: "Rotkreuz 83/1",
-          },
-        }),
-      ],
-    });
-    await selectMainView("Lagekarte");
-    fireEvent.change(screen.getByLabelText("Suche"), {
-      target: { value: "Rotkreuz" },
-    });
-    // Ein Kartenzeichen mit demselben Namen kann gleichzeitig im offenen
-    // Kartenzeichen-Panel stehen; auf das Suchergebnis beschränken.
-    const results = within(
-      (await screen.findByText("Einsatzobjekte")).parentElement as HTMLElement,
-    );
-    await userEvent.click(results.getByText(/Rotkreuz 83\/1/));
-    await waitFor(() =>
-      expect(adapter.setView).toHaveBeenCalledWith({
-        lat: 53.5,
-        lng: 9.9,
-        zoom: 16,
-      }),
-    );
-  });
-
-  describe.each([
-    { current: 10, expected: 16 },
-    { current: 18, expected: 18 },
-  ])("jumping from the search at zoom $current", ({ current, expected }) => {
-    it(`centers on a chosen address at zoom ${expected}`, async () => {
-      const onGeocode = vi.fn(async () => [
-        { label: "Rathaus, Hamburg", lat: 53.55, lng: 9.99 },
-      ]);
-      const { adapter } = renderWorkspace({ onGeocode });
-      adapter.getView = () => ({ lat: 0, lng: 0, zoom: current });
-      await selectMainView("Lagekarte");
-      fireEvent.change(screen.getByLabelText("Suche"), {
-        target: { value: "Hamburg" },
-      });
-      await userEvent.click(await screen.findByText(/Rathaus, Hamburg/));
-      await waitFor(() =>
-        expect(adapter.setView).toHaveBeenCalledWith({
-          lat: 53.55,
-          lng: 9.99,
-          zoom: expected,
-        }),
-      );
-    });
-
-    it(`centers on a chosen Kartenzeichen at zoom ${expected}`, async () => {
-      const { adapter } = renderWorkspace({ symbols: [SYMBOL] });
-      adapter.getView = () => ({ lat: 0, lng: 0, zoom: current });
-      await selectMainView("Lagekarte");
-      fireEvent.change(screen.getByLabelText("Suche"), {
-        target: { value: "Pumpe" },
-      });
-      const results = within(
-        (await screen.findByText("Einsatzobjekte"))
-          .parentElement as HTMLElement,
-      );
-      await userEvent.click(results.getByText(/Pumpe 1/));
-      await waitFor(() =>
-        expect(adapter.setView).toHaveBeenCalledWith({
-          lat: SYMBOL.lat,
-          lng: SYMBOL.lng,
-          zoom: expected,
-        }),
-      );
-    });
   });
 
   it("renders a marker for each provided Kartenzeichen", async () => {

@@ -3,46 +3,13 @@ import userEvent from "@testing-library/user-event";
 import { useEffect } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { act, render, routerRefresh, screen, waitFor } from "@/test/render";
-import type {
-  CreateMapOptions,
-  MapAdapterFactory,
-  MarkerSpec,
-} from "./adapter";
+import type { MarkerSpec } from "./adapter";
+import { fakeMapAdapterFactory } from "./adapter.fixtures";
 import { DeviceView, type DeviceViewProps } from "./DeviceView";
 import { aStatefulSymbol } from "./symbol.fixtures";
 
-function fakeFactory() {
-  const captured: { options?: CreateMapOptions } = {};
-  const adapter = {
-    getView: () => ({ lat: 0, lng: 0, zoom: 1 }),
-    setView: vi.fn(),
-    setMarker: vi.fn(),
-    removeMarker: vi.fn(),
-    setArea: vi.fn(),
-    removeArea: vi.fn(),
-    setKmlOverlay: vi.fn(),
-    removeKmlOverlay: vi.fn(),
-    setImageOverlay: vi.fn(),
-    removeImageOverlay: vi.fn(),
-    startImageOverlayEdit: vi.fn(),
-    stopImageOverlayEdit: vi.fn(),
-    startDrawing: vi.fn(),
-    cancelDrawing: vi.fn(),
-    startCirclePreview: vi.fn(),
-    stopCirclePreview: vi.fn(),
-    destroy: vi.fn(),
-  };
-  const factory: MapAdapterFactory = {
-    create(_c, options) {
-      captured.options = options;
-      return adapter;
-    },
-  };
-  return { factory, captured, adapter };
-}
-
 function renderDevice(over: Partial<DeviceViewProps> = {}) {
-  const fake = fakeFactory();
+  const fake = fakeMapAdapterFactory();
   const props: DeviceViewProps = {
     token: "tok",
     operationId: "op-x",
@@ -177,6 +144,21 @@ describe("DeviceView", () => {
       lng: 9.9,
       zoom: 16,
     });
+  });
+
+  it("marks a chosen address on the map", async () => {
+    const { drawn } = renderDevice({
+      onGeocode: vi.fn(async () => [
+        { label: "Rathaus, Hamburg", lat: 53.55, lng: 9.99 },
+      ]),
+    });
+    fireEvent.change(screen.getByLabelText("Suche"), {
+      target: { value: "hamburg" },
+    });
+    await userEvent.click(
+      await screen.findByRole("button", { name: /Rathaus, Hamburg/ }),
+    );
+    expect(drawn.searchHit).toEqual({ lat: 53.55, lng: 9.99 });
   });
 
   it("searches addresses through the injected geocoder and jumps to a hit", async () => {

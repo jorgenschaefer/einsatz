@@ -237,14 +237,9 @@ export function SituationWorkspace({
     closeSheetOnPhone,
   } = useMainView({ journalEntries, currentUsername, onMapHidden: endMode });
   const now = useStalenessClock();
-  const {
-    query: searchQuery,
-    setQuery: setSearchQuery,
-    objectResults,
-    addressResults,
-  } = useMapSearch(symbols, onGeocode);
   const { focusTarget, jumpTo, returnToDefaultView } =
     useMapFocus(operationDefaultView);
+  const search = useMapSearch(symbols, onGeocode, jumpTo);
   const { mapError, dismissMapError, runMapAction } =
     useMapActionError(closeSheetOnPhone);
   const areaFlows = useAreaFlows({
@@ -334,6 +329,7 @@ export function SituationWorkspace({
               editingImageId={editingImageId}
               onEditImagePlacement={imageEditing.saveImagePlacement}
               movingCircleId={movingCircleId}
+              searchHit={search.searchHit}
               factory={factory}
             />
             {movingCircleId && (
@@ -343,12 +339,13 @@ export function SituationWorkspace({
             <Box className="map-search">
               <Stack gap={8}>
                 <SearchBar
-                  query={searchQuery}
-                  onQueryChange={setSearchQuery}
-                  objectResults={objectResults}
-                  addressResults={addressResults}
+                  query={search.query}
+                  onQueryChange={search.setQuery}
+                  objectResults={search.objectResults}
+                  addressResults={search.addressResults}
                   attribution={geocoderAttribution}
-                  onJump={jumpTo}
+                  onChooseAddress={search.chooseAddress}
+                  onChooseObject={search.chooseObject}
                 />
                 <MapModeBands
                   placingSymbol={symbolPlacement.armedComposition !== null}

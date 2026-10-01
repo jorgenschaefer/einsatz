@@ -26,6 +26,7 @@ import {
   kmlSignature,
   markerVisualSignature,
 } from "./layer-signature";
+import { createSearchHitPin } from "./search-hit-pin";
 import { type LatLng, MAX_TILE_ZOOM, type MapView } from "./view";
 
 /** Vom Plugin ergänzt: platziert ein (dreh-/scherbares) Bild über drei Ecken. */
@@ -97,8 +98,8 @@ const MARKER_SIZE = 40;
 
 /**
  * Leaflet-Implementierung des {@link MapAdapter}. Spricht zusammen mit
- * `kml-layer.ts` als einziger Ort direkt mit Leaflet; wird nur clientseitig
- * (dynamisch) geladen.
+ * `kml-layer.ts` und `search-hit-pin.ts` als einziger Ort direkt mit Leaflet;
+ * wird nur clientseitig (dynamisch) geladen.
  */
 export const leafletMapAdapterFactory: MapAdapterFactory = {
   create(container, options) {
@@ -299,6 +300,8 @@ export const leafletMapAdapterFactory: MapAdapterFactory = {
         });
     };
 
+    const searchHitPin = createSearchHitPin(map);
+
     let circlePreview: { circle: L.Circle; follow: () => void } | null = null;
     function stopCirclePreview() {
       if (!circlePreview) return;
@@ -443,6 +446,8 @@ export const leafletMapAdapterFactory: MapAdapterFactory = {
         circlePreview = { circle, follow };
       },
       stopCirclePreview,
+      setSearchHit: searchHitPin.set,
+      clearSearchHit: searchHitPin.clear,
       destroy: () => {
         clearHandles();
         resizeObserver?.disconnect();

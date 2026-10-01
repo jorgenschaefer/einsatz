@@ -1,3 +1,5 @@
+import type { GeoHit } from "@/server/geocoder/geocoder";
+
 export interface SearchableSymbol {
   id: string;
   bezeichnung: string | null;
@@ -44,4 +46,9 @@ export function searchOperationObjects(
   }
 
   return results;
+}
+
+/** Identifies an address result; the result list holds each key once. */
+export function addressResultKey(hit: GeoHit): string {
+  return `${hit.label}-${hit.lat}-${hit.lng}`;
 }

@@ -90,6 +90,8 @@ export interface SituationMapProps {
    * centre as a preview instead of standing at its saved centre.
    */
   movingCircleId?: string | null;
+  /** The chosen address of the map search, marked with a pin (or none). */
+  searchHit?: LatLng | null;
   /** Für Tests injizierbar; sonst wird zur Laufzeit der Leaflet-Adapter geladen. */
   factory?: MapAdapterFactory;
 }
@@ -120,6 +122,7 @@ export function SituationMap({
   editingImageId = null,
   onEditImagePlacement,
   movingCircleId = null,
+  searchHit = null,
   factory,
 }: SituationMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -318,6 +321,13 @@ export function SituationMap({
         }),
     );
   }, [ready, imageOverlays]);
+
+  useEffect(() => {
+    const adapter = adapterRef.current;
+    if (!ready || !adapter) return;
+    if (searchHit) adapter.setSearchHit(searchHit);
+    else adapter.clearSearchHit();
+  }, [ready, searchHit]);
 
   // Bearbeiten-Modus: Griffe fürs gewählte Overlay zeigen und Platzierungs-Gesten melden.
   useEffect(() => {

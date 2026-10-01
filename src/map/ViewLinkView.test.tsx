@@ -8,46 +8,13 @@ import {
   screen,
   waitFor,
 } from "@/test/render";
-import type {
-  CreateMapOptions,
-  MapAdapterFactory,
-  MarkerSpec,
-} from "./adapter";
+import type { MarkerSpec } from "./adapter";
+import { fakeMapAdapterFactory } from "./adapter.fixtures";
 import { aStatefulSymbol } from "./symbol.fixtures";
 import { ViewLinkView, type ViewLinkViewProps } from "./ViewLinkView";
 
-function fakeFactory() {
-  const captured: { options?: CreateMapOptions } = {};
-  const adapter = {
-    getView: () => ({ lat: 0, lng: 0, zoom: 1 }),
-    setView: vi.fn(),
-    setMarker: vi.fn(),
-    removeMarker: vi.fn(),
-    setArea: vi.fn(),
-    removeArea: vi.fn(),
-    setKmlOverlay: vi.fn(),
-    removeKmlOverlay: vi.fn(),
-    setImageOverlay: vi.fn(),
-    removeImageOverlay: vi.fn(),
-    startImageOverlayEdit: vi.fn(),
-    stopImageOverlayEdit: vi.fn(),
-    startDrawing: vi.fn(),
-    cancelDrawing: vi.fn(),
-    startCirclePreview: vi.fn(),
-    stopCirclePreview: vi.fn(),
-    destroy: vi.fn(),
-  };
-  const factory: MapAdapterFactory = {
-    create(_c, options) {
-      captured.options = options;
-      return adapter;
-    },
-  };
-  return { factory, captured, adapter };
-}
-
 function renderView(over: Partial<ViewLinkViewProps> = {}) {
-  const fake = fakeFactory();
+  const fake = fakeMapAdapterFactory();
   const props: ViewLinkViewProps = {
     token: "tok",
     operationId: "op-x",
@@ -140,6 +107,21 @@ describe("ViewLinkView", () => {
       );
     },
   );
+
+  it("marks a chosen address on the map", async () => {
+    const { drawn } = renderView({
+      onGeocode: vi.fn(async () => [
+        { label: "Rathaus, Hamburg", lat: 53.55, lng: 9.99 },
+      ]),
+    });
+    fireEvent.change(screen.getByLabelText("Suche"), {
+      target: { value: "hamburg" },
+    });
+    await userEvent.click(
+      await screen.findByRole("button", { name: /Rathaus, Hamburg/ }),
+    );
+    expect(drawn.searchHit).toEqual({ lat: 53.55, lng: 9.99 });
+  });
 
   it("searches placed objects and jumps to a chosen Kartenzeichen", async () => {
     const { adapter } = renderView({ symbols: [aSymbol] });

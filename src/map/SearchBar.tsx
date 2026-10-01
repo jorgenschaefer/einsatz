@@ -10,7 +10,7 @@ import {
   TextInput,
 } from "@mantine/core";
 import type { GeoHit } from "@/server/geocoder/geocoder";
-import type { ObjectResult } from "./search";
+import { addressResultKey, type ObjectResult } from "./search";
 
 export interface SearchBarProps {
   query: string;
@@ -18,7 +18,8 @@ export interface SearchBarProps {
   objectResults: ObjectResult[];
   addressResults: GeoHit[];
   attribution: string;
-  onJump: (lat: number, lng: number) => void;
+  onChooseAddress: (hit: GeoHit) => void;
+  onChooseObject: (result: ObjectResult) => void;
 }
 
 export function SearchBar({
@@ -27,7 +28,8 @@ export function SearchBar({
   objectResults,
   addressResults,
   attribution,
-  onJump,
+  onChooseAddress,
+  onChooseObject,
 }: SearchBarProps) {
   const open = query.trim().length > 0;
   const nothing = objectResults.length === 0 && addressResults.length === 0;
@@ -73,7 +75,7 @@ export function SearchBar({
                     size="xs"
                     variant="subtle"
                     justify="flex-start"
-                    onClick={() => onJump(result.lat, result.lng)}
+                    onClick={() => onChooseObject(result)}
                   >
                     {result.label}
                   </Button>
@@ -87,11 +89,11 @@ export function SearchBar({
                 </Text>
                 {addressResults.map((hit) => (
                   <Button
-                    key={`${hit.label}-${hit.lat}-${hit.lng}`}
+                    key={addressResultKey(hit)}
                     size="xs"
                     variant="subtle"
                     justify="flex-start"
-                    onClick={() => onJump(hit.lat, hit.lng)}
+                    onClick={() => onChooseAddress(hit)}
                   >
                     {hit.label}
                   </Button>

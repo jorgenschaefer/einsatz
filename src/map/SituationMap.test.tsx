@@ -1,51 +1,18 @@
 import { createRef } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { act, render, waitFor } from "@/test/render";
-import type {
-  CreateMapOptions,
-  MapAdapterFactory,
-  MarkerSpec,
-} from "./adapter";
+import type { MarkerSpec } from "./adapter";
+import { fakeMapAdapterFactory } from "./adapter.fixtures";
 import { readLastView, writeLastView } from "./last-view-storage";
 import { SituationMap, type SituationMapHandle } from "./SituationMap";
 import type { MapView } from "./view";
-
-function fakeFactory(currentView: MapView) {
-  const captured: { options?: CreateMapOptions } = {};
-  const adapter = {
-    getView: () => currentView,
-    setView: vi.fn(),
-    setMarker: vi.fn(),
-    removeMarker: vi.fn(),
-    setArea: vi.fn(),
-    removeArea: vi.fn(),
-    setKmlOverlay: vi.fn(),
-    removeKmlOverlay: vi.fn(),
-    setImageOverlay: vi.fn(),
-    removeImageOverlay: vi.fn(),
-    startImageOverlayEdit: vi.fn(),
-    stopImageOverlayEdit: vi.fn(),
-    startDrawing: vi.fn(),
-    cancelDrawing: vi.fn(),
-    startCirclePreview: vi.fn(),
-    stopCirclePreview: vi.fn(),
-    destroy: vi.fn(),
-  };
-  const factory: MapAdapterFactory = {
-    create(_container, options) {
-      captured.options = options;
-      return adapter;
-    },
-  };
-  return { factory, captured, adapter };
-}
 
 const dflt: MapView = { lat: 3, lng: 4, zoom: 8 };
 
 function renderMap(
   over: Partial<React.ComponentProps<typeof SituationMap>> = {},
 ) {
-  const own = fakeFactory({ lat: 5, lng: 6, zoom: 14 });
+  const own = fakeMapAdapterFactory({ lat: 5, lng: 6, zoom: 14 });
   const { rerender } = render(
     <SituationMap
       operationId="op-x"
@@ -97,27 +64,7 @@ describe("SituationMap", () => {
   });
 
   it("keeps the same map instance across a refresh that changes operationDefaultView identity", async () => {
-    const adapter = {
-      getView: () => ({ lat: 0, lng: 0, zoom: 1 }),
-      setView: vi.fn(),
-      setMarker: vi.fn(),
-      removeMarker: vi.fn(),
-      setArea: vi.fn(),
-      removeArea: vi.fn(),
-      setKmlOverlay: vi.fn(),
-      removeKmlOverlay: vi.fn(),
-      setImageOverlay: vi.fn(),
-      removeImageOverlay: vi.fn(),
-      startImageOverlayEdit: vi.fn(),
-      stopImageOverlayEdit: vi.fn(),
-      startDrawing: vi.fn(),
-      cancelDrawing: vi.fn(),
-      startCirclePreview: vi.fn(),
-      stopCirclePreview: vi.fn(),
-      destroy: vi.fn(),
-    };
-    const create = vi.fn(() => adapter);
-    const factory: MapAdapterFactory = { create };
+    const { factory, create, adapter } = fakeMapAdapterFactory();
     const common = {
       operationId: "op-x",
       tileUrl: "t",
@@ -144,7 +91,11 @@ describe("SituationMap", () => {
   });
 
   it("sets a marker for each Kartenzeichen and removes it when the symbol is gone", async () => {
-    const { factory, adapter } = fakeFactory({ lat: 5, lng: 6, zoom: 14 });
+    const { factory, adapter } = fakeMapAdapterFactory({
+      lat: 5,
+      lng: 6,
+      zoom: 14,
+    });
     const props = {
       operationId: "op-x",
       operationDefaultView: dflt,
@@ -178,7 +129,11 @@ describe("SituationMap", () => {
   });
 
   it("places the armed composition where the map is clicked", async () => {
-    const { factory, captured } = fakeFactory({ lat: 5, lng: 6, zoom: 14 });
+    const { factory, captured } = fakeMapAdapterFactory({
+      lat: 5,
+      lng: 6,
+      zoom: 14,
+    });
     const onPlace = vi.fn();
     renderMap({
       factory,
@@ -191,7 +146,11 @@ describe("SituationMap", () => {
   });
 
   it("does not place anything when nothing is armed", async () => {
-    const { factory, captured } = fakeFactory({ lat: 5, lng: 6, zoom: 14 });
+    const { factory, captured } = fakeMapAdapterFactory({
+      lat: 5,
+      lng: 6,
+      zoom: 14,
+    });
     const onPlace = vi.fn();
     renderMap({ factory, armedComposition: null, onPlace });
     await waitFor(() => expect(captured.options?.onMapClick).toBeDefined());
@@ -200,7 +159,11 @@ describe("SituationMap", () => {
   });
 
   it("moves a symbol when its marker is dragged", async () => {
-    const { factory, adapter } = fakeFactory({ lat: 5, lng: 6, zoom: 14 });
+    const { factory, adapter } = fakeMapAdapterFactory({
+      lat: 5,
+      lng: 6,
+      zoom: 14,
+    });
     const onMove = vi.fn();
     renderMap({
       factory,
@@ -215,7 +178,11 @@ describe("SituationMap", () => {
   });
 
   it("jumps the map to a focus target via setView", async () => {
-    const { factory, adapter } = fakeFactory({ lat: 5, lng: 6, zoom: 14 });
+    const { factory, adapter } = fakeMapAdapterFactory({
+      lat: 5,
+      lng: 6,
+      zoom: 14,
+    });
     const props = {
       operationId: "op-x",
       operationDefaultView: dflt,
@@ -238,7 +205,11 @@ describe("SituationMap", () => {
   });
 
   it("reconciles areas: sets each without a click handler and removes when gone", async () => {
-    const { factory, adapter } = fakeFactory({ lat: 5, lng: 6, zoom: 14 });
+    const { factory, adapter } = fakeMapAdapterFactory({
+      lat: 5,
+      lng: 6,
+      zoom: 14,
+    });
     const area = {
       id: "a1",
       geometry: {
@@ -274,7 +245,11 @@ describe("SituationMap", () => {
   });
 
   it("arms drawing a shape and reports the completed geometry", async () => {
-    const { factory, adapter } = fakeFactory({ lat: 5, lng: 6, zoom: 14 });
+    const { factory, adapter } = fakeMapAdapterFactory({
+      lat: 5,
+      lng: 6,
+      zoom: 14,
+    });
     const onDrawComplete = vi.fn();
     renderMap({ factory, drawShape: "polygon", onDrawComplete });
     await waitFor(() =>
@@ -292,7 +267,11 @@ describe("SituationMap", () => {
   });
 
   it("reconciles KML overlays: sets each with its visibility and removes when gone", async () => {
-    const { factory, adapter } = fakeFactory({ lat: 5, lng: 6, zoom: 14 });
+    const { factory, adapter } = fakeMapAdapterFactory({
+      lat: 5,
+      lng: 6,
+      zoom: 14,
+    });
     const props = {
       operationId: "op-x",
       operationDefaultView: dflt,
@@ -331,7 +310,11 @@ describe("SituationMap", () => {
   });
 
   it("starts overlay editing for the editing id and reports placement changes", async () => {
-    const { factory, adapter } = fakeFactory({ lat: 5, lng: 6, zoom: 14 });
+    const { factory, adapter } = fakeMapAdapterFactory({
+      lat: 5,
+      lng: 6,
+      zoom: 14,
+    });
     const onEditImagePlacement = vi.fn();
     renderMap({ factory, editingImageId: "i1", onEditImagePlacement });
     await waitFor(() =>
@@ -355,7 +338,11 @@ describe("SituationMap", () => {
   });
 
   it("stops overlay editing when the editing id is cleared", async () => {
-    const { factory, adapter } = fakeFactory({ lat: 5, lng: 6, zoom: 14 });
+    const { factory, adapter } = fakeMapAdapterFactory({
+      lat: 5,
+      lng: 6,
+      zoom: 14,
+    });
     const props = {
       operationId: "op-x",
       operationDefaultView: dflt,
@@ -379,7 +366,11 @@ describe("SituationMap", () => {
   });
 
   it("reconciles image overlays: sets each with placement and visibility, removes when gone", async () => {
-    const { factory, adapter } = fakeFactory({ lat: 5, lng: 6, zoom: 14 });
+    const { factory, adapter } = fakeMapAdapterFactory({
+      lat: 5,
+      lng: 6,
+      zoom: 14,
+    });
     const props = {
       operationId: "op-x",
       operationDefaultView: dflt,
@@ -449,7 +440,11 @@ describe("SituationMap", () => {
     };
 
     it("hides the moving circle from the reconcile and previews it", async () => {
-      const { factory, adapter } = fakeFactory({ lat: 5, lng: 6, zoom: 14 });
+      const { factory, adapter } = fakeMapAdapterFactory({
+        lat: 5,
+        lng: 6,
+        zoom: 14,
+      });
       const { rerender } = render(
         <SituationMap {...props} factory={factory} areas={[circle, other]} />,
       );
@@ -488,7 +483,11 @@ describe("SituationMap", () => {
     });
 
     it("centres on the circle keeping the zoom", async () => {
-      const { factory, adapter } = fakeFactory({ lat: 5, lng: 6, zoom: 14 });
+      const { factory, adapter } = fakeMapAdapterFactory({
+        lat: 5,
+        lng: 6,
+        zoom: 14,
+      });
       render(
         <SituationMap
           {...props}
@@ -507,7 +506,11 @@ describe("SituationMap", () => {
     });
 
     it("does not re-centre on a live refresh while moving", async () => {
-      const { factory, adapter } = fakeFactory({ lat: 5, lng: 6, zoom: 14 });
+      const { factory, adapter } = fakeMapAdapterFactory({
+        lat: 5,
+        lng: 6,
+        zoom: 14,
+      });
       const { rerender } = render(
         <SituationMap
           {...props}
@@ -532,7 +535,11 @@ describe("SituationMap", () => {
     });
 
     it("restores the circle when moving ends", async () => {
-      const { factory, adapter } = fakeFactory({ lat: 5, lng: 6, zoom: 14 });
+      const { factory, adapter } = fakeMapAdapterFactory({
+        lat: 5,
+        lng: 6,
+        zoom: 14,
+      });
       const { rerender } = render(
         <SituationMap
           {...props}
@@ -564,7 +571,11 @@ describe("SituationMap", () => {
     });
 
     it("restarts the preview when the colour or opacity changes", async () => {
-      const { factory, adapter } = fakeFactory({ lat: 5, lng: 6, zoom: 14 });
+      const { factory, adapter } = fakeMapAdapterFactory({
+        lat: 5,
+        lng: 6,
+        zoom: 14,
+      });
       const { rerender } = render(
         <SituationMap
           {...props}
@@ -609,7 +620,11 @@ describe("SituationMap", () => {
     });
 
     it("restarts the preview when the radius changes", async () => {
-      const { factory, adapter } = fakeFactory({ lat: 5, lng: 6, zoom: 14 });
+      const { factory, adapter } = fakeMapAdapterFactory({
+        lat: 5,
+        lng: 6,
+        zoom: 14,
+      });
       const { rerender } = render(
         <SituationMap
           {...props}
@@ -640,7 +655,11 @@ describe("SituationMap", () => {
   });
 
   it("renders markers non-draggable in read-only mode", async () => {
-    const { factory, adapter } = fakeFactory({ lat: 5, lng: 6, zoom: 14 });
+    const { factory, adapter } = fakeMapAdapterFactory({
+      lat: 5,
+      lng: 6,
+      zoom: 14,
+    });
     renderMap({
       factory,
       readOnly: true,
@@ -652,7 +671,11 @@ describe("SituationMap", () => {
   });
 
   it("reports selection when a marker is clicked", async () => {
-    const { factory, adapter } = fakeFactory({ lat: 5, lng: 6, zoom: 14 });
+    const { factory, adapter } = fakeMapAdapterFactory({
+      lat: 5,
+      lng: 6,
+      zoom: 14,
+    });
     const onSelect = vi.fn();
     renderMap({
       factory,

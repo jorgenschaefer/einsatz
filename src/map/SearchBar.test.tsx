@@ -10,7 +10,8 @@ function setup(over: Partial<SearchBarProps> = {}) {
     objectResults: [],
     addressResults: [],
     attribution: "Adresssuche © OpenStreetMap",
-    onJump: vi.fn(),
+    onChooseAddress: vi.fn(),
+    onChooseObject: vi.fn(),
     ...over,
   };
   render(<SearchBar {...props} />);
@@ -42,13 +43,19 @@ describe("SearchBar", () => {
     expect(screen.queryByText("RK 83/1")).toBeNull();
   });
 
-  it("jumps to a located object result", async () => {
+  it("chooses an object result", async () => {
     const props = setup({
       query: "rk",
       objectResults: [{ id: "s1", label: "RK 83/1", lat: 1, lng: 2 }],
     });
     await userEvent.click(screen.getByRole("button", { name: /RK 83\/1/ }));
-    expect(props.onJump).toHaveBeenCalledWith(1, 2);
+    expect(props.onChooseObject).toHaveBeenCalledWith({
+      id: "s1",
+      label: "RK 83/1",
+      lat: 1,
+      lng: 2,
+    });
+    expect(props.onChooseAddress).not.toHaveBeenCalled();
   });
 
   it("shows no clear button while the query is empty", () => {
@@ -64,7 +71,7 @@ describe("SearchBar", () => {
     expect(props.onQueryChange).toHaveBeenCalledWith("");
   });
 
-  it("jumps to an address result and shows the geocoder attribution", async () => {
+  it("chooses an address result and shows the geocoder attribution", async () => {
     const props = setup({
       query: "hamburg",
       addressResults: [{ label: "Rathaus, Hamburg", lat: 53.55, lng: 9.99 }],
@@ -73,6 +80,11 @@ describe("SearchBar", () => {
     await userEvent.click(
       screen.getByRole("button", { name: /Rathaus, Hamburg/ }),
     );
-    expect(props.onJump).toHaveBeenCalledWith(53.55, 9.99);
+    expect(props.onChooseAddress).toHaveBeenCalledWith({
+      label: "Rathaus, Hamburg",
+      lat: 53.55,
+      lng: 9.99,
+    });
+    expect(props.onChooseObject).not.toHaveBeenCalled();
   });
 });
