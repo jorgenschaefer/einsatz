@@ -223,7 +223,12 @@ export function SituationWorkspace({
     onReplaceImage,
     onDeleteImage,
   });
-  const { endMode } = imageEditing;
+  // Beendet jeden Karten-Modus; ein Fehler aus dem Bild-Bearbeiten gehört
+  // zu dessen Modus und verschwindet mit ihm.
+  const endMode = () => {
+    imageEditing.clearError();
+    mode.reset();
+  };
   const {
     isDesktop,
     mainView,

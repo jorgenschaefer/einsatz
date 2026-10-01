@@ -8,8 +8,8 @@ import type { MapModeControls } from "./useMapMode";
 
 /**
  * Das Bearbeiten eines Bild-Overlays: Platzierung, Deckkraft, Ersetzen und
- * Löschen, mit Fortschritt und Fehler fürs Panel. `endMode` beendet jeden
- * Karten-Modus und räumt dabei den Bildfehler weg.
+ * Löschen, mit Fortschritt und Fehler fürs Panel. `finishEditImage` beendet
+ * das Bearbeiten („Fertig") und räumt dabei den Bildfehler weg.
  */
 export function useImageOverlayEditing({
   imageOverlays,
@@ -32,8 +32,9 @@ export function useImageOverlayEditing({
   const editingImage =
     imageOverlays.find((o) => o.id === editingImageId) ?? null;
 
-  const endMode = () => {
-    setError(null);
+  const clearError = () => setError(null);
+  const finishEditImage = () => {
+    clearError();
     mode.reset();
   };
   const startEditImage = (id: string) => {
@@ -59,7 +60,7 @@ export function useImageOverlayEditing({
   };
   const deleteImage = async (id: string) => {
     const result = await onDeleteImage(id);
-    if (!result.error) endMode();
+    if (!result.error) finishEditImage();
     return result;
   };
 
@@ -67,7 +68,8 @@ export function useImageOverlayEditing({
     editingImage,
     busy,
     error,
-    endMode,
+    clearError,
+    finishEditImage,
     startEditImage,
     saveImagePlacement,
     changeImageOpacity,

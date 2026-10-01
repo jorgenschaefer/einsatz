@@ -46,7 +46,7 @@ export function LayersPanel({
     | "changeImageOpacity"
     | "replaceImage"
     | "deleteImage"
-    | "endMode"
+    | "finishEditImage"
   >;
 }) {
   const { editingImage } = imageEditing;
@@ -81,7 +81,7 @@ export function LayersPanel({
                 onOpacityChange={imageEditing.changeImageOpacity}
                 onReplace={imageEditing.replaceImage}
                 onDelete={() => imageEditing.deleteImage(editingImage.id)}
-                onDone={imageEditing.endMode}
+                onDone={imageEditing.finishEditImage}
                 busy={imageEditing.busy}
                 error={imageEditing.error}
               />
