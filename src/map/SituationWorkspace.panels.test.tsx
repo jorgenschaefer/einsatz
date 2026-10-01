@@ -553,6 +553,60 @@ describe("SituationWorkspace", () => {
     });
   });
 
+  describe.each([
+    { current: 10, expected: 16 },
+    { current: 18, expected: 18 },
+  ])("jumping from a panel at zoom $current", ({ current, expected }) => {
+    it(`centers on a Kartenzeichen at zoom ${expected}`, async () => {
+      const { adapter } = renderWorkspace({ symbols: [SYMBOL] });
+      adapter.getView = () => ({ lat: 0, lng: 0, zoom: current });
+      await openPanel("Kartenzeichen");
+      await userEvent.click(
+        within(mapPanel("Kartenzeichen")).getByText("Pumpe 1"),
+      );
+      await waitFor(() =>
+        expect(adapter.setView).toHaveBeenCalledWith({
+          lat: SYMBOL.lat,
+          lng: SYMBOL.lng,
+          zoom: expected,
+        }),
+      );
+    });
+
+    it(`centers on a Bereich at zoom ${expected}`, async () => {
+      const { adapter } = renderWorkspace({ areas: [AREA] });
+      adapter.getView = () => ({ lat: 0, lng: 0, zoom: current });
+      await openPanel("Bereiche");
+      await userEvent.click(within(mapPanel("Bereiche")).getByText("Deich"));
+      await waitFor(() =>
+        expect(adapter.setView).toHaveBeenCalledWith({
+          ...AREA.geometry.center,
+          zoom: expected,
+        }),
+      );
+    });
+  });
+
+  it("zooms out to the operation's default view from closer in", async () => {
+    const { adapter } = renderWorkspace({
+      operationDefaultView: { lat: 52.5, lng: 13.4, zoom: 12 },
+    });
+    adapter.getView = () => ({ lat: 0, lng: 0, zoom: 18 });
+    await selectMainView("Lagekarte");
+    await userEvent.click(
+      screen.getByLabelText("Zum Standard-Ausschnitt zurück", {
+        selector: "button",
+      }),
+    );
+    await waitFor(() =>
+      expect(adapter.setView).toHaveBeenCalledWith({
+        lat: 52.5,
+        lng: 13.4,
+        zoom: 12,
+      }),
+    );
+  });
+
   it("disables the return-to-default button when no default view is set", async () => {
     renderWorkspace({ operationDefaultView: null });
     await selectMainView("Lagekarte");

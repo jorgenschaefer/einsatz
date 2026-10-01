@@ -220,6 +220,52 @@ describe("SituationWorkspace", () => {
     );
   });
 
+  describe.each([
+    { current: 10, expected: 16 },
+    { current: 18, expected: 18 },
+  ])("jumping from the search at zoom $current", ({ current, expected }) => {
+    it(`centers on a chosen address at zoom ${expected}`, async () => {
+      const onGeocode = vi.fn(async () => [
+        { label: "Rathaus, Hamburg", lat: 53.55, lng: 9.99 },
+      ]);
+      const { adapter } = renderWorkspace({ onGeocode });
+      adapter.getView = () => ({ lat: 0, lng: 0, zoom: current });
+      await selectMainView("Lagekarte");
+      fireEvent.change(screen.getByLabelText("Suche"), {
+        target: { value: "Hamburg" },
+      });
+      await userEvent.click(await screen.findByText(/Rathaus, Hamburg/));
+      await waitFor(() =>
+        expect(adapter.setView).toHaveBeenCalledWith({
+          lat: 53.55,
+          lng: 9.99,
+          zoom: expected,
+        }),
+      );
+    });
+
+    it(`centers on a chosen Kartenzeichen at zoom ${expected}`, async () => {
+      const { adapter } = renderWorkspace({ symbols: [SYMBOL] });
+      adapter.getView = () => ({ lat: 0, lng: 0, zoom: current });
+      await selectMainView("Lagekarte");
+      fireEvent.change(screen.getByLabelText("Suche"), {
+        target: { value: "Pumpe" },
+      });
+      const results = within(
+        (await screen.findByText("Einsatzobjekte"))
+          .parentElement as HTMLElement,
+      );
+      await userEvent.click(results.getByText(/Pumpe 1/));
+      await waitFor(() =>
+        expect(adapter.setView).toHaveBeenCalledWith({
+          lat: SYMBOL.lat,
+          lng: SYMBOL.lng,
+          zoom: expected,
+        }),
+      );
+    });
+  });
+
   it("renders a marker for each provided Kartenzeichen", async () => {
     const { adapter } = renderWorkspace({
       symbols: [aSymbol()],

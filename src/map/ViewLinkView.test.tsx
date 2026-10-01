@@ -116,6 +116,31 @@ describe("ViewLinkView", () => {
     open.mockRestore();
   });
 
+  it.each([
+    { current: 10, expected: 16 },
+    { current: 18, expected: 18 },
+  ])(
+    "centers on a tapped symbol at zoom $expected from zoom $current",
+    async ({ current, expected }) => {
+      const { adapter } = renderView({ symbols: [aSymbol] });
+      adapter.getView = () => ({ lat: 0, lng: 0, zoom: current });
+      await waitFor(() =>
+        expect(adapter.setMarker).toHaveBeenCalledWith("s1", expect.anything()),
+      );
+      const spec = adapter.setMarker.mock.calls
+        .filter((c) => c[0] === "s1")
+        .at(-1)![1] as { onClick?: () => void };
+      await act(async () => spec.onClick!());
+      await waitFor(() =>
+        expect(adapter.setView).toHaveBeenCalledWith({
+          lat: 53.5,
+          lng: 9.9,
+          zoom: expected,
+        }),
+      );
+    },
+  );
+
   it("searches placed objects and jumps to a chosen Kartenzeichen", async () => {
     const { adapter } = renderView({ symbols: [aSymbol] });
     fireEvent.change(screen.getByLabelText("Suche"), {

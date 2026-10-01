@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:    AC-12, AC-13
 advances:
 after:
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -68,3 +68,15 @@ Position, bei Auswahl in der Ansicht – zoomt auf mindestens 16, aber nie herau
   über `jumpTo` und bleibt, wie er ist.
 
 ## Left standing
+- Review-Nit nicht behoben: Die neuen Fälle „Zoom 10 → 16" decken dasselbe ab
+  wie die vorhandenen Sprungtests (Fake-Adapter auf Zoom 1, Erwartung 16). Sie
+  bleiben, weil der Plan sie verlangt und sie beide Seiten von AC-12 in einer
+  Tabelle neben dem Fall „Zoom 18 → 18" zeigen.
+- Plan Schritt 4 (Browser-Prüfung) habe ich nicht selbst gemacht; das hat der
+  Review übernommen und auf 1280×800 und 390×844 bestätigt: Adresse, Kartenzeichen-
+  und Bereichs-Panel, Tippen in der Ansicht und eigene Position zoomen von
+  13–15 auf 16 und bleiben auf 18; der Standard-Ausschnitt zoomt von 18 heraus.
+  Die Geräteansicht wurde dafür mit einem Wegwerf-Playwright-Skript mit
+  Standortfreigabe gefahren, weil der Driver keine Ortung erlaubt.
+- Den Grenzwert „genau Zoom 16" pinnt kein eigener Test; er folgt aus
+  `Math.max` und ist mit 10 und 18 auf beiden Seiten abgedeckt.

@@ -14,6 +14,7 @@ import type { AreaGeometry, AreaShape } from "./area";
 import type { SymbolComposition } from "./composition";
 import type { ImagePlacement } from "./image-overlay";
 import { readLastView, writeLastView } from "./last-view-storage";
+import type { FocusTarget } from "./useMapFocus";
 import { chooseInitialView, type LatLng, type MapView } from "./view";
 
 /** Ein platziertes Kartenzeichen, fertig zum Setzen als Marker. */
@@ -73,8 +74,8 @@ export interface SituationMapProps {
   onPlace?: (composition: SymbolComposition, lat: number, lng: number) => void;
   onMove?: (id: string, lat: number, lng: number) => void;
   onSelect?: (id: string) => void;
-  /** Setzt (bei Änderung) den Kartenausschnitt – zum Springen aus der Suche. */
-  focusTarget?: MapView | null;
+  /** Setzt (bei Änderung) den Kartenausschnitt – zum Springen zu einem Punkt oder zum Standard-Ausschnitt. */
+  focusTarget?: FocusTarget | null;
   areas?: RenderedArea[];
   /** Eine Form ist zum Zeichnen scharfgestellt; die fertige Geometrie kommt über onDrawComplete. */
   drawShape?: AreaShape | null;
@@ -222,9 +223,15 @@ export function SituationMap({
     // ohnehin nicht neu.
   }, [ready, symbols, readOnly]);
 
-  // Auf ein Suchergebnis springen (Ausschnitt setzen), wenn sich das Ziel ändert.
+  // Zum Ziel springen (Ausschnitt setzen), wenn sich das Ziel ändert.
   useEffect(() => {
-    if (ready && focusTarget) adapterRef.current?.setView(focusTarget);
+    const adapter = adapterRef.current;
+    if (!ready || !focusTarget || !adapter) return;
+    const { zoomInOnly, ...view } = focusTarget;
+    const zoom = zoomInOnly
+      ? Math.max(view.zoom, adapter.getView().zoom)
+      : view.zoom;
+    adapter.setView({ ...view, zoom });
   }, [ready, focusTarget]);
 
   // Bereichs-Reconciliation aus dem geladenen Einsatz-Zustand (add/update/remove).

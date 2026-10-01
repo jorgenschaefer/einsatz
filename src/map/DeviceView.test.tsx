@@ -266,6 +266,30 @@ describe("DeviceView", () => {
     });
   });
 
+  it.each([
+    { current: 10, expected: 16 },
+    { current: 18, expected: 18 },
+  ])(
+    "centers on the own position at zoom $expected from zoom $current",
+    async ({ current, expected }) => {
+      const { adapter } = renderDevice({
+        locationHook: () => ({
+          status: "active",
+          position: { lat: 52.1, lng: 8.7 },
+        }),
+      });
+      adapter.getView = () => ({ lat: 0, lng: 0, zoom: current });
+      await userEvent.click(
+        screen.getByRole("button", { name: /meinen Standort/i }),
+      );
+      expect(adapter.setView).toHaveBeenCalledWith({
+        lat: 52.1,
+        lng: 8.7,
+        zoom: expected,
+      });
+    },
+  );
+
   it("disables the locate button while no own position is known", () => {
     renderDevice({
       locationHook: () => ({ status: "paused", position: null }),
