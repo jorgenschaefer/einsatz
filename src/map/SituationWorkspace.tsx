@@ -1,20 +1,16 @@
 "use client";
 
 import "./situation-workspace.css";
-import { Box, CloseButton, Group, Modal, Stack, Text } from "@mantine/core";
-import { useDisclosure } from "@mantine/hooks";
+import { Box, Modal, Stack } from "@mantine/core";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { ACTION_FAILED, isNextNavigation } from "@/app/action-failure";
+import { useMemo, useRef, useState } from "react";
 import type { ActionResult } from "@/app/action-result";
-import { ErrorAlert } from "@/app/ErrorAlert";
 import {
   type JournalEntryView,
   JournalPanel,
 } from "@/app/operations/[id]/JournalPanel";
 import { LageansichtShell } from "@/app/operations/[id]/LageansichtShell";
-import { useActionRunner } from "@/app/useActionRunner";
 import type { EntryContent } from "@/journal/entry-route";
 import type { GeoHit } from "@/server/geocoder/geocoder";
 import type { KmlSourceType } from "@/server/kml/kml-overlays";
@@ -25,17 +21,16 @@ import { AdvancedSymbolForm } from "./AdvancedSymbolForm";
 import { AreaEditorModal } from "./AreaEditorModal";
 import { AreasPanel } from "./AreasPanel";
 import type { MapAdapterFactory } from "./adapter";
-import type { AreaGeometry, AreaShape, AreaStyle } from "./area";
+import type { AreaGeometry, AreaStyle } from "./area";
 import type { SymbolComposition } from "./composition";
-import { ImageOverlayEditor } from "./ImageOverlayEditor";
-import { ImageOverlayPanel } from "./ImageOverlayPanel";
 import type { ImagePlacement } from "./image-overlay";
-import { KmlPanel } from "./KmlPanel";
+import { LayersPanel } from "./LayersPanel";
 import { MainViewBar } from "./MainViewBar";
-import { MAP_PANEL_LABEL, MapControls } from "./MapControls";
-import { ModeBand } from "./ModeBand";
+import { MapControls } from "./MapControls";
+import { MapErrorAlert } from "./MapErrorAlert";
+import { MapModeBands } from "./MapModeBands";
+import { MapPanelSheet } from "./MapPanelSheet";
 import { type StatefulSymbol, toPlacedSymbols } from "./placed-symbols";
-import { QUICK_SELECT } from "./quick-select";
 import { SearchBar } from "./SearchBar";
 import {
   type PlacedSymbol,
@@ -45,12 +40,16 @@ import {
 } from "./SituationMap";
 import { SymbolDetailModal } from "./SymbolDetailModal";
 import { SymbolsPanel } from "./SymbolsPanel";
+import { useAreaFlows } from "./useAreaFlows";
+import { useImageOverlayEditing } from "./useImageOverlayEditing";
 import { useMainView } from "./useMainView";
+import { useMapActionError } from "./useMapActionError";
 import { useMapFocus } from "./useMapFocus";
 import { useMapMode } from "./useMapMode";
 import { useMapSearch } from "./useMapSearch";
 import { type LiveConnection, useOperationEvents } from "./useOperationEvents";
 import { useStalenessClock } from "./useStalenessClock";
+import { useSymbolPlacement } from "./useSymbolPlacement";
 import type { ViewLinkItem } from "./ViewLinkPanel";
 import type { MapView } from "./view";
 
@@ -214,37 +213,17 @@ export function SituationWorkspace({
     router.refresh(),
   );
   const mapRef = useRef<SituationMapHandle>(null);
-  const {
-    armedQuickId,
-    armedCustom,
-    editingImageId,
-    drawShape,
-    redrawAreaId,
-    movingCircleId,
-    armQuick,
-    armCustom,
-    armImageEdit,
-    toggleDraw,
-    redraw,
-    armMoveCircle,
-    endMoveCircle,
-    reset: resetMode,
-  } = useMapMode();
-  const [advancedOpened, advanced] = useDisclosure(false);
+  const mode = useMapMode();
+  const { editingImageId, drawShape, movingCircleId } = mode;
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  // Fehlerkanal für die Karten-Interaktionen ohne eigenes Panel (Platzieren,
-  // Zeichnen); wird als Alert über der Karte gezeigt.
-  const [mapError, setMapError] = useState<string | null>(null);
-  const {
-    busy: imageBusy,
-    error: imageError,
-    setError: setImageError,
-    run: persistImage,
-  } = useActionRunner();
-  const endMode = () => {
-    setImageError(null);
-    resetMode();
-  };
+  const imageEditing = useImageOverlayEditing({
+    imageOverlays,
+    mode,
+    onUpdateImagePlacement,
+    onReplaceImage,
+    onDeleteImage,
+  });
+  const { endMode } = imageEditing;
   const {
     isDesktop,
     mainView,
@@ -266,164 +245,41 @@ export function SituationWorkspace({
   } = useMapSearch(symbols, onGeocode);
   const { focusTarget, jumpTo, returnToDefaultView } =
     useMapFocus(operationDefaultView);
-  const [selectedAreaId, setSelectedAreaId] = useState<string | null>(null);
-  const [circleMoveSaving, setCircleMoveSaving] = useState(false);
+  const { mapError, dismissMapError, runMapAction } =
+    useMapActionError(closeSheetOnPhone);
+  const areaFlows = useAreaFlows({
+    areas,
+    mapRef,
+    mode,
+    runMapAction,
+    closeSheetOnPhone,
+    onCreateArea,
+    onUpdateAreaGeometry,
+  });
+  const symbolPlacement = useSymbolPlacement({
+    mode,
+    runMapAction,
+    closeSheetOnPhone,
+    onPlace,
+  });
   const selected = symbols.find((s) => s.id === selectedId) ?? null;
-  const selectedArea = areas.find((a) => a.id === selectedAreaId) ?? null;
-  const movingCircle = areas.find((a) => a.id === movingCircleId) ?? null;
 
   const placed = useMemo<PlacedSymbol[]>(
     () => toPlacedSymbols(symbols, now),
     [symbols, now],
   );
-  const armedComposition =
-    armedCustom ??
-    QUICK_SELECT.find((i) => i.id === armedQuickId)?.composition ??
-    null;
-
-  const editingImage =
-    imageOverlays.find((o) => o.id === editingImageId) ?? null;
-
-  const armQuickSymbol = (quickId: string | null) => {
-    armQuick(quickId);
-    if (quickId) closeSheetOnPhone();
-  };
-  const armAdvanced = (composition: SymbolComposition) => {
-    armCustom(composition);
-    advanced.close();
-    closeSheetOnPhone();
-  };
-  const toggleAreaDraw = (shape: AreaShape) => {
-    toggleDraw(shape);
-    if (drawShape !== shape) closeSheetOnPhone();
-  };
   const jumpFromPanel = (lat: number, lng: number) => {
     jumpTo(lat, lng);
+    closeSheetOnPhone();
+  };
+  const startEditImage = (id: string) => {
+    imageEditing.startEditImage(id);
     closeSheetOnPhone();
   };
   const saveDefaultView = async (): Promise<ActionResult> => {
     const view = mapRef.current?.getView();
     if (!view) return { error: "Die Karte lädt noch. Bitte erneut versuchen." };
     return onSetDefault(view);
-  };
-  // Dialoge und Panels zeigen die Fehler ihrer Actions selbst. Karten-
-  // Interaktionen ohne Panel (Platzieren, Zeichnen, Kreis verschieben) laufen
-  // über diesen gemeinsamen Fehlerkanal: ein zurückgegebener {error} landet im
-  // mapError-Alert, eine geworfene Ausnahme (kein ValidationError – z. B. DB-/
-  // Netzfehler, die operationAction weiterwirft) im gleichen Kanal mit
-  // ACTION_FAILED. Ein Redirect (etwa zur Anmeldung bei abgelaufener Sitzung)
-  // zeigt nichts, die Seite wird ersetzt. Bewusst ohne Fehleranzeige bleiben
-  // nur die strukturell stets gültigen: onMove (Drag auf gültige Koordinaten)
-  // und „Gerätelink erzeugen".
-  const runMapAction = async <R extends ActionResult>(
-    op: () => Promise<R>,
-  ): Promise<R | undefined> => {
-    setMapError(null);
-    try {
-      const result = await op();
-      if (result.error) showMapError(result.error);
-      return result;
-    } catch (thrown) {
-      if (!isNextNavigation(thrown)) showMapError(ACTION_FAILED);
-      return undefined;
-    }
-  };
-  // Der Fehler steht unten auf der Karte; am Handy läge er sonst unter dem Blatt.
-  const showMapError = (error: string) => {
-    setMapError(error);
-    closeSheetOnPhone();
-  };
-
-  // Wie bei Bild: nach einer Platzierung den Modus beenden, sonst platziert
-  // jeder weitere Kartenklick unaufhörlich weiter (kein Abbruch möglich). Der
-  // Reset läuft vor dem (evtl. langsamen) Server-Roundtrip, damit ein zweiter
-  // Tap währenddessen kein zweites Zeichen platziert.
-  const placeSymbolAt = async (
-    composition: SymbolComposition,
-    lat: number,
-    lng: number,
-  ) => {
-    resetMode();
-    await runMapAction(() => onPlace(composition, lat, lng));
-  };
-
-  const handleDrawComplete = async (geometry: AreaGeometry) => {
-    // Kein Panel für diesen Fluss, und der Modus muss in jedem Fall enden. Ein
-    // etwaiger {error} – etwa eine entartete Geometrie (Kreis mit Radius 0 aus
-    // einem Tap ohne Ziehen) – wird über den mapError-Kanal gezeigt. resetMode
-    // läuft (wie beim Platzieren) vor dem Roundtrip; die Branch-Entscheidung
-    // hält die id vorher fest, weil resetMode redrawAreaId leert.
-    const redrawId = redrawAreaId;
-    resetMode();
-    if (redrawId) {
-      await runMapAction(() => onUpdateAreaGeometry(redrawId, geometry));
-      return;
-    }
-    const created = await runMapAction(() => onCreateArea(geometry));
-    // A new circle opens its editor for the radius. The area arrives with the
-    // next refresh; the Modal opens once `areas` contains it.
-    if (created?.id && geometry.shape === "circle") {
-      setSelectedAreaId(created.id);
-    }
-  };
-  const startRedraw = (area: RenderedArea) => {
-    redraw(area.geometry.shape, area.id);
-    setSelectedAreaId(null);
-    closeSheetOnPhone();
-  };
-  const startMoveCircle = (area: RenderedArea) => {
-    armMoveCircle(area.id);
-    setSelectedAreaId(null);
-    closeSheetOnPhone();
-  };
-  // The new centre is the map centre under the crosshair; the radius comes from
-  // the latest `areas`, so that a radius changed elsewhere meanwhile is kept.
-  const setCircleHere = async () => {
-    const view = mapRef.current?.getView();
-    if (!view || movingCircle?.geometry.shape !== "circle") return;
-    const { id, geometry } = movingCircle;
-    setCircleMoveSaving(true);
-    const result = await runMapAction(() =>
-      onUpdateAreaGeometry(id, {
-        shape: "circle",
-        center: { lat: view.lat, lng: view.lng },
-        radius: geometry.radius,
-      }),
-    );
-    setCircleMoveSaving(false);
-    if (result && !result.error) endMoveCircle(id);
-  };
-  // Deleted elsewhere while being moved: nothing left to move.
-  useEffect(() => {
-    if (movingCircleId && !movingCircle) endMoveCircle(movingCircleId);
-  }, [movingCircleId, movingCircle, endMoveCircle]);
-
-  const startEditImage = (id: string) => {
-    setImageError(null);
-    armImageEdit(id);
-    closeSheetOnPhone();
-  };
-  // Platzierungs-/Deckkraft-/Ersetzen-Änderungen speichern, ohne den
-  // Bearbeiten-Modus zu verlassen (nur „Fertig"/„Löschen" beenden ihn).
-  const saveImagePlacement = (id: string, placement: ImagePlacement) =>
-    persistImage(() => onUpdateImagePlacement(id, placement));
-  const changeImageOpacity = (opacity: number) => {
-    if (!editingImage) return;
-    void persistImage(() =>
-      onUpdateImagePlacement(editingImage.id, {
-        ...editingImage.placement,
-        opacity,
-      }),
-    );
-  };
-  const replaceImage = (file: File) => {
-    if (!editingImageId) return;
-    void persistImage(() => onReplaceImage(editingImageId, file));
-  };
-  const deleteImage = async (id: string) => {
-    const result = await onDeleteImage(id);
-    if (!result.error) endMode();
-    return result;
   };
 
   const mainViewBar = (
@@ -465,40 +321,25 @@ export function SituationWorkspace({
               tileUrl={tileUrl}
               attribution={attribution}
               symbols={placed}
-              armedComposition={armedComposition}
-              onPlace={placeSymbolAt}
+              armedComposition={symbolPlacement.armedComposition}
+              onPlace={symbolPlacement.placeSymbolAt}
               onMove={onMove}
               onSelect={setSelectedId}
               focusTarget={focusTarget}
               areas={areas}
               drawShape={drawShape}
-              onDrawComplete={handleDrawComplete}
+              onDrawComplete={areaFlows.handleDrawComplete}
               kmlOverlays={kmlOverlays}
               imageOverlays={imageOverlays}
               editingImageId={editingImageId}
-              onEditImagePlacement={saveImagePlacement}
+              onEditImagePlacement={imageEditing.saveImagePlacement}
               movingCircleId={movingCircleId}
               factory={factory}
             />
             {movingCircleId && (
               <Box className="map-crosshair" aria-hidden="true" />
             )}
-            {mapError && (
-              <Box
-                pos="absolute"
-                bottom={24}
-                left={12}
-                right={64}
-                style={{ zIndex: 1200 }}
-              >
-                <ErrorAlert
-                  error={mapError}
-                  onClose={() => setMapError(null)}
-                  radius="sm"
-                  py="xs"
-                />
-              </Box>
-            )}
+            <MapErrorAlert error={mapError} onClose={dismissMapError} />
             <Box className="map-search">
               <Stack gap={8}>
                 <SearchBar
@@ -509,36 +350,15 @@ export function SituationWorkspace({
                   attribution={geocoderAttribution}
                   onJump={jumpTo}
                 />
-                {armedComposition && (
-                  <ModeBand
-                    label="Kartenzeichen platzieren"
-                    actionLabel="Abbrechen"
-                    onAction={endMode}
-                  />
-                )}
-                {drawShape && (
-                  <ModeBand
-                    label="Bereich zeichnen"
-                    actionLabel="Abbrechen"
-                    onAction={endMode}
-                  />
-                )}
-                {movingCircleId && (
-                  <ModeBand
-                    label="Kreis verschieben"
-                    confirm={{ label: "Hier setzen", onClick: setCircleHere }}
-                    actionLabel="Abbrechen"
-                    onAction={endMode}
-                    busy={circleMoveSaving}
-                  />
-                )}
-                {editingImageId && (
-                  <ModeBand
-                    label="Bild-Overlay bearbeiten"
-                    actionLabel="Fertig"
-                    onAction={endMode}
-                  />
-                )}
+                <MapModeBands
+                  placingSymbol={symbolPlacement.armedComposition !== null}
+                  drawingArea={drawShape !== null}
+                  movingCircle={movingCircleId !== null}
+                  editingImage={editingImageId !== null}
+                  onEndMode={endMode}
+                  onSetCircleHere={areaFlows.setCircleHere}
+                  circleMoveSaving={areaFlows.circleMoveSaving}
+                />
               </Stack>
             </Box>
             <MapControls
@@ -551,83 +371,47 @@ export function SituationWorkspace({
           </Box>
 
           {shownPanel && (
-            <Box
-              component="section"
-              aria-labelledby="map-panel-title"
-              className="map-panel"
+            <MapPanelSheet
+              panel={shownPanel}
+              onClose={isDesktop ? undefined : closeSheet}
             >
-              <Group justify="space-between" wrap="nowrap" px="sm" py={6}>
-                <Text id="map-panel-title" fw={600}>
-                  {MAP_PANEL_LABEL[shownPanel]}
-                </Text>
-                {!isDesktop && (
-                  <CloseButton aria-label="Schließen" onClick={closeSheet} />
-                )}
-              </Group>
-              <Box className="map-panel__content" p="sm">
-                {shownPanel === "symbols" && (
-                  <SymbolsPanel
-                    symbols={symbols}
-                    placed={placed}
-                    armedQuickId={armedQuickId}
-                    onArmQuick={armQuickSymbol}
-                    onOpenAdvanced={advanced.open}
-                    onJump={jumpFromPanel}
-                    onEdit={setSelectedId}
-                  />
-                )}
-                {shownPanel === "areas" && (
-                  <AreasPanel
-                    areas={areas}
-                    drawShape={drawShape}
-                    onToggleDraw={toggleAreaDraw}
-                    onJump={jumpFromPanel}
-                    onEdit={setSelectedAreaId}
-                  />
-                )}
-                {shownPanel === "layers" && (
-                  <Stack>
-                    <KmlPanel
-                      overlays={kmlOverlays}
-                      onAddFile={onAddKmlFile}
-                      onAddUrl={onAddKmlUrl}
-                      onToggleVisibility={onSetKmlVisibility}
-                      onReload={onReloadKml}
-                      onRemove={onRemoveKml}
-                    />
-                    <Stack
-                      component="section"
-                      aria-labelledby="image-overlay-heading"
-                      gap="xs"
-                    >
-                      <Text id="image-overlay-heading" fw={600} size="sm">
-                        Bild-Overlays
-                      </Text>
-                      <ImageOverlayPanel
-                        overlays={imageOverlays}
-                        editingId={editingImageId}
-                        onAdd={onAddImage}
-                        onToggleVisibility={onSetImageVisibility}
-                        onEdit={startEditImage}
-                        renderEditor={() =>
-                          editingImage && (
-                            <ImageOverlayEditor
-                              opacity={editingImage.placement.opacity}
-                              onOpacityChange={changeImageOpacity}
-                              onReplace={replaceImage}
-                              onDelete={() => deleteImage(editingImage.id)}
-                              onDone={endMode}
-                              busy={imageBusy}
-                              error={imageError}
-                            />
-                          )
-                        }
-                      />
-                    </Stack>
-                  </Stack>
-                )}
-              </Box>
-            </Box>
+              {shownPanel === "symbols" && (
+                <SymbolsPanel
+                  symbols={symbols}
+                  placed={placed}
+                  armedQuickId={mode.armedQuickId}
+                  onArmQuick={symbolPlacement.armQuickSymbol}
+                  onOpenAdvanced={symbolPlacement.openAdvanced}
+                  onJump={jumpFromPanel}
+                  onEdit={setSelectedId}
+                />
+              )}
+              {shownPanel === "areas" && (
+                <AreasPanel
+                  areas={areas}
+                  drawShape={drawShape}
+                  onToggleDraw={areaFlows.toggleAreaDraw}
+                  onJump={jumpFromPanel}
+                  onEdit={areaFlows.selectArea}
+                />
+              )}
+              {shownPanel === "layers" && (
+                <LayersPanel
+                  kmlOverlays={kmlOverlays}
+                  onAddKmlFile={onAddKmlFile}
+                  onAddKmlUrl={onAddKmlUrl}
+                  onSetKmlVisibility={onSetKmlVisibility}
+                  onReloadKml={onReloadKml}
+                  onRemoveKml={onRemoveKml}
+                  imageOverlays={imageOverlays}
+                  editingImageId={editingImageId}
+                  onAddImage={onAddImage}
+                  onSetImageVisibility={onSetImageVisibility}
+                  onEditImage={startEditImage}
+                  imageEditing={imageEditing}
+                />
+              )}
+            </MapPanelSheet>
           )}
         </Box>
 
@@ -679,21 +463,24 @@ export function SituationWorkspace({
         <Box className="sidebar-bar">{mainViewBar}</Box>
 
         <AreaEditorModal
-          area={selectedArea}
-          onClose={() => setSelectedAreaId(null)}
+          area={areaFlows.selectedArea}
+          onClose={() => areaFlows.selectArea(null)}
           onUpdateAreaStyle={onUpdateAreaStyle}
           onUpdateAreaGeometry={onUpdateAreaGeometry}
           onDeleteArea={onDeleteArea}
-          onRedraw={startRedraw}
-          onMoveCircle={startMoveCircle}
+          onRedraw={areaFlows.startRedraw}
+          onMoveCircle={areaFlows.startMoveCircle}
         />
 
         <Modal
-          opened={advancedOpened}
-          onClose={advanced.close}
+          opened={symbolPlacement.advancedOpened}
+          onClose={symbolPlacement.closeAdvanced}
           title="Kartenzeichen zusammensetzen"
         >
-          <AdvancedSymbolForm submitLabel="Platzieren" onSubmit={armAdvanced} />
+          <AdvancedSymbolForm
+            submitLabel="Platzieren"
+            onSubmit={symbolPlacement.armAdvanced}
+          />
         </Modal>
 
         <SymbolDetailModal

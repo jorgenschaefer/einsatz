@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:
 advances:
 after:
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -88,3 +88,30 @@ Dateien; `SituationWorkspace.tsx` setzt sie nur noch zusammen. Das Verhalten
   `SituationWorkspace.tsx`; `01` verdrahtet sie dort.
 
 ## Left standing
+- Abweichung vom Plan: Die fünf genannten Teile allein ließen
+  `SituationWorkspace.tsx` bei 550 Zeilen; die Annahme in Schritt 7 (< 500)
+  ging nicht auf. Nach demselben Grundsatz – was zusammen geändert wird –
+  sind zusätzlich herausgezogen: `useSymbolPlacement.ts` (Kartenzeichen scharf
+  schalten und platzieren samt „Erweitert …"-Dialogzustand, das Gegenstück zu
+  `useAreaFlows`), `MapErrorAlert.tsx` (die Anzeige des Fehlerkanals über der
+  Karte), `MapPanelSheet.tsx` (Rahmen des Kartenpanels mit Titel und
+  Schließen-Knopf) und `toggleAreaDraw` in `useAreaFlows`. Ergebnis: 496 Zeilen.
+- `showMapError` ist in `useMapActionError` intern; nach außen gehen nur
+  `mapError`, `dismissMapError` und `runMapAction`, weil niemand sonst
+  `showMapError` aufruft.
+- `useImageOverlayEditing` und `LayersPanel` importieren die Typen
+  `WorkspaceImageOverlay`/`WorkspaceKmlOverlay` aus `SituationWorkspace.tsx`
+  (nur `import type`, also kein Laufzeit-Zyklus). Die Typen zu verschieben
+  hätte den Import im Aufrufer berührt, der hier unverändert bleibt.
+- Review-Nit nicht behoben: `endMode` beendet jeden Karten-Modus, steckt aber
+  in `useImageOverlayEditing` und wird als `imageEditing.endMode` verdrahtet;
+  nur der Doc-Kommentar des Hooks sagt das. Das Ticket legt `endMode` bewusst
+  dorthin (er muss den Bildfehler leeren); eine Umbenennung habe ich nicht
+  vorgenommen, um bei den Namen des Tickets zu bleiben.
+- Das unveränderte Verhalten ist durch die vorhandenen Tests belegt (keine
+  `*.test.tsx` geändert, 1523 Tests grün). Zusätzlich hat der Review die
+  laufende App auf 1920×1080 und 390×844 gefahren: Kartenzeichen platzieren
+  samt Fehler-Alert bei getrenntem Netz, Kreis zeichnen und verschieben,
+  Bild-Overlay bearbeiten samt Bildfehler und „Fertig", Schließen des Blatts am
+  Telefon – alles wie vorher. 390×844 war ein verkleinertes Fenster, kein
+  Touch-Kontext.
