@@ -137,7 +137,10 @@ describe("SituationWorkspace search", () => {
       });
       await selectMainView("Lagekarte");
       await chooseAddress("Hamburg", RATHAUS.label);
-      await chooseAddress("Hamburg", HAFEN.label);
+      await userEvent.click(screen.getByLabelText("Suche"));
+      await userEvent.click(
+        screen.getByRole("button", { name: new RegExp(HAFEN.label) }),
+      );
       await waitFor(() =>
         expect(drawn.searchHit).toEqual({ lat: HAFEN.lat, lng: HAFEN.lng }),
       );
@@ -191,6 +194,7 @@ describe("SituationWorkspace search", () => {
       await selectMainView("Lagekarte");
       await chooseAddress("Pumpe", "Pumpenhaus");
       await waitFor(() => expect(drawn.searchHit).not.toBeNull());
+      await userEvent.click(screen.getByLabelText("Suche"));
       const results = within(
         screen.getByText("Einsatzobjekte").parentElement as HTMLElement,
       );
@@ -227,6 +231,21 @@ describe("SituationWorkspace search", () => {
       await waitFor(() => expect(drawn.searchHit).not.toBeNull());
       await selectMainView("ETB");
       await selectMainView("Lagekarte");
+      expect(drawn.searchHit).toEqual({ lat: RATHAUS.lat, lng: RATHAUS.lng });
+    });
+
+    it("keeps the mark and the query when the result list is closed with Escape", async () => {
+      const { drawn } = renderWorkspace({
+        onGeocode: vi.fn(async () => [RATHAUS]),
+      });
+      await selectMainView("Lagekarte");
+      await chooseAddress("Hamburg", RATHAUS.label);
+      await waitFor(() => expect(drawn.searchHit).not.toBeNull());
+      await userEvent.click(screen.getByLabelText("Suche"));
+      expect(await screen.findByText("Adressen")).toBeInTheDocument();
+      await userEvent.keyboard("{Escape}");
+      expect(screen.queryByText("Adressen")).toBeNull();
+      expect(screen.getByLabelText("Suche")).toHaveValue("Hamburg");
       expect(drawn.searchHit).toEqual({ lat: RATHAUS.lat, lng: RATHAUS.lng });
     });
 

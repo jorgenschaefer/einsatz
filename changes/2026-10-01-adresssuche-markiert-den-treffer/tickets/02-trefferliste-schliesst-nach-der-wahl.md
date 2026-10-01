@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:    AC-10, AC-11, AC-14
 advances:
 after:     01-suchtreffer-auf-der-karte
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -61,3 +61,25 @@ Fokus oder Textänderung – der Suchtext bleibt dabei stehen.
 - Keine Änderung an `useMapSearch` oder den Ansichten.
 
 ## Left standing
+- Über den Plan hinaus: Escape schließt die Liste auch, wenn der Fokus auf
+  einem Treffer oder auf „Suche löschen" liegt (der Handler sitzt an der `Box`,
+  nicht nur am Feld), und gibt den Fokus dann ans Suchfeld zurück. Wer den
+  Fokus per Tab aus Feld und Liste bewegt, schließt die Liste ebenfalls;
+  `useClickOutside` reagiert nur auf Maus und Touch. Beides kam aus dem Review.
+- Über den Plan hinaus: Die Liste startet geschlossen. Wird `SearchBar` mit
+  stehendem Suchtext neu gezeigt (am Telefon nach ETB und zurück), öffnet sie
+  sich erst bei Fokus, Klick oder Tippen und legt sich nicht ungefragt über die
+  Karte.
+- Vorhandene Tests angepasst: zwei in `SearchBar.test.tsx` und zwei in
+  `SituationWorkspace.search.test.tsx` gingen davon aus, dass die Liste offen
+  ist oder nach einer Wahl offen bleibt. Sie klicken jetzt erst ins Feld.
+- Review-Nit nicht behoben: Wer einen Treffer per Tastatur (Enter) wählt,
+  verliert den Fokus an den Seitenanfang, weil der fokussierte Knopf mit der
+  Liste verschwindet. Den Fokus ins Feld zurückzugeben würde die Liste über
+  `onFocus` wieder öffnen (gegen AC-10) und am Telefon die Bildschirmtastatur
+  über der Karte halten. Ein anderes Fokusziel ist eine eigene Entscheidung.
+- Plan Schritt 3 (Browser-Prüfung) habe ich nicht selbst gemacht; das hat der
+  Review in zwei Runden übernommen: Führungsansicht auf 1280×800 und 390×844
+  mit Touch, Ansicht auf Desktop und Telefon, Geräteansicht am Telefon. Nach
+  der Wahl ist die Karte frei, ein Tap auf die Karte schließt die wieder
+  geöffnete Liste, Text und Stecknadel bleiben stehen.

@@ -9,6 +9,8 @@ import {
   Text,
   TextInput,
 } from "@mantine/core";
+import { useClickOutside } from "@mantine/hooks";
+import { type FocusEvent, useRef, useState } from "react";
 import type { GeoHit } from "@/server/geocoder/geocoder";
 import { addressResultKey, type ObjectResult } from "./search";
 
@@ -31,16 +33,37 @@ export function SearchBar({
   onChooseAddress,
   onChooseObject,
 }: SearchBarProps) {
-  const open = query.trim().length > 0;
+  const [listOpen, setListOpen] = useState(false);
+  const boxRef = useClickOutside<HTMLDivElement>(() => setListOpen(false));
+  const fieldRef = useRef<HTMLInputElement>(null);
+  const open = listOpen && query.trim().length > 0;
   const nothing = objectResults.length === 0 && addressResults.length === 0;
 
   return (
-    <Box pos="relative" w="100%">
+    <Box
+      ref={boxRef}
+      pos="relative"
+      w="100%"
+      onKeyDown={(e) => {
+        if (e.key !== "Escape") return;
+        fieldRef.current?.focus();
+        setListOpen(false);
+      }}
+      onBlur={(e) => {
+        if (focusLeaves(e)) setListOpen(false);
+      }}
+    >
       <TextInput
+        ref={fieldRef}
         aria-label="Suche"
         placeholder="Objekte und Adressen suchen …"
         value={query}
-        onChange={(e) => onQueryChange(e.currentTarget.value)}
+        onChange={(e) => {
+          setListOpen(true);
+          onQueryChange(e.currentTarget.value);
+        }}
+        onFocus={() => setListOpen(true)}
+        onClick={() => setListOpen(true)}
         rightSection={
           query ? (
             <CloseButton
@@ -75,7 +98,10 @@ export function SearchBar({
                     size="xs"
                     variant="subtle"
                     justify="flex-start"
-                    onClick={() => onChooseObject(result)}
+                    onClick={() => {
+                      setListOpen(false);
+                      onChooseObject(result);
+                    }}
                   >
                     {result.label}
                   </Button>
@@ -93,7 +119,10 @@ export function SearchBar({
                     size="xs"
                     variant="subtle"
                     justify="flex-start"
-                    onClick={() => onChooseAddress(hit)}
+                    onClick={() => {
+                      setListOpen(false);
+                      onChooseAddress(hit);
+                    }}
                   >
                     {hit.label}
                   </Button>
@@ -113,4 +142,11 @@ export function SearchBar({
       )}
     </Box>
   );
+}
+
+/** Focus moved to an element outside field and list, e.g. by Tab. A click on
+ * something unfocusable has no target here and is left to `useClickOutside`. */
+function focusLeaves(e: FocusEvent<HTMLElement>): boolean {
+  const next = e.relatedTarget;
+  return next instanceof Node && !e.currentTarget.contains(next);
 }
