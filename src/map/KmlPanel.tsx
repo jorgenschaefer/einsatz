@@ -61,19 +61,10 @@ export function KmlPanel({
 
   const addFile = async (file: File | null) => {
     if (!file) return;
-    let content: string;
-    try {
-      // KMZ ist ein ZIP-Archiv – als Bytes lesen und (falls nötig) entpacken.
-      content = extractKml(new Uint8Array(await file.arrayBuffer()));
-    } catch (err) {
-      setError(
-        err instanceof ValidationError
-          ? err.message
-          : "Die Datei konnte nicht gelesen werden.",
-      );
-      return;
-    }
-    await run(() => onAddFile(file.name, content));
+    await run(async () => {
+      const read = await readKml(file);
+      return "error" in read ? read : onAddFile(file.name, read.content);
+    });
   };
 
   const remove = async (): Promise<ActionResult> => {
@@ -91,6 +82,7 @@ export function KmlPanel({
           style={{ flex: "1 1 auto", maxWidth: "100%" }}
           label={overlay.name}
           checked={overlay.visible}
+          disabled={busy}
           onChange={(e) =>
             run(() => onToggleVisibility(overlay.id, e.currentTarget.checked))
           }
@@ -111,6 +103,7 @@ export function KmlPanel({
             variant="light"
             color="red"
             onClick={() => {
+              setError(null);
               setRemoveTarget(overlay);
               setRemoveAsked(true);
             }}
@@ -128,7 +121,13 @@ export function KmlPanel({
   return (
     <Stack>
       {error && (
-        <Alert color="red" role="alert">
+        <Alert
+          color="red"
+          role="alert"
+          withCloseButton
+          closeButtonLabel="Meldung schließen"
+          onClose={() => setError(null)}
+        >
           {error}
         </Alert>
       )}
@@ -141,6 +140,7 @@ export function KmlPanel({
           type="file"
           accept=".kml,.kmz,application/vnd.google-earth.kml+xml,application/vnd.google-earth.kmz,application/xml,text/xml"
           aria-label="KML-/KMZ-Datei einbinden"
+          disabled={busy}
           onChange={(e) => {
             const input = e.currentTarget;
             void addFile(input.files?.[0] ?? null).finally(() => {
@@ -197,4 +197,20 @@ export function KmlPanel({
       </ConfirmationModal>
     </Stack>
   );
+}
+
+async function readKml(
+  file: File,
+): Promise<{ content: string } | { error: string }> {
+  try {
+    // KMZ ist ein ZIP-Archiv – als Bytes lesen und (falls nötig) entpacken.
+    return { content: extractKml(new Uint8Array(await file.arrayBuffer())) };
+  } catch (err) {
+    return {
+      error:
+        err instanceof ValidationError
+          ? err.message
+          : "Die Datei konnte nicht gelesen werden.",
+    };
+  }
 }

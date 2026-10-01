@@ -5,7 +5,7 @@ import type { ActionResult } from "@/app/action-result";
 import { buttonColor } from "@/test/button-color";
 import { clickModalOverlay } from "@/test/modal-overlay";
 import { redirectError } from "@/test/redirect-error";
-import { fireEvent, render, screen, waitFor, within } from "@/test/render";
+import { act, fireEvent, render, screen, waitFor, within } from "@/test/render";
 import { type KmlOverlayView, KmlPanel, type KmlPanelProps } from "./KmlPanel";
 
 function renderPanel(over: Partial<KmlPanelProps> = {}) {
@@ -288,7 +288,29 @@ describe("KmlPanel", () => {
       expect(screen.queryByRole("alert")).toBeNull();
     });
 
-    it("keeps an earlier panel error when the removal fails", async () => {
+    it("clears a failure that arrived while the confirmation was open once the overlay is removed", async () => {
+      let fail: (result: ActionResult) => void = () => {};
+      const onReload = vi.fn(
+        () => new Promise<ActionResult>((resolve) => (fail = resolve)),
+      );
+      renderPanel({ overlays: [urlOverlay, fileOverlay], onReload });
+      await userEvent.click(
+        within(screen.getByTestId("kml-k1")).getByRole("button", {
+          name: "Neu laden",
+        }),
+      );
+      const dialog = await askToRemove();
+      await act(async () =>
+        fail({ error: "KML konnte nicht geladen werden (404)." }),
+      );
+
+      await userEvent.click(confirmButton(dialog));
+
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+      expect(screen.queryByRole("alert")).toBeNull();
+    });
+
+    it("shows only the removal's failure once an earlier panel error was cleared by asking", async () => {
       const onReload = vi.fn(async () => ({
         error: "KML konnte nicht geladen werden (404).",
       }));
@@ -304,9 +326,12 @@ describe("KmlPanel", () => {
 
       await userEvent.click(confirmButton(dialog));
 
+      expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+        "Gesperrt.",
+      );
       expect(
-        await screen.findByText("KML konnte nicht geladen werden (404)."),
-      ).toBeInTheDocument();
+        screen.queryByText("KML konnte nicht geladen werden (404)."),
+      ).toBeNull();
     });
 
     it("stays locked while removing", async () => {
@@ -413,6 +438,213 @@ describe("KmlPanel", () => {
         expect(screen.queryByRole("alert")).toBeNull();
       },
     );
+  });
+
+  describe("an earlier message", () => {
+    const notFound = "KML konnte nicht geladen werden (404).";
+    const reloadButton = () =>
+      screen.getByRole("button", { name: "Neu laden" });
+    const fileInput = () => screen.getByLabelText(/Datei einbinden/);
+
+    async function renderWithMessage(over: Partial<KmlPanelProps> = {}) {
+      const props = renderPanel({
+        overlays: [urlOverlay, fileOverlay],
+        onReload: vi.fn(async () => ({ error: notFound })),
+        ...over,
+      });
+      await userEvent.click(reloadButton());
+      expect(await screen.findByRole("alert")).toHaveTextContent(notFound);
+      return props;
+    }
+
+    it("goes away with its close button", async () => {
+      await renderWithMessage();
+
+      await userEvent.click(
+        screen.getByRole("button", { name: "Meldung schließen" }),
+      );
+
+      expect(screen.queryByRole("alert")).toBeNull();
+    });
+
+    it("is gone while a readable file is being added", async () => {
+      await renderWithMessage({
+        onAddFile: vi.fn(() => new Promise<ActionResult>(() => {})),
+      });
+
+      await userEvent.upload(fileInput(), new File(["<kml/>"], "zonen.kml"));
+
+      expect(screen.queryByRole("alert")).toBeNull();
+    });
+
+    it("is gone while the next file is still being read", async () => {
+      await renderWithMessage();
+      const file = new File(["<kml/>"], "gross.kmz");
+      file.arrayBuffer = () => new Promise<ArrayBuffer>(() => {});
+
+      await userEvent.upload(fileInput(), file);
+
+      expect(screen.queryByRole("alert")).toBeNull();
+    });
+
+    it("gives way to the read failure of the next file", async () => {
+      await renderWithMessage();
+
+      const kmz = zipSync({ "liesmich.txt": strToU8("keine KML") });
+      await userEvent.upload(fileInput(), new File([kmz], "x.kmz"));
+
+      await waitFor(() =>
+        expect(screen.getByRole("alert")).toHaveTextContent(
+          "Das KMZ-Archiv enthält keine KML-Datei.",
+        ),
+      );
+      expect(screen.getAllByRole("alert")).toHaveLength(1);
+    });
+
+    it("goes away when a visibility is switched", async () => {
+      await renderWithMessage({
+        onToggleVisibility: vi.fn(() => new Promise<ActionResult>(() => {})),
+      });
+
+      await userEvent.click(screen.getByRole("switch", { name: /Zonen/ }));
+
+      expect(screen.queryByRole("alert")).toBeNull();
+    });
+
+    it("is gone while reloading again", async () => {
+      const props = await renderWithMessage();
+      vi.mocked(props.onReload).mockReturnValueOnce(new Promise(() => {}));
+
+      await userEvent.click(reloadButton());
+
+      expect(screen.queryByRole("alert")).toBeNull();
+    });
+
+    it("is gone while adding by URL", async () => {
+      await renderWithMessage({
+        onAddUrl: vi.fn(() => new Promise<ActionResult>(() => {})),
+      });
+      fireEvent.change(screen.getByLabelText("KML-/KMZ-URL"), {
+        target: { value: "https://maps.example/x.kml" },
+      });
+
+      await userEvent.click(
+        screen.getByRole("button", { name: "Per URL einbinden" }),
+      );
+
+      expect(screen.queryByRole("alert")).toBeNull();
+    });
+
+    it("goes away when Entfernen is opened", async () => {
+      await renderWithMessage();
+
+      await userEvent.click(
+        within(screen.getByTestId("kml-k2")).getByRole("button", {
+          name: "Entfernen",
+        }),
+      );
+
+      await screen.findByRole("dialog");
+      expect(screen.queryByRole("alert")).toBeNull();
+    });
+
+    it("stays while typing a name and a URL", async () => {
+      await renderWithMessage();
+
+      await userEvent.type(screen.getByLabelText("Name"), "Strecke");
+      await userEvent.type(screen.getByLabelText("KML-/KMZ-URL"), "https://x");
+
+      expect(screen.getByRole("alert")).toHaveTextContent(notFound);
+    });
+  });
+
+  describe("while an action runs", () => {
+    const pending = () => vi.fn(() => new Promise<ActionResult>(() => {}));
+    const switches = () => screen.getAllByRole("switch");
+
+    it.each([
+      [
+        "reloading",
+        { onReload: pending() },
+        () =>
+          userEvent.click(screen.getByRole("button", { name: "Neu laden" })),
+      ],
+      [
+        "adding by URL",
+        { onAddUrl: pending() },
+        async () => {
+          fireEvent.change(screen.getByLabelText("KML-/KMZ-URL"), {
+            target: { value: "https://maps.example/x.kml" },
+          });
+          await userEvent.click(
+            screen.getByRole("button", { name: "Per URL einbinden" }),
+          );
+        },
+      ],
+      [
+        "adding a file",
+        { onAddFile: pending() },
+        () =>
+          userEvent.upload(
+            screen.getByLabelText(/Datei einbinden/),
+            new File(["<kml/>"], "zonen.kml"),
+          ),
+      ],
+    ])(
+      "locks every visibility switch while %s",
+      async (_, over: Partial<KmlPanelProps>, perform) => {
+        const props = renderPanel({
+          overlays: [urlOverlay, fileOverlay],
+          ...over,
+        });
+
+        await perform();
+
+        await waitFor(() => {
+          for (const s of switches()) expect(s).toBeDisabled();
+        });
+        await userEvent.click(screen.getByRole("switch", { name: /Zonen/ }), {
+          pointerEventsCheck: 0,
+        });
+        expect(props.onToggleVisibility).not.toHaveBeenCalled();
+      },
+    );
+
+    it("locks every visibility switch while a file is still being read", async () => {
+      renderPanel({ overlays: [urlOverlay, fileOverlay] });
+      const file = new File(["<kml/>"], "gross.kmz");
+      file.arrayBuffer = () => new Promise<ArrayBuffer>(() => {});
+
+      await userEvent.upload(screen.getByLabelText(/Datei einbinden/), file);
+
+      for (const s of switches()) expect(s).toBeDisabled();
+    });
+
+    it("takes no file while another action runs", async () => {
+      renderPanel({ overlays: [urlOverlay], onReload: pending() });
+
+      await userEvent.click(screen.getByRole("button", { name: "Neu laden" }));
+
+      expect(screen.getByLabelText(/Datei einbinden/)).toBeDisabled();
+    });
+
+    it("locks the other switch while a visibility switch is pending", async () => {
+      const onToggleVisibility = pending();
+      renderPanel({
+        overlays: [urlOverlay, fileOverlay],
+        onToggleVisibility,
+      });
+
+      await userEvent.click(
+        screen.getByRole("switch", { name: /Laufstrecke/ }),
+      );
+      await userEvent.click(screen.getByRole("switch", { name: /Zonen/ }), {
+        pointerEventsCheck: 0,
+      });
+
+      expect(screen.getByRole("switch", { name: /Zonen/ })).toBeDisabled();
+      expect(onToggleVisibility).toHaveBeenCalledTimes(1);
+    });
   });
 
   it("surfaces an action error", async () => {

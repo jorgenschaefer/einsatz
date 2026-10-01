@@ -111,6 +111,73 @@ describe("ViewLinkPanel", () => {
       expect(screen.getByLabelText(/Bezeichnung/i)).toHaveValue("");
     });
 
+    describe("the failure", () => {
+      const link = { id: "v1", label: "Leitstelle", token: "tok" };
+
+      async function setupWithFailure(over: Partial<ViewLinkPanelProps> = {}) {
+        const onCreate = vi
+          .fn<ViewLinkPanelProps["onCreate"]>()
+          .mockResolvedValueOnce({ error: "Bezeichnung zu lang." });
+        setup({ links: [link], onCreate, ...over });
+        await createLeitstelle();
+        expect(await screen.findByRole("alert")).toHaveTextContent(
+          "Bezeichnung zu lang.",
+        );
+        return onCreate;
+      }
+
+      it("goes away with its close button", async () => {
+        await setupWithFailure();
+
+        await userEvent.click(
+          screen.getByRole("button", { name: "Meldung schließen" }),
+        );
+
+        expect(screen.queryByRole("alert")).toBeNull();
+      });
+
+      it("is gone while the next creation runs and shows that one's failure", async () => {
+        let fail: (result: ActionResult) => void = () => {};
+        const onCreate = await setupWithFailure();
+        onCreate.mockReturnValueOnce(
+          new Promise((resolve) => {
+            fail = resolve;
+          }),
+        );
+
+        await userEvent.click(
+          screen.getByRole("button", { name: /Ansichtslink erzeugen/i }),
+        );
+        expect(screen.queryByRole("alert")).toBeNull();
+
+        fail({ error: "Einsatz ist geschlossen." });
+        expect(await screen.findByRole("alert")).toHaveTextContent(
+          "Einsatz ist geschlossen.",
+        );
+      });
+
+      it("goes away when the delete confirmation opens", async () => {
+        await setupWithFailure();
+
+        await userEvent.click(
+          screen.getByRole("button", { name: "Leitstelle löschen" }),
+        );
+
+        await screen.findByRole("dialog");
+        expect(screen.queryByRole("alert")).toBeNull();
+      });
+
+      it("stays while typing a Bezeichnung", async () => {
+        await setupWithFailure();
+
+        await userEvent.type(screen.getByLabelText(/Bezeichnung/i), " Nord");
+
+        expect(screen.getByRole("alert")).toHaveTextContent(
+          "Bezeichnung zu lang.",
+        );
+      });
+    });
+
     it("shows no failure when it redirects to the login", async () => {
       const onCreate = vi.fn(async () => {
         throw redirectError();

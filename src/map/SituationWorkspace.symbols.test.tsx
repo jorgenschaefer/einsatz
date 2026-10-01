@@ -47,22 +47,6 @@ describe("SituationWorkspace", () => {
     ).toBeInTheDocument();
   });
 
-  it("surfaces a fallback when placing throws instead of returning an {error}", async () => {
-    const onPlace = vi.fn(async () => {
-      throw new Error("boom");
-    });
-    const { captured } = renderWorkspace({ onPlace });
-    await openPanel("Kartenzeichen");
-    await userEvent.click(screen.getByText(/KTW/));
-    await waitFor(() => expect(captured.options?.onMapClick).toBeDefined());
-    await act(async () => {
-      captured.options!.onMapClick!({ lat: 50, lng: 8 });
-    });
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      /fehlgeschlagen/i,
-    );
-  });
-
   it("shows a placement error as an overlay inside the map container, not a banner above the work area", async () => {
     const onPlace = vi.fn(async () => ({
       error: "Ungültige Zeichen-Komposition.",

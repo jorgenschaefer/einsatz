@@ -39,7 +39,7 @@ export function ImageOverlayPanel({
   onEdit,
   renderEditor,
 }: ImageOverlayPanelProps) {
-  const { busy, error, run } = useActionRunner();
+  const { busy, error, setError, run } = useActionRunner();
 
   const add = (file: File | null) => {
     if (!file) return;
@@ -49,7 +49,13 @@ export function ImageOverlayPanel({
   return (
     <Stack>
       {error && (
-        <Alert color="red" role="alert">
+        <Alert
+          color="red"
+          role="alert"
+          withCloseButton
+          closeButtonLabel="Meldung schließen"
+          onClose={() => setError(null)}
+        >
           {error}
         </Alert>
       )}
@@ -58,6 +64,7 @@ export function ImageOverlayPanel({
         type="file"
         accept=".pdf,.png,application/pdf,image/png"
         aria-label="Bild-Overlay einbinden"
+        disabled={busy}
         onChange={(e) => {
           const input = e.currentTarget;
           add(input.files?.[0] ?? null);
@@ -97,7 +104,10 @@ export function ImageOverlayPanel({
                       size="xs"
                       variant="light"
                       style={{ flexShrink: 0 }}
-                      onClick={() => onEdit(overlay.id)}
+                      onClick={() => {
+                        setError(null);
+                        onEdit(overlay.id);
+                      }}
                     >
                       Bearbeiten
                     </Button>

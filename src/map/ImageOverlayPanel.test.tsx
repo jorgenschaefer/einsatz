@@ -1,5 +1,6 @@
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
+import type { ActionResult } from "@/app/action-result";
 import { redirectError } from "@/test/redirect-error";
 import { render, screen, waitFor, within } from "@/test/render";
 import {
@@ -147,6 +148,85 @@ describe("ImageOverlayPanel", () => {
         expect(screen.queryByRole("alert")).toBeNull();
       },
     );
+  });
+
+  it("takes no file while another action runs", async () => {
+    renderPanel({
+      onAdd: vi.fn(() => new Promise<ActionResult>(() => {})),
+    });
+    const input = screen.getByLabelText(/Bild-Overlay einbinden/);
+
+    await userEvent.upload(
+      input,
+      new File(["%PDF-1.4"], "plan.pdf", { type: "application/pdf" }),
+    );
+
+    expect(input).toBeDisabled();
+  });
+
+  describe("an earlier message", () => {
+    const tooBig = "Die Datei ist größer als 20 MB.";
+    const upload = () =>
+      userEvent.upload(
+        screen.getByLabelText(/Bild-Overlay einbinden/),
+        new File(["x"], "big.png", { type: "image/png" }),
+      );
+
+    async function renderWithMessage(over: Partial<ImageOverlayPanelProps>) {
+      const onAdd = vi
+        .fn<ImageOverlayPanelProps["onAdd"]>()
+        .mockResolvedValueOnce({ error: tooBig });
+      renderPanel({ overlays: [overlay], onAdd, ...over });
+      await upload();
+      expect(await screen.findByRole("alert")).toHaveTextContent(tooBig);
+      return onAdd;
+    }
+
+    it("goes away with its close button", async () => {
+      await renderWithMessage({});
+
+      await userEvent.click(
+        screen.getByRole("button", { name: "Meldung schließen" }),
+      );
+
+      expect(screen.queryByRole("alert")).toBeNull();
+    });
+
+    it("goes away with Bearbeiten", async () => {
+      await renderWithMessage({});
+
+      await userEvent.click(screen.getByRole("button", { name: "Bearbeiten" }));
+
+      expect(screen.queryByRole("alert")).toBeNull();
+    });
+
+    it("is gone while the visibility is being switched", async () => {
+      await renderWithMessage({
+        onToggleVisibility: vi.fn(() => new Promise<ActionResult>(() => {})),
+      });
+
+      await userEvent.click(screen.getByRole("switch", { name: /Lageplan/ }));
+
+      expect(screen.queryByRole("alert")).toBeNull();
+    });
+
+    it("is gone while the next file is added and shows that one's failure", async () => {
+      let fail: (result: { error: string }) => void = () => {};
+      const onAdd = await renderWithMessage({});
+      onAdd.mockReturnValueOnce(
+        new Promise((resolve) => {
+          fail = resolve;
+        }),
+      );
+
+      await upload();
+      expect(screen.queryByRole("alert")).toBeNull();
+
+      fail({ error: "Die Datei ist kein PDF oder PNG." });
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "Die Datei ist kein PDF oder PNG.",
+      );
+    });
   });
 
   it("surfaces an add error", async () => {

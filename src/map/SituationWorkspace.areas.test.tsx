@@ -71,25 +71,6 @@ describe("SituationWorkspace", () => {
     await waitFor(() => expect(adapter.startDrawing).toHaveBeenCalledTimes(2));
   });
 
-  it("surfaces a fallback when completing a draw throws", async () => {
-    const onCreateArea = vi.fn(async () => {
-      throw new Error("boom");
-    });
-    const { adapter } = renderWorkspace({ onCreateArea });
-    await openPanel("Bereiche");
-    await userEvent.click(screen.getByText("Polygon"));
-    await waitFor(() => expect(adapter.startDrawing).toHaveBeenCalled());
-    const onComplete = adapter.startDrawing.mock.calls.at(-1)![1] as (
-      g: unknown,
-    ) => void;
-    await act(async () => {
-      onComplete({ shape: "polygon", points: [{ lat: 1, lng: 2 }] });
-    });
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      /fehlgeschlagen/i,
-    );
-  });
-
   it("surfaces a returned {error} when redrawing an area geometry", async () => {
     const onUpdateAreaGeometry = vi.fn(async () => ({
       error: "Der Radius muss größer als 0 sein.",
@@ -417,7 +398,7 @@ describe("SituationWorkspace", () => {
       await setHere();
 
       expect(await screen.findByRole("alert")).toHaveTextContent(
-        "Aktion fehlgeschlagen",
+        "Das hat nicht geklappt. Bitte erneut versuchen.",
       );
       expect(movingBand()).toBeInTheDocument();
     });
@@ -690,7 +671,7 @@ describe("SituationWorkspace", () => {
       arrive(rerender, props, CIRCLE);
 
       expect(await screen.findByRole("alert")).toHaveTextContent(
-        /fehlgeschlagen/i,
+        "Das hat nicht geklappt. Bitte erneut versuchen.",
       );
       expect(editor()).not.toBeInTheDocument();
     });

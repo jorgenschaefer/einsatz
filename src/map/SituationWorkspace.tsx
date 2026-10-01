@@ -14,6 +14,7 @@ import { useDisclosure } from "@mantine/hooks";
 
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { ACTION_FAILED, isNextNavigation } from "@/app/action-failure";
 import type { ActionResult } from "@/app/action-result";
 import {
   type JournalEntryView,
@@ -317,8 +318,10 @@ export function SituationWorkspace({
   // über diesen gemeinsamen Fehlerkanal: ein zurückgegebener {error} landet im
   // mapError-Alert, eine geworfene Ausnahme (kein ValidationError – z. B. DB-/
   // Netzfehler, die operationAction weiterwirft) im gleichen Kanal mit
-  // Fallback-Text. Bewusst ohne Fehleranzeige bleiben nur die strukturell stets
-  // gültigen: onMove (Drag auf gültige Koordinaten) und „Gerätelink erzeugen".
+  // ACTION_FAILED. Ein Redirect (etwa zur Anmeldung bei abgelaufener Sitzung)
+  // zeigt nichts, die Seite wird ersetzt. Bewusst ohne Fehleranzeige bleiben
+  // nur die strukturell stets gültigen: onMove (Drag auf gültige Koordinaten)
+  // und „Gerätelink erzeugen".
   const runMapAction = async <R extends ActionResult>(
     op: () => Promise<R>,
   ): Promise<R | undefined> => {
@@ -327,8 +330,8 @@ export function SituationWorkspace({
       const result = await op();
       if (result.error) showMapError(result.error);
       return result;
-    } catch {
-      showMapError("Aktion fehlgeschlagen. Bitte erneut versuchen.");
+    } catch (thrown) {
+      if (!isNextNavigation(thrown)) showMapError(ACTION_FAILED);
       return undefined;
     }
   };

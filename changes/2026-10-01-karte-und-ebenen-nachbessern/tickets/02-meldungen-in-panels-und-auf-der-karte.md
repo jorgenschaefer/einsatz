@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:    AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-7
 advances:
 after:
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -169,3 +169,48 @@ gesperrt, solange eine Aktion des KML-Panels läuft.
 - Der Kreis für KML-Punkte ist Ticket 03, die Server-Seite Ticket 04.
 
 ## Left standing
+- Abweichung vom Nudge zu `addFile` (KML): `addFile` ruft nicht selbst
+  `setError(null)`, sondern liest die Datei jetzt innerhalb von `run`
+  (`readKml` liefert bei einem Lesefehler `{ error }`). Grund: Der Review fand,
+  dass die Schalter während des Lesens einer großen KMZ nicht gesperrt waren
+  (AC-7). So sperrt `busy` auch das Lesen, und `run` leert die Meldung beim
+  Start. Der Text bei einem Lesefehler ist unverändert.
+- Über den Plan hinaus: Die Datei-Eingaben im KML- und im Bild-Overlay-Panel
+  sind gesperrt, solange eine Aktion des Panels läuft (`disabled={busy}`).
+  Grund: Beide Panels teilen ein `busy` je Panel. Eine zweite, überlappende
+  Aktion gab die Schalter frei und leerte oder überschrieb die Meldung der
+  ersten, obwohl diese noch lief (AC-3, AC-7). Beide Reviews haben das im
+  Browser nachgestellt.
+- Abweichung vom Plan, Schritt 7: Die Tests für Werfen und Redirect der vier
+  Kartenaktionen stehen in der neuen Datei
+  `src/map/SituationWorkspace.map-actions.test.tsx`, nicht in
+  `SituationWorkspace.symbols.test.tsx` und `SituationWorkspace.areas.test.tsx`
+  (409 bzw. 757 Zeilen). Die beiden Tests dort, die nur den Ersatztext beim
+  Werfen von Platzieren und Zeichnen prüften, sind entfallen, weil die neue
+  Datei sie abdeckt. „a thrown save keeps moving …“ und „does not open the
+  editor when creating throws“ bleiben und erwarten jetzt den Text aus AC-5.
+- Nicht übernommene Review-Meldung: Der erste Review riet, die Zeile
+  `if (!result.error) setError(null);` in `remove` (KmlPanel) zu streichen.
+  Sonst wischt ein erfolgreiches Entfernen eine Meldung weg, die eintraf,
+  während der Dialog offen war. Ein Beispiel: „Neu laden“ scheitert hinter
+  dem Dialog. Diese Meldung wäre dann nie zu sehen gewesen (Spannung zu
+  AC-3). Die Zeile bleibt, weil der Plan sie genau dafür vorsieht. Sie ist
+  jetzt durch den Test „clears a failure that arrived while the confirmation
+  was open once the overlay is removed“ gepinnt. Bei der Abnahme bitte
+  entscheiden, ob das so gewollt ist.
+- Plan, Schritt 9: Den Browser habe ich nicht selbst geprüft. Das haben beide
+  Reviews getan (360 px und 1280/1920 px): „×“ in allen drei Panels, passt bei
+  360 px ohne waagerechtes Scrollen, Leeren nach AC-2/AC-4, Sperren der
+  KML-Schalter und der Datei-Eingabe, Text aus AC-5 unten auf der Karte. Die
+  Fehler wurden dafür durch abgefangene oder verzögerte Server-Action-Anfragen
+  erzeugt, nicht durch eine echte KML-URL mit 404.
+- AC-6 ist im Test bis zur Grenze zu Next bewiesen: Wirft eine der vier
+  Kartenaktionen einen Redirect-Fehler, erscheint keine Meldung. Dass danach
+  die Anmeldeseite kommt, übernimmt Next selbst. Mit abgelaufener Sitzung hat
+  das niemand im Browser geprüft.
+- AC-1 „passt am Handy“: Dafür gibt es keinen automatischen Test, nur die
+  Prüfung im Browser durch die Reviews (siehe oben).
+- Nebenwirkung außerhalb des Tickets: Auch der Editor eines Bild-Overlays
+  nutzt `useActionRunner`. Seine Meldung verschwindet jetzt ebenfalls beim
+  Start eines neuen Speicherns. Der Review hat das als passend bewertet, es
+  ist aber nicht eigens getestet.

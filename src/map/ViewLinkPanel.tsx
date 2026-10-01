@@ -39,7 +39,7 @@ export function ViewLinkPanel({
   onDelete,
 }: ViewLinkPanelProps) {
   const [label, setLabel] = useState("");
-  const { busy: creating, error, run } = useActionRunner();
+  const { busy: creating, error, setError, run } = useActionRunner();
   // Bleibt nach dem Schließen gesetzt, damit der Titel beim Ausblenden
   // stehen bleibt.
   const [deleteTarget, setDeleteTarget] = useState<ViewLinkItem | null>(null);
@@ -53,7 +53,13 @@ export function ViewLinkPanel({
   return (
     <Stack gap="md">
       {error && (
-        <Alert color="red" role="alert">
+        <Alert
+          color="red"
+          role="alert"
+          withCloseButton
+          closeButtonLabel="Meldung schließen"
+          onClose={() => setError(null)}
+        >
           {error}
         </Alert>
       )}
@@ -82,6 +88,7 @@ export function ViewLinkPanel({
               key={link.id}
               link={link}
               onAskDelete={() => {
+                setError(null);
                 setDeleteTarget(link);
                 setDeleteAsked(true);
               }}

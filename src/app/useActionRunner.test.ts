@@ -31,6 +31,18 @@ describe("useActionRunner", () => {
     expect(result.current.busy).toBe(true);
   });
 
+  it("clears an earlier error as soon as the action starts", () => {
+    const { result } = renderHook(() => useActionRunner());
+    act(() => result.current.setError("Früherer Fehler."));
+
+    act(() => {
+      void result.current.run(() => new Promise<ActionResult>(() => {}));
+    });
+
+    expect(result.current.error).toBeNull();
+    expect(result.current.busy).toBe(true);
+  });
+
   it("hands back a success and clears an earlier error", async () => {
     const { result } = renderHook(() => useActionRunner());
     act(() => result.current.setError("Früherer Fehler."));
