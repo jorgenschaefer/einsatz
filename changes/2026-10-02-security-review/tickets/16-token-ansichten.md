@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:    AC-13, AC-19
 advances:
 after:
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -134,3 +134,62 @@ the app's Photon limit; queries over 200 characters never reach Photon.
   Ansichtslink-Tokens."
 
 ## Left standing
+- **Review blocker not fixed: a token search refused by the 3 s limit
+  shows "Keine Treffer.".** A refused search returns `[]`, like a real
+  empty result. `useMapSearch` searches 300 ms after the last keystroke and
+  never asks again. The reviewer reproduced it in the Geräteansicht at
+  390 px: type "Hamb", pause about 0.7 s, finish "Hamburg Rathaus". The
+  second search lands inside the 3 s window, gets `[]`, and the list says
+  "Keine Treffer." for a real address. The window is shared by every
+  Ansichts- and Gerätelink, so one person typing can cause this for the
+  others. The old 1 s limit had the same flaw, and the Lageansicht still
+  has it. This change makes it more likely in the token views. AC-19 holds
+  as written. I didn't fix it because the fix is a decision this ticket
+  doesn't settle. The server would have to tell "refused" apart from "no
+  hits" (the route and the server action both return `GeoHit[]` today), and
+  the shared search hook would have to retry the latest query once the
+  window frees up, or show a "gleich nochmal versuchen" message. My
+  recommendation: the token routes answer 429 with `Retry-After`, and the
+  hook retries the current query once after that. This needs its own
+  ticket.
+- **Review nit not fixed: a token search refused by the shared 1 s limit
+  still uses up the 3 s token slot.** This is the gate order the ticket
+  decided ("at worst wastes a token slot when the shared gate is busy"),
+  so token searches never take shared slots from logged-in users. Right
+  after a logged-in search, token links can get nothing for 3 s while
+  Photon is idle. Undoing that would need a peek on `RateGate`, which the
+  ticket noted doesn't exist.
+- **No second review round.** The first round's only blocker is the one
+  above, which I left standing. After that round I changed only tests: the
+  `visibleOnly` cases in `overlay-response.test.ts` (reviewer nit) and a
+  renamed test in `geocode-service.test.ts` (reviewer nit). Nobody reviewed
+  those again.
+- **Tests that passed before their code existed:** the two "shown again"
+  cases in `token-views.hidden-layers.test.ts` (the ticket says this needs
+  no new code, only a pin), the logged-in route's "serves a hidden
+  Bild-Overlay to the Lageansicht", the 200-character and BMP-boundary
+  cases, and "serves a hidden overlay when visibility is not required". To
+  show that the route and `overlayImageResponse` pins bite, I broke the code
+  once for each (defaulted `visibleOnly` to true; dropped the visibility
+  check), and each run went red. I also swapped the gate order once, and
+  the order tests went red.
+- **The token-gate unit cases in `geocode-service.test.ts` first failed
+  with a missing export, not a failed assertion.** The same behaviour had
+  already gone red on its assertions in `token-geocode-limits.test.ts`
+  (device search at 1.5 s, the 201-character query).
+- **"Nicht zu sehen" and "ohne Neuladen" in the real browser have no
+  automated test.** The tests pin the page data, the bus notification and
+  the next render. The reviewer drove it logged out: Ansichtsansicht at
+  1280 px, Geräteansicht at 390 px (touch), Lageansicht logged in at
+  1280 px. Hiding a KML-Ebene and a Bild-Overlay removed both from open
+  token views without a reload. Fresh page loads didn't contain them, and
+  their image address was 404 under `/view/…` and `/device/…`. The
+  Lageansicht still listed them and still loaded the image. Showing them
+  again brought both back in the open token views without a reload. The
+  token views weren't checked at the widest size.
+- **Plan detail: the 200-character bound counts characters after trimming,
+  as code points.** So 200 emoji (400 UTF-16 units) still reach Photon.
+  This is pinned in `geocode-service.test.ts`.
+- **Plan detail: there is no hidden-overlay case in
+  `read-only-situation-map.test.ts`.** The page-level test covers the loader
+  through both pages, as the plan allowed.

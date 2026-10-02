@@ -7,7 +7,10 @@ import { freshDb } from "@/test/db";
 
 vi.mock("pdf-to-png-converter", () => ({ pdfToPng: vi.fn() }));
 
-import { createImageOverlay } from "./image-overlays";
+import {
+  createImageOverlay,
+  setImageOverlayVisibility,
+} from "./image-overlays";
 import { storeOverlayImage } from "./image-storage";
 import { overlayImageResponse } from "./overlay-response";
 
@@ -78,5 +81,25 @@ describe("overlayImageResponse", () => {
       operationId,
     );
     expect(res.status).toBe(404);
+  });
+
+  it("answers 404 for a hidden overlay when only visible ones may be served", async () => {
+    const { db, operationId, overlayId } = await anOverlay();
+    await setImageOverlayVisibility(db, overlayId, false);
+
+    const res = await overlayImageResponse(db, overlayId, operationId, {
+      visibleOnly: true,
+    });
+
+    expect(res.status).toBe(404);
+  });
+
+  it("serves a hidden overlay when visibility is not required", async () => {
+    const { db, operationId, overlayId } = await anOverlay();
+    await setImageOverlayVisibility(db, overlayId, false);
+
+    const res = await overlayImageResponse(db, overlayId, operationId);
+
+    expect(res.status).toBe(200);
   });
 });

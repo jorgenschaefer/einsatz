@@ -1,6 +1,15 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { geocodeGate, geocodeQuery } from "./geocode-service";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  geocodeGate,
+  geocodeQuery,
+  geocodeQueryForTokenLink,
+  tokenLinkGeocodeGate,
+} from "./geocode-service";
 import type { Geocoder } from "./geocoder";
+
+const hamburg = () => ({
+  geocode: vi.fn(async () => [{ label: "Hamburg", lat: 53.55, lng: 9.99 }]),
+});
 
 describe("geocodeQuery", () => {
   beforeEach(() => geocodeGate.reset());
@@ -36,5 +45,69 @@ describe("geocodeQuery", () => {
       }),
     };
     expect(await geocodeQuery("Hamburg", geocoder)).toEqual([]);
+  });
+
+  it("finds nothing for a query over 200 characters, without asking the geocoder or using up the slot", async () => {
+    const geocoder = hamburg();
+    expect(await geocodeQuery("a".repeat(201), geocoder)).toEqual([]);
+    expect(geocoder.geocode).not.toHaveBeenCalled();
+    expect(await geocodeQuery("Hamburg", geocoder)).toHaveLength(1);
+  });
+
+  it("ignores surrounding spaces and counts a character outside the BMP once", async () => {
+    const geocoder = hamburg();
+    expect(
+      await geocodeQuery(`  ${"🚒".repeat(200)}  `, geocoder),
+    ).toHaveLength(1);
+  });
+});
+
+describe("geocodeQueryForTokenLink", () => {
+  const T0 = Date.UTC(2026, 9, 3);
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(T0);
+    geocodeGate.reset();
+    tokenLinkGeocodeGate.reset();
+  });
+
+  afterEach(() => vi.useRealTimers());
+
+  it("asks the geocoder at most once in 3 seconds", async () => {
+    const geocoder = hamburg();
+    expect(await geocodeQueryForTokenLink("Hamburg", geocoder)).toHaveLength(1);
+    vi.setSystemTime(T0 + 2999);
+    expect(await geocodeQueryForTokenLink("Hamburg", geocoder)).toEqual([]);
+    vi.setSystemTime(T0 + 3000);
+    expect(await geocodeQueryForTokenLink("Hamburg", geocoder)).toHaveLength(1);
+  });
+
+  it("leaves the shared slot to logged-in users when its own limit refuses", async () => {
+    const geocoder = hamburg();
+    await geocodeQueryForTokenLink("Hamburg", geocoder);
+    vi.setSystemTime(T0 + 1500);
+
+    expect(await geocodeQueryForTokenLink("Hamburg", geocoder)).toEqual([]);
+    expect(await geocodeQuery("Hamburg", geocoder)).toHaveLength(1);
+  });
+
+  it("finds nothing when the shared limit is used up by a logged-in search", async () => {
+    const geocoder = hamburg();
+    await geocodeQuery("Hamburg", geocoder);
+
+    expect(await geocodeQueryForTokenLink("Hamburg", geocoder)).toEqual([]);
+    expect(geocoder.geocode).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses up neither limit for a query over 200 characters or a too-short one", async () => {
+    const geocoder = hamburg();
+    expect(await geocodeQueryForTokenLink("a".repeat(201), geocoder)).toEqual(
+      [],
+    );
+    expect(await geocodeQueryForTokenLink("ab", geocoder)).toEqual([]);
+    expect(geocoder.geocode).not.toHaveBeenCalled();
+
+    expect(await geocodeQueryForTokenLink("Hamburg", geocoder)).toHaveLength(1);
   });
 });

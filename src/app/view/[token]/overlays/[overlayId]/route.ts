@@ -12,5 +12,7 @@ export async function GET(
   const db = getDb();
   const access = await resolveViewAccess(db, token);
   if (!access) return new NextResponse("Kein Zugang", { status: 403 });
-  return overlayImageResponse(db, overlayId, access.operationId);
+  return overlayImageResponse(db, overlayId, access.operationId, {
+    visibleOnly: true,
+  });
 }

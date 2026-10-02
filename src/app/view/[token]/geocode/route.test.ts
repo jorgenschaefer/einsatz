@@ -5,10 +5,10 @@ vi.mock("@/server/viewlinks/view-links", () => ({
   resolveViewAccess: vi.fn(),
 }));
 vi.mock("@/server/geocoder/geocode-service", () => ({
-  geocodeQuery: vi.fn(),
+  geocodeQueryForTokenLink: vi.fn(),
 }));
 
-import { geocodeQuery } from "@/server/geocoder/geocode-service";
+import { geocodeQueryForTokenLink } from "@/server/geocoder/geocode-service";
 import { resolveViewAccess } from "@/server/viewlinks/view-links";
 import { GET } from "./route";
 
@@ -26,7 +26,7 @@ describe("view geocode route", () => {
 
   it("returns geocoder hits when the token has access", async () => {
     vi.mocked(resolveViewAccess).mockResolvedValue({ operationId: "op-a" });
-    vi.mocked(geocodeQuery).mockResolvedValue([
+    vi.mocked(geocodeQueryForTokenLink).mockResolvedValue([
       { label: "Rathaus", lat: 53.5, lng: 9.9 },
     ]);
     const res = await call();
