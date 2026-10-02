@@ -1,8 +1,9 @@
 import type { GeoHit } from "@/server/geocoder/geocoder";
 
+/** Ein Kartenzeichen, wie die Suche es braucht: Bezeichnung und Position. */
 export interface SearchableSymbol {
   id: string;
-  bezeichnung: string | null;
+  composition: { text?: string | null };
   lat: number;
   lng: number;
 }
@@ -35,10 +36,11 @@ export function searchOperationObjects(
   const results: ObjectResult[] = [];
 
   for (const symbol of symbols) {
-    if (symbol.bezeichnung?.toLowerCase().includes(q)) {
+    const label = symbol.composition.text;
+    if (label?.toLowerCase().includes(q)) {
       results.push({
         id: symbol.id,
-        label: symbol.bezeichnung,
+        label,
         lat: symbol.lat,
         lng: symbol.lng,
       });

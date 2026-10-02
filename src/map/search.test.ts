@@ -14,8 +14,13 @@ describe("shouldGeocode", () => {
 });
 
 const symbols: SearchableSymbol[] = [
-  { id: "s1", bezeichnung: "Rotkreuz Musterstadt 83/1", lat: 1, lng: 2 },
-  { id: "s2", bezeichnung: null, lat: 3, lng: 4 },
+  {
+    id: "s1",
+    composition: { text: "Rotkreuz Musterstadt 83/1" },
+    lat: 1,
+    lng: 2,
+  },
+  { id: "s2", composition: {}, lat: 3, lng: 4 },
 ];
 
 describe("searchOperationObjects", () => {

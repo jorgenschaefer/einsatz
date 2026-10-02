@@ -1,10 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, renderHook, waitFor } from "@/test/render";
-import { type MapSearchSymbol, useMapSearch } from "./useMapSearch";
+import type { SearchableSymbol } from "./search";
+import { useMapSearch } from "./useMapSearch";
 
 afterEach(cleanup);
 
-const symbols: MapSearchSymbol[] = [
+const symbols: SearchableSymbol[] = [
   { id: "s1", composition: { text: "Rotkreuz 83/1" }, lat: 53.5, lng: 9.9 },
   { id: "s2", composition: { text: null }, lat: 1, lng: 2 },
 ];

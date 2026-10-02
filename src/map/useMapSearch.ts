@@ -5,17 +5,11 @@ import type { GeoHit } from "@/server/geocoder/geocoder";
 import {
   addressResultKey,
   type ObjectResult,
+  type SearchableSymbol,
   searchOperationObjects,
   shouldGeocode,
 } from "./search";
 import type { LatLng } from "./view";
-
-export interface MapSearchSymbol {
-  id: string;
-  composition: { text?: string | null };
-  lat: number;
-  lng: number;
-}
 
 export interface MapSearch {
   query: string;
@@ -38,7 +32,7 @@ export interface MapSearch {
  * `geocode`-Quelle.
  */
 export function useMapSearch(
-  symbols: MapSearchSymbol[],
+  symbols: SearchableSymbol[],
   geocode: (query: string) => Promise<GeoHit[]>,
   jumpTo: (lat: number, lng: number) => void,
 ): MapSearch {
@@ -64,15 +58,7 @@ export function useMapSearch(
     };
   }, [query, geocode]);
 
-  const objectResults = searchOperationObjects(
-    query,
-    symbols.map((s) => ({
-      id: s.id,
-      bezeichnung: s.composition.text ?? null,
-      lat: s.lat,
-      lng: s.lng,
-    })),
-  );
+  const objectResults = searchOperationObjects(query, symbols);
 
   const setQuery = (next: string) => {
     setQueryState(next);
