@@ -36,3 +36,7 @@ export function useNotifyingActionRunner(
 
   return { busy, run, closeError };
 }
+
+export type RunNotifyingAction = ReturnType<
+  typeof useNotifyingActionRunner
+>["run"];

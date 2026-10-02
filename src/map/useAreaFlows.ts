@@ -2,9 +2,9 @@
 
 import { type RefObject, useEffect, useState } from "react";
 import type { ActionResult } from "@/app/action-result";
+import type { RunNotifyingAction } from "@/app/useNotifyingActionRunner";
 import type { AreaGeometry, AreaShape } from "./area";
 import type { RenderedArea, SituationMapHandle } from "./SituationMap";
-import type { RunMapAction } from "./useMapActionError";
 import type { MapModeControls } from "./useMapMode";
 
 /**
@@ -34,7 +34,7 @@ export function useAreaFlows({
     | "endMoveCircle"
     | "reset"
   >;
-  runMapAction: RunMapAction;
+  runMapAction: RunNotifyingAction;
   closeSheetOnPhone: () => void;
   onCreateArea: (
     geometry: AreaGeometry,

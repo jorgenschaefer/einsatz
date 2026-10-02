@@ -18,6 +18,11 @@ export const VIEW_LINKS: NotificationSource = {
   title: "Ansichtslinks",
 };
 
+/**
+ * Die Karten-Interaktionen ohne eigenes Panel (Platzieren, Zeichnen, Kreis
+ * verschieben). Ohne Fehleranzeige bleiben nur die strukturell stets gültigen:
+ * onMove (Drag auf gültige Koordinaten) und „Gerätelink erzeugen“.
+ */
 export const SITUATION_MAP: NotificationSource = {
   id: "karte",
   title: "Karte",

@@ -2,9 +2,9 @@
 
 import { useDisclosure } from "@mantine/hooks";
 import type { ActionResult } from "@/app/action-result";
+import type { RunNotifyingAction } from "@/app/useNotifyingActionRunner";
 import type { SymbolComposition } from "./composition";
 import { QUICK_SELECT } from "./quick-select";
-import type { RunMapAction } from "./useMapActionError";
 import type { MapModeControls } from "./useMapMode";
 
 /**
@@ -21,7 +21,7 @@ export function useSymbolPlacement({
     MapModeControls,
     "armedQuickId" | "armedCustom" | "armQuick" | "armCustom" | "reset"
   >;
-  runMapAction: RunMapAction;
+  runMapAction: RunNotifyingAction;
   closeSheetOnPhone: () => void;
   onPlace: (
     composition: SymbolComposition,

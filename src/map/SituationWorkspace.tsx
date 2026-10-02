@@ -11,6 +11,7 @@ import {
   JournalPanel,
 } from "@/app/operations/[id]/JournalPanel";
 import { LageansichtShell } from "@/app/operations/[id]/LageansichtShell";
+import { useNotifyingActionRunner } from "@/app/useNotifyingActionRunner";
 import type { EntryContent } from "@/journal/entry-route";
 import type { GeoHit } from "@/server/geocoder/geocoder";
 import type { KmlSourceType } from "@/server/kml/kml-overlays";
@@ -29,7 +30,10 @@ import { MainViewBar } from "./MainViewBar";
 import { MapControls } from "./MapControls";
 import { MapModeBands } from "./MapModeBands";
 import { MapPanelSheet } from "./MapPanelSheet";
-import { closeLageansichtNotifications } from "./notification-sources";
+import {
+  closeLageansichtNotifications,
+  SITUATION_MAP,
+} from "./notification-sources";
 import { type StatefulSymbol, toPlacedSymbols } from "./placed-symbols";
 import { SearchBar } from "./SearchBar";
 import {
@@ -43,7 +47,6 @@ import { SymbolsPanel } from "./SymbolsPanel";
 import { useAreaFlows } from "./useAreaFlows";
 import { useImageOverlayEditing } from "./useImageOverlayEditing";
 import { useMainView } from "./useMainView";
-import { useMapActionError } from "./useMapActionError";
 import { useMapFocus } from "./useMapFocus";
 import { useMapMode } from "./useMapMode";
 import { useMapSearch } from "./useMapSearch";
@@ -216,7 +219,8 @@ export function SituationWorkspace({
   );
   useEffect(() => closeLageansichtNotifications, []);
   const mapRef = useRef<SituationMapHandle>(null);
-  const { runMapAction, closeMapError } = useMapActionError();
+  const { run: runMapAction, closeError: closeMapError } =
+    useNotifyingActionRunner(SITUATION_MAP);
   const mode = useMapMode({ onTransition: closeMapError });
   const { editingImageId, drawShape, movingCircleId } = mode;
   const [selectedId, setSelectedId] = useState<string | null>(null);
