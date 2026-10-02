@@ -1,7 +1,12 @@
 import L from "leaflet";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ImageOverlaySpec, MapAdapter } from "./adapter";
-import { imageOverlayCorners, imageOverlayHandles } from "./image-overlay";
+import {
+  imageOverlayCorners,
+  imageOverlayHandles,
+  rotationFromHandle,
+  scaleMFromCorner,
+} from "./image-overlay";
 import { leafletMapAdapterFactory } from "./leaflet-adapter";
 
 const saved: ImageOverlaySpec = {
@@ -112,6 +117,38 @@ describe("dragging an image overlay's move handle", () => {
     dragMoveHandle(handles);
 
     expect(onChange).toHaveBeenCalledWith(moved);
+  });
+});
+
+describe("dropping the other handles of an image overlay", () => {
+  const dropped = { lat: 53.56, lng: 10.02 };
+
+  /** Handles in drawing order: four corners, rotate, move. */
+  function drop(handle: L.Marker) {
+    handle.setLatLng([dropped.lat, dropped.lng]);
+    handle.fire("drag");
+    handle.fire("dragend");
+  }
+
+  it("scales the image from a corner", () => {
+    const { handles, onChange } = editSavedImage();
+    drop(handles.at(-6)!);
+
+    const scaleM = scaleMFromCorner(saved.placement, saved.aspect, dropped);
+    expect(scaleM).not.toBe(saved.placement.scaleM);
+    expect(onChange).toHaveBeenCalledWith({ ...saved.placement, scaleM });
+  });
+
+  it("rotates the image with the rotate handle", () => {
+    const { handles, onChange } = editSavedImage();
+    drop(handles.at(-2)!);
+
+    const rotationDeg = rotationFromHandle(saved.placement, dropped);
+    expect(rotationDeg).not.toBe(saved.placement.rotationDeg);
+    expect(onChange).toHaveBeenCalledWith({
+      ...saved.placement,
+      rotationDeg,
+    });
   });
 });
 
