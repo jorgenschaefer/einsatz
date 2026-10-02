@@ -15,7 +15,12 @@ import type { SymbolComposition } from "./composition";
 import type { ImagePlacement } from "./image-overlay";
 import { readLastView, writeLastView } from "./last-view-storage";
 import type { FocusTarget } from "./useMapFocus";
-import { chooseInitialView, type LatLng, type MapView } from "./view";
+import {
+  chooseInitialView,
+  type LatLng,
+  type MapView,
+  type ViewExtent,
+} from "./view";
 
 /** Ein platziertes Kartenzeichen, fertig zum Setzen als Marker. */
 export interface PlacedSymbol {
@@ -58,6 +63,8 @@ export interface RenderedImageOverlay {
 export interface SituationMapHandle {
   /** Der aktuelle Ausschnitt, oder null, solange die Karte noch nicht steht. */
   getView(): MapView | null;
+  /** Die ganze Kartenfläche in Metern, oder null, solange die Karte noch nicht steht. */
+  getViewExtent(): ViewExtent | null;
   /** Puts the Bild-Overlay and its handles back on its saved placement. */
   restoreImagePlacement(id: string): void;
 }
@@ -139,6 +146,7 @@ export function SituationMap({
 
   useImperativeHandle(ref, () => ({
     getView: () => adapterRef.current?.getView() ?? null,
+    getViewExtent: () => adapterRef.current?.getViewExtent() ?? null,
     restoreImagePlacement: (id) => adapterRef.current?.restoreImageOverlay(id),
   }));
 

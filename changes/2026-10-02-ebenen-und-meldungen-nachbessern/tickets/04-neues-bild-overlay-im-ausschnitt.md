@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:    AC-13, AC-14
 advances:
 after:
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -103,3 +103,70 @@ Standard-Ausschnitt des Einsatzes mit fester Breite von 1000 m.
 - Kein Zoom der Karte aufs Bild (Ruled out).
 
 ## Left standing
+
+**Review-Befunde, nicht behoben**
+
+- *Hinter der Datumsgrenze* (Review 1 und 2, Blocker). Leaflet bricht den
+  Mittelpunkt nicht auf −180…180 um. Wer nach Osten über 180° hinaus
+  geschoben hat, schickt zum Beispiel `lng: 339.8`, und der Server lehnt mit
+  „Der Kartenausschnitt ist ungültig.“ ab. Das Umbrechen im Adapter (die
+  Korrektur nach Review 1) machte es schlimmer: Das Bild wurde gespeichert,
+  lag aber 360° neben der Stelle, auf die man schaut, und war bei
+  niemandem zu sehen. Ich habe das deshalb zurückgenommen. Eine Ablehnung,
+  die man sieht, ist besser als ein Bild, das man nicht findet. Eine echte
+  Lösung (etwa Leaflets `worldCopyJump`) änderte das Verschieben der ganzen
+  Karte für alle Ebenen und Ansichten. Das entscheidet dieses Ticket nicht.
+  Den Standard-Ausschnitt dort zu speichern, scheitert schon heute auf
+  dieselbe Weise.
+- *Höhe bei Zoom auf Kontinent-Ebene* (Review 2, Blocker). Die Höhe zählt in
+  Metern am Boden, wie AC-14 es verlangt: Nord-Süd-Spanne × 111 320 m. Das
+  Bild liegt in Grad gleichmäßig um die Mitte. Web-Mercator streckt die
+  Nordhälfte aber, und so ragt ein Hochformat auf einem breiten Bildschirm
+  bei Zoom 3–4 über den oberen Rand. Bei 2560 × 1440, Zoom 3 und 60° N
+  stünde die Oberkante jenseits des Pols. In Metern am Boden ist AC-14 auch
+  dort erfüllt. Ob das Bild auch auf dem Bildschirm in den Ausschnitt passen
+  muss, sagen die Kriterien nicht. Auf Straßen- und Stadtebene ist der
+  Unterschied nicht zu messen; bei Zoom 13 lag es im Browser genau mittig
+  und war 0,500 so breit bzw. hoch wie die Karte.
+- *`src/map/SituationWorkspace.tsx` nicht vorher aufgeteilt* (Review 1,
+  should-fix). Die Datei bekommt `addImage` und `MAP_LOADING` und hat jetzt
+  rund 505 Zeilen. Der Plan sieht keinen eigenen Split vor, und einen Split
+  in diesen Commit zu mischen, wäre ein zweites Ticket. Das gehört beim
+  Schneiden der Tickets entschieden.
+
+**Ohne automatischen Test geprüft**
+
+- AC-13, „bei allen Clients“ und „auch unter einem offenen Blatt“: Die Tests
+  prüfen, dass die Action das Overlay mit der Mitte des übergebenen
+  Ausschnitts speichert, dass der Client die Fläche des Adapters schickt und
+  dass der Adapter die ganze Containerfläche misst. Dass das Blatt am Handy
+  darüber liegt und die Fläche nicht verkleinert, haben die Reviewer im
+  Browser gesehen: Bei 360 px mit offenem Ebenen-Blatt lag das Bild mittig
+  auf der ganzen Karte (180/361 zu 180/362 px), mit dem unteren Teil unter
+  dem Blatt. Andere Clients bekommen die gespeicherte Platzierung wie bei jedem
+  Overlay über das Live-Update des Einsatzes. Mit einem zweiten Browser hat
+  das niemand geprüft.
+- AC-14, „auf 5 % genau“, in der echten Karte: `leaflet-adapter.extent.test.ts`
+  misst in jsdom mit Leaflets Projektion. Im Browser bei 2560 × 1440 und
+  360 × 740 kam das Bild auf 49,7–50 % der Breite (Querformat) bzw. der Höhe
+  (Hochformat); alle sechs Griffe lagen beim Bearbeiten im Ausschnitt.
+
+**Abweichungen vom Plan**
+
+- Schritt 2: `widthM` und `heightM` misst der Adapter nicht mit
+  `map.distance`, sondern als Längen- bzw. Breitengrad-Spanne mal Meter pro
+  Grad, mit denselben Konstanten wie `fromImageFrame` (`METERS_PER_DEGREE`,
+  `metersPerDegLng`, dafür jetzt aus `image-overlay.ts` exportiert).
+  `map.distance` misst den Großkreis. Der ist bei weitem Ausschnitt kürzer als
+  der Breitenkreis, an dem das Bild ausgelegt wird, und bricht jenseits von
+  360° Länge zusammen. Bei Zoom 2 kam das Bild nur auf 3,4 % der Breite
+  (Review 1). Zwei Tests in `leaflet-adapter.extent.test.ts` pinnen das.
+- Schritt 4: Ausschnitt-Parameter und Prüfung heißen `view` und
+  `assertViewExtent`. Die Mittelpunktsprüfung nutzt das bestehende
+  `isValidLatLng`. Der Ausschnitt wird vor dem Aufbereiten der Datei
+  geprüft, damit eine ungültige Anfrage kein Bild umrechnet. `getOperation`
+  bleibt für die Existenzprüfung.
+- Schritt 6 (Browser) haben die beiden Reviewer gefahren, nicht der Build.
+  Das ist das Vorgehen von `/implement`. Screenshots liegen nicht im Commit.
+
+Von den Nudges bin ich nicht abgewichen.

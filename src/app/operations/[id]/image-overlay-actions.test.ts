@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import sharp from "sharp";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { ViewExtent } from "@/map/view";
 import type { Db } from "@/server/db/db";
 
 // IO-/Trust-Grenzen faken, damit die echte Action-Logik unverändert läuft.
@@ -44,7 +45,10 @@ import {
 } from "@/server/image-overlays/image-overlays";
 import * as storage from "@/server/image-overlays/image-storage";
 import { storeOverlayImage } from "@/server/image-overlays/image-storage";
-import { insertOperation } from "@/server/operations/operations";
+import {
+  insertOperation,
+  setDefaultView,
+} from "@/server/operations/operations";
 import { freshDb } from "@/test/db";
 import { redirectError } from "@/test/redirect-error";
 
@@ -57,6 +61,8 @@ const A_PLACEMENT = {
   rotationDeg: 30,
   opacity: 0.8,
 };
+
+const A_VIEW = { lat: 53.55, lng: 9.99, widthM: 4000, heightM: 3000 };
 
 async function login(): Promise<void> {
   const db = state.db as Db;
@@ -229,13 +235,100 @@ describe("addImageOverlayAction", () => {
       description: null,
     });
 
-    const result = await addImageOverlayAction(op.id, await pngFile(600, 300));
+    const result = await addImageOverlayAction(
+      op.id,
+      await pngFile(600, 300),
+      A_VIEW,
+    );
 
     expect(result).toEqual({});
     expect(await listImageOverlays(state.db as Db, op.id)).toMatchObject([
       { name: "neu.png", widthPx: 600, heightPx: 300 },
     ]);
     expect(state.publishOperationChanged).toHaveBeenCalledWith(op.id);
+  });
+
+  it("centers a landscape image on the uploader's view at half its width", async () => {
+    await login();
+    const op = await insertOperation(state.db as Db, {
+      name: "Lage",
+      description: null,
+    });
+    await setDefaultView(state.db as Db, op.id, { lat: 48, lng: 11, zoom: 9 });
+
+    await addImageOverlayAction(op.id, await pngFile(600, 300), {
+      lat: 53.55,
+      lng: 9.99,
+      widthM: 4000,
+      heightM: 3000,
+    });
+
+    const [overlay] = await listImageOverlays(state.db as Db, op.id);
+    expect(overlay.placement).toMatchObject({
+      centerLat: 53.55,
+      centerLng: 9.99,
+      scaleM: 2000,
+    });
+  });
+
+  it("sizes a portrait image to half the height of the uploader's view", async () => {
+    await login();
+    const op = await insertOperation(state.db as Db, {
+      name: "Lage",
+      description: null,
+    });
+
+    await addImageOverlayAction(op.id, await pngFile(300, 600), {
+      lat: 53.55,
+      lng: 9.99,
+      widthM: 4000,
+      heightM: 1000,
+    });
+
+    const [overlay] = await listImageOverlays(state.db as Db, op.id);
+    expect(overlay.placement.scaleM).toBe(250);
+  });
+
+  it.each([
+    ["no view", undefined],
+    ["a width of zero", { ...A_VIEW, widthM: 0 }],
+    ["a negative height", { ...A_VIEW, heightM: -1 }],
+    ["an infinite width", { ...A_VIEW, widthM: Number.POSITIVE_INFINITY }],
+    ["a latitude that is not a number", { ...A_VIEW, lat: Number.NaN }],
+    ["a latitude beyond the pole", { ...A_VIEW, lat: 90.1 }],
+    ["a longitude beyond the date line", { ...A_VIEW, lng: -180.1 }],
+    ["a width given as text", { ...A_VIEW, widthM: "4000" }],
+  ])("rejects %s and creates nothing", async (_, view) => {
+    await login();
+    const op = await insertOperation(state.db as Db, {
+      name: "Lage",
+      description: null,
+    });
+
+    const result = await addImageOverlayAction(
+      op.id,
+      await pngFile(600, 300),
+      view as unknown as ViewExtent,
+    );
+
+    expect(result).toEqual({ error: "Der Kartenausschnitt ist ungültig." });
+    expect(await listImageOverlays(state.db as Db, op.id)).toEqual([]);
+    expect(await readdir(dir)).toEqual([]);
+  });
+
+  it("accepts a view centred on the date line", async () => {
+    await login();
+    const op = await insertOperation(state.db as Db, {
+      name: "Lage",
+      description: null,
+    });
+
+    const result = await addImageOverlayAction(op.id, await pngFile(600, 300), {
+      ...A_VIEW,
+      lng: 180,
+    });
+
+    expect(result).toEqual({});
   });
 
   it("shows the embed failure message, logs the error and leaves no file behind when the database insert fails", async () => {
@@ -248,7 +341,11 @@ describe("addImageOverlayAction", () => {
     vi.spyOn(repo, "createImageOverlay").mockRejectedValueOnce(dbDown);
     const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
 
-    const result = await addImageOverlayAction(op.id, await pngFile(600, 300));
+    const result = await addImageOverlayAction(
+      op.id,
+      await pngFile(600, 300),
+      A_VIEW,
+    );
 
     expect(result).toEqual({ error: EMBED_FAILED });
     expect(errorLog).toHaveBeenCalledWith(expect.anything(), dbDown);
@@ -266,6 +363,7 @@ describe("addImageOverlayAction", () => {
     const result = await addImageOverlayAction(
       op.id,
       "keine-datei" as unknown as File,
+      A_VIEW,
     );
 
     expect(result).toEqual({ error: "Keine Datei ausgewählt." });

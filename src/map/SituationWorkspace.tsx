@@ -51,7 +51,9 @@ import { type LiveConnection, useOperationEvents } from "./useOperationEvents";
 import { useStalenessClock } from "./useStalenessClock";
 import { useSymbolPlacement } from "./useSymbolPlacement";
 import type { ViewLinkItem } from "./ViewLinkPanel";
-import type { MapView } from "./view";
+import type { MapView, ViewExtent } from "./view";
+
+const MAP_LOADING = "Die Karte lädt noch. Bitte erneut versuchen.";
 
 export interface WorkspaceSymbol extends StatefulSymbol {
   deviceLinkToken: string | null;
@@ -128,7 +130,7 @@ export interface SituationWorkspaceProps {
   onReloadKml: (id: string) => Promise<ActionResult>;
   onRemoveKml: (id: string) => Promise<ActionResult>;
   imageOverlays: WorkspaceImageOverlay[];
-  onAddImage: (file: File) => Promise<ActionResult>;
+  onAddImage: (file: File, view: ViewExtent) => Promise<ActionResult>;
   onUpdateImagePlacement: (
     id: string,
     placement: ImagePlacement,
@@ -277,8 +279,13 @@ export function SituationWorkspace({
   };
   const saveDefaultView = async (): Promise<ActionResult> => {
     const view = mapRef.current?.getView();
-    if (!view) return { error: "Die Karte lädt noch. Bitte erneut versuchen." };
+    if (!view) return { error: MAP_LOADING };
     return onSetDefault(view);
+  };
+  const addImage = async (file: File): Promise<ActionResult> => {
+    const view = mapRef.current?.getViewExtent();
+    if (!view) return { error: MAP_LOADING };
+    return onAddImage(file, view);
   };
 
   const mainViewBar = (
@@ -407,7 +414,7 @@ export function SituationWorkspace({
                   onRemoveKml={onRemoveKml}
                   imageOverlays={imageOverlays}
                   editingImageId={editingImageId}
-                  onAddImage={onAddImage}
+                  onAddImage={addImage}
                   onSetImageVisibility={onSetImageVisibility}
                   onEditImage={startEditImage}
                   imageEditing={imageEditing}

@@ -1,4 +1,4 @@
-import { FALLBACK_VIEW, type LatLng, type MapView } from "./view";
+import type { LatLng, ViewExtent } from "./view";
 
 /** Platzierung eines Bild-Overlays: per Auge auf die Karte eingepasst. */
 export interface ImagePlacement {
@@ -11,15 +11,18 @@ export interface ImagePlacement {
   opacity: number;
 }
 
-const DEFAULT_SCALE_M = 1000;
-
-/** Startplatzierung eines neuen Bild-Overlays: mittig auf dem aktuellen Kartenausschnitt. */
-export function defaultImagePlacement(view: MapView | null): ImagePlacement {
-  const center = view ?? FALLBACK_VIEW;
+/**
+ * Startplatzierung eines neuen Bild-Overlays: mittig auf dem Kartenausschnitt,
+ * höchstens halb so breit und halb so hoch wie er. `aspect` ist Breite/Höhe des Bildes.
+ */
+export function defaultImagePlacement(
+  view: ViewExtent,
+  aspect: number,
+): ImagePlacement {
   return {
-    centerLat: center.lat,
-    centerLng: center.lng,
-    scaleM: DEFAULT_SCALE_M,
+    centerLat: view.lat,
+    centerLng: view.lng,
+    scaleM: Math.min(view.widthM / 2, (view.heightM / 2) * aspect),
     rotationDeg: 0,
     opacity: 1,
   };
@@ -31,9 +34,9 @@ export interface ImageCorners {
   bottomLeft: LatLng;
 }
 
-const METERS_PER_DEGREE = 111320;
+export const METERS_PER_DEGREE = 111320;
 
-const metersPerDegLng = (lat: number): number =>
+export const metersPerDegLng = (lat: number): number =>
   METERS_PER_DEGREE * Math.cos((lat * Math.PI) / 180);
 
 /**

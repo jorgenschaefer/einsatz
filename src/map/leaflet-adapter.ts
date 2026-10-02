@@ -16,6 +16,8 @@ import {
   type ImagePlacement,
   imageOverlayCorners,
   imageOverlayHandles,
+  METERS_PER_DEGREE,
+  metersPerDegLng,
   rotationFromHandle,
   scaleMFromCorner,
 } from "./image-overlay";
@@ -27,7 +29,12 @@ import {
   markerVisualSignature,
 } from "./layer-signature";
 import { createSearchHitPin } from "./search-hit-pin";
-import { type LatLng, MAX_TILE_ZOOM, type MapView } from "./view";
+import {
+  type LatLng,
+  MAX_TILE_ZOOM,
+  type MapView,
+  type ViewExtent,
+} from "./view";
 
 /** Vom Plugin ergänzt: platziert ein (dreh-/scherbares) Bild über drei Ecken. */
 type RotatedImageOverlayFactory = (
@@ -135,6 +142,19 @@ export const leafletMapAdapterFactory: MapAdapterFactory = {
     const currentView = (): MapView => {
       const center = map.getCenter();
       return { lat: center.lat, lng: center.lng, zoom: map.getZoom() };
+    };
+
+    // Gemessen wie das Bild-Overlay ausgelegt wird: die Breite entlang des
+    // Breitenkreises der Mitte, die Höhe entlang ihres Meridians.
+    const currentViewExtent = (): ViewExtent => {
+      const { lat, lng } = map.getCenter();
+      const bounds = map.getBounds();
+      return {
+        lat,
+        lng,
+        widthM: (bounds.getEast() - bounds.getWest()) * metersPerDegLng(lat),
+        heightM: (bounds.getNorth() - bounds.getSouth()) * METERS_PER_DEGREE,
+      };
     };
 
     const emitViewChange = () => options.onViewChange?.(currentView());
@@ -312,6 +332,7 @@ export const leafletMapAdapterFactory: MapAdapterFactory = {
 
     const adapter: MapAdapter = {
       getView: currentView,
+      getViewExtent: currentViewExtent,
       setView: (view) => {
         map.setView([view.lat, view.lng], view.zoom);
       },

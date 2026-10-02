@@ -1,6 +1,6 @@
 import type { AreaGeometry, AreaShape } from "./area";
 import type { ImagePlacement } from "./image-overlay";
-import type { LatLng, MapView } from "./view";
+import type { LatLng, MapView, ViewExtent } from "./view";
 
 /** Ein Marker auf der Karte (z. B. ein Kartenzeichen), per id verwaltet. */
 export interface MarkerSpec {
@@ -50,6 +50,8 @@ export interface CirclePreviewSpec {
 
 export interface MapAdapter {
   getView(): MapView;
+  /** The whole map area: its centre and its width and height on the ground. */
+  getViewExtent(): ViewExtent;
   setView(view: MapView): void;
   setMarker(id: string, marker: MarkerSpec): void;
   removeMarker(id: string): void;

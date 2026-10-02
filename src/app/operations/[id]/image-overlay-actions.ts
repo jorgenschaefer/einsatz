@@ -4,6 +4,7 @@ import {
   defaultImagePlacement,
   type ImagePlacement,
 } from "@/map/image-overlay";
+import type { ViewExtent } from "@/map/view";
 import {
   createImageOverlay,
   deleteImageOverlay,
@@ -22,7 +23,7 @@ import {
   enforceUploadSize,
 } from "@/server/image-overlays/image-upload";
 import { getOperation } from "@/server/operations/operations";
-import { ValidationError } from "@/server/validation";
+import { isValidLatLng, ValidationError } from "@/server/validation";
 import { type ActionResult, operationAction } from "./operation-action";
 
 const EMBED_FAILED = "Das Bild konnte nicht eingebunden werden.";
@@ -32,10 +33,12 @@ const DELETE_FAILED = "Das Bild-Overlay konnte nicht gelöscht werden.";
 export async function addImageOverlayAction(
   operationId: string,
   file: File,
+  view: ViewExtent,
 ): Promise<ActionResult> {
   return operationAction(async (db) => {
     if (!(file instanceof File))
       throw new ValidationError("Keine Datei ausgewählt.");
+    assertViewExtent(view);
     const { webp, width, height } = await prepareUpload(file);
     const operation = await getOperation(db, operationId);
     if (!operation) {
@@ -50,7 +53,7 @@ export async function addImageOverlayAction(
         name: file.name,
         widthPx: width,
         heightPx: height,
-        placement: defaultImagePlacement(operation.defaultView ?? null),
+        placement: defaultImagePlacement(view, width / height),
       });
     } catch (err) {
       await deleteOverlayFiles([filePath]); // keine verwaisten Dateien im Volume
@@ -138,6 +141,19 @@ async function cleanUpOverlayFile(filePath: string): Promise<void> {
     );
   }
 }
+
+function assertViewExtent(view: ViewExtent): void {
+  const valid =
+    typeof view === "object" &&
+    view !== null &&
+    isValidLatLng(view.lat, view.lng) &&
+    isPositiveLength(view.widthM) &&
+    isPositiveLength(view.heightM);
+  if (!valid) throw new ValidationError("Der Kartenausschnitt ist ungültig.");
+}
+
+const isPositiveLength = (m: unknown): boolean =>
+  typeof m === "number" && Number.isFinite(m) && m > 0;
 
 /** Prüft eine hochgeladene PDF-/PNG-Datei und bereitet sie als WebP auf. */
 async function prepareUpload(file: File) {

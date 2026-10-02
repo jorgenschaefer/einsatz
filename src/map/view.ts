@@ -9,6 +9,12 @@ export interface MapView extends LatLng {
   zoom: number;
 }
 
+/** Ein Kartenausschnitt als Fläche: Mittelpunkt sowie Breite und Höhe am Boden in Metern. */
+export interface ViewExtent extends LatLng {
+  widthM: number;
+  heightM: number;
+}
+
 /**
  * Maximale Zoomstufe des Tile-Layers. Eine gemeinsame Konstante, damit der
  * Leaflet-Tile-Layer (`leaflet-adapter.ts`) und die serverseitige Validierung

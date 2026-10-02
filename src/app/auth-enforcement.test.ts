@@ -206,7 +206,13 @@ const userGuardedActions: Invocation[] = [
   { name: "removeKmlAction", run: () => removeKmlAction("op-1", "k-1") },
   {
     name: "addImageOverlayAction",
-    run: () => addImageOverlayAction("op-1", file()),
+    run: () =>
+      addImageOverlayAction("op-1", file(), {
+        lat: 53.55,
+        lng: 9.99,
+        widthM: 4000,
+        heightM: 3000,
+      }),
   },
   {
     name: "replaceImageOverlayFileAction",

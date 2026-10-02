@@ -7,13 +7,12 @@ import {
   rotationFromHandle,
   scaleMFromCorner,
 } from "./image-overlay";
-import { FALLBACK_VIEW } from "./view";
 
 describe("defaultImagePlacement", () => {
-  it("centers a new overlay on the given map view", () => {
-    expect(
-      defaultImagePlacement({ lat: 53.5, lng: 9.9, zoom: 14 }),
-    ).toMatchObject({
+  const view = { lat: 53.5, lng: 9.9, widthM: 4000, heightM: 3000 };
+
+  it("centers a new overlay unrotated and opaque on the given view", () => {
+    expect(defaultImagePlacement(view, 1)).toMatchObject({
       centerLat: 53.5,
       centerLng: 9.9,
       rotationDeg: 0,
@@ -21,15 +20,22 @@ describe("defaultImagePlacement", () => {
     });
   });
 
-  it("falls back to the map's fallback center when there is no view", () => {
-    const p = defaultImagePlacement(null);
-    expect(p).toMatchObject({
-      centerLat: FALLBACK_VIEW.lat,
-      centerLng: FALLBACK_VIEW.lng,
-      rotationDeg: 0,
-      opacity: 1,
-    });
-    expect(p.scaleM).toBeGreaterThan(0);
+  it("makes a landscape image half as wide as the view when its width limits it", () => {
+    expect(defaultImagePlacement(view, 2).scaleM).toBe(2000);
+  });
+
+  it("makes a portrait image half as high as the view when its height limits it", () => {
+    expect(defaultImagePlacement(view, 0.5).scaleM).toBe(750);
+  });
+
+  it("makes a square image half as high as a landscape view", () => {
+    expect(defaultImagePlacement(view, 1).scaleM).toBe(1500);
+  });
+
+  it("makes a square image half as wide as a portrait view", () => {
+    expect(
+      defaultImagePlacement({ ...view, widthM: 1000, heightM: 3000 }, 1).scaleM,
+    ).toBe(500);
   });
 });
 
