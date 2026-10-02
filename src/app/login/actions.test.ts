@@ -1,18 +1,37 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { logoutAction } from "@/app/account/actions";
+import { getCurrentUser } from "@/server/auth/current-user";
 import { hashPassword } from "@/server/auth/password";
+import { findUserBySessionToken, insertSession } from "@/server/auth/sessions";
 import { insertUser } from "@/server/auth/users";
+import type { Db } from "@/server/db/db";
 import { freshDb } from "@/test/db";
 
 // The limiter is process-wide and never reset: each test uses its own address.
 const state = vi.hoisted(() => ({
   db: undefined as unknown,
   forwardedFor: "",
+  cookieJar: new Map<string, { value: string; options?: CookieOptions }>(),
+  deletedCookies: [] as { name: string; options: CookieOptions }[],
 }));
+
+type CookieOptions = Record<string, unknown>;
 
 vi.mock("@/server/db/pg", () => ({ getDb: () => state.db }));
 vi.mock("next/headers", () => ({
   headers: async () => new Headers({ "x-forwarded-for": state.forwardedFor }),
-  cookies: async () => ({ get: () => undefined, set: () => {} }),
+  cookies: async () => ({
+    get: (name: string) => state.cookieJar.get(name),
+    set: (name: string, value: string, options?: CookieOptions) => {
+      state.cookieJar.set(name, { value, options });
+    },
+    delete: (cookie: string | ({ name: string } & CookieOptions)) => {
+      const { name, ...options } =
+        typeof cookie === "string" ? { name: cookie } : cookie;
+      state.cookieJar.delete(name);
+      state.deletedCookies.push({ name, options });
+    },
+  }),
 }));
 vi.mock("next/navigation", () => ({
   redirect: (to: string) => {
@@ -28,17 +47,22 @@ const INVALID =
 const RATE_LIMITED =
   "Zu viele Fehlversuche. Bitte einen Moment warten und erneut versuchen.";
 
+let annaId: string;
+
 beforeEach(async () => {
   state.db = await freshDb();
-  await insertUser(state.db as Awaited<ReturnType<typeof freshDb>>, {
+  state.cookieJar.clear();
+  state.deletedCookies = [];
+  ({ id: annaId } = await insertUser(state.db as Db, {
     username: "anna",
     passwordHash: await hashPassword(PASSWORD),
     role: "user",
-  });
+  }));
 });
 
 afterEach(() => {
   vi.useRealTimers();
+  vi.unstubAllEnvs();
 });
 
 async function login(ip: string, username: string, password: string) {
@@ -124,5 +148,99 @@ describe("loginAction rate limit", () => {
     expect(await login("198.51.100.4", "anna", PASSWORD)).toBe(RATE_LIMITED);
     vi.setSystemTime(new Date("2026-10-03T10:05:01Z"));
     expect(await login("198.51.100.4", "anna", PASSWORD)).toBe("redirected");
+  });
+});
+
+describe("loginAction session", () => {
+  const db = () => state.db as Db;
+  const sessionCookie = () => state.cookieJar.get("einsatz_session")?.value;
+
+  it("ends this browser's previous session on a new login, not another browser's", async () => {
+    await insertSession(db(), {
+      token: "other-browser",
+      userId: annaId,
+      expiresAt: new Date(Date.now() + 60_000),
+    });
+    expect(await login("198.51.100.10", "anna", PASSWORD)).toBe("redirected");
+    const first = sessionCookie();
+
+    expect(await login("198.51.100.10", "anna", PASSWORD)).toBe("redirected");
+    const second = sessionCookie();
+
+    expect(first).toBeDefined();
+    expect(second).not.toBe(first);
+    expect(await findUserBySessionToken(db(), first ?? "")).toBeNull();
+    expect(await findUserBySessionToken(db(), second ?? "")).not.toBeNull();
+    expect(await findUserBySessionToken(db(), "other-browser")).not.toBeNull();
+  });
+
+  it("keeps this browser's session when a new login fails", async () => {
+    expect(await login("198.51.100.11", "anna", PASSWORD)).toBe("redirected");
+    const token = sessionCookie() ?? "";
+
+    expect(await login("198.51.100.11", "anna", "wrong-password!")).toBe(
+      INVALID,
+    );
+
+    expect(await findUserBySessionToken(db(), token)).not.toBeNull();
+  });
+
+  it("stores nothing from which a valid session can be taken", async () => {
+    expect(await login("198.51.100.12", "anna", PASSWORD)).toBe("redirected");
+    const token = sessionCookie();
+    expect(await getCurrentUser()).not.toBeNull();
+
+    const { rows } = await db().query<{ row: Record<string, unknown> }>(
+      "SELECT row_to_json(s) AS row FROM sessions s",
+    );
+    const stored = rows.flatMap(({ row }) => Object.values(row).map(String));
+    expect(stored.length).toBeGreaterThan(0);
+    expect(stored).not.toContain(token);
+    for (const value of stored) {
+      state.cookieJar.set("einsatz_session", { value });
+      expect(await getCurrentUser()).toBeNull();
+    }
+  });
+
+  it("names the cookie __Host-einsatz_session in production", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+
+    expect(await login("198.51.100.13", "anna", PASSWORD)).toBe("redirected");
+
+    expect([...state.cookieJar.keys()]).toEqual(["__Host-einsatz_session"]);
+    const { options } = state.cookieJar.get("__Host-einsatz_session") ?? {};
+    expect(options).toMatchObject({ secure: true, path: "/" });
+    expect(options).not.toHaveProperty("domain");
+    expect(await getCurrentUser()).toMatchObject({ username: "anna" });
+  });
+
+  it("keeps the name einsatz_session, without Secure, outside production", async () => {
+    expect(await login("198.51.100.14", "anna", PASSWORD)).toBe("redirected");
+
+    expect([...state.cookieJar.keys()]).toEqual(["einsatz_session"]);
+    expect(state.cookieJar.get("einsatz_session")?.options).toMatchObject({
+      secure: false,
+      path: "/",
+    });
+  });
+
+  it("ends the session on logout in production", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    expect(await login("198.51.100.15", "anna", PASSWORD)).toBe("redirected");
+    const token = state.cookieJar.get("__Host-einsatz_session")?.value ?? "";
+
+    await expect(logoutAction()).rejects.toMatchObject({
+      redirectTo: "/login",
+    });
+
+    expect(state.cookieJar.size).toBe(0);
+    expect(await findUserBySessionToken(db(), token)).toBeNull();
+    // Browsers ignore a __Host- cookie, even a deleting one, without Secure.
+    expect(state.deletedCookies).toEqual([
+      {
+        name: "__Host-einsatz_session",
+        options: expect.objectContaining({ secure: true, path: "/" }),
+      },
+    ]);
   });
 });

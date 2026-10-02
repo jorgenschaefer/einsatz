@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type { Queryable } from "@/server/db/db";
 import type { AuthenticatedUser, Role } from "./users";
 
@@ -6,8 +7,12 @@ export async function insertSession(
   session: { token: string; userId: string; expiresAt: Date },
 ): Promise<void> {
   await db.query(
-    "INSERT INTO sessions (token, user_id, expires_at) VALUES ($1, $2, $3)",
-    [session.token, session.userId, session.expiresAt.toISOString()],
+    "INSERT INTO sessions (token_hash, user_id, expires_at) VALUES ($1, $2, $3)",
+    [
+      hashSessionToken(session.token),
+      session.userId,
+      session.expiresAt.toISOString(),
+    ],
   );
 }
 
@@ -16,7 +21,9 @@ export async function deleteSession(
   db: Queryable,
   token: string,
 ): Promise<void> {
-  await db.query("DELETE FROM sessions WHERE token = $1", [token]);
+  await db.query("DELETE FROM sessions WHERE token_hash = $1", [
+    hashSessionToken(token),
+  ]);
 }
 
 /** Räumt abgelaufene Sessions weg (Purge-on-write, kein Scheduler nötig). */
@@ -57,9 +64,14 @@ export async function findUserBySessionToken(
     `SELECT u.id, u.username, u.role
        FROM sessions s
        JOIN users u ON u.id = s.user_id
-      WHERE s.token = $1 AND s.expires_at > $2`,
-    [token, now.toISOString()],
+      WHERE s.token_hash = $1 AND s.expires_at > $2`,
+    [hashSessionToken(token), now.toISOString()],
   );
   const row = rows[0];
   return row ? { id: row.id, username: row.username, role: row.role } : null;
+}
+
+/** Nur der Hash liegt in der DB: wer die Tabelle liest, hat keine Sitzung. */
+function hashSessionToken(token: string): string {
+  return createHash("sha256").update(token).digest("hex");
 }

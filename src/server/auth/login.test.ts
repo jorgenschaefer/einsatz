@@ -73,12 +73,13 @@ describe("createSession", () => {
       expiresAt: new Date(Date.now() - 1000),
     });
 
-    await createSession(db, user.id);
+    const fresh = await createSession(db, user.id);
 
     const { rows } = await db.query<{ count: string }>(
-      "SELECT count(*)::text AS count FROM sessions WHERE token = 'stale'",
+      "SELECT count(*)::text AS count FROM sessions",
     );
-    expect(rows[0].count).toBe("0");
+    expect(rows[0].count).toBe("1");
+    expect(await findUserBySessionToken(db, fresh.token)).not.toBeNull();
   });
 
   it("still logs in when the best-effort purge fails", async () => {

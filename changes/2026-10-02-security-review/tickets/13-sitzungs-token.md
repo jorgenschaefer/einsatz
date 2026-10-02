@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:    AC-31, AC-32, AC-33
 advances:
 after:
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -120,3 +120,35 @@ ends that browser's previous session, and the session cookie is called
   "Konten sperren."
 
 ## Left standing
+- **Departed from the plan's order (steps 2 and 3):** the hash test in
+  `sessions.test.ts` first failed with `column "token_hash" does not exist`,
+  which is not a red assertion. So the migration came first, pinned by
+  "ends every existing session when session tokens become hashes" in
+  `migrations.test.ts`, which was red with count 1. After that, the hash test
+  failed on its assertion as it should.
+- **Beyond the plan: logout clears the cookie with the same attributes it was
+  set with.** The first review found that in production
+  `cookies().delete(name)` sends the deleting `Set-Cookie` without `Secure`.
+  Browsers ignore that for a `__Host-` cookie, so the cookie with its dead
+  token stayed in the browser. `clearSessionCookie` now passes the attributes
+  as well. A single private `sessionCookie()` in `current-user.ts` decides the
+  name and `secure` together, where the plan had `sessionCookieName()`. The
+  test "ends the session on logout in production" pins the deleting
+  attributes. To show it red, I swapped the old name read back in for one run.
+- **Review nit not fixed: the `logoutAction` test sits in
+  `src/app/login/actions.test.ts`, not in `src/app/account/actions.test.ts`.**
+  The account test's cookie mock ignores cookie names and attributes. Moving
+  the test there would mean rebuilding that mock. The login file already has
+  the cookie jar for the whole login → cookie → logout flow.
+- **Tests that passed before their code existed:** "keeps this browser's
+  session when a new login fails" and "keeps the name einsatz_session, without
+  Secure, outside production" guard behaviour that was already there.
+- **The browser half of AC-33 has no automated test.** The tests pin the
+  options handed to `cookies()`. Both reviewers checked the real browser on a
+  production build (`next build` + `next start`, over http://localhost, which
+  Chromium treats as secure) at 1280×800/1440 px and 390 px. They saw
+  `__Host-einsatz_session; Path=/; Secure; HttpOnly; SameSite=Lax` with no
+  Domain, and after the fix, logout removed the cookie from the browser. In
+  dev the cookie was `einsatz_session` without Secure.
+- **Dev database:** to drive the app, the reviewers applied migration 017 to
+  the dev database. Existing dev sessions are gone, so log in again.

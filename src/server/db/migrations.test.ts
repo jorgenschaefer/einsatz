@@ -93,4 +93,27 @@ describe("migrate", () => {
       expect(await indexExists(db)).toBe(true);
     });
   });
+
+  it("ends every existing session when session tokens become hashes", async () => {
+    const db = await emptyDb();
+    await migrate(
+      db,
+      loadMigrations().filter((m) => m.name < "017_session_token_hash.sql"),
+    );
+    await db.query(
+      `INSERT INTO users (id, username, password_hash, role)
+       VALUES ('00000000-0000-0000-0000-000000000001', 'anna', 'x', 'user')`,
+    );
+    await db.query(
+      `INSERT INTO sessions (token, user_id, expires_at)
+       VALUES ('plain', '00000000-0000-0000-0000-000000000001', now() + interval '1 hour')`,
+    );
+
+    await migrate(db);
+
+    const { rows } = await db.query<{ count: number }>(
+      "SELECT count(*)::int AS count FROM sessions",
+    );
+    expect(rows[0].count).toBe(0);
+  });
 });

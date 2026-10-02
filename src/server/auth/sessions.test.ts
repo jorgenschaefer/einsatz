@@ -35,10 +35,10 @@ describe("deleteExpiredSessions", () => {
 
     // The valid session still resolves; the expired row is gone.
     expect(await findUserBySessionToken(db, "valid", now)).not.toBeNull();
-    const { rows } = await db.query<{ token: string }>(
-      "SELECT token FROM sessions ORDER BY token",
+    const { rows } = await db.query<{ count: number }>(
+      "SELECT count(*)::int AS count FROM sessions",
     );
-    expect(rows.map((r) => r.token)).toEqual(["valid"]);
+    expect(rows[0].count).toBe(1);
   });
 });
 
@@ -56,6 +56,22 @@ describe("sessions repository", () => {
     expect(found).toMatchObject({ id: user.id, username: "anna" });
     // Der breit gereichte Identitätstyp trägt keinen Passwort-Hash.
     expect(found).not.toHaveProperty("passwordHash");
+  });
+
+  it("stores only a hash of the token, which is not itself a token", async () => {
+    const db = await freshDb();
+    const user = await seedUser(db);
+    await insertSession(db, {
+      token: "tok",
+      userId: user.id,
+      expiresAt: inAnHour(),
+    });
+
+    const { rows } = await db.query<{ token_hash: string }>(
+      "SELECT token_hash FROM sessions",
+    );
+    expect(rows[0].token_hash).toMatch(/^[0-9a-f]{64}$/);
+    expect(await findUserBySessionToken(db, rows[0].token_hash)).toBeNull();
   });
 
   it("returns null for an expired token", async () => {

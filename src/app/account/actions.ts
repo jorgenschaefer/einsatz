@@ -1,12 +1,12 @@
 "use server";
 
-import { cookies, headers } from "next/headers";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { changePassword } from "@/server/auth/account-admin";
 import {
   clearSessionCookie,
+  currentSessionToken,
   requireUser,
-  SESSION_COOKIE,
   setSessionCookie,
 } from "@/server/auth/current-user";
 import { createSession } from "@/server/auth/login";
@@ -45,7 +45,7 @@ export async function changePasswordAction(
 }
 
 export async function logoutAction(): Promise<void> {
-  const token = (await cookies()).get(SESSION_COOKIE)?.value;
+  const token = await currentSessionToken();
   if (token) await deleteSession(getDb(), token);
   await clearSessionCookie();
   redirect("/login");
