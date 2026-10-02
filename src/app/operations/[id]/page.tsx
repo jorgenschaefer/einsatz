@@ -1,11 +1,11 @@
 import { notFound } from "next/navigation";
 import type { RenderedArea } from "@/map/SituationMap";
-import {
-  SituationWorkspace,
-  type WorkspaceImageOverlay,
-  type WorkspaceKmlOverlay,
-  type WorkspaceSymbol,
-} from "@/map/SituationWorkspace";
+import type {
+  WorkspaceImageOverlay,
+  WorkspaceKmlOverlay,
+  WorkspaceSymbol,
+} from "@/map/SituationMapView";
+import { SituationWorkspace } from "@/map/SituationWorkspace";
 import { mapTileConfig } from "@/map/tiles";
 import { listAreas } from "@/server/areas/areas";
 import { requireUser } from "@/server/auth/current-user";

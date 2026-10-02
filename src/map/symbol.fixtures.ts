@@ -1,5 +1,5 @@
 import type { StatefulSymbol } from "./placed-symbols";
-import type { WorkspaceSymbol } from "./SituationWorkspace";
+import type { WorkspaceSymbol } from "./SituationMapView";
 
 export const aStatefulSymbol = (
   over: Partial<StatefulSymbol> = {},

@@ -11,17 +11,15 @@ import { useIsDesktop } from "./useIsDesktop";
  * Was die Lageansicht zeigt: die Hauptansicht (ETB, Lagekarte, Stärke), das
  * Kartenpanel und ob die Karte zu sehen ist – am Handy und am Desktop nach
  * eigenen Regeln. Dazu die Zahl neuer ETB-Einträge an der Leiste und der Cursor
- * im ETB. `onMapHidden` läuft, sobald die Karte verschwindet.
+ * im ETB.
  */
 export function useMainView({
   journalEntries,
   currentUsername,
-  onMapHidden,
 }: {
   journalEntries: JournalEntryView[];
   /** Eigene ETB-Einträge zählen nicht als neu. */
   currentUsername: string;
-  onMapHidden: () => void;
 }) {
   const isDesktop = useIsDesktop();
   const [mainView, setMainView] = useState<MainView>("etb");
@@ -48,15 +46,7 @@ export function useMainView({
       : null
     : openPanel;
 
-  // Verschwindet die Karte (Wechsel am Handy, Fenster schmaler als 48 em),
-  // endet jeder Karten-Modus, sonst platziert ein späterer Tap auf die wieder
-  // gezeigte Karte unerwartet ein Zeichen.
   const mapShown = isMapShown(isDesktop, mainView);
-  const [mapWasShown, setMapWasShown] = useState(mapShown);
-  if (mapShown !== mapWasShown) {
-    setMapWasShown(mapShown);
-    if (!mapShown) onMapHidden();
-  }
 
   const switchMainView = (view: MainView) => {
     setMainView(view);

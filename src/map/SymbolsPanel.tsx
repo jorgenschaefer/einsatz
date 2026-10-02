@@ -4,7 +4,7 @@ import { PanelRow } from "./PanelRow";
 import { QuickSelectToolbar } from "./QuickSelectToolbar";
 import { QUICK_SELECT } from "./quick-select";
 import type { PlacedSymbol } from "./SituationMap";
-import type { WorkspaceSymbol } from "./SituationWorkspace";
+import type { WorkspaceSymbol } from "./SituationMapView";
 import { renderSymbolDataUrl } from "./tactical-symbol";
 
 /**

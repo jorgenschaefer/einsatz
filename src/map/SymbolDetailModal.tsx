@@ -5,7 +5,7 @@ import { ConfirmationModal } from "@/app/ConfirmationModal";
 import { AdvancedSymbolForm } from "./AdvancedSymbolForm";
 import type { SymbolComposition } from "./composition";
 import { DeviceLinkPanel } from "./DeviceLinkPanel";
-import type { WorkspaceSymbol } from "./SituationWorkspace";
+import type { WorkspaceSymbol } from "./SituationMapView";
 
 interface SymbolDetailProps {
   onClose: () => void;

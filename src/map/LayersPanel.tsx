@@ -8,7 +8,7 @@ import { KmlPanel } from "./KmlPanel";
 import type {
   WorkspaceImageOverlay,
   WorkspaceKmlOverlay,
-} from "./SituationWorkspace";
+} from "./SituationMapView";
 import type { ImageOverlayEditing } from "./useImageOverlayEditing";
 
 /** Das Ebenen-Panel der Lagekarte: KML-Ebenen und Bild-Overlays. */

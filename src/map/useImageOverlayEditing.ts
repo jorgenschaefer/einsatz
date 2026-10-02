@@ -5,7 +5,7 @@ import { useActionRunner } from "@/app/useActionRunner";
 import { useNotifyingActionRunner } from "@/app/useNotifyingActionRunner";
 import type { ImagePlacement } from "./image-overlay";
 import { IMAGE_OVERLAYS } from "./notification-sources";
-import type { WorkspaceImageOverlay } from "./SituationWorkspace";
+import type { WorkspaceImageOverlay } from "./SituationMapView";
 import type { MapModeControls } from "./useMapMode";
 
 /**
