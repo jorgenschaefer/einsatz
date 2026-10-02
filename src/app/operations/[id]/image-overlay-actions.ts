@@ -64,8 +64,9 @@ export async function addImageOverlayAction(
   }, EMBED_FAILED);
 }
 
+// Die Datei landet im Einsatz des Overlays, nicht in dem, den der Aufruf nennt.
 export async function replaceImageOverlayFileAction(
-  operationId: string,
+  _operationId: string,
   id: string,
   file: File,
 ): Promise<ActionResult> {
@@ -76,7 +77,7 @@ export async function replaceImageOverlayFileAction(
     const existing = await getImageOverlay(db, id);
     if (!existing)
       throw new ValidationError("Das Overlay existiert nicht mehr.");
-    const filePath = await storeOverlayImage(operationId, webp);
+    const filePath = await storeOverlayImage(existing.operationId, webp);
     try {
       await replaceImageOverlayFile(db, id, {
         filePath,
@@ -89,7 +90,7 @@ export async function replaceImageOverlayFileAction(
       throw err;
     }
     await deleteOverlayFiles([existing.filePath]); // alte Version entfernen
-    return operationId;
+    return existing.operationId;
   }, EMBED_FAILED);
 }
 

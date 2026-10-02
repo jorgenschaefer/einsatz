@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:    AC-20, AC-21
 advances:
 after:
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -181,3 +181,48 @@ again; an ordinary page needs one.
 - Hidden Bild-Overlays under `/view/…` and `/device/…` (AC-13): ticket 16.
 
 ## Left standing
+- **Plan departure: the render scale is tried exactly first.** The plan
+  rendered at `pdfRenderScale` (from "measured + 1"). Review found that this
+  refuses a page of exactly 4000:1 (e.g. 4000 × 1 pt): its long edge lands
+  just under 4000 px and its short edge floors to 0. AC-21 says "bis 4000:1",
+  so `chooseRenderScale` now first tries the scale from the measured size
+  (capped at 3), checks it with a metadata probe (same flooring as the
+  render), and falls back to `pdfRenderScale` only when that overshoots.
+  Pinned in `image-storage.pdf.test.ts` (4000 × 1 and 8000 × 2 convert,
+  4001 × 1 is refused, 1333 pt renders at scale 3, not above).
+- **Plan departure: one more metadata probe per PDF.** The plan said an
+  ordinary page needs one probe. Now it needs two (measure at 1, check the
+  render scale) before the render, so three parses in all. Every probe before
+  the render is how an expected refusal is told apart from a renderer that is
+  broken: the render itself is no longer wrapped in a catch, so its errors
+  reach `operationAction`, which logs them and shows the generic
+  "Das Bild konnte nicht eingebunden werden." (second review's should-fix).
+  The reviewer measured an A0 PDF at about 0.7 s. This fix and the two
+  comment nits of that round came after the second (last) review and were not
+  reviewed again.
+- **Where the exact boundary sits.** The ratio is not checked directly; a page
+  converts whenever some scale gives a long edge ≤ 4000 px and a short edge
+  ≥ 1 px. So a page a hair over 4000:1, such as 4000.4 × 1 pt, still
+  converts (to 4000 × 1 px); 4001 × 1 pt is refused. The
+  limits are also: an edge under 1 pt is refused (as decided), and a page over
+  about 10¹⁰ pt (beyond the smallest probe scale) is refused cleanly; the
+  doc comment on `renderPdfFirstPageToPng` says so.
+- **A corrupt PDF now gets "Die PDF-Datei konnte nicht umgewandelt werden."**
+  instead of the generic embed error, because the measuring probes treat any
+  failure as "try the next scale". Nothing is logged for it. The reviewer
+  measured a corrupt 20 MB file refused in about 2 s.
+- **Nudge not applicable: nothing changed in `src/server/validation.ts`.** No
+  user input is validated here: the UUID guard in `storeOverlayImage` is a
+  developer error like the one in `deleteOperationUploads`, and the
+  user-facing UUID checks belong to ticket 18/23. No zod, no new dependency.
+- **`replaceImageOverlayFileAction` keeps its `operationId` parameter, now
+  `_operationId` and unused.** `page.tsx` binds it, and ticket 17 needs it to
+  refuse a replace under a foreign Einsatz.
+- **The real renderer runs under Vitest**, so no one-off script was needed.
+  The accepted 10,000 × 10,000 px PNG takes well under a second.
+- **Browser check (plan step 7):** I didn't do it myself; both reviewers drove
+  it at 1280×800 and 390×844. An A3 and an A4 PDF Lageplan and a PNG were
+  embedded, a PDF overlay was replaced by a PNG and the reverse, the old file
+  was gone from disk and the new one sat in the Einsatz's directory. On the
+  phone, a 10,001 × 10,000 PNG and a 4000 × 1 pt PDF (before the boundary fix)
+  showed their refusal messages and stored nothing. No console errors.

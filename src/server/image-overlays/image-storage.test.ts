@@ -1,6 +1,7 @@
-import { access, mkdtemp, rm } from "node:fs/promises";
+import { access, mkdir, mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { pdfToPng } from "pdf-to-png-converter";
 import sharp from "sharp";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ValidationError } from "@/server/validation";
@@ -14,8 +15,10 @@ import {
   deleteOverlayFiles,
   overlayCacheToken,
   overlayContentType,
+  pdfRenderScale,
   prepareOverlayImage,
   readOverlayFile,
+  renderPdfFirstPageToPng,
   storeOverlayImage,
 } from "./image-storage";
 
@@ -60,6 +63,56 @@ describe("prepareOverlayImage", () => {
   });
 });
 
+describe("renderPdfFirstPageToPng", () => {
+  it("lets an unexpected renderer failure through, so it gets logged", async () => {
+    const canvasBroken = new Error("canvas broken");
+    vi.mocked(pdfToPng).mockImplementation(async (_, options) => {
+      if (options?.returnMetadataOnly)
+        return [{ width: 600, height: 800 }] as Awaited<
+          ReturnType<typeof pdfToPng>
+        >;
+      throw canvasBroken;
+    });
+
+    await expect(renderPdfFirstPageToPng(Buffer.from("pdf"))).rejects.toBe(
+      canvasBroken,
+    );
+  });
+});
+
+describe("pdfRenderScale", () => {
+  // Wie pdf-to-png-converter: gemessen wird die abgerundete Größe bei `scale`.
+  const measured = (widthPt: number, heightPt: number, scale: number) => ({
+    width: Math.floor(widthPt * scale),
+    height: Math.floor(heightPt * scale),
+    scale,
+  });
+  const renderedLongEdge = (widthPt: number, heightPt: number, scale: number) =>
+    Math.floor(
+      Math.max(widthPt, heightPt) *
+        pdfRenderScale(measured(widthPt, heightPt, scale)),
+    );
+
+  it("renders a small page at scale 3", () => {
+    expect(pdfRenderScale(measured(595.28, 841.89, 1))).toBe(3);
+  });
+
+  it.each([
+    ["A0", 2383.94, 3370.39, 1],
+    ["a non-round page", 2000.9, 1000.3, 1],
+    ["a page exactly 4000/3 pt long", 4000 / 3, 500, 1],
+    ["a huge page measured at 0.01", 200_000.7, 100_000.3, 0.01],
+    ["an elongated page measured at 0.1", 400_000, 300, 0.1],
+  ])(
+    "keeps the longer edge of %s at 4000 px or just below",
+    (_, widthPt, heightPt, scale) => {
+      const edge = renderedLongEdge(widthPt, heightPt, scale);
+      expect(edge).toBeLessThanOrEqual(4000);
+      expect(edge).toBeGreaterThanOrEqual(3990);
+    },
+  );
+});
+
 describe("overlayContentType", () => {
   it("serves new WebP overlays as image/webp", () => {
     expect(overlayContentType("op-1/abc.webp")).toBe("image/webp");
@@ -90,25 +143,29 @@ describe("overlay file storage", () => {
   const originalUploadsDir = process.env.UPLOADS_DIR;
 
   beforeEach(async () => {
-    dir = await mkdtemp(join(tmpdir(), "einsatz-uploads-"));
+    const parent = await mkdtemp(join(tmpdir(), "einsatz-uploads-"));
+    dir = join(parent, "uploads");
+    await mkdir(dir);
     process.env.UPLOADS_DIR = dir;
   });
 
   afterEach(async () => {
     if (originalUploadsDir === undefined) delete process.env.UPLOADS_DIR;
     else process.env.UPLOADS_DIR = originalUploadsDir;
-    await rm(dir, { recursive: true, force: true });
+    await rm(dirname(dir), { recursive: true, force: true });
   });
 
   it("stores an image under a per-Einsatz .webp path and reads the bytes back", async () => {
     const bytes = Buffer.from("webp-bytes");
-    const relPath = await storeOverlayImage("op-1", bytes);
-    expect(relPath).toMatch(/^op-1[/\\][0-9a-f-]+\.webp$/);
+    const relPath = await storeOverlayImage(OPERATION_ID, bytes);
+    expect(relPath).toMatch(
+      new RegExp(`^${OPERATION_ID}[/\\\\][0-9a-f-]+\\.webp$`),
+    );
     expect(await readOverlayFile(relPath)).toEqual(bytes);
   });
 
   it("deletes overlay files and tolerates already-removed ones", async () => {
-    const relPath = await storeOverlayImage("op-1", Buffer.from("x"));
+    const relPath = await storeOverlayImage(OPERATION_ID, Buffer.from("x"));
     await deleteOverlayFiles([relPath]);
     await expect(readOverlayFile(relPath)).rejects.toThrow();
     await expect(deleteOverlayFiles([relPath])).resolves.toBeUndefined();
@@ -140,6 +197,19 @@ describe("overlay file storage", () => {
     await deleteOverlayFiles([relPath]);
     await expect(access(join(dir, OPERATION_ID))).resolves.toBeUndefined();
   });
+
+  it.each(["..", "../x", ""])(
+    "refuses to store an image for the non-UUID id %j, creating nothing",
+    async (operationId) => {
+      const parent = dirname(dir);
+      const before = await readdir(parent);
+      await expect(
+        storeOverlayImage(operationId, Buffer.from("x")),
+      ).rejects.toThrow(`not a UUID: ${JSON.stringify(operationId)}`);
+      expect(await readdir(parent)).toEqual(before);
+      expect(await readdir(dir)).toEqual([]);
+    },
+  );
 
   it.each(["..", ""])(
     "refuses to delete uploads for the non-UUID id %j, leaving the uploads intact",
