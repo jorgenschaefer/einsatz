@@ -27,30 +27,3 @@
 .leaflet-tooltip-left.kartenzeichen-label::before {
   display: none;
 }
-
-/*
- * Griffe zum Bearbeiten eines Bild-Overlays: weiße, umrandete Punkte, gut
- * sichtbar über dem Bild. Eckgriffe skalieren, der Dreh-Griff dreht.
- */
-.overlay-handle {
-  background: #fff;
-  border: 2px solid #1a73e8;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
-  box-sizing: border-box;
-}
-
-.overlay-handle--corner {
-  border-radius: 2px;
-  cursor: nwse-resize;
-}
-
-.overlay-handle--rotate {
-  border-radius: 50%;
-  border-color: #e2001a;
-  cursor: grab;
-}
-
-.overlay-handle--move {
-  border-radius: 50%;
-  cursor: move;
-}

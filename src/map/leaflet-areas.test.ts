@@ -1,6 +1,6 @@
 import L from "leaflet";
 import { describe, expect, it } from "vitest";
-import { extractGeometry } from "./leaflet-adapter";
+import { extractGeometry } from "./leaflet-areas";
 
 describe("extractGeometry", () => {
   it("reads a circle's center and radius", () => {

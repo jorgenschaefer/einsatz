@@ -1,0 +1,83 @@
+import L from "leaflet";
+import "./leaflet-markers.css";
+import type { MarkerSpec } from "./adapter";
+import { markerVisualSignature } from "./layer-signature";
+
+/** Kantenlänge (px) eines Kartenzeichen-Markers. */
+const MARKER_SIZE = 40;
+
+/** Die Marker der Kartenzeichen, per id gesetzt und entfernt. */
+export function createMarkerLayers(map: L.Map) {
+  const markers = new Map<string, L.Marker>();
+  // Zuletzt gerenderte Signatur je id – erlaubt das Überspringen
+  // unveränderter Marker bei jedem Reconcile (kein Flackern).
+  const markerSigs = new Map<string, string>();
+
+  return {
+    set(id: string, spec: MarkerSpec) {
+      const existing = markers.get(id);
+      if (existing) {
+        existing.setLatLng([spec.lat, spec.lng]); // günstig, immer
+        const sig = markerVisualSignature(spec);
+        if (markerSigs.get(id) !== sig) {
+          // Nur bei geändertem Icon/Deckkraft/Label neu setzen (setIcon allokiert).
+          existing.setIcon(iconFor(spec));
+          existing.setOpacity(spec.opacity ?? 1);
+          applyLabel(existing, spec.label);
+          markerSigs.set(id, sig);
+        }
+        return;
+      }
+      const marker = L.marker([spec.lat, spec.lng], {
+        icon: iconFor(spec),
+        draggable: spec.draggable ?? false,
+        opacity: spec.opacity ?? 1,
+      }).addTo(map);
+      applyLabel(marker, spec.label);
+      const { onDragEnd, onClick } = spec;
+      if (onDragEnd) {
+        marker.on("dragend", () => {
+          const p = marker.getLatLng();
+          onDragEnd({ lat: p.lat, lng: p.lng });
+        });
+      }
+      if (onClick) {
+        marker.on("click", () => onClick());
+      }
+      markers.set(id, marker);
+      markerSigs.set(id, markerVisualSignature(spec));
+    },
+    remove(id: string) {
+      const marker = markers.get(id);
+      if (marker) {
+        marker.remove();
+        markers.delete(id);
+        markerSigs.delete(id);
+      }
+    },
+  };
+}
+
+const iconFor = (spec: MarkerSpec) =>
+  L.icon({
+    iconUrl: spec.iconUrl,
+    iconSize: [MARKER_SIZE, MARKER_SIZE],
+    iconAnchor: [MARKER_SIZE / 2, MARKER_SIZE / 2],
+    // Das Bezeichnungs-Tooltip (direction "right") setzt am Anker an. Ohne
+    // Versatz läge es über dem Symbol; um die rechte Symbolhälfte plus 6 px
+    // für den Tooltip-Pfeil nach rechts rücken, damit die Beschriftung
+    // vollständig neben dem Zeichen steht.
+    tooltipAnchor: [MARKER_SIZE / 2 + 6, 0],
+  });
+
+// Bezeichnung als permanentes Label rechts neben dem Marker (statt im Symbol).
+// Eigene Klasse: kastenlos mit weißem Halo statt weißem Kasten (siehe CSS).
+function applyLabel(marker: L.Marker, label: string | undefined) {
+  marker.unbindTooltip();
+  if (label)
+    marker.bindTooltip(label, {
+      permanent: true,
+      direction: "right",
+      className: "kartenzeichen-label",
+    });
+}
