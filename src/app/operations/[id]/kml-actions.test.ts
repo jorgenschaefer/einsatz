@@ -27,6 +27,7 @@ vi.mock("@/server/kml/kml-overlays", () => ({
   reloadKmlOverlay: (...args: unknown[]) => reloadKmlOverlay(...args),
 }));
 vi.mock("@/server/kml/kml-fetch", () => ({
+  assertKmlDocument: () => {},
   enforceKmlSizeLimit: () => {},
   fetchKmlFromUrl: (...args: unknown[]) => fetchKmlFromUrl(...args),
   resolveKmlNetworkLinks: (...args: unknown[]) =>

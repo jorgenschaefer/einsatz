@@ -49,6 +49,39 @@ export function normalizeKmlSourceUrl(input: string): string {
   return out.toString();
 }
 
+/** Lehnt Inhalt ab, dessen Wurzelelement nicht `<kml>` ist (etwa eine
+ *  HTML-Anmeldeseite), mit `message` als Meldung. */
+export function assertKmlDocument(text: string, message: string): void {
+  if (!hasKmlRoot(text)) throw new ValidationError(message);
+}
+
+const KML_ROOT_TAG = /^<(?:[\w.-]+:)?kml[\s/>]/;
+
+// Vor dem Wurzelelement nur Leerraum, eine XML-Deklaration und Kommentare.
+// Schrittweise statt mit einem einzigen Regex, weil dessen Backtracking bei
+// vielen Kommentaren oder viel Leerraum den Server blockieren würde.
+function hasKmlRoot(text: string): boolean {
+  let at = skipWhitespace(text, 0);
+  if (/^<\?xml\s/.test(text.slice(at, at + 6))) {
+    at = skipWhitespace(text, skipPast(text, at, "?>"));
+  }
+  while (text.startsWith("<!--", at)) {
+    at = skipWhitespace(text, skipPast(text, at + 4, "-->"));
+  }
+  return KML_ROOT_TAG.test(text.slice(at));
+}
+
+const skipPast = (text: string, from: number, end: string): number => {
+  const found = text.indexOf(end, from);
+  return found < 0 ? text.length : found + end.length;
+};
+
+const skipWhitespace = (text: string, from: number): number => {
+  const nonWhitespace = /\S/g;
+  nonWhitespace.lastIndex = from;
+  return nonWhitespace.exec(text)?.index ?? text.length;
+};
+
 /** Deckelt KML-Inhalte (Text oder rohe Bytes) bei 20 MB. */
 export function enforceKmlSizeLimit(content: string | Uint8Array): void {
   const size =
@@ -230,11 +263,9 @@ export async function fetchKmlFromUrl(
   enforceContentLength(response.headers.get("content-length"));
   const bytes = new Uint8Array(await response.arrayBuffer());
   enforceKmlSizeLimit(bytes); // deckelt den (ggf. komprimierten) Download
-  const content = await resolveKmlNetworkLinks(
-    extractKml(bytes),
-    depth,
-    doFetch,
-  );
+  const kml = extractKml(bytes);
+  assertKmlDocument(kml, "Die Adresse liefert keine KML-Datei.");
+  const content = await resolveKmlNetworkLinks(kml, depth, doFetch);
   enforceKmlSizeLimit(content); // deckelt das entpackte/aufgelöste KML
   return content;
 }

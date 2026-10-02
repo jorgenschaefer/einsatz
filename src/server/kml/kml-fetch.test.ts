@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { MAX_KML_BYTES } from "@/kml/kmz";
 import { ValidationError } from "@/server/validation";
+import { scriptedFetch } from "@/test/scripted-fetch";
 import {
   assertFetchableKmlUrl,
+  assertKmlDocument,
   enforceContentLength,
   enforceKmlSizeLimit,
   fetchKmlFromUrl,
@@ -12,28 +14,56 @@ import {
   resolveKmlNetworkLinks,
 } from "./kml-fetch";
 
-// Skript-Fetch: liefert je angefragter URL eine Antwort-Attrappe. Hosts sind
-// IP-Literale, damit dns.lookup ohne Netz auflöst.
-type Stub = { status?: number; location?: string; body?: string };
-const scriptedFetch = (handler: (url: string) => Stub): typeof fetch =>
-  (async (input: URL | RequestInfo) => {
-    const s = handler(String(input));
-    const status = s.status ?? 200;
-    return {
-      status,
-      ok: status < 400,
-      headers: {
-        get: (name: string) =>
-          name.toLowerCase() === "location" ? (s.location ?? null) : null,
-      },
-      arrayBuffer: async () => new TextEncoder().encode(s.body ?? "").buffer,
-    };
-  }) as unknown as typeof fetch;
-
 const doc = (marker: string) =>
   `<kml><Document><Placemark>${marker}</Placemark></Document></kml>`;
 const networkLink = (href: string) =>
   `<NetworkLink><Link><href>${href}</href></Link></NetworkLink>`;
+
+describe("assertKmlDocument", () => {
+  const NOT_KML = "Kein KML.";
+
+  it.each([
+    ["a bare root", "<kml/>"],
+    ["a namespaced root", '<kml xmlns="http://www.opengis.net/kml/2.2">'],
+    ["a prefixed root", '<kml:kml xmlns:kml="http://www.opengis.net/kml/2.2">'],
+    ["a declaration", '<?xml version="1.0" encoding="UTF-8"?><kml>'],
+    [
+      "a declaration, comments and whitespace",
+      '\n<?xml version="1.0"?>\r\n<!-- a -->\t<!--b--> <kml>',
+    ],
+    ["a root followed by a newline", "<kml\n  xmlns='x'>"],
+  ])("accepts %s", (_case, text) => {
+    expect(() => assertKmlDocument(text, NOT_KML)).not.toThrow();
+  });
+
+  it.each([
+    ["empty text", ""],
+    ["only whitespace", "  \n"],
+    ["HTML", "<!doctype html><html><body>kml</body></html>"],
+    ["JSON", '{"kml": true}'],
+    ["a DOCTYPE before the root", '<!DOCTYPE kml SYSTEM "x"><kml>'],
+    ["<kml after another element", "<html><kml></kml></html>"],
+    ["a root merely starting with kml", "<kmlx>"],
+    ["a prefixed root that is not kml", "<x:Document>"],
+    ["an unclosed comment", "<!-- <kml>"],
+    ["text before the root", "hello <kml>"],
+    [
+      "a stylesheet instruction before the root",
+      '<?xml-stylesheet href="a"?><kml>',
+    ],
+  ])("rejects %s with the given message", (_case, text) => {
+    expect(() => assertKmlDocument(text, NOT_KML)).toThrow(
+      new ValidationError(NOT_KML),
+    );
+  });
+
+  it.each([
+    ["many comments", `${"<!--a-->".repeat(28)}<html>`],
+    ["much whitespace", `${" ".repeat(50_000)}x`],
+  ])("rejects %s without stalling", { timeout: 1_000 }, (_case, text) => {
+    expect(() => assertKmlDocument(text, NOT_KML)).toThrow(ValidationError);
+  });
+});
 
 describe("enforceKmlSizeLimit", () => {
   it("accepts content within the 20 MB cap", () => {

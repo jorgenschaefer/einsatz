@@ -76,6 +76,27 @@ describe("kml overlays repository", () => {
     expect(loaded.content).toBe("<new/>");
   });
 
+  it("keeps the content when re-fetching fails", async () => {
+    const db = await freshDb();
+    const op = await anOperation(db);
+    const overlay = await createKmlOverlay(db, {
+      operationId: op.id,
+      sourceType: "url",
+      sourceUrl: "https://example.com/route.kml",
+      name: "Laufstrecke",
+      content: "<kml>alt</kml>",
+    });
+
+    await expect(
+      reloadKmlOverlay(db, overlay.id, async () => {
+        throw new ValidationError("Die Adresse liefert keine KML-Datei.");
+      }),
+    ).rejects.toThrow("Die Adresse liefert keine KML-Datei.");
+
+    const [loaded] = await listKmlOverlays(db, op.id);
+    expect(loaded.content).toBe("<kml>alt</kml>");
+  });
+
   it("refuses to reload a file overlay", async () => {
     const db = await freshDb();
     const op = await anOperation(db);

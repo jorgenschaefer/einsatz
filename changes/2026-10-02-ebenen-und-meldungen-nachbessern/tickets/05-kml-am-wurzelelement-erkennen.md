@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:    AC-15, AC-16, AC-17, AC-18
 advances:
 after:
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -108,3 +108,34 @@ Inhalt bleibt, und die Action meldet, dass es kein KML ist.
 - Der Client (`readKml`) prüft nicht selbst; die Prüfung ist im Server.
 
 ## Left standing
+
+**Ohne automatischen Test geprüft**
+
+- AC-15 im laufenden Programm: Beide Reviews haben „Per URL einbinden“ mit
+  `https://example.com/` (HTML) ausgelöst, bei 1920 px und bei 360 bzw.
+  390 px. Es erschien „Die Adresse liefert keine KML-Datei.“, es entstand kein
+  Overlay, und „Name“ und „KML-/KMZ-URL“ behielten ihren Inhalt.
+- AC-17 mit einem KMZ, dessen Haupt-KML kein KML ist: Kein Test führt das
+  durch Panel und Server. Der Server bekommt vom Client nur das entpackte
+  Haupt-KML (`readKml`). Für ihn ist das derselbe Fall wie eine KML-Datei mit
+  falschem Inhalt, und den deckt `kml-actions.document.test.ts` ab.
+- AC-18 mit einer echten Google-„Meine Karten“-Adresse: nicht live geprüft.
+  Die Tests spielen das mit einer Fetch-Attrappe nach: ein NetworkLink-Dokument
+  mit einem HTML-Ziel und einem KML-Ziel ergibt das KML-Ziel.
+
+**Abweichungen vom Plan**
+
+- Die Prüfung ist kein einzelner regulärer Ausdruck. Die erste Fassung war
+  einer, und das Review fand darin Backtracking: Etwa 40 Kommentare (rund
+  320 Bytes) oder einige hundert kB Leerraum hätten den Server-Prozess
+  minuten- bis stundenlang blockiert. Jetzt läuft `hasKmlRoot` den Prolog
+  Schritt für Schritt ab, in linearer Zeit. Zwei Tests mit einem Zeitlimit
+  halten das fest.
+- Zusätzlich abgelehnt: eine Verarbeitungsanweisung wie `<?xml-stylesheet …?>`
+  vor der Wurzel. AC-15 erlaubt davor nur die XML-Deklaration.
+- `scriptedFetch` nimmt jetzt auch Bytes als Antwort an, damit ein KMZ per URL
+  getestet werden kann.
+- Die Tests aus Schritt 5 (`kml-overlays.test.ts`) und Schritt 6
+  (`KmlPanel.document.test.tsx`) waren nie rot, weil sie bestehendes Verhalten
+  festhalten. Dass sie dieses Verhalten wirklich prüfen, habe ich mit einer
+  absichtlich eingebauten Änderung am Code geprüft: Beide schlugen fehl.

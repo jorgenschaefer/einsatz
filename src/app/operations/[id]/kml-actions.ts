@@ -1,6 +1,7 @@
 "use server";
 
 import {
+  assertKmlDocument,
   enforceKmlSizeLimit,
   fetchKmlFromUrl,
   resolveKmlNetworkLinks,
@@ -24,6 +25,7 @@ export async function addKmlFileAction(
 ): Promise<ActionResult> {
   return operationAction(async (db) => {
     enforceKmlSizeLimit(content);
+    assertKmlDocument(content, "Die Datei ist keine KML- oder KMZ-Datei.");
     // KMZ-Dateien aus Google „Meine Karten“ enthalten oft nur einen
     // NetworkLink; dessen Ziel serverseitig auflösen, damit Geometrie erscheint.
     const resolved = await resolveKmlNetworkLinks(content);
