@@ -6,8 +6,6 @@ import {
 import type { Queryable } from "@/server/db/db";
 import { assertLatLng, ValidationError } from "@/server/validation";
 
-export type { SymbolComposition };
-
 /** Die bekannten Achsen einer {@link SymbolComposition}. */
 const COMPOSITION_KEYS: ReadonlySet<string> = new Set([
   "grundzeichen",

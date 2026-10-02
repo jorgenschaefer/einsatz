@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { MAX_COMPOSITION_FIELD_LENGTH } from "@/map/composition";
+import {
+  MAX_COMPOSITION_FIELD_LENGTH,
+  type SymbolComposition,
+} from "@/map/composition";
 import {
   closeOperation,
   reopenOperation,
@@ -15,7 +18,6 @@ import {
   moveMapSymbol,
   reportPosition,
   resolveDeviceAccess,
-  type SymbolComposition,
   updateMapSymbolComposition,
 } from "./map-symbols";
 
