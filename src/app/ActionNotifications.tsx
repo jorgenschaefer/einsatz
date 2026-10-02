@@ -7,7 +7,7 @@ import { useIsDesktop } from "@/map/useIsDesktop";
 const GAP = "var(--mantine-spacing-sm)";
 
 /**
- * Die Benachrichtigungen der App. Sie liegen unter der Kopfzeile der
+ * Die Benachrichtigungen der App. Sie liegen unter der Kopfleiste der
  * Lageansicht: am Handy oben mittig, am Desktop oben rechts über der Karte,
  * links der Seitenleiste und nicht breiter als die Kartenfläche.
  */
