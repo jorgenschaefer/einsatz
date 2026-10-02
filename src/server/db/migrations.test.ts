@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { emptyDb } from "@/test/db";
-import { migrate } from "./migrations";
+import type { Db } from "./db";
+import { loadMigrations, migrate } from "./migrations";
 
 describe("migrate", () => {
   it("creates the core tables", async () => {
@@ -48,5 +49,48 @@ describe("migrate", () => {
 
     expect(Number(afterFirst.rows[0].count)).toBeGreaterThan(0);
     expect(afterSecond.rows[0].count).toBe(afterFirst.rows[0].count);
+  });
+
+  describe("case-insensitive usernames", () => {
+    const UNIQUE_USERNAMES = "016_username_lower_unique.sql";
+    const migrationsBefore = () =>
+      loadMigrations().filter((m) => m.name < UNIQUE_USERNAMES);
+
+    async function insertUsers(db: Db, ...usernames: string[]) {
+      for (const username of usernames) {
+        await db.query(
+          `INSERT INTO users (id, username, password_hash, role)
+           VALUES (gen_random_uuid(), $1, 'x', 'user')`,
+          [username],
+        );
+      }
+    }
+
+    async function indexExists(db: Db) {
+      const { rows } = await db.query<{ t: string | null }>(
+        "SELECT to_regclass('users_username_lower_idx') AS t",
+      );
+      return rows[0].t !== null;
+    }
+
+    it("refuses to migrate while usernames collide, naming them", async () => {
+      const db = await emptyDb();
+      await migrate(db, migrationsBefore());
+      await insertUsers(db, "Anna", "anna", "bob");
+
+      const result = migrate(db);
+      await expect(result).rejects.toThrow(/Anna, anna/);
+      await expect(result).rejects.toThrow(/umbenennen oder löschen/);
+      expect(await indexExists(db)).toBe(false);
+    });
+
+    it("adds the index when no usernames collide", async () => {
+      const db = await emptyDb();
+      await migrate(db, migrationsBefore());
+      await insertUsers(db, "anna", "bob");
+
+      await migrate(db);
+      expect(await indexExists(db)).toBe(true);
+    });
   });
 });

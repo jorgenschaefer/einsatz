@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:    AC-26, AC-27, AC-28
 advances:
 after:
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -88,3 +88,16 @@ The migration is the next free number in `src/server/db/migrations/` when it is 
 - From *Out of scope*: locking accounts.
 
 ## Left standing
+
+- **Review finding not fixed (should-fix): the list adds almost nothing above the length rule.** Only 10 of the SecLists entries are 12 characters or longer (`unbelievable`, `scandinavian`, `motherfucker` …); every other entry is already refused for being too short. In the running app the reviewer reset a password to `password1234` and it was accepted; `qwertyuiop12` and `123456789012` would be too. AC-26 names "die 10.000 häufigsten Passwörter" and the nudge names the SecLists 10k file, so picking a different list (e.g. a larger one filtered to 12+ characters, or normalised matching) is a decision for whoever owns the criterion, not this build. It is the one place where this ticket meets the letter of its criterion without much of the protection.
+- **Review nit not fixed: `resetPassword` with an unknown id.** It skips the policy, hashes, updates no row and the action reports success (reachable when a second admin tab deleted the account first). The ticket says behaviour stays as today for a missing account, and today it already reported success; left as is.
+- **Fixed beyond the plan:** the hints under "Start-Passwort" and "Neues Passwort" said only "Mindestens 12 Zeichen."; they now read "12 Zeichen bis 72 Byte, nicht der Nutzername, kein verbreitetes Passwort." (reviewer nit, pinned in `UserAdminPanel.test.tsx` and `ChangePasswordForm.test.tsx`). This change came after the review, so no second review round looked at it; I checked both screens at 390 px myself (the hint wraps to two lines, nothing cut off).
+- **List file:** `10k-most-common.txt` from SecLists has 10,001 lines, all distinct, no blank lines; kept whole.
+- **How the list is loaded (plan step 9): `path.join(process.cwd(), "src/server/auth/common-passwords.txt")`.** `new URL("./common-passwords.txt", import.meta.url)` passed Vitest but broke `next build` ("Failed to collect configuration for /account": the bundled `URL` was not accepted by `readFileSync`). With `process.cwd()` the build passes.
+- **Step 9 observations:**
+  - `npm run build` and `next start -p 3001` against the dev DB: creating `prod-bundle-test` with `unbelievable` in the user administration showed "Dieses Passwort ist zu verbreitet. Bitte ein anderes wählen." and created nothing.
+  - `ADMIN_USERNAME= ADMIN_PASSWORD= npm run db:seed` against the dev DB (which has users, migrated with 016) exits 0.
+  - `docker build` and a container run against the dev DB with `ADMIN_USERNAME=` and `ADMIN_PASSWORD=` empty: migrate, "Admin-Konto sichergestellt.", "✓ Ready", `/login` 200.
+- **Order of refusals changed in `createAccount`:** the password policy now runs before the insert, so a taken username with a bad password reports the password rule first; only the unique index decides "Dieser Nutzername ist bereits vergeben.". The old case-sensitive `UNIQUE` on `users.username` stays; an exact duplicate trips it with the same code and message.
+- **Dev `.env`:** the local `.env` still has `ADMIN_PASSWORD=change-me-please` for the existing dev admin. Not touched (not in the repo); the seed ignores it while users exist.
+

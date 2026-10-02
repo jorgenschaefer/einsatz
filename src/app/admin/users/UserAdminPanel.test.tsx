@@ -45,6 +45,9 @@ const rowOf = (username: string) => {
   return row;
 };
 
+const PASSWORD_RULES =
+  "12 Zeichen bis 72 Byte, nicht der Nutzername, kein verbreitetes Passwort.";
+
 describe("UserAdminPanel", () => {
   it("lists each account with its role", () => {
     setup();
@@ -65,6 +68,13 @@ describe("UserAdminPanel", () => {
       screen.getByRole("button", { name: "Konto anlegen" }),
     );
     expect(props.onCreate).toHaveBeenCalledWith("bob", "a-good-password", true);
+  });
+
+  it("names the password rules under the start password", () => {
+    setup();
+    expect(screen.getByLabelText(/Start-Passwort/)).toHaveAccessibleDescription(
+      PASSWORD_RULES,
+    );
   });
 
   it("promotes a user and demotes an admin", async () => {

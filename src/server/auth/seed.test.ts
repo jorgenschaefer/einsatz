@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { freshDb } from "@/test/db";
+import { POLICY_USERNAME, REFUSED_PASSWORDS } from "@/test/refused-passwords";
 import { verifyPassword } from "./password";
 import { seedAdmin } from "./seed";
 import { countUsers, findUserByUsername } from "./users";
@@ -49,4 +50,38 @@ describe("seedAdmin", () => {
     ).resolves.toBeUndefined();
     expect(await countUsers(db)).toBe(1);
   });
+
+  it.each(REFUSED_PASSWORDS)(
+    "refuses an admin password $rule and creates nothing",
+    async ({ password, message }) => {
+      const db = await freshDb();
+      await expect(
+        seedAdmin(db, { username: POLICY_USERNAME, password }),
+      ).rejects.toThrow(message);
+      expect(await countUsers(db)).toBe(0);
+    },
+  );
+
+  it("does nothing without credentials once accounts exist", async () => {
+    const db = await freshDb();
+    await seedAdmin(db, { username: "chef", password: "super-secret-1" });
+    await expect(seedAdmin(db, {})).resolves.toBeUndefined();
+    expect(await countUsers(db)).toBe(1);
+  });
+
+  it.each([
+    { missing: "both", admin: {} },
+    { missing: "the username", admin: { password: "super-secret-1" } },
+    { missing: "the password", admin: { username: "chef" } },
+    { missing: "both, set but empty", admin: { username: "", password: "" } },
+  ])(
+    "refuses to create the first admin without $missing",
+    async ({ admin }) => {
+      const db = await freshDb();
+      await expect(seedAdmin(db, admin)).rejects.toThrow(
+        "ADMIN_USERNAME und ADMIN_PASSWORD müssen gesetzt sein, um den Erst-Admin anzulegen.",
+      );
+      expect(await countUsers(db)).toBe(0);
+    },
+  );
 });

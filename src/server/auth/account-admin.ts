@@ -1,13 +1,12 @@
 import type { Db, Queryable } from "@/server/db/db";
 import { ValidationError } from "@/server/validation";
-import { hashPassword, verifyPassword } from "./password";
+import { assertPasswordPolicy, hashPassword, verifyPassword } from "./password";
 import { type LoginRateLimiter, RATE_LIMITED_MESSAGE } from "./rate-limit";
 import { deleteSessionsForUser } from "./sessions";
 import {
   countAdmins,
   deleteUser,
   findUserById,
-  findUserByUsername,
   insertUser,
   type Role,
   type User,
@@ -22,12 +21,20 @@ export async function createAccount(
   const username = input.username.trim();
   if (!username)
     throw new ValidationError("Der Nutzername darf nicht leer sein.");
-  if (await findUserByUsername(db, username)) {
-    throw new ValidationError("Dieser Nutzername ist bereits vergeben.");
-  }
+  assertPasswordPolicy(input.password, username);
   const passwordHash = await hashPassword(input.password);
-  return insertUser(db, { username, passwordHash, role: input.role });
+  try {
+    return await insertUser(db, { username, passwordHash, role: input.role });
+  } catch (err) {
+    // Eindeutig ohne Rücksicht auf Groß-/Kleinschreibung: users_username_lower_idx.
+    if ((err as { code?: string }).code === UNIQUE_VIOLATION) {
+      throw new ValidationError("Dieser Nutzername ist bereits vergeben.");
+    }
+    throw err;
+  }
 }
+
+const UNIQUE_VIOLATION = "23505";
 
 export async function setRole(db: Db, id: string, role: Role): Promise<void> {
   if (role === "user") {
@@ -49,6 +56,8 @@ export async function resetPassword(
   id: string,
   newPassword: string,
 ): Promise<void> {
+  const user = await findUserById(db, id);
+  if (user) assertPasswordPolicy(newPassword, user.username);
   const passwordHash = await hashPassword(newPassword);
   await db.transaction(async (tx) => {
     await updateUserPasswordHash(tx, id, passwordHash);

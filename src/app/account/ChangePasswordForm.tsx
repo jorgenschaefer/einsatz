@@ -40,7 +40,7 @@ export function ChangePasswordForm({
         <PasswordInput
           name="password"
           label="Neues Passwort"
-          description="Mindestens 12 Zeichen."
+          description="12 Zeichen bis 72 Byte, nicht der Nutzername, kein verbreitetes Passwort."
           autoComplete="new-password"
           required
         />

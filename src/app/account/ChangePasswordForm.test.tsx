@@ -7,6 +7,13 @@ import {
 } from "./ChangePasswordForm";
 
 describe("ChangePasswordForm", () => {
+  it("names the password rules under the new password", () => {
+    render(<ChangePasswordForm action={vi.fn<ChangePasswordAction>()} />);
+    expect(screen.getByLabelText(/Neues Passwort/)).toHaveAccessibleDescription(
+      "12 Zeichen bis 72 Byte, nicht der Nutzername, kein verbreitetes Passwort.",
+    );
+  });
+
   it("submits the current and the new password", async () => {
     const action = vi.fn<ChangePasswordAction>(async () => ({ success: true }));
     render(<ChangePasswordForm action={action} />);

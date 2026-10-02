@@ -4,6 +4,7 @@ import { hashPassword, verifyPassword } from "@/server/auth/password";
 import { findUserById, insertUser, type User } from "@/server/auth/users";
 import type { Db } from "@/server/db/db";
 import { freshDb } from "@/test/db";
+import { POLICY_USERNAME, REFUSED_PASSWORDS } from "@/test/refused-passwords";
 
 // The limiter is process-wide and never reset: each test uses its own address.
 const state = vi.hoisted(() => ({
@@ -56,11 +57,15 @@ beforeEach(async () => {
   state.token = (await createSession(db, anna.id)).token;
 });
 
-async function changePassword(ip: string, currentPassword: string) {
+async function changePassword(
+  ip: string,
+  currentPassword: string,
+  newPassword = NEW_PASSWORD,
+) {
   state.forwardedFor = ip;
   const form = new FormData();
   form.set("currentPassword", currentPassword);
-  form.set("password", NEW_PASSWORD);
+  form.set("password", newPassword);
   const result = await changePasswordAction({}, form);
   return result.error ?? "changed";
 }
@@ -130,4 +135,23 @@ describe("changePasswordAction rate limit", () => {
     expect(await changePassword("198.51.100.13", PASSWORD)).toBe(RATE_LIMITED);
     expect(await storedPasswordIs(PASSWORD)).toBe(true);
   });
+});
+
+describe("changePasswordAction password policy", () => {
+  it.each(REFUSED_PASSWORDS)(
+    "refuses a new password $rule and keeps the old one",
+    async ({ password, message }) => {
+      const user = await insertUser(db, {
+        username: POLICY_USERNAME,
+        passwordHash: await hashPassword(PASSWORD),
+        role: "user",
+      });
+      state.token = (await createSession(db, user.id)).token;
+      expect(await changePassword("198.51.100.20", PASSWORD, password)).toBe(
+        message,
+      );
+      const stored = await findUserById(db, user.id);
+      expect(await verifyPassword(PASSWORD, stored!.passwordHash)).toBe(true);
+    },
+  );
 });
