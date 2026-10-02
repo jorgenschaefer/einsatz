@@ -1,5 +1,6 @@
 "use server";
 
+import type { ActionResult } from "@/app/action-result";
 import {
   defaultImagePlacement,
   type ImagePlacement,
@@ -24,7 +25,7 @@ import {
 } from "@/server/image-overlays/image-upload";
 import { getOperation } from "@/server/operations/operations";
 import { isValidLatLng, ValidationError } from "@/server/validation";
-import { type ActionResult, operationAction } from "./operation-action";
+import { operationAction } from "./operation-action";
 
 const EMBED_FAILED = "Das Bild konnte nicht eingebunden werden.";
 const DELETE_FAILED = "Das Bild-Overlay konnte nicht gelöscht werden.";

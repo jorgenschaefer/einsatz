@@ -1,5 +1,6 @@
 "use server";
 
+import type { ActionResult } from "@/app/action-result";
 import { createStation, renameStation } from "@/server/strength/stations";
 import {
   annulStrengthReport,
@@ -8,7 +9,7 @@ import {
 } from "@/server/strength/strength-reports";
 import { reportTotalStrength } from "@/server/strength/total-strength";
 import type { StrengthValues } from "@/strength/strength";
-import { type ActionResult, operationAction } from "./operation-action";
+import { operationAction } from "./operation-action";
 
 export async function createStationAction(
   operationId: string,

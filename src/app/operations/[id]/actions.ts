@@ -1,8 +1,9 @@
 "use server";
 
+import type { ActionResult } from "@/app/action-result";
 import type { MapView } from "@/map/view";
 import { setDefaultView } from "@/server/operations/operations";
-import { type ActionResult, operationAction } from "./operation-action";
+import { operationAction } from "./operation-action";
 
 export async function setDefaultViewAction(
   operationId: string,

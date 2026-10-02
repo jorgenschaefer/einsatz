@@ -1,5 +1,6 @@
 "use server";
 
+import type { ActionResult } from "@/app/action-result";
 import type { SymbolComposition } from "@/map/composition";
 import {
   createMapSymbol,
@@ -8,7 +9,7 @@ import {
   moveMapSymbol,
   updateMapSymbolComposition,
 } from "@/server/mapsymbols/map-symbols";
-import { type ActionResult, operationAction } from "./operation-action";
+import { operationAction } from "./operation-action";
 
 export async function placeMapSymbolAction(
   operationId: string,

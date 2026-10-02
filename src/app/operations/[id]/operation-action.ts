@@ -9,8 +9,6 @@ import { getDb } from "@/server/db/pg";
 import { publishOperationChanged } from "@/server/events/operation-events";
 import { ValidationError } from "@/server/validation";
 
-export type { ActionResult };
-
 /**
  * Der eine Ort für „dieser Einsatz hat sich geändert": revalidiert die
  * Einsatzseite und meldet die Änderung live (SSE) an alle Clients.

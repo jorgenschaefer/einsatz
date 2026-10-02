@@ -1,12 +1,13 @@
 "use server";
 
+import type { ActionResult } from "@/app/action-result";
 import type { EntryContent } from "@/journal/entry-route";
 import {
   annulEntry,
   appendEntry,
   correctEntry,
 } from "@/server/journal/journal";
-import { type ActionResult, operationAction } from "./operation-action";
+import { operationAction } from "./operation-action";
 
 export async function addJournalEntryAction(
   operationId: string,

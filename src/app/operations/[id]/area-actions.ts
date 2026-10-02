@@ -1,5 +1,6 @@
 "use server";
 
+import type { ActionResult } from "@/app/action-result";
 import type { AreaGeometry, AreaStyle } from "@/map/area";
 import {
   createArea,
@@ -7,7 +8,7 @@ import {
   updateAreaGeometry,
   updateAreaStyle,
 } from "@/server/areas/areas";
-import { type ActionResult, operationAction } from "./operation-action";
+import { operationAction } from "./operation-action";
 
 const DEFAULT_AREA_STYLE: AreaStyle = {
   color: "#e2001a",

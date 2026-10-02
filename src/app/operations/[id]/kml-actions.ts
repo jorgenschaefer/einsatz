@@ -1,5 +1,6 @@
 "use server";
 
+import type { ActionResult } from "@/app/action-result";
 import {
   assertKmlDocument,
   enforceKmlSizeLimit,
@@ -13,7 +14,7 @@ import {
   setKmlVisibility,
 } from "@/server/kml/kml-overlays";
 import { ValidationError } from "@/server/validation";
-import { type ActionResult, operationAction } from "./operation-action";
+import { operationAction } from "./operation-action";
 
 const LOAD_FAILED = "KML konnte nicht geladen werden.";
 

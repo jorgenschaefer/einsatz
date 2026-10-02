@@ -1,7 +1,8 @@
 "use server";
 
+import type { ActionResult } from "@/app/action-result";
 import { createViewLink, deleteViewLink } from "@/server/viewlinks/view-links";
-import { type ActionResult, operationAction } from "./operation-action";
+import { operationAction } from "./operation-action";
 
 // Zur Objekt-Zugehörigkeit (flaches Trust-Modell) siehe `operationAction`.
 export async function createViewLinkAction(
