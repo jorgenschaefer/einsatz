@@ -1,16 +1,15 @@
 "use client";
 
-import { Alert, type AlertProps } from "@mantine/core";
+import { Alert } from "@mantine/core";
 
 /** Rote Fehlermeldung mit „ד, das sie schließt; ohne Meldung nichts. */
 export function ErrorAlert({
   error,
   onClose,
-  ...props
-}: { error: string | null; onClose: () => void } & Omit<
-  AlertProps,
-  "children" | "onClose"
->) {
+}: {
+  error: string | null;
+  onClose: () => void;
+}) {
   if (!error) return null;
   return (
     <Alert
@@ -19,7 +18,6 @@ export function ErrorAlert({
       withCloseButton
       closeButtonLabel="Meldung schließen"
       onClose={onClose}
-      {...props}
     >
       {error}
     </Alert>
