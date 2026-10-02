@@ -89,17 +89,10 @@ export async function correctStrengthReport(
 ): Promise<string> {
   const values = requireStrengthValues(input.values);
   return db.transaction(async (tx) => {
-    const {
-      rows: [report],
-    } = await tx.query<{ operation_id: string; journal_entry_id: string }>(
-      `SELECT s.operation_id, r.journal_entry_id
-         FROM strength_reports r
-         JOIN stations s ON s.id = r.station_id
-        WHERE r.id = $1`,
-      [input.reportId],
+    const { operationId, journalEntryId } = await loadReport(
+      tx,
+      input.reportId,
     );
-    if (!report) throw new ValidationError("Meldung nicht gefunden.");
-    const operationId = report.operation_id;
     // Wie bei der Erfassung: erst die Einsatz-Sperre, dann der Name der Stelle.
     await lockOperation(tx, operationId);
     const {
@@ -126,7 +119,7 @@ export async function correctStrengthReport(
     );
     await reviseEntry(
       tx,
-      report.journal_entry_id,
+      journalEntryId,
       { text: formatStrengthReportText(station.name, values), ...NO_ROUTE },
       input.author,
     );
@@ -143,19 +136,32 @@ export async function annulStrengthReport(
   reportId: string,
 ): Promise<string> {
   return db.transaction(async (tx) => {
-    const {
-      rows: [report],
-    } = await tx.query<{ operation_id: string; journal_entry_id: string }>(
-      `SELECT s.operation_id, r.journal_entry_id
-         FROM strength_reports r
-         JOIN stations s ON s.id = r.station_id
-        WHERE r.id = $1`,
-      [reportId],
-    );
-    if (!report) throw new ValidationError("Meldung nicht gefunden.");
-    await markEntryAnnulled(tx, report.journal_entry_id);
-    return report.operation_id;
+    const report = await loadReport(tx, reportId);
+    await markEntryAnnulled(tx, report.journalEntryId);
+    return report.operationId;
   });
+}
+
+/** Der Gesamteinsatz und der ETB-Eintrag einer Meldung. */
+async function loadReport(
+  tx: Queryable,
+  reportId: string,
+): Promise<{ operationId: string; journalEntryId: string }> {
+  const { rows } = await tx.query<{
+    operation_id: string;
+    journal_entry_id: string;
+  }>(
+    `SELECT s.operation_id, r.journal_entry_id
+       FROM strength_reports r
+       JOIN stations s ON s.id = r.station_id
+      WHERE r.id = $1`,
+    [reportId],
+  );
+  if (!rows[0]) throw new ValidationError("Meldung nicht gefunden.");
+  return {
+    operationId: rows[0].operation_id,
+    journalEntryId: rows[0].journal_entry_id,
+  };
 }
 
 /** Alle Meldungen der Stellen eines Gesamteinsatzes, in ETB-Reihenfolge. */
