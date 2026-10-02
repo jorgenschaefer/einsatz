@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:    AC-1
 advances:
 after:
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -89,3 +89,28 @@ text is set with `textContent`, instead of as a string Leaflet puts into
 - KML popups already use `textContent` (`kmlPopupContent`); nothing to do there.
 
 ## Left standing
+- **AC-1 in the three views and "no script runs" have no automated test.** The
+  tests run at the adapter (`leaflet-markers.test.ts`,
+  `leaflet-areas.label.test.ts`), which all three views share. The reviewer
+  checked the rest in the running app (plan step 5) at 390×844 and 1280×800,
+  using a Kartenzeichen and a polygon Bereich both labelled
+  `<img src=x onerror=alert(1)>`. In the Lageansicht, the Ansichtsansicht
+  (Ansichtslink, logged out) and the Geräteansicht (Gerätelink, logged out),
+  the literal text showed in a `<span>`. No `<img>` was created, no alert came
+  up, and no request went to `…/x`. The Kartenzeichen label still sits to the
+  right of the symbol: 14px bold, white halo, no box. The Bereich label is still
+  centred, in Leaflet's white box. The reviewer compared computed styles, not
+  screenshots of the old code.
+- **Review nit not fixed:** the Leaflet test map setup (a container with
+  `clientWidth`/`clientHeight`, then `leafletMapAdapterFactory.create`) is now
+  copied into two more tests, making nine copies under `src/map`. One helper for
+  all of them would mean refactoring seven tests this ticket does not touch, so
+  it is better as a separate change.
+- **Plan detail:** the plan put a `span` into `applyLabel` and `applyAreaStyle`
+  separately. Both now call one helper, `tooltipText` in
+  `src/map/tooltip-text.ts`, because the two must not drift apart. The area test
+  went into a new `leaflet-areas.label.test.ts`, as the plan allowed. The shared
+  assertion is in `src/map/tooltip.fixtures.ts`.
+- Unrelated, seen during review: the Geräteansicht logs a React hydration
+  mismatch on the search input (`caret-color: transparent`). It is probably
+  caused by the test browser, and I have not looked into it.

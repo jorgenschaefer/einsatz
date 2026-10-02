@@ -1,6 +1,7 @@
 import L from "leaflet";
 import "./leaflet-markers.css";
 import type { MarkerSpec } from "./adapter";
+import { tooltipText } from "./tooltip-text";
 
 /** Kantenlänge (px) eines Kartenzeichen-Markers. */
 const MARKER_SIZE = 40;
@@ -74,7 +75,7 @@ const iconFor = (spec: MarkerSpec) =>
 function applyLabel(marker: L.Marker, label: string | undefined) {
   marker.unbindTooltip();
   if (label)
-    marker.bindTooltip(label, {
+    marker.bindTooltip(tooltipText(label), {
       permanent: true,
       direction: "right",
       className: "kartenzeichen-label",

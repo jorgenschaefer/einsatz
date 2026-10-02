@@ -1,6 +1,7 @@
 import L from "leaflet";
 import type { AreaSpec, CirclePreviewSpec } from "./adapter";
 import type { AreaGeometry, AreaShape } from "./area";
+import { tooltipText } from "./tooltip-text";
 
 /**
  * Die Bereiche auf der Karte, per id gesetzt und entfernt, dazu das Zeichnen
@@ -117,7 +118,10 @@ function applyAreaStyle(layer: L.Path, spec: AreaSpec) {
       : filledAreaStyle(spec.color, spec.opacity),
   );
   if (spec.label)
-    layer.bindTooltip(spec.label, { permanent: true, direction: "center" });
+    layer.bindTooltip(tooltipText(spec.label), {
+      permanent: true,
+      direction: "center",
+    });
 }
 
 function filledAreaStyle(color: string, opacity: number): L.PathOptions {
