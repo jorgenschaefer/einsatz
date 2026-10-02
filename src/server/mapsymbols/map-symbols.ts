@@ -1,22 +1,13 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import {
+  COMPOSITION_AXES,
   MAX_COMPOSITION_FIELD_LENGTH,
   type SymbolComposition,
 } from "@/map/composition";
 import type { Queryable } from "@/server/db/db";
 import { assertLatLng, ValidationError } from "@/server/validation";
 
-/** Die bekannten Achsen einer {@link SymbolComposition}. */
-const COMPOSITION_KEYS: ReadonlySet<string> = new Set([
-  "grundzeichen",
-  "organisation",
-  "fachaufgabe",
-  "einheit",
-  "verwaltungsstufe",
-  "funktion",
-  "symbol",
-  "text",
-]);
+const COMPOSITION_KEYS: ReadonlySet<string> = new Set(COMPOSITION_AXES);
 
 /**
  * Prüft an der Action-Grenze **nur die Form** einer Zeichen-Komposition: ein
