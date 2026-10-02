@@ -1,7 +1,6 @@
 import L from "leaflet";
 import "./leaflet-markers.css";
 import type { MarkerSpec } from "./adapter";
-import { markerVisualSignature } from "./layer-signature";
 
 /** Kantenlänge (px) eines Kartenzeichen-Markers. */
 const MARKER_SIZE = 40;
@@ -80,4 +79,18 @@ function applyLabel(marker: L.Marker, label: string | undefined) {
       direction: "right",
       className: "kartenzeichen-label",
     });
+}
+
+/**
+ * Icon, Deckkraft und Bezeichnung eines Markers – was neu gesetzt werden
+ * muss. Die Position wird separat (günstig) aktualisiert; Callbacks
+ * (onClick/onDragEnd) wechseln bei jedem Render die Identität, ändern aber
+ * nichts am Erscheinungsbild.
+ */
+export function markerVisualSignature(spec: MarkerSpec): string {
+  return JSON.stringify({
+    iconUrl: spec.iconUrl,
+    label: spec.label,
+    opacity: spec.opacity,
+  });
 }

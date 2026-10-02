@@ -2,7 +2,6 @@ import L from "leaflet";
 import "leaflet-imageoverlay-rotated";
 import type { ImageOverlaySpec } from "./adapter";
 import { type ImagePlacement, imageOverlayCorners } from "./image-overlay";
-import { imageSignature } from "./layer-signature";
 import { createImageOverlayHandles } from "./leaflet-image-overlay-handles";
 
 /** Vom Plugin ergänzt: platziert ein (dreh-/scherbares) Bild über drei Ecken. */
@@ -116,4 +115,14 @@ function renderImageOverlay(spec: ImageOverlaySpec): L.ImageOverlay {
     [c.bottomLeft.lat, c.bottomLeft.lng],
     { opacity: spec.placement.opacity },
   );
+}
+
+/** Alles, was ein Bild-Overlay auf der Karte ändert. */
+export function imageSignature(spec: ImageOverlaySpec): string {
+  return JSON.stringify({
+    imageUrl: spec.imageUrl,
+    placement: spec.placement,
+    aspect: spec.aspect,
+    visible: spec.visible,
+  });
 }

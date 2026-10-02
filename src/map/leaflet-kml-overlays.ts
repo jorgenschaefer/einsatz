@@ -1,6 +1,5 @@
 import type L from "leaflet";
 import { parseKml } from "./kml-layer";
-import { kmlSignature } from "./layer-signature";
 
 /** Die KML-Ebenen auf der Karte, per id gesetzt und entfernt. */
 export function createKmlOverlayLayers(map: L.Map) {
@@ -28,4 +27,12 @@ export function createKmlOverlayLayers(map: L.Map) {
       kmlSigs.delete(id);
     },
   };
+}
+
+/** Alles, was eine KML-Ebene auf der Karte ändert. */
+export function kmlSignature(spec: {
+  content: string;
+  visible: boolean;
+}): string {
+  return JSON.stringify({ content: spec.content, visible: spec.visible });
 }

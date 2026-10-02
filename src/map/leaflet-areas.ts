@@ -1,7 +1,6 @@
 import L from "leaflet";
 import type { AreaSpec, CirclePreviewSpec } from "./adapter";
 import type { AreaGeometry, AreaShape } from "./area";
-import { areaSignature } from "./layer-signature";
 
 /**
  * Die Bereiche auf der Karte, per id gesetzt und entfernt, dazu das Zeichnen
@@ -129,4 +128,14 @@ function filledAreaStyle(color: string, opacity: number): L.PathOptions {
     opacity: 1,
     weight: 2,
   };
+}
+
+/** Alles, was einen Bereich auf der Karte ändert. */
+export function areaSignature(spec: AreaSpec): string {
+  return JSON.stringify({
+    geometry: spec.geometry,
+    color: spec.color,
+    opacity: spec.opacity,
+    label: spec.label,
+  });
 }
