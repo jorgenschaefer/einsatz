@@ -63,8 +63,9 @@ function editSavedImage() {
     attribution: "©",
   });
   adapter.setImageOverlay("i1", saved);
-  adapter.startImageOverlayEdit("i1", vi.fn());
-  return { handles, layers };
+  const onChange = vi.fn();
+  adapter.startImageOverlayEdit("i1", onChange);
+  return { handles, layers, onChange };
 }
 
 /** Drags the move handle, the last of the six, to a new centre. */
@@ -81,6 +82,37 @@ afterEach(() => {
   vi.restoreAllMocks();
   adapter.destroy();
   container.remove();
+});
+
+describe("dragging an image overlay's move handle", () => {
+  const moved = { ...saved.placement, centerLat: 53.6, centerLng: 10.1 };
+
+  it("shows the image on the new placement while dragging", () => {
+    const { handles, layers } = editSavedImage();
+    const moveHandle = handles.at(-1)!;
+    moveHandle.setLatLng([moved.centerLat, moved.centerLng]);
+    moveHandle.fire("drag");
+
+    const shown = layers.filter((layer) => layer._map !== null);
+    const c = imageOverlayCorners(moved, saved.aspect);
+    expect(latLngOf(shown[0]._topLeft)).toEqual(c.topLeft);
+  });
+
+  it("reports nothing until the handle is dropped", () => {
+    const { handles, onChange } = editSavedImage();
+    const moveHandle = handles.at(-1)!;
+    moveHandle.setLatLng([moved.centerLat, moved.centerLng]);
+    moveHandle.fire("drag");
+
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("reports the new placement when the handle is dropped", () => {
+    const { handles, onChange } = editSavedImage();
+    dragMoveHandle(handles);
+
+    expect(onChange).toHaveBeenCalledWith(moved);
+  });
 });
 
 describe("restoring an image overlay after a gesture", () => {
