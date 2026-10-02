@@ -1,5 +1,5 @@
 import {
-  closeActionError,
+  dismissActionErrors,
   type NotificationSource,
 } from "@/app/action-notification";
 
@@ -35,9 +35,12 @@ const LAGEANSICHT_SOURCES = [
   SITUATION_MAP,
 ];
 
-/** Beim Verlassen der Lageansicht bleibt keine ihrer Benachrichtigungen stehen. */
+/**
+ * Beim Verlassen der Lageansicht bleibt keine ihrer Benachrichtigungen stehen,
+ * auch keine einer Action, die erst danach scheitert.
+ */
 export function closeLageansichtNotifications() {
   for (const notificationSource of LAGEANSICHT_SOURCES) {
-    closeActionError(notificationSource);
+    dismissActionErrors(notificationSource);
   }
 }

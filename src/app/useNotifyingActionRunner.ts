@@ -3,9 +3,9 @@
 import { useState } from "react";
 import { settleAction } from "@/app/action-failure";
 import {
+  beginAction,
   closeActionError,
   type NotificationSource,
-  showActionError,
 } from "@/app/action-notification";
 import type { ActionResult } from "@/app/action-result";
 
@@ -24,10 +24,10 @@ export function useNotifyingActionRunner(
     action: () => Promise<R>,
   ): Promise<R | ActionResult | null> => {
     setBusy(true);
-    closeActionError(notificationSource);
+    const showError = beginAction(notificationSource);
     const result = await settleAction(action);
     if (!result) return null;
-    if (result.error) showActionError(notificationSource, result.error);
+    if (result.error) showError(result.error);
     setBusy(false);
     return result;
   };

@@ -53,6 +53,31 @@ describe("SituationWorkspace notifications", () => {
     await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
   });
 
+  it("shows no notification for an action that fails after the Lageansicht is left", async () => {
+    let fail = (_result: { error: string }) => {};
+    const { props } = buildProps({
+      ...failingKmlReload,
+      onReloadKml: vi.fn(
+        () =>
+          new Promise<{ error: string }>((resolve) => {
+            fail = resolve;
+          }),
+      ),
+    });
+    const { rerender } = render(<SituationWorkspace {...props} />);
+    await openPanel("Ebenen");
+    await userEvent.click(
+      within(mapPanel("Ebenen")).getByRole("button", { name: "Neu laden" }),
+    );
+
+    rerender(<p>Einsätze</p>);
+    fail({ error: NOT_FOUND });
+
+    await screen.findByText("Einsätze");
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
   describe("keep a KML-Ebenen notification standing", () => {
     it("through an action in the Bild-Overlays panel", async () => {
       renderWorkspace(failingKmlReload);
