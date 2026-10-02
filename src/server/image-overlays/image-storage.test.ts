@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { access, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import sharp from "sharp";
@@ -10,6 +10,7 @@ import { ValidationError } from "@/server/validation";
 vi.mock("pdf-to-png-converter", () => ({ pdfToPng: vi.fn() }));
 
 import {
+  deleteOperationUploads,
   deleteOverlayFiles,
   overlayCacheToken,
   overlayContentType,
@@ -112,4 +113,45 @@ describe("overlay file storage", () => {
     await expect(readOverlayFile(relPath)).rejects.toThrow();
     await expect(deleteOverlayFiles([relPath])).resolves.toBeUndefined();
   });
+
+  it("removes an Einsatz's upload directory along with its files", async () => {
+    const relPath = await storeOverlayImage(OPERATION_ID, Buffer.from("x"));
+    await deleteOperationUploads(OPERATION_ID);
+    await expect(readOverlayFile(relPath)).rejects.toThrow();
+    await expect(access(join(dir, OPERATION_ID))).rejects.toThrow();
+  });
+
+  it("tolerates an Einsatz that never had an upload directory", async () => {
+    await expect(deleteOperationUploads(OPERATION_ID)).resolves.toBeUndefined();
+  });
+
+  it("leaves another Einsatz's uploads untouched", async () => {
+    const otherRelPath = await storeOverlayImage(
+      OTHER_OPERATION_ID,
+      Buffer.from("y"),
+    );
+    await storeOverlayImage(OPERATION_ID, Buffer.from("x"));
+    await deleteOperationUploads(OPERATION_ID);
+    expect(await readOverlayFile(otherRelPath)).toEqual(Buffer.from("y"));
+  });
+
+  it("keeps the Einsatz's upload directory when its only overlay file is deleted", async () => {
+    const relPath = await storeOverlayImage(OPERATION_ID, Buffer.from("x"));
+    await deleteOverlayFiles([relPath]);
+    await expect(access(join(dir, OPERATION_ID))).resolves.toBeUndefined();
+  });
+
+  it.each(["..", ""])(
+    "refuses to delete uploads for the non-UUID id %j, leaving the uploads intact",
+    async (operationId) => {
+      const relPath = await storeOverlayImage(OPERATION_ID, Buffer.from("x"));
+      await expect(deleteOperationUploads(operationId)).rejects.toThrow(
+        `not a UUID: ${JSON.stringify(operationId)}`,
+      );
+      expect(await readOverlayFile(relPath)).toEqual(Buffer.from("x"));
+    },
+  );
 });
+
+const OPERATION_ID = "0b6f6a52-6c1e-4d55-9a57-1d2f4c3b8e01";
+const OTHER_OPERATION_ID = "5d0c9e47-2a8b-4f13-b6d4-7e9a1c2f3b04";

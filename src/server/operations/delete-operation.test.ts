@@ -1,12 +1,10 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { access, mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { NO_ROUTE } from "@/journal/entry-route";
-
-const deleteOverlayFiles = vi.fn(async (_paths: string[]) => {});
-vi.mock("@/server/image-overlays/image-storage", () => ({
-  deleteOverlayFiles: (paths: string[]) => deleteOverlayFiles(paths),
-}));
-
 import { createImageOverlay } from "@/server/image-overlays/image-overlays";
+import { storeOverlayImage } from "@/server/image-overlays/image-storage";
 import { appendEntry, listEntries } from "@/server/journal/journal";
 import {
   createMapSymbol,
@@ -30,8 +28,18 @@ const A_PLACEMENT = {
   opacity: 1,
 };
 
-beforeEach(() => {
-  deleteOverlayFiles.mockClear();
+let uploadsDir: string;
+const originalUploadsDir = process.env.UPLOADS_DIR;
+
+beforeEach(async () => {
+  uploadsDir = await mkdtemp(join(tmpdir(), "einsatz-uploads-"));
+  process.env.UPLOADS_DIR = uploadsDir;
+});
+
+afterEach(async () => {
+  if (originalUploadsDir === undefined) delete process.env.UPLOADS_DIR;
+  else process.env.UPLOADS_DIR = originalUploadsDir;
+  await rm(uploadsDir, { recursive: true, force: true });
 });
 
 describe("deleteOperation (domain)", () => {
@@ -90,12 +98,12 @@ describe("deleteOperation (domain)", () => {
     expect(rows).toHaveLength(0);
   });
 
-  it("removes the operation's overlay files along with the row", async () => {
+  it("removes the operation's upload directory along with the row", async () => {
     const db = await freshDb();
     const op = await createOperation(db, { name: "Hochwasser" });
     await createImageOverlay(db, {
       operationId: op.id,
-      filePath: "op/x/plan.webp",
+      filePath: await storeOverlayImage(op.id, Buffer.from("plan")),
       name: "Plan",
       widthPx: 100,
       heightPx: 100,
@@ -105,16 +113,15 @@ describe("deleteOperation (domain)", () => {
     await deleteOperation(db, op.id);
 
     expect(await getOperation(db, op.id)).toBeNull();
-    expect(deleteOverlayFiles).toHaveBeenCalledWith(["op/x/plan.webp"]);
+    await expect(access(join(uploadsDir, op.id))).rejects.toThrow();
   });
 
-  it("deletes an operation without overlays without touching files", async () => {
+  it("deletes an operation that never had an upload directory", async () => {
     const db = await freshDb();
     const op = await createOperation(db, { name: "Ruhig" });
 
     await deleteOperation(db, op.id);
 
     expect(await getOperation(db, op.id)).toBeNull();
-    expect(deleteOverlayFiles).toHaveBeenCalledWith([]); // no file paths
   });
 });

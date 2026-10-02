@@ -3,6 +3,7 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { pdfToPng } from "pdf-to-png-converter";
 import sharp from "sharp";
+import { isUuid } from "@/server/db/uuid";
 import { ValidationError } from "@/server/validation";
 import type { UploadKind } from "./image-upload";
 
@@ -90,9 +91,21 @@ export function overlayCacheToken(relPath: string): string {
   return relPath.split(/[/\\]/).pop() ?? relPath;
 }
 
-/** Entfernt Overlay-Dateien aus dem Volume (beim Löschen von Overlay/Einsatz). */
+/** Entfernt Overlay-Dateien aus dem Volume; das Einsatz-Verzeichnis bleibt. */
 export async function deleteOverlayFiles(relPaths: string[]): Promise<void> {
   for (const relPath of relPaths) {
     await rm(join(uploadsDir(), relPath), { force: true });
   }
+}
+
+/** Entfernt das Upload-Verzeichnis eines Einsatzes samt Inhalt (beim Löschen des Einsatzes). */
+export async function deleteOperationUploads(
+  operationId: string,
+): Promise<void> {
+  // Rekursives rm: eine Nicht-UUID wie ".." oder "" träfe Verzeichnisse oberhalb.
+  if (!isUuid(operationId))
+    throw new Error(
+      `Einsatz uploads not deleted, id is not a UUID: ${JSON.stringify(operationId)}`,
+    );
+  await rm(join(uploadsDir(), operationId), { recursive: true, force: true });
 }
