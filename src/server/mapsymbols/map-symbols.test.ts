@@ -110,6 +110,29 @@ describe("map symbols repository", () => {
     expect(loaded.id).toBe(created.id);
   });
 
+  it("accepts a composition that sets every DV-102 axis", async () => {
+    const db = await freshDb();
+    const op = await anOperation(db);
+    const full: SymbolComposition = {
+      grundzeichen: "taktische-formation",
+      organisation: "hilfsorganisation",
+      fachaufgabe: "rettungswesen",
+      einheit: "zug",
+      verwaltungsstufe: "kreis",
+      funktion: "fuehrung",
+      symbol: "transport",
+      text: "Rotkreuz Musterstadt 83/1",
+    };
+    await createMapSymbol(db, {
+      operationId: op.id,
+      composition: full,
+      lat: 53.55,
+      lng: 9.99,
+    });
+    const [loaded] = await listMapSymbols(db, op.id);
+    expect(loaded.composition).toEqual(full);
+  });
+
   it("updateMapSymbolComposition rejects a malformed composition and keeps the old value", async () => {
     const db = await freshDb();
     const op = await anOperation(db);
