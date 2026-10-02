@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { NO_ROUTE } from "@/journal/entry-route";
+import type { Db } from "@/server/db/db";
 import { createImageOverlay } from "@/server/image-overlays/image-overlays";
 import { storeOverlayImage } from "@/server/image-overlays/image-storage";
 import { appendEntry, listEntries } from "@/server/journal/journal";
@@ -18,6 +19,7 @@ import {
 import { freshDb } from "@/test/db";
 import { createOperation } from "./create-operation";
 import { deleteOperation } from "./delete-operation";
+import { closeOperation } from "./operation-lifecycle";
 import { getOperation } from "./operations";
 
 const A_PLACEMENT = {
@@ -42,10 +44,34 @@ afterEach(async () => {
   await rm(uploadsDir, { recursive: true, force: true });
 });
 
+async function closedOperation(db: Db, name: string) {
+  const op = await createOperation(db, { name });
+  await closeOperation(db, op.id);
+  return op;
+}
+
 describe("deleteOperation (domain)", () => {
+  it("leaves an active operation and its upload directory alone", async () => {
+    const db = await freshDb();
+    const op = await createOperation(db, { name: "Hochwasser" });
+    await storeOverlayImage(op.id, Buffer.from("plan"));
+
+    expect(await deleteOperation(db, op.id)).toBe(false);
+
+    expect(await getOperation(db, op.id)).not.toBeNull();
+    await access(join(uploadsDir, op.id));
+  });
+
+  it("reports that a closed operation was deleted", async () => {
+    const db = await freshDb();
+    const op = await closedOperation(db, "Hochwasser");
+
+    expect(await deleteOperation(db, op.id)).toBe(true);
+  });
+
   it("deletes the operation and cascades its journal entries and map symbols", async () => {
     const db = await freshDb();
-    const op = await createOperation(db, { name: "Hochwasser" }); // has an automatic entry
+    const op = await closedOperation(db, "Hochwasser"); // has an automatic entry
     await appendEntry(db, {
       operationId: op.id,
       text: "Lage",
@@ -69,7 +95,7 @@ describe("deleteOperation (domain)", () => {
 
   it("cascades the operation's Stellen, their Stärkemeldungen and ETB entries", async () => {
     const db = await freshDb();
-    const op = await createOperation(db, { name: "Cyclassics" });
+    const op = await closedOperation(db, "Cyclassics");
     const station = await createStation(db, {
       operationId: op.id,
       name: "UHSt 3",
@@ -100,7 +126,7 @@ describe("deleteOperation (domain)", () => {
 
   it("removes the operation's upload directory along with the row", async () => {
     const db = await freshDb();
-    const op = await createOperation(db, { name: "Hochwasser" });
+    const op = await closedOperation(db, "Hochwasser");
     await createImageOverlay(db, {
       operationId: op.id,
       filePath: await storeOverlayImage(op.id, Buffer.from("plan")),
@@ -118,7 +144,7 @@ describe("deleteOperation (domain)", () => {
 
   it("deletes an operation that never had an upload directory", async () => {
     const db = await freshDb();
-    const op = await createOperation(db, { name: "Ruhig" });
+    const op = await closedOperation(db, "Ruhig");
 
     await deleteOperation(db, op.id);
 

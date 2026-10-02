@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:    AC-10
 advances:
 after:
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -124,3 +124,30 @@ the menu does not offer the deletion there.
 - Ein abgeschlossener Einsatz bleibt bearbeitbar; Abschließen sperrt nichts außer den Links.
 
 ## Left standing
+- **Departed from the plan: a refused delete refreshes the overview, and the
+  dialog is no longer tied to the menu item.** The plan only returned the
+  error. Review found the overview then still showed the Einsatz as closed and
+  still offered "Einsatz löschen", right next to "Nur ein abgeschlossener
+  Einsatz lässt sich löschen.". So the refusal now calls
+  `revalidatePath("/operations")`. Only the menu item checks
+  `isAdmin && status === "closed"`; the `ConfirmationModal` is always
+  rendered, so the refusal stays visible in the open dialog while the card
+  behind it turns "aktiv". The test pins this by watching the faked
+  `revalidatePath` (Next's cache boundary), not the rendered overview.
+- **Departed from the plan, step 5's proof:** "a non-Admin sees no deletion"
+  in `OperationsOverview.test.tsx` passed before `isAdmin` was passed on,
+  because a prop that is not passed is falsy. The admin delete tests there
+  were the ones that failed first. `tsc` would also have caught the missing
+  required prop.
+- **Also changed, outside the plan's list:** `image-overlays.test.ts` and
+  `view-links.test.ts` call `deleteOperationRow` on an active Einsatz to test
+  the cascade. They now close it first, and their assertions are unchanged.
+- **Same refusal when the Einsatz is already gone:** if another Admin deleted
+  it first, the action also says "Nur ein abgeschlossener Einsatz lässt sich
+  löschen.". The refresh removes the card, and with it the dialog, so the
+  message disappears straight away. I didn't add a separate message.
+- **Browser check (plan step 6):** I didn't do it myself. Both review rounds
+  drove `/operations` per `run-einsatz` at 390 px and 1440/1920 px. As Admin,
+  an active Einsatz had no "Einsatz löschen" and a closed one had it and
+  deleted. As a non-Admin, no card had it. An Einsatz reopened behind an open
+  dialog was refused, nothing was deleted, and the card showed "aktiv".

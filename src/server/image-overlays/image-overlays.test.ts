@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { closeOperation } from "@/server/operations/operation-lifecycle";
 import {
   deleteOperationRow,
   insertOperation,
@@ -260,6 +261,7 @@ describe("image overlays repository", () => {
       heightPx: 100,
       placement: A_PLACEMENT,
     });
+    await closeOperation(db, op.id);
     await deleteOperationRow(db, op.id);
     expect(await listImageOverlays(db, op.id)).toHaveLength(0);
   });

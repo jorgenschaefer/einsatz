@@ -116,13 +116,18 @@ export async function setOperationStatus(
 }
 
 /**
- * Löscht die Einsatz-Zeile; zugehörige Kartenobjekte und ETB-Einträge
+ * Löscht die Einsatz-Zeile, aber nur eines abgeschlossenen Einsatzes, und
+ * meldet, ob sie gelöscht wurde; zugehörige Kartenobjekte und ETB-Einträge
  * kaskadieren in der DB. Reine Datenzugriffsfunktion – Dateien im Uploads-Volume
  * räumt die Domänenfunktion {@link deleteOperation} (in `delete-operation.ts`) auf.
  */
 export async function deleteOperationRow(
   db: Queryable,
   id: string,
-): Promise<void> {
-  await db.query("DELETE FROM operations WHERE id = $1", [id]);
+): Promise<boolean> {
+  const { rows } = await db.query(
+    "DELETE FROM operations WHERE id = $1 AND status = 'closed' RETURNING id",
+    [id],
+  );
+  return rows.length > 0;
 }

@@ -12,6 +12,7 @@ function setup(over: Partial<OperationLifecycleActionsProps> = {}) {
   const props: OperationLifecycleActionsProps = {
     name: "Hochwasser",
     status: "active",
+    isAdmin: false,
     onClose: vi.fn(),
     onReopen: vi.fn(),
     onDelete: vi.fn(async () => ({})),
@@ -20,6 +21,8 @@ function setup(over: Partial<OperationLifecycleActionsProps> = {}) {
   render(<OperationLifecycleActions {...props} />);
   return props;
 }
+
+const deletable = { isAdmin: true, status: "closed" } as const;
 
 const openMenu = () =>
   userEvent.click(screen.getByRole("button", { name: /Einsatz-Aktionen/ }));
@@ -47,8 +50,26 @@ describe("OperationLifecycleActions", () => {
     expect(props.onReopen).toHaveBeenCalled();
   });
 
+  it.each([
+    { isAdmin: false, status: "active" },
+    { isAdmin: false, status: "closed" },
+    { isAdmin: true, status: "active" },
+  ] as const)(
+    "offers no deletion when isAdmin=$isAdmin and status=$status",
+    async ({ isAdmin, status }) => {
+      setup({ isAdmin, status });
+      await openMenu();
+      await screen.findByRole("menuitem", {
+        name: status === "active" ? /Abschließen/ : /Wieder öffnen/,
+      });
+      expect(
+        screen.queryByRole("menuitem", { name: /Einsatz löschen/ }),
+      ).toBeNull();
+    },
+  );
+
   it("requires explicit confirmation before deleting, warning about the Einsatztagebuch", async () => {
-    const props = setup();
+    const props = setup(deletable);
     await openMenu();
     await userEvent.click(
       await screen.findByRole("menuitem", { name: /Einsatz löschen/ }),
@@ -64,7 +85,7 @@ describe("OperationLifecycleActions", () => {
   });
 
   it("does not delete when the confirmation is cancelled", async () => {
-    const props = setup();
+    const props = setup(deletable);
     await openMenu();
     await userEvent.click(
       await screen.findByRole("menuitem", { name: /Einsatz löschen/ }),
@@ -93,7 +114,7 @@ describe("OperationLifecycleActions", () => {
     const hanging = () => new Promise<ActionResult>(() => {});
 
     it("shows the confirm button loading and locks cancelling", async () => {
-      setup({ onDelete: vi.fn(hanging) });
+      setup({ ...deletable, onDelete: vi.fn(hanging) });
 
       const dialog = await confirmDelete();
 
@@ -106,7 +127,7 @@ describe("OperationLifecycleActions", () => {
     });
 
     it("does not close on Escape or a click beside the dialog", async () => {
-      setup({ onDelete: vi.fn(hanging) });
+      setup({ ...deletable, onDelete: vi.fn(hanging) });
       await confirmDelete();
 
       await userEvent.keyboard("{Escape}");
@@ -119,7 +140,7 @@ describe("OperationLifecycleActions", () => {
 
     it("does not delete again on a second tap", async () => {
       const onDelete = vi.fn(hanging);
-      setup({ onDelete });
+      setup({ ...deletable, onDelete });
 
       const dialog = await confirmDelete();
       await userEvent.click(
@@ -136,7 +157,7 @@ describe("OperationLifecycleActions", () => {
       const onDelete = vi.fn(async () => {
         throw new Error("DB weg");
       });
-      setup({ onDelete });
+      setup({ ...deletable, onDelete });
 
       const dialog = await confirmDelete();
 
@@ -149,8 +170,31 @@ describe("OperationLifecycleActions", () => {
       expect(onDelete).toHaveBeenCalledTimes(2);
     });
 
+    it("keeps the refusal in view when the Einsatz turns out to be active again", async () => {
+      const refusal = "Nur ein abgeschlossener Einsatz lässt sich löschen.";
+      const props = {
+        name: "Hochwasser",
+        isAdmin: true,
+        onClose: vi.fn(),
+        onReopen: vi.fn(),
+        onDelete: vi.fn(async () => ({ error: refusal })),
+      };
+      const { rerender } = render(
+        <OperationLifecycleActions {...props} status="closed" />,
+      );
+
+      const dialog = await confirmDelete();
+      rerender(<OperationLifecycleActions {...props} status="active" />);
+
+      expect(within(dialog).getByRole("alert")).toHaveTextContent(refusal);
+      expect(dialog).toBeInTheDocument();
+    });
+
     it("shows a returned error in the open dialog", async () => {
-      setup({ onDelete: vi.fn(async () => ({ error: "Nicht erlaubt." })) });
+      setup({
+        ...deletable,
+        onDelete: vi.fn(async () => ({ error: "Nicht erlaubt." })),
+      });
 
       const dialog = await confirmDelete();
 

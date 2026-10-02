@@ -103,6 +103,7 @@ export function OperationsOverview({
                   <OperationLifecycleActions
                     name={operation.name}
                     status={operation.status}
+                    isAdmin={isAdmin}
                     onClose={() => onCloseOperation(operation.id)}
                     onReopen={() => onReopenOperation(operation.id)}
                     onDelete={() => onDeleteOperation(operation.id)}

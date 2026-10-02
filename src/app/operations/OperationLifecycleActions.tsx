@@ -8,6 +8,7 @@ import { ConfirmationModal } from "@/app/ConfirmationModal";
 export interface OperationLifecycleActionsProps {
   name: string;
   status: "active" | "closed";
+  isAdmin: boolean;
   onClose: () => void | Promise<void>;
   onReopen: () => void | Promise<void>;
   onDelete: () => Promise<ActionResult>;
@@ -16,6 +17,7 @@ export interface OperationLifecycleActionsProps {
 export function OperationLifecycleActions({
   name,
   status,
+  isAdmin,
   onClose,
   onReopen,
   onDelete,
@@ -40,10 +42,14 @@ export function OperationLifecycleActions({
           ) : (
             <Menu.Item onClick={() => onReopen()}>Wieder öffnen</Menu.Item>
           )}
-          <Menu.Divider />
-          <Menu.Item color="red" onClick={confirm.open}>
-            Einsatz löschen
-          </Menu.Item>
+          {isAdmin && status === "closed" && (
+            <>
+              <Menu.Divider />
+              <Menu.Item color="red" onClick={confirm.open}>
+                Einsatz löschen
+              </Menu.Item>
+            </>
+          )}
         </Menu.Dropdown>
       </Menu>
 

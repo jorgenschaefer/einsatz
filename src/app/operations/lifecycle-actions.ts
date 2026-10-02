@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireUser } from "@/server/auth/current-user";
+import type { ActionResult } from "@/app/action-result";
+import { requireAdmin, requireUser } from "@/server/auth/current-user";
 import { getDb } from "@/server/db/pg";
 import { publishOperationChanged } from "@/server/events/operation-events";
 import { deleteOperation } from "@/server/operations/delete-operation";
@@ -33,15 +34,18 @@ export async function reopenOperationAction(
   revalidateStatusChange(operationId);
 }
 
-// Erfolg leitet um, ein Fehler fliegt als Ausnahme weiter und erscheint in
-// der Rückfrage als allgemeine Meldung.
+// Erfolg leitet um. Ein laufender Einsatz bleibt stehen und meldet das; die
+// Übersicht zeigte ihn noch als abgeschlossen und wird neu geladen. Ein
+// unerwarteter Fehler fliegt als Ausnahme weiter und erscheint in der
+// Rückfrage als allgemeine Meldung.
 export async function deleteOperationAction(
   operationId: string,
-): Promise<never> {
-  await requireUser();
-  // Eine Domänenfunktion kapselt DB-Löschung + Datei-Aufräumen (keine
-  // Orchestrierung mehr in der Action).
-  await deleteOperation(getDb(), operationId);
+): Promise<ActionResult> {
+  await requireAdmin();
+  if (!(await deleteOperation(getDb(), operationId))) {
+    revalidatePath("/operations");
+    return { error: "Nur ein abgeschlossener Einsatz lässt sich löschen." };
+  }
   publishOperationChanged(operationId); // andere Clients laden neu → Zugang/Ansicht endet
   redirect("/operations");
 }

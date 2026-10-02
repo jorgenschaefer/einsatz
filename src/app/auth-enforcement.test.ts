@@ -287,7 +287,6 @@ const userGuardedActions: Invocation[] = [
   },
   { name: "closeOperationAction", run: () => closeOperationAction("op-1") },
   { name: "reopenOperationAction", run: () => reopenOperationAction("op-1") },
-  { name: "deleteOperationAction", run: () => deleteOperationAction("op-1") },
   { name: "geocodeAddressAction", run: () => geocodeAddressAction("Hamburg") },
   {
     name: "changePasswordAction",
@@ -309,7 +308,7 @@ const userGuardedRoutes: Invocation[] = [
   },
 ];
 
-// Nutzerverwaltung: requireAdmin. Anonym → /login, angemeldet ohne Admin → /operations.
+// Nutzerverwaltung und Einsatz löschen: requireAdmin. Anonym → /login, angemeldet ohne Admin → /operations.
 const adminGuardedActions: Invocation[] = [
   {
     name: "createAccountAction",
@@ -321,6 +320,7 @@ const adminGuardedActions: Invocation[] = [
     run: () => resetPasswordAction("id", "a-very-good-password"),
   },
   { name: "deleteAccountAction", run: () => deleteAccountAction("id") },
+  { name: "deleteOperationAction", run: () => deleteOperationAction("op-1") },
 ];
 
 // Bewusste Ausnahmen (kein requireUser, daher nicht in der Tabelle):

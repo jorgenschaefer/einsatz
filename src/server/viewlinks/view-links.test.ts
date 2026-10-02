@@ -114,6 +114,7 @@ describe("view links repository", () => {
     const db = await freshDb();
     const op = await anOperation(db);
     const link = await createViewLink(db, { operationId: op.id, label: "a" });
+    await closeOperation(db, op.id);
 
     await deleteOperationRow(db, op.id);
 

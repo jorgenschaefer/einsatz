@@ -108,12 +108,29 @@ describe("OperationsOverview", () => {
     expect(onCloseOperation).toHaveBeenCalledWith("a");
   });
 
-  it("deletes an Einsatz from its per-card menu after confirmation", async () => {
+  it("offers a non-admin no deletion of a closed Einsatz", async () => {
+    render(
+      <OperationsOverview
+        operations={[op({ status: "closed" })]}
+        createAction={noop}
+      />,
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: /Einsatz-Aktionen/ }),
+    );
+    await screen.findByRole("menuitem", { name: /Wieder öffnen/ });
+    expect(
+      screen.queryByRole("menuitem", { name: /Einsatz löschen/ }),
+    ).toBeNull();
+  });
+
+  it("lets an admin delete a closed Einsatz from its per-card menu after confirmation", async () => {
     const onDeleteOperation = vi.fn(async () => ({}));
     render(
       <OperationsOverview
-        operations={[op({ id: "a" })]}
+        operations={[op({ id: "a", status: "closed" })]}
         createAction={noop}
+        isAdmin
         onDeleteOperation={onDeleteOperation}
       />,
     );
@@ -157,10 +174,11 @@ describe("OperationsOverview", () => {
     render(
       <OperationsOverview
         operations={[
-          op({ id: "a", name: "Hochwasser" }),
-          op({ id: "b", name: "Sturm" }),
+          op({ id: "a", name: "Hochwasser", status: "closed" }),
+          op({ id: "b", name: "Sturm", status: "closed" }),
         ]}
         createAction={noop}
+        isAdmin
       />,
     );
     const sturmCard = screen
