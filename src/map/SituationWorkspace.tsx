@@ -6,12 +6,9 @@ import { Box } from "@mantine/core";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import type { ActionResult } from "@/app/action-result";
-import {
-  type JournalEntryView,
-  JournalPanel,
-} from "@/app/operations/[id]/JournalPanel";
 import { LageansichtShell } from "@/app/operations/[id]/LageansichtShell";
 import type { EntryContent } from "@/journal/entry-route";
+import { type JournalEntryView, JournalPanel } from "@/journal/JournalPanel";
 import type { OperationStatus } from "@/server/operations/operations";
 import { type StationView, StrengthPanel } from "@/strength/StrengthPanel";
 import type { StrengthValues } from "@/strength/strength";

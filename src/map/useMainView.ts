@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { JournalEntryView } from "@/app/operations/[id]/JournalPanel";
+import type { JournalEntryView } from "@/journal/JournalPanel";
 import type { MainView } from "./MainViewBar";
 import type { MapPanel } from "./MapControls";
 import { countUnseenEntries } from "./unseen-entries";

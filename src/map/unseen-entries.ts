@@ -1,4 +1,4 @@
-import type { JournalEntryView } from "@/app/operations/[id]/JournalPanel";
+import type { JournalEntryView } from "@/journal/JournalPanel";
 
 /**
  * Neue ETB-Einträge seit `seenUpTo` (höchste gesehene Eintragsnummer), ohne die

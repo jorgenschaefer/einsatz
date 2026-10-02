@@ -1,7 +1,7 @@
 import userEvent from "@testing-library/user-event";
 import { expect, vi } from "vitest";
-import type { JournalEntryView } from "@/app/operations/[id]/JournalPanel";
 import { NO_ROUTE } from "@/journal/entry-route";
+import type { JournalEntryView } from "@/journal/JournalPanel";
 import { act, render, screen, waitFor, within } from "@/test/render";
 import { fakeMapAdapterFactory } from "./adapter.fixtures";
 import type { ImagePlacement } from "./image-overlay";

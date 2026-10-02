@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import type { JournalEntryView } from "@/journal/JournalPanel";
 import type { RenderedArea } from "@/map/SituationMap";
 import type {
   WorkspaceImageOverlay,
@@ -40,7 +41,6 @@ import {
   setImageOverlayVisibilityAction,
   updateImageOverlayPlacementAction,
 } from "./image-overlay-actions";
-import type { JournalEntryView } from "./JournalPanel";
 import {
   addJournalEntryAction,
   annulEntryAction,
