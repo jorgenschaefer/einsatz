@@ -73,11 +73,6 @@ import {
   setKmlVisibilityAction,
 } from "@/app/operations/[id]/kml-actions";
 import {
-  closeOperationAction,
-  deleteOperationAction,
-  reopenOperationAction,
-} from "@/app/operations/[id]/lifecycle-actions";
-import {
   deleteMapSymbolAction,
   generateDeviceLinkAction,
   moveMapSymbolAction,
@@ -98,6 +93,11 @@ import {
   deleteViewLinkAction,
 } from "@/app/operations/[id]/view-link-actions";
 import { createOperationAction } from "@/app/operations/actions";
+import {
+  closeOperationAction,
+  deleteOperationAction,
+  reopenOperationAction,
+} from "@/app/operations/lifecycle-actions";
 import { hashPassword } from "@/server/auth/password";
 import { insertSession } from "@/server/auth/sessions";
 import { insertUser } from "@/server/auth/users";

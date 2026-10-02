@@ -3,12 +3,12 @@ import { requireUser } from "@/server/auth/current-user";
 import { getDb } from "@/server/db/pg";
 import { listOperations } from "@/server/operations/operations";
 import { logoutAction } from "../account/actions";
+import { createOperationAction } from "./actions";
 import {
   closeOperationAction,
   deleteOperationAction,
   reopenOperationAction,
-} from "./[id]/lifecycle-actions";
-import { createOperationAction } from "./actions";
+} from "./lifecycle-actions";
 import {
   type OperationSummary,
   OperationsOverview,

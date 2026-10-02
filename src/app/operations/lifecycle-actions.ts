@@ -10,7 +10,7 @@ import {
   closeOperation,
   reopenOperation,
 } from "@/server/operations/operation-lifecycle";
-import { revalidateOperation } from "./operation-action";
+import { revalidateOperation } from "./[id]/operation-action";
 
 // Bespoke – nicht über `operationAction`: close/reopen revalidieren zusätzlich
 // die Übersicht, delete leitet um statt zu revalidieren (siehe unten).
