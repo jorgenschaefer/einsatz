@@ -1,7 +1,7 @@
 "use client";
 
 import { Notifications } from "@mantine/notifications";
-import { HEADER_HEIGHT, SIDEBAR_WIDTH } from "@/app/lageansicht-sizes";
+import { HEADER_HEIGHT, SIDEBAR_WIDTH } from "@/map/lageansicht-sizes";
 import { useIsDesktop } from "@/map/useIsDesktop";
 
 const GAP = "var(--mantine-spacing-sm)";

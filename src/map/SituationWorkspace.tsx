@@ -6,12 +6,12 @@ import { Box } from "@mantine/core";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import type { ActionResult } from "@/app/action-result";
-import { LageansichtShell } from "@/app/operations/[id]/LageansichtShell";
 import type { EntryContent } from "@/journal/entry-route";
 import { type JournalEntryView, JournalPanel } from "@/journal/JournalPanel";
 import type { OperationStatus } from "@/server/operations/operations";
 import { type StationView, StrengthPanel } from "@/strength/StrengthPanel";
 import type { StrengthValues } from "@/strength/strength";
+import { LageansichtShell } from "./LageansichtShell";
 import { MainViewBar } from "./MainViewBar";
 import { closeLageansichtNotifications } from "./notification-sources";
 import {

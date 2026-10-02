@@ -20,7 +20,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import type { ActionResult } from "@/app/action-result";
 import { BackLink } from "@/app/BackLink";
-import { HEADER_HEIGHT } from "@/app/lageansicht-sizes";
+import { HEADER_HEIGHT } from "@/map/lageansicht-sizes";
 import { useKeyboardOpen } from "@/map/useKeyboardOpen";
 import { type ViewLinkItem, ViewLinkPanel } from "@/map/ViewLinkPanel";
 import type { OperationStatus } from "@/server/operations/operations";

@@ -85,7 +85,7 @@
 @media (min-width: 48em) {
   .situation-workspace {
     display: grid;
-    /* Seitenleiste: SIDEBAR_WIDTH in src/app/lageansicht-sizes.ts */
+    /* Seitenleiste: SIDEBAR_WIDTH in src/map/lageansicht-sizes.ts */
     grid-template-columns: minmax(0, 1fr) 360px;
     grid-template-rows: minmax(0, 1fr) 56px;
   }
