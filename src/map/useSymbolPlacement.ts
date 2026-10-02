@@ -8,8 +8,9 @@ import { QUICK_SELECT } from "./quick-select";
 import type { MapModeControls } from "./useMapMode";
 
 /**
- * Das Platzieren eines Kartenzeichens: aus der Schnellauswahl oder über
- * „Erweitert …" scharf schalten, dann mit einem Kartenklick setzen.
+ * Das Platzieren eines Kartenzeichens: aus der Schnellauswahl, über
+ * „Erweitert …" oder als Kopie eines platzierten scharf schalten, dann mit
+ * einem Kartenklick setzen.
  */
 export function useSymbolPlacement({
   mode,
@@ -44,6 +45,12 @@ export function useSymbolPlacement({
     advanced.close();
     closeSheetOnPhone();
   };
+  // Die Kopie bekommt dieselbe Komposition, aber keine Bezeichnung: sie ist ein
+  // weiteres Zeichen derselben Art, nicht dasselbe.
+  const copySymbol = ({ text: _text, ...composition }: SymbolComposition) => {
+    mode.armCustom(composition);
+    closeSheetOnPhone();
+  };
   // Wie bei Bild: nach einer Platzierung den Modus beenden, sonst platziert
   // jeder weitere Kartenklick unaufhörlich weiter (kein Abbruch möglich). Der
   // Reset läuft vor dem (evtl. langsamen) Server-Roundtrip, damit ein zweiter
@@ -64,6 +71,7 @@ export function useSymbolPlacement({
     closeAdvanced: advanced.close,
     armQuickSymbol,
     armAdvanced,
+    copySymbol,
     placeSymbolAt,
   };
 }

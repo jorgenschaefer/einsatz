@@ -90,4 +90,12 @@ describe("AreasPanel", () => {
     await userEvent.click(screen.getByLabelText("Deich bearbeiten"));
     expect(onEdit).toHaveBeenCalledWith("a1");
   });
+
+  it("offers no copying of a Bereich", () => {
+    renderPanel({ areas: [CIRCLE, LINE] });
+    expect(screen.getAllByRole("button", { name: /bearbeiten/ })).toHaveLength(
+      2,
+    );
+    expect(screen.queryByRole("button", { name: /kopieren/ })).toBeNull();
+  });
 });

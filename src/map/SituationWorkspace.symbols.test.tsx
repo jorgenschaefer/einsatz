@@ -9,6 +9,7 @@ import {
 } from "./SituationWorkspace";
 import {
   buildProps,
+  mapPanel,
   openPanel,
   renderWorkspace,
   SYMBOL,
@@ -28,6 +29,29 @@ describe("SituationWorkspace", () => {
 
     const ktw = QUICK_SELECT.find((i) => i.label === "KTW")!;
     expect(onPlace).toHaveBeenCalledWith(ktw.composition, 50, 8);
+  });
+
+  it("places a Notunterkunft from the Schnellauswahl", async () => {
+    const onPlace = vi.fn(async () => ({}));
+    const { captured } = renderWorkspace({ onPlace });
+    await openPanel("Kartenzeichen");
+    await userEvent.click(
+      screen.getByRole("button", { name: "Notunterkunft" }),
+    );
+    await waitFor(() => expect(captured.options?.onMapClick).toBeDefined());
+    await act(async () => {
+      captured.options!.onMapClick!({ lat: 50, lng: 8 });
+    });
+
+    expect(onPlace).toHaveBeenCalledWith(
+      {
+        grundzeichen: "ortsfeste-stelle",
+        fachaufgabe: "unterbringung",
+        organisation: "hilfsorganisation",
+      },
+      50,
+      8,
+    );
   });
 
   it("surfaces a returned {error} from placing a Kartenzeichen", async () => {
@@ -111,6 +135,109 @@ describe("SituationWorkspace", () => {
       51,
       7,
     );
+  });
+
+  describe("copying a Kartenzeichen from its list row", () => {
+    const LIVE_BUS = aSymbol({
+      positionSource: "device",
+      reportedAt: new Date(),
+      deviceLinkToken: "token-1",
+      composition: {
+        grundzeichen: "kraftfahrzeug-landgebunden",
+        organisation: "hilfsorganisation",
+        fachaufgabe: "unterbringung",
+        einheit: "gruppe",
+        verwaltungsstufe: "kreis",
+        funktion: "fuehrungskraft",
+        symbol: "transport",
+        text: "Bus 1",
+      },
+    });
+    const { text: _text, ...COPIED_COMPOSITION } = LIVE_BUS.composition;
+
+    it("places the composition without its Bezeichnung where the map is tapped next, once", async () => {
+      const onPlace = vi.fn(async () => ({}));
+      const onUpdate = vi.fn(async () => ({}));
+      const onMove = vi.fn(async () => ({}));
+      const onDelete = vi.fn(async () => ({}));
+      const { captured } = renderWorkspace({
+        symbols: [LIVE_BUS],
+        onPlace,
+        onUpdate,
+        onMove,
+        onDelete,
+      });
+      await openPanel("Kartenzeichen");
+      await userEvent.click(
+        screen.getByRole("button", { name: "Bus 1 kopieren" }),
+      );
+      expect(
+        await screen.findByText("Kartenzeichen platzieren"),
+      ).toBeInTheDocument();
+      await waitFor(() => expect(captured.options?.onMapClick).toBeDefined());
+      await act(async () => {
+        captured.options!.onMapClick!({ lat: 50, lng: 8 });
+      });
+      await act(async () => {
+        captured.options?.onMapClick?.({ lat: 51, lng: 9 });
+      });
+
+      expect(onPlace).toHaveBeenCalledTimes(1);
+      expect(onPlace).toHaveBeenCalledWith(COPIED_COMPOSITION, 50, 8);
+      expect(screen.queryByText("Kartenzeichen platzieren")).toBeNull();
+      expect(onUpdate).not.toHaveBeenCalled();
+      expect(onMove).not.toHaveBeenCalled();
+      expect(onDelete).not.toHaveBeenCalled();
+    });
+
+    it("leaves the Schnellauswahl at its fixed entries after a copy is placed", async () => {
+      const { adapter, captured, props } = buildProps({ symbols: [LIVE_BUS] });
+      const { rerender } = render(<SituationWorkspace {...props} />);
+      await openPanel("Kartenzeichen");
+      await userEvent.click(
+        screen.getByRole("button", { name: "Bus 1 kopieren" }),
+      );
+      await waitFor(() => expect(captured.options?.onMapClick).toBeDefined());
+      await act(async () => {
+        captured.options!.onMapClick!({ lat: 50, lng: 8 });
+      });
+      rerender(
+        <SituationWorkspace
+          {...props}
+          symbols={[
+            LIVE_BUS,
+            aSymbol({ id: "copy", composition: COPIED_COMPOSITION }),
+          ]}
+        />,
+      );
+      await waitFor(() =>
+        expect(adapter.setMarker).toHaveBeenCalledWith(
+          "copy",
+          expect.anything(),
+        ),
+      );
+      await openPanel("Kartenzeichen");
+
+      const schnellauswahl = within(mapPanel("Kartenzeichen"))
+        .getAllByRole("button", { pressed: false })
+        .map((b) => b.textContent);
+      expect(schnellauswahl).toEqual(QUICK_SELECT.map((i) => i.label));
+    });
+
+    it("places nothing after Abbrechen", async () => {
+      const onPlace = vi.fn(async () => ({}));
+      const { captured } = renderWorkspace({ symbols: [LIVE_BUS], onPlace });
+      await openPanel("Kartenzeichen");
+      await userEvent.click(
+        screen.getByRole("button", { name: "Bus 1 kopieren" }),
+      );
+      await userEvent.click(await screen.findByText("Abbrechen"));
+      await act(async () => {
+        captured.options?.onMapClick?.({ lat: 50, lng: 8 });
+      });
+
+      expect(onPlace).not.toHaveBeenCalled();
+    });
   });
 
   it("centers the map on a Kartenzeichen when its list row is clicked, without opening the detail", async () => {

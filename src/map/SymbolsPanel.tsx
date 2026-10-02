@@ -1,5 +1,6 @@
 import { Badge, Button, Group, Image, Stack, Text } from "@mantine/core";
 import { useMemo } from "react";
+import type { SymbolComposition } from "./composition";
 import { PanelRow } from "./PanelRow";
 import { QuickSelectToolbar } from "./QuickSelectToolbar";
 import { QUICK_SELECT } from "./quick-select";
@@ -9,7 +10,8 @@ import { renderSymbolDataUrl } from "./tactical-symbol";
 
 /**
  * Das Kartenpanel „Kartenzeichen": Schnellauswahl und „Erweitert …" zum
- * Platzieren, darunter die Liste der platzierten Kartenzeichen.
+ * Platzieren, darunter die Liste der platzierten Kartenzeichen, jedes zum
+ * Kopieren.
  */
 export function SymbolsPanel({
   symbols,
@@ -19,6 +21,7 @@ export function SymbolsPanel({
   onOpenAdvanced,
   onJump,
   onEdit,
+  onCopy,
 }: {
   symbols: WorkspaceSymbol[];
   /** Die Marker auf der Karte; die Liste zeigt dasselbe Icon und „veraltet". */
@@ -28,6 +31,7 @@ export function SymbolsPanel({
   onOpenAdvanced: () => void;
   onJump: (lat: number, lng: number) => void;
   onEdit: (id: string) => void;
+  onCopy: (composition: SymbolComposition) => void;
 }) {
   const toolbarItems = useMemo(
     () =>
@@ -44,6 +48,7 @@ export function SymbolsPanel({
       const marker = placedById.get(s.id);
       return {
         id: s.id,
+        composition: s.composition,
         iconUrl: marker?.iconUrl ?? renderSymbolDataUrl(s.composition),
         name: s.composition.text?.trim() || "Ohne Bezeichnung",
         stale: (marker?.opacity ?? 1) < 1,
@@ -78,6 +83,7 @@ export function SymbolsPanel({
               name={row.name}
               onJump={() => onJump(row.lat, row.lng)}
               onEdit={() => onEdit(row.id)}
+              onCopy={() => onCopy(row.composition)}
               icon={<Image src={row.iconUrl} alt="" w={22} h={22} />}
               meta={
                 row.stale ? (

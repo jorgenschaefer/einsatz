@@ -17,9 +17,22 @@ describe("QUICK_SELECT palette", () => {
         "BHP",
         "RMHP",
         "Bereitstellungsraum",
+        "Notunterkunft",
       ]),
     );
-    expect(QUICK_SELECT).toHaveLength(10);
+    expect(QUICK_SELECT).toHaveLength(11);
+  });
+
+  it("ends with the Notunterkunft", () => {
+    expect(QUICK_SELECT.at(-1)).toEqual({
+      id: "notunterkunft",
+      label: "Notunterkunft",
+      composition: {
+        grundzeichen: "ortsfeste-stelle",
+        fachaufgabe: "unterbringung",
+        organisation: "hilfsorganisation",
+      },
+    });
   });
 
   it("distinguishes the two RTW only by organisation (field colour)", () => {

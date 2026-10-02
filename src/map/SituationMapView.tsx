@@ -307,6 +307,7 @@ export function SituationMapView({
                 onOpenAdvanced={symbolPlacement.openAdvanced}
                 onJump={jumpFromPanel}
                 onEdit={setSelectedId}
+                onCopy={symbolPlacement.copySymbol}
               />
             )}
             {shownPanel === "areas" && (

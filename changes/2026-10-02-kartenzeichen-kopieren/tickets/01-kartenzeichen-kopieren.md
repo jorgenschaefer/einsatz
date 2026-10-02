@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:    AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-7, AC-8, AC-9, AC-10, AC-11
 advances:
 after:     02-situation-workspace-panels-test-aufteilen
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -151,4 +151,31 @@ after the domain action "Kopieren".
 - A copy action in `SymbolDetailModal`: copying lives on the list row only.
 
 ## Left standing
-
+- No automated test proves AC-7 (the copy appears live for others) or AC-9
+  (at 360 px the name ends in "…", pen and Kopieren stay visible, nothing
+  scrolls sideways). The reviewer checked both in the running app.
+  - AC-7: a second logged-in session watched the Einsatz while copies were
+    placed from the desktop and from a 360 px phone. Its list and markers
+    updated without a reload.
+  - AC-9: at 360 px, a row with a long Bezeichnung ended in "…". Pen
+    (x 282–310) and Kopieren (x 320–348) were inside the viewport, and
+    `scrollWidth` equalled `clientWidth` (360).
+- AC-4 and the server side of AC-3 (no Gerätelink, `position_source =
+  manual`) are pinned in the client only: the copy goes to `onPlace` with
+  the composition alone. A copy cannot carry a Gerätelink because
+  `createMapSymbol` takes only composition and position. The reviewer
+  confirmed it in the dev database: copying a live Kartenzeichen gave a
+  manual row without a token, and the original kept its token, position and
+  Bezeichnung.
+- Departure from plan step 10: I did not drive the app myself. The
+  fresh-context reviewer did step 10 at 360 px and 1920 px, as the build
+  process asks.
+- Reviewer remark, not a finding, not acted on: on a phone, pen and Kopieren
+  are 28 px buttons 10 px apart, so a gloved tap can hit the wrong one. A
+  wrong tap is harmless (a dialog to close, or a placement to cancel), and
+  AC-1 asks for the pen's styling.
+- Copying a Kartenzeichen whose composition has only a Bezeichnung arms an
+  empty composition. The server accepts that, as it does from Erweitert.
+  It is the spec's "same composition", so I left it.
+- `SituationMapView.tsx` (384 lines) gained one line of wiring without being
+  split first. Ticket 02 put that split under `## Not here`.

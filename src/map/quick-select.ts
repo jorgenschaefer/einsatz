@@ -107,4 +107,13 @@ export const QUICK_SELECT: QuickSelectItem[] = [
       organisation: "hilfsorganisation",
     },
   },
+  {
+    id: "notunterkunft",
+    label: "Notunterkunft",
+    composition: {
+      grundzeichen: "ortsfeste-stelle",
+      fachaufgabe: "unterbringung",
+      organisation: "hilfsorganisation",
+    },
+  },
 ];

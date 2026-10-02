@@ -1,10 +1,11 @@
 import { ActionIcon, Group, Text, UnstyledButton } from "@mantine/core";
-import { IconPencil } from "@tabler/icons-react";
+import { IconCopy, IconPencil } from "@tabler/icons-react";
 import type { ReactNode } from "react";
 
 /**
  * Eine Zeile im Kartenzeichen- bzw. Bereichs-Panel: ein Tap auf die Zeile
- * springt auf der Karte hin, der Stift öffnet die Bearbeitung.
+ * springt auf der Karte hin, der Stift öffnet die Bearbeitung, und – wo die
+ * Zeile `onCopy` bekommt – „Kopieren" daneben.
  */
 export function PanelRow({
   icon,
@@ -12,12 +13,14 @@ export function PanelRow({
   meta,
   onJump,
   onEdit,
+  onCopy,
 }: {
   icon: ReactNode;
   name: string;
   meta: ReactNode;
   onJump: () => void;
   onEdit: () => void;
+  onCopy?: () => void;
 }) {
   return (
     <Group gap="xs" wrap="nowrap" className="panel-row">
@@ -46,6 +49,16 @@ export function PanelRow({
       >
         <IconPencil size={18} />
       </ActionIcon>
+      {onCopy && (
+        <ActionIcon
+          variant="subtle"
+          color="gray"
+          aria-label={`${name} kopieren`}
+          onClick={onCopy}
+        >
+          <IconCopy size={18} />
+        </ActionIcon>
+      )}
     </Group>
   );
 }

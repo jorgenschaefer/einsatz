@@ -29,6 +29,15 @@ describe("SituationWorkspace", () => {
       expect(anyMapPanel()).toBeNull();
     });
 
+    it("closes it when a Kartenzeichen is copied", async () => {
+      renderWorkspace({ symbols: [SYMBOL] });
+      await openPanel("Kartenzeichen");
+      await userEvent.click(
+        screen.getByRole("button", { name: "Pumpe 1 kopieren" }),
+      );
+      expect(anyMapPanel()).toBeNull();
+    });
+
     it("closes it when an Erweitert composition is armed", async () => {
       renderWorkspace();
       await openPanel("Kartenzeichen");

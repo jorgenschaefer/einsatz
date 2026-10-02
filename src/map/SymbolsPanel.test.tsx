@@ -25,6 +25,7 @@ function renderPanel(over: Partial<ComponentProps<typeof SymbolsPanel>> = {}) {
     onOpenAdvanced: vi.fn(),
     onJump: vi.fn(),
     onEdit: vi.fn(),
+    onCopy: vi.fn(),
     ...over,
   };
   render(<SymbolsPanel {...props} />);
@@ -114,5 +115,25 @@ describe("SymbolsPanel", () => {
 
     await userEvent.click(screen.getByLabelText("Rotkreuz 83/1 bearbeiten"));
     expect(onEdit).toHaveBeenCalledWith("s1");
+  });
+
+  it("copies a Kartenzeichen's composition from its row, also one without Bezeichnung", async () => {
+    const unnamed = aSymbol({
+      id: "s2",
+      composition: {
+        grundzeichen: "ortsfeste-stelle",
+        organisation: "feuerwehr",
+      },
+    });
+    const { onCopy } = renderPanel({ symbols: [PUMP, unnamed] });
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Rotkreuz 83/1 kopieren" }),
+    );
+    expect(onCopy).toHaveBeenLastCalledWith(PUMP.composition);
+    await userEvent.click(
+      screen.getByRole("button", { name: "Ohne Bezeichnung kopieren" }),
+    );
+    expect(onCopy).toHaveBeenLastCalledWith(unnamed.composition);
   });
 });
