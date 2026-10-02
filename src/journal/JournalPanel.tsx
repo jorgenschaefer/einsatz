@@ -23,11 +23,14 @@ import {
   type EntryRoute,
   NO_ROUTE,
 } from "@/journal/entry-route";
+import {
+  canAnnulEntry,
+  canCorrectEntry,
+  isAutomaticEntry,
+  type JournalEntryType,
+} from "@/journal/entry-type";
 import { useEntryRouteMemory } from "@/journal/useEntryRouteMemory";
-import type {
-  JournalEntryState,
-  JournalEntryType,
-} from "@/server/journal/journal";
+import type { JournalEntryState } from "@/server/journal/journal";
 
 const SAVE_ERROR = "Speichern fehlgeschlagen. Bitte erneut versuchen.";
 const SHOW_END: ScrollIntoViewOptions = { block: "end" };
@@ -76,11 +79,6 @@ const NEW_ENTRY: EntryContent = {
   channel: DEFAULT_CHANNEL,
 };
 
-const isAutomatic = (entry: JournalEntryView) =>
-  entry.type === "einsatz-eröffnet" ||
-  entry.type === "einsatz-geschlossen" ||
-  entry.type === "stelle-angelegt";
-
 export function JournalPanel({
   operationId,
   entries,
@@ -103,7 +101,9 @@ export function JournalPanel({
   } | null>(null);
   const memory = useEntryRouteMemory(operationId);
 
-  const shown = hideAuto ? entries.filter((e) => !isAutomatic(e)) : entries;
+  const shown = hideAuto
+    ? entries.filter((e) => !isAutomaticEntry(e.type))
+    : entries;
   const scroll = useScrollToEnd(visible, entries.at(-1)?.id);
 
   // Am Handy steht die Meldung mit „Eintrag hinzufügen" darunter im Bild.
@@ -169,13 +169,10 @@ export function JournalPanel({
 
       <Stack gap="sm" className="journal-entries">
         {shown.map((entry) => {
-          const isAuto = isAutomatic(entry);
+          const isAuto = isAutomaticEntry(entry.type);
           const isValid = entry.state === "gueltig";
-          const canCorrect = isValid && entry.type === "manuell";
-          const canAnnul =
-            isValid &&
-            (entry.type === "manuell" ||
-              entry.type === "gesamtstärke-gemeldet");
+          const canCorrect = isValid && canCorrectEntry(entry.type);
+          const canAnnul = isValid && canAnnulEntry(entry.type);
           return (
             <Paper key={entry.id} data-entry withBorder p="sm">
               <Group justify="space-between" wrap="nowrap">

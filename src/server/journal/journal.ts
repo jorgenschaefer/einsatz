@@ -4,18 +4,15 @@ import {
   type EntryRoute,
   trimRouteValue,
 } from "@/journal/entry-route";
+import {
+  canAnnulEntry,
+  canCorrectEntry,
+  type JournalEntryType,
+} from "@/journal/entry-type";
 import type { Db, Queryable } from "@/server/db/db";
 import { lockOperation } from "@/server/operations/operations";
 import { ValidationError } from "@/server/validation";
 
-export type JournalEntryType =
-  | "manuell"
-  | "einsatz-eröffnet"
-  | "einsatz-geschlossen"
-  | "stelle-angelegt"
-  | "stelle-umbenannt"
-  | "stärkemeldung"
-  | "gesamtstärke-gemeldet";
 export type JournalEntryState = "gueltig" | "annulliert";
 
 /** Eine frühere Fassung eines Eintrags mit eigenem Urheber und Zeitstempel. */
@@ -256,7 +253,7 @@ export async function correctEntry(
       [entryId],
     );
     if (!entry) throw new ValidationError("Eintrag nicht gefunden.");
-    if (entry.type !== "manuell") {
+    if (!canCorrectEntry(entry.type)) {
       throw new ValidationError(
         "Nur manuelle Einträge können geändert werden.",
       );
@@ -316,11 +313,6 @@ export async function reviseEntry(
   return updated;
 }
 
-const ANNULLABLE_TYPES: JournalEntryType[] = [
-  "manuell",
-  "gesamtstärke-gemeldet",
-];
-
 /**
  * Annulliert einen manuellen Eintrag oder eine gemeldete Gesamtstärke: er bleibt
  * mit seiner Nummer und seinem Text erhalten (durchgestrichen), wird aber als
@@ -338,7 +330,7 @@ export async function annulEntry(
       [entryId],
     );
     if (!entry) throw new ValidationError("Eintrag nicht gefunden.");
-    if (!ANNULLABLE_TYPES.includes(entry.type)) {
+    if (!canAnnulEntry(entry.type)) {
       throw new ValidationError("Dieser Eintrag kann nicht annulliert werden.");
     }
     return markEntryAnnulled(tx, entryId);
