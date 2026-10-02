@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:    AC-5
 advances:  AC-9
 after:
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -130,3 +130,44 @@ From the ACs under *Toward*:
   togeojson) is not regex-based and not part of this rewrite.
 
 ## Left standing
+- **AC-5 at 20 MB is not in the suite.** The timing test runs at 3 MB (the
+  plan suggested 1-2 MB; see below). I ran it once by hand at 20 MB
+  (`SIZE = 20_000_000`, `--testTimeout=300000`): all 18 cases passed, with a
+  pathological/ordinary ratio between 0.80 and 1.18 (ordinary runs took
+  34-490 ms).
+- **The browser half of file import is timed in Node, not in a browser.**
+  As the plan says, the test times `extractKml` directly on the KMZ. No browser
+  was driven.
+- **Red for the `<href>` + 20,000 spaces cases was a hang, not a failed
+  assertion.** The old regexes backtrack cubically on that input. I killed the
+  run after 60 s, and the reviewer killed it after 300 s. The NetworkLink and
+  Document cases failed with real mismatches (about 200-630 ms against
+  4-20 ms), also after the test's final reshaping.
+- **Where the AC's inputs sit in the test file.** Each piece goes at the end
+  of the file, inside `<kml><Folder>…</Folder></kml>`, not inside a
+  `<Document>`. The reason: if a `</Document>` follows, the old `DOCUMENT_BODY`
+  regex finds it quickly, and the slow case does not show. The new scanning is
+  linear wherever the piece sits, but the test only covers that one position.
+- **Plan departure: the lower-cased copy is ASCII-only.** Plan step 3 said to
+  scan a lower-cased copy. `String.prototype.toLowerCase` can change the
+  length (`İ` becomes two characters), which would shift every position sliced
+  from the original. So `asciiLowerCase` lowers only `A-Z`. That is also
+  exactly what the old `/i` regexes (without `u`) treated as case-insensitive.
+  It is pinned by a test with 30 × `İ` before a NetworkLink.
+- **Plan departure: how the timing is measured.** The plan said the median of
+  at least 5 runs and 1-2 MB. That was green when the machine was idle, but
+  the first review found it failed in 4 of 8 runs with all cores busy. Now the
+  test uses 3 MB and 9 runs, and alternates ordinary and pathological runs so
+  that outside load hits both equally. As the plan said, I raised the size and
+  the run count, not the bound. With all 24 cores busy it passed 8 of 8 runs.
+- **Small change in matching:** the href inside a NetworkLink is now found
+  with the same scanning helper as the NetworkLink itself. So `<href …>` with
+  attributes now counts too, where the old `HREF` regex accepted only a bare
+  `<href>`. Anything that matched before still matches the same way.
+- **AC-9 (advanced only):** it rests on the existing tests in `kmz.test.ts`,
+  `kml-fetch.test.ts` and `kml-actions.document.test.ts`, which are unchanged
+  and green, plus the new pins in `kmz.test.ts`. Nobody imported a real Google
+  "Meine Karten" export by hand.
+- **`elementBodies` is not exported.** Ticket 04 will need to export it when
+  it reuses it.
+

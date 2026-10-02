@@ -122,6 +122,30 @@ describe("inlineKmzAssets", () => {
     expect(inlineKmzAssets(kml, entries, "doc.kml")).toBe(kml);
   });
 
+  it("trims whitespace around the href", () => {
+    const kml = "<href>\n  images/icon.png  \n</href>";
+    expect(inlineKmzAssets(kml, entries, "doc.kml")).toBe(
+      "<href>data:image/png;base64,TWFu</href>",
+    );
+  });
+
+  it("inlines every matching href and keeps the text between them", () => {
+    const kml =
+      "<a><href>images/icon.png</href><b/><href>images/icon.png</href>";
+    expect(inlineKmzAssets(kml, entries, "doc.kml")).toBe(
+      "<a><href>data:image/png;base64,TWFu</href><b/><href>data:image/png;base64,TWFu</href>",
+    );
+  });
+
+  it.each([
+    ["contains <", "<href><![CDATA[images/icon.png]]></href>"],
+    ["is empty", "<href></href>"],
+    ["is not closed", "<href>images/icon.png"],
+    ["is written in capitals", "<HREF>images/icon.png</HREF>"],
+  ])("leaves an href alone that %s", (_case, kml) => {
+    expect(inlineKmzAssets(kml, entries, "doc.kml")).toBe(kml);
+  });
+
   it("does not inline the KML entry itself", () => {
     const kml = "<href>doc.kml</href>";
     const withDoc = { "doc.kml": strToU8("x"), ...entries };
@@ -158,9 +182,74 @@ describe("networkLinkHrefs", () => {
     ).toEqual([]);
     expect(networkLinkHrefs("<kml><Placemark/></kml>")).toEqual([]);
   });
+
+  it("ignores the case of the tag names", () => {
+    expect(
+      networkLinkHrefs(
+        "<networklink><Link><HREF>https://a.example/x.kml</HREF></Link></NETWORKLINK>",
+      ),
+    ).toEqual(["https://a.example/x.kml"]);
+  });
+
+  it("finds a NetworkLink with attributes but not a NetworkLinkControl", () => {
+    const kml = `<NetworkLinkControl><href>https://a.example/c.kml</href></NetworkLinkControl>
+      <NetworkLink id="n1"><Link><href>https://b.example/y.kml</href></Link></NetworkLink>`;
+    expect(networkLinkHrefs(kml)).toEqual(["https://b.example/y.kml"]);
+  });
+
+  it("trims whitespace around the href and takes the first href in a link", () => {
+    const kml = `<NetworkLink><Link><href>
+        https://a.example/x.kml
+      </href></Link><Url><href>https://b.example/y.kml</href></Url></NetworkLink>`;
+    expect(networkLinkHrefs(kml)).toEqual(["https://a.example/x.kml"]);
+  });
+
+  it("finds the href after names whose lower case is longer, like İ", () => {
+    const kml = `<Document><name>${"İ".repeat(30)}</name><NetworkLink><Link><href>https://a.example/x.kml</href></Link></NetworkLink></Document>`;
+    expect(networkLinkHrefs(kml)).toEqual(["https://a.example/x.kml"]);
+  });
+
+  it("finds nothing when the last NetworkLink tag never ends", () => {
+    expect(networkLinkHrefs("</NetworkLink><NetworkLink")).toEqual([]);
+  });
+
+  it("ignores a NetworkLink or href that is not closed", () => {
+    expect(
+      networkLinkHrefs(
+        "<NetworkLink><Link><href>https://a.example/x.kml</Link></NetworkLink>",
+      ),
+    ).toEqual([]);
+    expect(
+      networkLinkHrefs(
+        "<NetworkLink><Link><href>https://a.example/x.kml</href></Link>",
+      ),
+    ).toEqual([]);
+  });
 });
 
 describe("mergeKmlDocuments", () => {
+  const bodyOf = (doc: string): string => {
+    const merged = mergeKmlDocuments([doc, "<kml/>"]);
+    const start = merged.indexOf("<Document>") + "<Document>".length;
+    return merged.slice(start, merged.lastIndexOf("</Document>"));
+  };
+
+  it("takes everything from the first Document to the last </Document>, nested ones included", () => {
+    expect(
+      bodyOf(
+        '<kml><Document id="d"><Document><Placemark>A</Placemark></Document><Folder/></document></kml>',
+      ),
+    ).toBe("<Document><Placemark>A</Placemark></Document><Folder/>");
+  });
+
+  it("adds nothing for a document without a Document element or with an unclosed one", () => {
+    expect(bodyOf("<kml><Folder><Placemark>A</Placemark></Folder></kml>")).toBe(
+      "",
+    );
+    expect(bodyOf("<kml><Document><Placemark>A</Placemark></kml>")).toBe("");
+    expect(bodyOf("<kml></Document><Document")).toBe("");
+  });
+
   it("returns a single document unchanged", () => {
     const doc = "<kml><Document><Placemark/></Document></kml>";
     expect(mergeKmlDocuments([doc])).toBe(doc);

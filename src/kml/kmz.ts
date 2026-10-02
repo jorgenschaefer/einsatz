@@ -69,13 +69,38 @@ export function inlineKmzAssets(
   for (const [name, bytes] of Object.entries(entries)) {
     if (name !== kmlEntryName) assets.set(normalizePath(name), bytes);
   }
-  return kml.replace(/<href>\s*([^<]+?)\s*<\/href>/g, (whole, href) => {
-    const bytes = assets.get(normalizePath(href));
-    if (!bytes) return whole;
-    const ext = normalizePath(href).split(".").pop() ?? "";
-    const mime = IMAGE_MIME[ext];
-    return mime ? `<href>${bytesToDataUri(bytes, mime)}</href>` : whole;
-  });
+  let inlined = "";
+  let copied = 0;
+  for (const { start, end } of hrefTexts(kml)) {
+    const dataUri = assetDataUri(assets, kml.slice(start, end));
+    if (!dataUri) continue;
+    inlined += kml.slice(copied, start) + dataUri;
+    copied = end;
+  }
+  return inlined + kml.slice(copied);
+}
+
+function assetDataUri(
+  assets: Map<string, Uint8Array>,
+  href: string,
+): string | null {
+  const path = normalizePath(href);
+  const bytes = assets.get(path);
+  const mime = IMAGE_MIME[path.split(".").pop() ?? ""];
+  return bytes && mime ? bytesToDataUri(bytes, mime) : null;
+}
+
+/** Lage des Texts jedes `<href>…</href>` (genau so geschrieben), dessen Text
+ *  nicht leer ist und kein `<` enthält. */
+function* hrefTexts(kml: string): Generator<{ start: number; end: number }> {
+  let at = kml.indexOf("<href>");
+  while (at >= 0) {
+    const start = at + "<href>".length;
+    const end = kml.indexOf("<", start);
+    if (end < 0) return;
+    if (end > start && kml.startsWith("</href>", end)) yield { start, end };
+    at = kml.indexOf("<href>", end);
+  }
 }
 
 /**
@@ -119,24 +144,17 @@ export function extractKml(
   return inlineKmzAssets(utf8.decode(entry.bytes), entries, entry.name);
 }
 
-// <NetworkLink>…<href>URL</href>…</NetworkLink>; erfasst sowohl das neue
-// <Link>- als auch das alte <Url>-Element (beide enthalten <href>).
-const NETWORK_LINK = /<NetworkLink\b[\s\S]*?<\/NetworkLink>/gi;
-const HREF = /<href>\s*([\s\S]*?)\s*<\/href>/i;
-// Greift den Inhalt des äußersten <Document>…</Document> (greedy, damit auch
-// verschachtelte Documents/Folder mitgenommen werden).
-const DOCUMENT_BODY = /<Document\b[^>]*>([\s\S]*)<\/Document>/i;
-
 /**
- * Sammelt die http(s)-Ziele aller `<NetworkLink>`-Elemente. Google-„Meine
- * Karten“-KMZ enthalten statt Geometrie nur einen solchen Verweis auf die
- * eigentlichen Daten – ohne Auflösung bliebe das Overlay leer, weil togeojson
- * NetworkLinks nicht folgt.
+ * Sammelt die http(s)-Ziele aller `<NetworkLink>`-Elemente (aus dem neuen
+ * `<Link>`- wie dem alten `<Url>`-Element, beide enthalten `<href>`). Google-
+ * „Meine Karten“-KMZ enthalten statt Geometrie nur einen solchen Verweis auf
+ * die eigentlichen Daten – ohne Auflösung bliebe das Overlay leer, weil
+ * togeojson NetworkLinks nicht folgt.
  */
 export function networkLinkHrefs(kml: string): string[] {
   const hrefs: string[] = [];
-  for (const block of kml.match(NETWORK_LINK) ?? []) {
-    const href = block.match(HREF)?.[1]?.trim();
+  for (const link of elementBodies(kml, "NetworkLink")) {
+    const href = elementBodies(link, "href")[0]?.trim();
     if (href && /^https?:\/\//i.test(href)) hrefs.push(href);
   }
   return hrefs;
@@ -149,6 +167,55 @@ export function networkLinkHrefs(kml: string): string[] {
  */
 export function mergeKmlDocuments(docs: string[]): string {
   if (docs.length === 1) return docs[0];
-  const bodies = docs.map((doc) => doc.match(DOCUMENT_BODY)?.[1] ?? "");
+  const bodies = docs.map((doc) => outermostElementBody(doc, "Document"));
   return `<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document>${bodies.join("")}</Document></kml>`;
 }
+
+// Die folgenden Helfer suchen Tags mit indexOf statt mit Regexes: deren
+// Backtracking braucht bei nicht geschlossenen Tags oder langem Leerraum
+// überlinear lange und würde den Server blockieren. Tag-Namen werden ohne
+// Rücksicht auf Groß-/Kleinschreibung verglichen.
+
+/** Inhalt jedes `<tag …>…</tag>` in Reihenfolge, jeweils bis zum ersten
+ *  schließenden Tag. */
+function elementBodies(kml: string, tag: string): string[] {
+  const text = asciiLowerCase(kml);
+  const open = `<${tag.toLowerCase()}`;
+  const close = `</${tag.toLowerCase()}>`;
+  const bodies: string[] = [];
+  let at = openingTagIndex(text, open, 0);
+  while (at >= 0) {
+    const start = text.indexOf(">", at) + 1;
+    const end = start > 0 ? text.indexOf(close, start) : -1;
+    if (end < 0) return bodies;
+    bodies.push(kml.slice(start, end));
+    at = openingTagIndex(text, open, end + close.length);
+  }
+  return bodies;
+}
+
+/** Inhalt vom ersten `<tag …>` bis zum letzten `</tag>`, samt verschachtelter
+ *  gleichnamiger Elemente; `""`, wenn es keins gibt. */
+function outermostElementBody(kml: string, tag: string): string {
+  const text = asciiLowerCase(kml);
+  const at = openingTagIndex(text, `<${tag.toLowerCase()}`, 0);
+  if (at < 0) return "";
+  const start = text.indexOf(">", at) + 1;
+  const end = text.lastIndexOf(`</${tag.toLowerCase()}>`);
+  return start > 0 && end >= start ? kml.slice(start, end) : "";
+}
+
+/** Position des nächsten `open` ab `from`, auf das kein weiteres Namenszeichen
+ *  folgt (`<NetworkLink` passt so nicht auf `<NetworkLinkControl>`). */
+function openingTagIndex(text: string, open: string, from: number): number {
+  let at = text.indexOf(open, from);
+  while (at >= 0 && /\w/.test(text.charAt(at + open.length))) {
+    at = text.indexOf(open, at + 1);
+  }
+  return at;
+}
+
+// Nur ASCII, damit jede Position im Ergebnis der im Original entspricht
+// (`toLowerCase` macht etwa aus „İ“ zwei Zeichen).
+const asciiLowerCase = (text: string): string =>
+  text.replace(/[A-Z]+/g, (letters) => letters.toLowerCase());
