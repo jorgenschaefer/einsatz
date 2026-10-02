@@ -205,9 +205,11 @@ export async function resolveDeviceAccess(
 /**
  * Meldet eine Live-Position über den Gerätelink-Token. Nur zulässig, wenn der
  * Token gültig ist und der Einsatz `aktiv` ist; die Meldung überschreibt die
- * manuelle Position (Positionsquelle wird `device`). Liefert wie
- * {@link resolveDeviceAccess} die Einsatz-Zugehörigkeit, sonst null („kein
- * Zugang") – so kann der Aufrufer ohne zweite Abfrage das SSE-Publish auslösen.
+ * manuelle Position (Positionsquelle wird `device`). Eine Meldung weniger als
+ * 5 Sekunden nach der zuletzt gespeicherten wird verworfen (`stored: false`);
+ * die Bedingung steht im UPDATE selbst, damit zwei gleichzeitige Meldungen sie
+ * nicht beide erfüllen. Liefert wie {@link resolveDeviceAccess} die
+ * Einsatz-Zugehörigkeit, sonst null („kein Zugang").
  */
 export async function reportPosition(
   db: Queryable,
@@ -215,14 +217,17 @@ export async function reportPosition(
   lat: number,
   lng: number,
   now: Date = new Date(),
-): Promise<{ operationId: string } | null> {
+): Promise<{ operationId: string; stored: boolean } | null> {
   const { rows } = await db.query<{ operation_id: string }>(
     `UPDATE map_symbols AS ms
         SET lat = $2, lng = $3, position_source = 'device', reported_at = $4
        FROM operations AS o
       WHERE ms.device_link_token = $1 AND ms.operation_id = o.id AND o.status = 'active'
+        AND (ms.reported_at IS NULL OR ms.reported_at <= $4::timestamptz - interval '5 seconds')
       RETURNING ms.operation_id`,
     [token, lat, lng, now.toISOString()],
   );
-  return rows[0] ? { operationId: rows[0].operation_id } : null;
+  if (rows[0]) return { operationId: rows[0].operation_id, stored: true };
+  const access = await resolveDeviceAccess(db, token);
+  return access && { ...access, stored: false };
 }

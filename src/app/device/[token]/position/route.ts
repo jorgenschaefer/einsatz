@@ -31,6 +31,7 @@ export async function POST(
     lng as number,
   );
   if (!access) return new NextResponse(null, { status: 403 });
-  publishOperationChanged(access.operationId); // StandortGemeldet an alle Clients
+  // Eine gedrosselte Meldung ist für das Gerät kein Fehler, ändert aber nichts.
+  if (access.stored) publishOperationChanged(access.operationId); // StandortGemeldet an alle Clients
   return new NextResponse(null, { status: 204 });
 }

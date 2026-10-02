@@ -184,6 +184,7 @@ describe("map symbols repository", () => {
     const at = new Date("2026-07-03T12:00:00Z");
     expect(await reportPosition(db, token, 53.5, 9.9, at)).toEqual({
       operationId: op.id,
+      stored: true,
     });
 
     const [loaded] = await listMapSymbols(db, op.id);
@@ -193,6 +194,27 @@ describe("map symbols repository", () => {
       positionSource: "device",
     });
     expect(loaded.reportedAt?.toISOString()).toBe(at.toISOString());
+  });
+
+  it("stores only one of two concurrent reports at the same moment", async () => {
+    const db = await freshDb();
+    const op = await anOperation(db);
+    const symbol = await createMapSymbol(db, {
+      operationId: op.id,
+      composition,
+      lat: 1,
+      lng: 2,
+    });
+    const token = await generateDeviceLink(db, symbol.id);
+    const at = new Date("2026-07-03T12:00:00Z");
+
+    const results = await Promise.all([
+      reportPosition(db, token, 50, 8, at),
+      reportPosition(db, token, 51, 7, at),
+    ]);
+
+    expect(results.map((r) => r?.stored).sort()).toEqual([false, true]);
+    expect(results.every((r) => r?.operationId === op.id)).toBe(true);
   });
 
   it("denies a position report for an unknown or regenerated token", async () => {
@@ -230,6 +252,7 @@ describe("map symbols repository", () => {
     await reopenOperation(db, op.id);
     expect(await reportPosition(db, token, 51, 7, new Date())).toEqual({
       operationId: op.id,
+      stored: true,
     });
   });
 

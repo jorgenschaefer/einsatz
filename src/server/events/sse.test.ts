@@ -1,4 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  assertAtMostTwoPerSecond,
+  assertLastChangeArrivesWithinOneSecond,
+} from "./coalescing.fixtures";
+import {
+  publishOperationChanged,
+  subscribeOperation,
+} from "./operation-events";
 import { operationEventStream } from "./sse";
 
 afterEach(() => {
@@ -50,5 +58,36 @@ describe("operationEventStream", () => {
     // der Fehler wird abgefangen und der Abbau bleibt idempotent.
     expect(() => notify()).not.toThrow();
     expect(unsubscribe).toHaveBeenCalledTimes(1);
+  });
+
+  it("sends a burst of bus changes as at most two messages per second", async () => {
+    vi.useFakeTimers();
+    const res = operationEventStream((notify) =>
+      subscribeOperation("op-sse-burst", notify),
+    );
+    const reader = res.body!.getReader();
+    const start = Date.now();
+    const changedAt: number[] = [];
+    const reading = (async () => {
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) return;
+        const chunk = new TextDecoder().decode(value);
+        if (chunk.includes("data: changed")) changedAt.push(Date.now() - start);
+      }
+    })();
+
+    const publishTimes = Array.from({ length: 50 }, (_, i) => i * 40);
+    for (const t of publishTimes) {
+      await vi.advanceTimersByTimeAsync(start + t - Date.now());
+      publishOperationChanged("op-sse-burst");
+    }
+    await vi.advanceTimersByTimeAsync(1000);
+    await reader.cancel();
+    await reading;
+
+    expect(changedAt[0]).toBe(0);
+    assertAtMostTwoPerSecond(changedAt);
+    assertLastChangeArrivesWithinOneSecond(changedAt, publishTimes);
   });
 });

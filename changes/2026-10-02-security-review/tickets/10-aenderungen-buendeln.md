@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:    AC-15, AC-16
 advances:
 after:
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -65,3 +65,31 @@ Callers of `publishOperationChanged`: `revalidateOperation` in `src/app/operatio
 - No coalescing in the client (`useOperationEvents`): the nudge puts it on the server.
 
 ## Left standing
+- **No automated test covers the client half of AC-16's "spätestens eine
+  Sekunde … bei allen zu sehen".** The tests pin the bus and the SSE stream:
+  the last change goes out at most 1000 ms after it happens (600 ms by
+  design). The reviewer checked the rest in the running app (`next dev`). A
+  burst of 9 reports 150 ms apart reached the Lageansicht, Ansichtsansicht and
+  Geräteansicht streams at 0, 600, 1202 and 1803 ms, and each page refreshed
+  exactly 4 times. The last notification came about 435 ms after the last
+  report. How long `router.refresh()` takes in production was not measured,
+  so it is not proven that the remaining ~565 ms are enough.
+- **AC-15's "das Gerät zeigt deswegen keinen Fehler" is proven by the 204.**
+  The route tests pin it, and `useDeviceLocation` treats every `ok` answer as
+  sent, as the ticket says. Headless Chromium has no geolocation, so the
+  reviewer sent the Geräteansicht's reports over HTTP and did not use the
+  page's own sending code. At 390×844 and 1920×1080 all three views rendered
+  normally, with no console errors.
+- **Every repeat publish inside a window now arrives up to 600 ms late, from
+  every caller.** This includes the "Abschließen" notification that ends
+  access on open Gerätelink and Ansichtslink pages, not only position reports.
+  Nothing is lost: a pending window always notifies at its end.
+- **Plan step 5 needed no changes.** The tests outside `src/server/events`
+  that subscribe to the real bus each publish once per Einsatz, so none of
+  them needed fake timers.
+- **The two review nits were fixed after the only review round and not
+  reviewed again.** The local `window` variables in the bus are now called
+  `coalescing`, and the AC-16 assertions live once in
+  `src/server/events/coalescing.fixtures.ts`. Afterwards `npm run check` was
+  green, and the bus and SSE tests still failed against the old bus.
+
