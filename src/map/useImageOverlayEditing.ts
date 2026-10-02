@@ -36,7 +36,13 @@ export function useImageOverlayEditing({
 }) {
   const { editingImageId } = mode;
   const { busy, error, setError, run: persistImage } = useActionRunner();
-  const placementSaving = useNotifyingActionRunner(IMAGE_OVERLAYS);
+  // Speichern einer Platzierung meldet über die Benachrichtigung „Bild-Overlays“;
+  // jede andere Aktion des Editors schließt sie beim Start.
+  const {
+    busy: savingPlacement,
+    run: runPlacementSave,
+    closeError: closeImageOverlaysError,
+  } = useNotifyingActionRunner(IMAGE_OVERLAYS);
   const editingImage =
     imageOverlays.find((o) => o.id === editingImageId) ?? null;
 
@@ -48,14 +54,14 @@ export function useImageOverlayEditing({
   // Bearbeiten-Modus zu verlassen (nur „Fertig"/„Löschen" beenden ihn).
   const saveImagePlacement = async (id: string, placement: ImagePlacement) => {
     setError(null);
-    const result = await placementSaving.run(() =>
+    const result = await runPlacementSave(() =>
       onUpdateImagePlacement(id, placement),
     );
     if (result?.error) restoreImagePlacement(id);
   };
   const changeImageOpacity = (opacity: number) => {
     if (!editingImage) return;
-    placementSaving.closeError();
+    closeImageOverlaysError();
     void persistImage(() =>
       onUpdateImagePlacement(editingImage.id, {
         ...editingImage.placement,
@@ -65,23 +71,23 @@ export function useImageOverlayEditing({
   };
   const replaceImage = (file: File) => {
     if (!editingImageId) return;
-    placementSaving.closeError();
+    closeImageOverlaysError();
     void persistImage(() => onReplaceImage(editingImageId, file));
   };
   const deleteImage = async (id: string) => {
-    placementSaving.closeError();
+    closeImageOverlaysError();
     const result = await onDeleteImage(id);
     if (!result.error) mode.reset();
     return result;
   };
   const finishEdit = () => {
-    placementSaving.closeError();
+    closeImageOverlaysError();
     mode.reset();
   };
 
   return {
     editingImage,
-    busy: busy || placementSaving.busy,
+    busy: busy || savingPlacement,
     error,
     startEditImage,
     saveImagePlacement,
