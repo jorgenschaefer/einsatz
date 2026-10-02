@@ -5,7 +5,13 @@ import type { ActionResult } from "@/app/action-result";
 import { buttonColor } from "@/test/button-color";
 import { clickModalCloseButton } from "@/test/modal-close-button";
 import { clickModalOverlay } from "@/test/modal-overlay";
-import { render, screen, waitFor, within } from "@/test/render";
+import {
+  notificationArea,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@/test/render";
 import { SymbolDetailModal } from "./SymbolDetailModal";
 import { aSymbol } from "./symbol.fixtures";
 
@@ -99,14 +105,16 @@ describe("SymbolDetailModal", () => {
     expect(props.onClose).not.toHaveBeenCalled();
   });
 
-  it("stays open and shows a fallback when saving throws", async () => {
+  it("stays open and shows a fallback in itself when saving throws", async () => {
     const { props } = await openDetail({
       onUpdate: vi.fn().mockRejectedValue(new Error("boom")),
     });
     await save();
-    expect(await screen.findByRole("alert")).toHaveTextContent(
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(
       "Speichern fehlgeschlagen. Bitte erneut versuchen.",
     );
+    expect(notificationArea()).not.toContainElement(alert);
     expect(props.onClose).not.toHaveBeenCalled();
   });
 

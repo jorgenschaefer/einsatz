@@ -3,7 +3,14 @@ import { describe, expect, it, vi } from "vitest";
 import type { ActionResult } from "@/app/action-result";
 import { buttonColor } from "@/test/button-color";
 import { clickModalOverlay } from "@/test/modal-overlay";
-import { act, render, screen, waitFor, within } from "@/test/render";
+import {
+  act,
+  notificationArea,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@/test/render";
 import { DeviceLinkPanel, type DeviceLinkPanelProps } from "./DeviceLinkPanel";
 
 function setup(over: Partial<DeviceLinkPanelProps> = {}) {
@@ -174,15 +181,15 @@ describe("DeviceLinkPanel", () => {
     }
   });
 
-  it("does not confirm 'kopiert' and hints instead when the clipboard API is unavailable", async () => {
+  it("does not confirm 'kopiert' and hints instead in the panel when the clipboard API is unavailable", async () => {
     // Unsicherer Kontext / In-App-Webview: navigator.clipboard fehlt ganz.
     delete (navigator as { clipboard?: unknown }).clipboard;
     setup({ token: "secret-token-123" });
     await userEvent.click(screen.getByRole("button", { name: "kopieren" }));
     expect(screen.queryByRole("button", { name: "kopiert" })).toBeNull();
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      /nicht möglich/i,
-    );
+    const hint = await screen.findByRole("alert");
+    expect(hint).toHaveTextContent(/Kopieren nicht möglich/);
+    expect(notificationArea()).not.toContainElement(hint);
   });
 
   it("shows the live position source and the last report", () => {

@@ -1,6 +1,6 @@
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@/test/render";
+import { fireEvent, notificationArea, render, screen } from "@/test/render";
 import { NewOperationForm, type OperationFormAction } from "./NewOperationForm";
 
 describe("NewOperationForm", () => {
@@ -32,7 +32,7 @@ describe("NewOperationForm", () => {
     expect(formData.get("description")).toBe("Deich Nord");
   });
 
-  it("shows the validation error the action returns", async () => {
+  it("shows the validation error the action returns in the form", async () => {
     const action = vi.fn<OperationFormAction>(async () => ({
       error: "Die Bezeichnung darf nicht leer sein.",
     }));
@@ -44,8 +44,8 @@ describe("NewOperationForm", () => {
     await userEvent.click(
       screen.getByRole("button", { name: "Einsatz eröffnen" }),
     );
-    expect(
-      await screen.findByText("Die Bezeichnung darf nicht leer sein."),
-    ).toBeInTheDocument();
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Die Bezeichnung darf nicht leer sein.");
+    expect(notificationArea()).not.toContainElement(alert);
   });
 });

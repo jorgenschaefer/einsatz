@@ -1,6 +1,6 @@
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@/test/render";
+import { fireEvent, notificationArea, render, screen } from "@/test/render";
 import {
   type ChangePasswordAction,
   ChangePasswordForm,
@@ -25,7 +25,7 @@ describe("ChangePasswordForm", () => {
     expect(action.mock.calls[0][1].get("password")).toBe("a-brand-new-pass");
   });
 
-  it("shows the validation error the action returns", async () => {
+  it("shows the validation error the action returns in the form", async () => {
     const action = vi.fn<ChangePasswordAction>(async () => ({
       error: "Das Passwort muss mindestens 12 Zeichen haben.",
     }));
@@ -39,9 +39,9 @@ describe("ChangePasswordForm", () => {
     await userEvent.click(
       screen.getByRole("button", { name: "Passwort ändern" }),
     );
-    expect(
-      await screen.findByText(/mindestens 12 Zeichen/),
-    ).toBeInTheDocument();
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(/mindestens 12 Zeichen/);
+    expect(notificationArea()).not.toContainElement(alert);
   });
 
   it("confirms success", async () => {

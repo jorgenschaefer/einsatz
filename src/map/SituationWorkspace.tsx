@@ -27,7 +27,6 @@ import type { ImagePlacement } from "./image-overlay";
 import { LayersPanel } from "./LayersPanel";
 import { MainViewBar } from "./MainViewBar";
 import { MapControls } from "./MapControls";
-import { MapErrorAlert } from "./MapErrorAlert";
 import { MapModeBands } from "./MapModeBands";
 import { MapPanelSheet } from "./MapPanelSheet";
 import { closeLageansichtNotifications } from "./notification-sources";
@@ -215,7 +214,8 @@ export function SituationWorkspace({
   );
   useEffect(() => closeLageansichtNotifications, []);
   const mapRef = useRef<SituationMapHandle>(null);
-  const mode = useMapMode();
+  const { runMapAction, closeMapError } = useMapActionError();
+  const mode = useMapMode({ onTransition: closeMapError });
   const { editingImageId, drawShape, movingCircleId } = mode;
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const imageEditing = useImageOverlayEditing({
@@ -237,13 +237,15 @@ export function SituationWorkspace({
     selectMapPanel,
     closeSheet,
     closeSheetOnPhone,
-  } = useMainView({ journalEntries, currentUsername, onMapHidden: mode.reset });
+  } = useMainView({
+    journalEntries,
+    currentUsername,
+    onMapHidden: mode.endForHiddenMap,
+  });
   const now = useStalenessClock();
   const { focusTarget, jumpTo, returnToDefaultView } =
     useMapFocus(operationDefaultView);
   const search = useMapSearch(symbols, onGeocode, jumpTo);
-  const { mapError, dismissMapError, runMapAction } =
-    useMapActionError(closeSheetOnPhone);
   const areaFlows = useAreaFlows({
     areas,
     mapRef,
@@ -337,7 +339,6 @@ export function SituationWorkspace({
             {movingCircleId && (
               <Box className="map-crosshair" aria-hidden="true" />
             )}
-            <MapErrorAlert error={mapError} onClose={dismissMapError} />
             <Box className="map-search">
               <Stack gap={8}>
                 <SearchBar

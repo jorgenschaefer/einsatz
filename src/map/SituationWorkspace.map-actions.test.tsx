@@ -98,7 +98,7 @@ const mapActions: [string, Failing, (workspace: Workspace) => Promise<void>][] =
 
 describe("SituationWorkspace map actions", () => {
   it.each(mapActions)(
-    "shows the failure at the map when %s throws",
+    "shows the failure as the Karte notification when %s throws",
     async (_, failing, perform) => {
       const action = vi.fn(async (): Promise<ActionResult> => {
         throw new Error("db down");
@@ -107,13 +107,15 @@ describe("SituationWorkspace map actions", () => {
 
       await perform(workspace);
 
-      expect(await screen.findByRole("alert")).toHaveTextContent(
+      const notification = await screen.findByRole("alert");
+      expect(within(notification).getByText("Karte")).toBeInTheDocument();
+      expect(notification).toHaveTextContent(
         "Das hat nicht geklappt. Bitte erneut versuchen.",
       );
     },
   );
 
-  it("closes the failure at the map with its ×", async () => {
+  it("closes the Karte notification with its ×", async () => {
     const [, failing, perform] = mapActions[0];
     const workspace = renderWorkspace(
       failing(

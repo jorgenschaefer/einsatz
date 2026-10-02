@@ -57,7 +57,7 @@ export function useAreaFlows({
   const handleDrawComplete = async (geometry: AreaGeometry) => {
     // Kein Panel für diesen Fluss, und der Modus muss in jedem Fall enden. Ein
     // etwaiger {error} – etwa eine entartete Geometrie (Kreis mit Radius 0 aus
-    // einem Tap ohne Ziehen) – wird über den mapError-Kanal gezeigt. reset
+    // einem Tap ohne Ziehen) – meldet die Benachrichtigung „Karte“. reset
     // läuft (wie beim Platzieren) vor dem Roundtrip; die Branch-Entscheidung
     // hält die id vorher fest, weil reset redrawAreaId leert.
     const redrawId = redrawAreaId;
@@ -69,7 +69,12 @@ export function useAreaFlows({
     const created = await runMapAction(() => onCreateArea(geometry));
     // A new circle opens its editor for the radius. The area arrives with the
     // next refresh; the Modal opens once `areas` contains it.
-    if (created?.id && geometry.shape === "circle") {
+    if (
+      created &&
+      "id" in created &&
+      created.id &&
+      geometry.shape === "circle"
+    ) {
       setSelectedAreaId(created.id);
     }
   };

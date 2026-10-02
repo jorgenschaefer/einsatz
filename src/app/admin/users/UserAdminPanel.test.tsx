@@ -5,7 +5,14 @@ import { describe, expect, it, vi } from "vitest";
 import type { ActionResult } from "@/app/action-result";
 import { buttonColor } from "@/test/button-color";
 import { clickModalOverlay } from "@/test/modal-overlay";
-import { fireEvent, render, screen, waitFor, within } from "@/test/render";
+import {
+  fireEvent,
+  notificationArea,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@/test/render";
 import {
   type AccountSummary,
   UserAdminPanel,
@@ -274,7 +281,7 @@ describe("UserAdminPanel", () => {
     );
   });
 
-  it("shows the error an action returns (e.g. last-admin protection)", async () => {
+  it("shows the error an action returns (e.g. last-admin protection) in itself", async () => {
     const onSetRole = vi.fn(async () => ({
       error:
         "Der letzte verbleibende Admin kann nicht zum Nutzer degradiert werden.",
@@ -283,8 +290,8 @@ describe("UserAdminPanel", () => {
     await userEvent.click(
       within(rowOf("chef")).getByRole("button", { name: /Zu Nutzer/ }),
     );
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      /letzte verbleibende Admin/,
-    );
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(/letzte verbleibende Admin/);
+    expect(notificationArea()).not.toContainElement(alert);
   });
 });

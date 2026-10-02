@@ -1,6 +1,6 @@
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@/test/render";
+import { fireEvent, notificationArea, render, screen } from "@/test/render";
 import { type LoginAction, LoginForm } from "./LoginForm";
 
 describe("LoginForm", () => {
@@ -13,7 +13,7 @@ describe("LoginForm", () => {
     ).toBeInTheDocument();
   });
 
-  it("shows the generic error the action returns", async () => {
+  it("shows the generic error the action returns in the form", async () => {
     const action = vi.fn<LoginAction>(async () => ({
       error: "Anmeldung fehlgeschlagen.",
     }));
@@ -27,9 +27,9 @@ describe("LoginForm", () => {
     });
     await userEvent.click(screen.getByRole("button", { name: "Anmelden" }));
 
-    expect(
-      await screen.findByText("Anmeldung fehlgeschlagen."),
-    ).toBeInTheDocument();
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Anmeldung fehlgeschlagen.");
+    expect(notificationArea()).not.toContainElement(alert);
   });
 
   it("submits the entered credentials to the action", async () => {

@@ -509,7 +509,7 @@ describe("SituationWorkspace", () => {
       expect(anyMapPanel()).toBeNull();
     });
 
-    it("closes it when a map action fails, so the error is not hidden under it", async () => {
+    it("keeps it open when a map action fails", async () => {
       const { captured } = renderWorkspace({
         onPlace: vi.fn(async () => ({
           error: "Ungültige Zeichen-Komposition.",
@@ -523,7 +523,7 @@ describe("SituationWorkspace", () => {
         captured.options!.onMapClick!({ lat: 50, lng: 8 });
       });
       expect(await screen.findByRole("alert")).toBeInTheDocument();
-      expect(anyMapPanel()).toBeNull();
+      expect(mapPanel("Kartenzeichen")).toBeVisible();
     });
 
     it("keeps it open when a Schnellauswahl symbol is disarmed", async () => {

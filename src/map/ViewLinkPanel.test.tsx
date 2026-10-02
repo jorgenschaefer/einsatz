@@ -4,7 +4,15 @@ import type { ActionResult } from "@/app/action-result";
 import { buttonColor } from "@/test/button-color";
 import { clickModalOverlay } from "@/test/modal-overlay";
 import { redirectError } from "@/test/redirect-error";
-import { act, fireEvent, render, screen, waitFor, within } from "@/test/render";
+import {
+  act,
+  fireEvent,
+  notificationArea,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@/test/render";
 import { ViewLinkPanel, type ViewLinkPanelProps } from "./ViewLinkPanel";
 
 function setup(over: Partial<ViewLinkPanelProps> = {}) {
@@ -238,7 +246,7 @@ describe("ViewLinkPanel", () => {
     }
   });
 
-  it("does not confirm 'kopiert' and hints instead when the clipboard API is unavailable", async () => {
+  it("does not confirm 'kopiert' and hints instead in the panel when the clipboard API is unavailable", async () => {
     // Unsicherer Kontext / In-App-Webview: navigator.clipboard fehlt ganz.
     delete (navigator as { clipboard?: unknown }).clipboard;
     setup({ links: [{ id: "1", label: "Leitstelle", token: "tok-a" }] });
@@ -246,9 +254,9 @@ describe("ViewLinkPanel", () => {
       screen.getByRole("button", { name: /Leitstelle kopieren/i }),
     );
     expect(screen.queryByText("kopiert")).toBeNull();
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      /nicht möglich/i,
-    );
+    const hint = await screen.findByRole("alert");
+    expect(hint).toHaveTextContent(/Kopieren nicht möglich/);
+    expect(notificationArea()).not.toContainElement(hint);
   });
 
   it("does not confirm 'kopiert' when writing to the clipboard is rejected", async () => {

@@ -76,11 +76,27 @@ export interface MapModeControls {
   armMoveCircle: (areaId: string) => void;
   endMoveCircle: (areaId: string) => void;
   reset: () => void;
+  endForHiddenMap: () => void;
 }
 
-/** Hält den {@link MapMode} und liefert die abgeleiteten Flags samt Übergängen. */
-export function useMapMode(): MapModeControls {
+/**
+ * Hält den {@link MapMode} und liefert die abgeleiteten Flags samt Übergängen.
+ * Jeder Übergang, den der Nutzer auslöst, meldet `onTransition`. Still enden
+ * der Modus beim Ausblenden der Karte und das Verschieben eines Kreises: Das
+ * endet nach gespeichertem „Hier setzen“ oder weil der Kreis anderswo gelöscht
+ * wurde, und Letzteres darf die Meldung zu einem gescheiterten „Hier setzen“
+ * nicht schließen.
+ */
+export function useMapMode({
+  onTransition,
+}: {
+  onTransition: () => void;
+}): MapModeControls {
   const [mode, dispatch] = useReducer(mapModeReducer, { kind: "idle" });
+  const transition = (action: MapModeAction) => {
+    onTransition();
+    dispatch(action);
+  };
   return {
     armedQuickId: mode.kind === "quick" ? mode.quickId : null,
     armedCustom: mode.kind === "custom" ? mode.composition : null,
@@ -88,13 +104,14 @@ export function useMapMode(): MapModeControls {
     drawShape: mode.kind === "draw" ? mode.shape : null,
     redrawAreaId: mode.kind === "draw" ? mode.redrawAreaId : null,
     movingCircleId: mode.kind === "moveCircle" ? mode.areaId : null,
-    armQuick: (quickId) => dispatch({ type: "armQuick", quickId }),
-    armCustom: (composition) => dispatch({ type: "armCustom", composition }),
-    armImageEdit: (imageId) => dispatch({ type: "armImageEdit", imageId }),
-    toggleDraw: (shape) => dispatch({ type: "toggleDraw", shape }),
-    redraw: (shape, areaId) => dispatch({ type: "redraw", shape, areaId }),
-    armMoveCircle: (areaId) => dispatch({ type: "armMoveCircle", areaId }),
+    armQuick: (quickId) => transition({ type: "armQuick", quickId }),
+    armCustom: (composition) => transition({ type: "armCustom", composition }),
+    armImageEdit: (imageId) => transition({ type: "armImageEdit", imageId }),
+    toggleDraw: (shape) => transition({ type: "toggleDraw", shape }),
+    redraw: (shape, areaId) => transition({ type: "redraw", shape, areaId }),
+    armMoveCircle: (areaId) => transition({ type: "armMoveCircle", areaId }),
     endMoveCircle: (areaId) => dispatch({ type: "endMoveCircle", areaId }),
-    reset: () => dispatch({ type: "reset" }),
+    reset: () => transition({ type: "reset" }),
+    endForHiddenMap: () => dispatch({ type: "reset" }),
   };
 }

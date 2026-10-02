@@ -4,7 +4,14 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { ActionResult } from "@/app/action-result";
 import { buttonColor } from "@/test/button-color";
-import { act, render, screen, waitFor, within } from "@/test/render";
+import {
+  act,
+  notificationArea,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@/test/render";
 import {
   StrengthPanel,
   type StrengthPanelProps,
@@ -128,9 +135,11 @@ describe("StrengthPanel", () => {
       expect(field).toHaveAccessibleDescription(
         "Eine Stelle mit diesem Namen gibt es schon.",
       );
-      expect(screen.getByRole("alert")).toHaveTextContent(
+      const alert = screen.getByRole("alert");
+      expect(alert).toHaveTextContent(
         "Eine Stelle mit diesem Namen gibt es schon.",
       );
+      expect(notificationArea()).not.toContainElement(alert);
       expect(field).toHaveValue("uhst 3");
     });
 

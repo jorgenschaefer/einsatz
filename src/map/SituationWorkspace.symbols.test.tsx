@@ -46,21 +46,6 @@ describe("SituationWorkspace", () => {
     ).toBeInTheDocument();
   });
 
-  it("shows a placement error as an overlay inside the map container, not a banner above the work area", async () => {
-    const onPlace = vi.fn(async () => ({
-      error: "Ungültige Zeichen-Komposition.",
-    }));
-    const { captured } = renderWorkspace({ onPlace });
-    await openPanel("Kartenzeichen");
-    await userEvent.click(screen.getByText(/KTW/));
-    await waitFor(() => expect(captured.options?.onMapClick).toBeDefined());
-    await act(async () => {
-      captured.options!.onMapClick!({ lat: 50, lng: 8 });
-    });
-    const alert = await screen.findByRole("alert");
-    expect(alert.closest('[data-view="map"]')).not.toBeNull();
-  });
-
   it("clears a placement error on the next successful placement", async () => {
     const onPlace = vi
       .fn<SituationWorkspaceProps["onPlace"]>()
@@ -104,7 +89,7 @@ describe("SituationWorkspace", () => {
     captured.options!.onMapClick!({ lat: 51, lng: 9 });
 
     expect(onPlace).toHaveBeenCalledTimes(1);
-    resolvePlace();
+    await act(async () => resolvePlace());
   });
 
   it("places a composition built in the Erweitert form where the map is clicked", async () => {

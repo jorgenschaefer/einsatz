@@ -1,7 +1,13 @@
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { ActionResult } from "@/app/action-result";
-import { fireEvent, render, screen, within } from "@/test/render";
+import {
+  fireEvent,
+  notificationArea,
+  render,
+  screen,
+  within,
+} from "@/test/render";
 import { AreaEditor, type AreaEditorProps } from "./AreaEditor";
 
 function setup(over: Partial<AreaEditorProps> = {}) {
@@ -135,12 +141,12 @@ describe("AreaEditor", () => {
     );
   });
 
-  it("disables Speichern while busy and shows a save error", () => {
+  it("disables Speichern while busy and shows a save error in itself", () => {
     setup({ busy: true, error: "Speichern fehlgeschlagen." });
     expect(screen.getByRole("button", { name: "Speichern" })).toBeDisabled();
-    expect(screen.getByRole("alert")).toHaveTextContent(
-      "Speichern fehlgeschlagen.",
-    );
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent("Speichern fehlgeschlagen.");
+    expect(notificationArea()).not.toContainElement(alert);
   });
 
   it("re-draws the shape", async () => {

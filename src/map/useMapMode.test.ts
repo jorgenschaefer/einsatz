@@ -1,6 +1,13 @@
-import { describe, expect, it } from "vitest";
+import { act, renderHook } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import type { SymbolComposition } from "./composition";
-import { type MapMode, type MapModeAction, mapModeReducer } from "./useMapMode";
+import {
+  type MapMode,
+  type MapModeAction,
+  type MapModeControls,
+  mapModeReducer,
+  useMapMode,
+} from "./useMapMode";
 
 const idle: MapMode = { kind: "idle" };
 const comp: SymbolComposition = {
@@ -124,5 +131,52 @@ describe("mapModeReducer", () => {
     it("reset ends moving", () => {
       expect(mapModeReducer(moving, { type: "reset" })).toEqual(idle);
     });
+  });
+});
+
+describe("useMapMode", () => {
+  const renderMode = () => {
+    const onTransition = vi.fn();
+    const { result } = renderHook(() => useMapMode({ onTransition }));
+    const perform = (step: (mode: MapModeControls) => void) =>
+      act(() => step(result.current));
+    return { result, onTransition, perform };
+  };
+
+  it.each<[string, (mode: MapModeControls) => void]>([
+    ["arming a quick symbol", (m) => m.armQuick("ktw")],
+    ["disarming the quick selection", (m) => m.armQuick(null)],
+    ["arming a custom symbol", (m) => m.armCustom(comp)],
+    ["editing an image", (m) => m.armImageEdit("i1")],
+    ["toggling a draw shape", (m) => m.toggleDraw("polygon")],
+    ["redrawing", (m) => m.redraw("polygon", "a1")],
+    ["moving a circle", (m) => m.armMoveCircle("c1")],
+    ["resetting", (m) => m.reset()],
+  ])("reports a transition when %s", (_, step) => {
+    const { onTransition, perform } = renderMode();
+    perform(step);
+    expect(onTransition).toHaveBeenCalledOnce();
+  });
+
+  it("ends any mode quietly when the map is hidden", () => {
+    const { result, onTransition, perform } = renderMode();
+    perform((m) => m.armMoveCircle("c1"));
+    onTransition.mockClear();
+
+    perform((m) => m.endForHiddenMap());
+
+    expect(result.current.movingCircleId).toBeNull();
+    expect(onTransition).not.toHaveBeenCalled();
+  });
+
+  it("ends moving a circle quietly", () => {
+    const { result, onTransition, perform } = renderMode();
+    perform((m) => m.armMoveCircle("c1"));
+    onTransition.mockClear();
+
+    perform((m) => m.endMoveCircle("c1"));
+
+    expect(result.current.movingCircleId).toBeNull();
+    expect(onTransition).not.toHaveBeenCalled();
   });
 });

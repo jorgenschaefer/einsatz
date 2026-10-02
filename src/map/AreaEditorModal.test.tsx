@@ -5,7 +5,13 @@ import type { ActionResult } from "@/app/action-result";
 import { buttonColor } from "@/test/button-color";
 import { clickModalCloseButton } from "@/test/modal-close-button";
 import { clickModalOverlay } from "@/test/modal-overlay";
-import { render, screen, waitFor, within } from "@/test/render";
+import {
+  notificationArea,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@/test/render";
 import { AreaEditorModal } from "./AreaEditorModal";
 import type { RenderedArea } from "./SituationMap";
 
@@ -94,12 +100,17 @@ describe("AreaEditorModal", () => {
       },
       "Speichern fehlgeschlagen. Bitte erneut versuchen.",
     ],
-  ])("stays open and shows %s", async (_, onUpdateAreaStyle, message) => {
-    const { props } = await openEditor({ onUpdateAreaStyle });
-    await save();
-    expect(await screen.findByRole("alert")).toHaveTextContent(message);
-    expect(props.onClose).not.toHaveBeenCalled();
-  });
+  ])(
+    "stays open and shows %s in itself",
+    async (_, onUpdateAreaStyle, message) => {
+      const { props } = await openEditor({ onUpdateAreaStyle });
+      await save();
+      const alert = await screen.findByRole("alert");
+      expect(alert).toHaveTextContent(message);
+      expect(notificationArea()).not.toContainElement(alert);
+      expect(props.onClose).not.toHaveBeenCalled();
+    },
+  );
 
   it("locks Speichern while saving", async () => {
     await openEditor({ onUpdateAreaStyle: hanging });

@@ -3,6 +3,7 @@ import { Notifications } from "@mantine/notifications";
 import {
   type RenderOptions,
   render as rtlRender,
+  screen,
 } from "@testing-library/react";
 import {
   AppRouterContext,
@@ -41,7 +42,9 @@ export function Providers({ children }: { children: ReactNode }) {
       {/* env="test": keine Transitions/Portale, und Popover blenden sich nicht
           aus, weil jsdom alles mit 0×0 misst (sonst Flake unter Last). */}
       <MantineProvider theme={testTheme} env="test">
-        <ActionNotifications />
+        <div data-testid="notifications">
+          <ActionNotifications />
+        </div>
         {children}
       </MantineProvider>
     </AppRouterContext.Provider>
@@ -54,5 +57,12 @@ export function render(
 ) {
   return rtlRender(ui, { wrapper: Providers, ...options });
 }
+
+/**
+ * Wo die Benachrichtigungen stehen. Ohne Portale (env="test") liegen sie im
+ * selben Container wie das Gerenderte; ein Fehler, der im Formular stehen
+ * soll, ist daran zu unterscheiden, dass er nicht hier liegt.
+ */
+export const notificationArea = () => screen.getByTestId("notifications");
 
 export * from "@testing-library/react";
