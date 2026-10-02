@@ -1,6 +1,6 @@
 "use server";
 
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { changePassword } from "@/server/auth/account-admin";
 import {
@@ -10,8 +10,10 @@ import {
   setSessionCookie,
 } from "@/server/auth/current-user";
 import { createSession } from "@/server/auth/login";
+import { loginRateLimiter } from "@/server/auth/rate-limit-instance";
 import { deleteSession } from "@/server/auth/sessions";
 import { getDb } from "@/server/db/pg";
+import { clientIpFromForwardedFor } from "@/server/http/client-ip";
 import { ValidationError } from "@/server/validation";
 import type { ChangePasswordState } from "./ChangePasswordForm";
 
@@ -22,8 +24,16 @@ export async function changePasswordAction(
   const user = await requireUser();
   const currentPassword = String(formData.get("currentPassword") ?? "");
   const password = String(formData.get("password") ?? "");
+  const ip = clientIpFromForwardedFor((await headers()).get("x-forwarded-for"));
   try {
-    await changePassword(getDb(), user.id, currentPassword, password);
+    await changePassword(
+      getDb(),
+      loginRateLimiter,
+      ip,
+      user.id,
+      currentPassword,
+      password,
+    );
   } catch (error) {
     if (error instanceof ValidationError) return { error: error.message };
     throw error;

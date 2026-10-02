@@ -1,125 +1,232 @@
 import { describe, expect, it } from "vitest";
-import { LoginRateLimiter } from "./rate-limit";
+import { LoginRateLimiter, limiterAddress } from "./rate-limit";
+
+function reserveTimes(
+  limiter: LoginRateLimiter,
+  ip: string,
+  username: string,
+  count: number,
+  now = 0,
+) {
+  for (let i = 0; i < count; i++) {
+    expect(limiter.tryReserve(ip, username, now)).not.toBeNull();
+  }
+}
 
 describe("LoginRateLimiter – pair counter (ip:username)", () => {
-  it("blocks after the configured number of pair failures within the window", () => {
+  it("refuses a reservation once the pair budget is used up", () => {
     const limiter = new LoginRateLimiter(3, 100, 1000);
-    expect(limiter.isBlocked("ip-a", "anna", 0)).toBe(false);
-    limiter.recordFailure("ip-a", "anna", 0);
-    limiter.recordFailure("ip-a", "anna", 100);
-    expect(limiter.isBlocked("ip-a", "anna", 200)).toBe(false);
-    limiter.recordFailure("ip-a", "anna", 200);
-    expect(limiter.isBlocked("ip-a", "anna", 300)).toBe(true);
+    reserveTimes(limiter, "ip-a", "anna", 3);
+    expect(limiter.tryReserve("ip-a", "anna", 0)).toBeNull();
   });
 
-  it("forgets pair failures older than the window", () => {
+  it("forgets reservations older than the window", () => {
     const limiter = new LoginRateLimiter(2, 100, 1000);
-    limiter.recordFailure("ip-a", "anna", 0);
-    limiter.recordFailure("ip-a", "anna", 100);
-    expect(limiter.isBlocked("ip-a", "anna", 200)).toBe(true);
-    expect(limiter.isBlocked("ip-a", "anna", 1200)).toBe(false);
+    reserveTimes(limiter, "ip-a", "anna", 2, 0);
+    expect(limiter.tryReserve("ip-a", "anna", 999)).toBeNull();
+    expect(limiter.tryReserve("ip-a", "anna", 1000)).not.toBeNull();
   });
 
   it("tracks (ip, username) pairs independently", () => {
     const limiter = new LoginRateLimiter(1, 100, 1000);
-    limiter.recordFailure("ip-a", "anna", 0);
-    expect(limiter.isBlocked("ip-a", "anna", 0)).toBe(true);
-    expect(limiter.isBlocked("ip-a", "bob", 0)).toBe(false);
+    reserveTimes(limiter, "ip-a", "anna", 1);
+    expect(limiter.tryReserve("ip-a", "anna", 0)).toBeNull();
+    expect(limiter.tryReserve("ip-a", "bob", 0)).not.toBeNull();
+  });
+
+  it("treats usernames case-insensitively", () => {
+    const limiter = new LoginRateLimiter(1, 100, 1000);
+    reserveTimes(limiter, "ip-a", "Anna", 1);
+    expect(limiter.tryReserve("ip-a", "anna", 0)).toBeNull();
   });
 
   it("resetPair clears only the pair after a successful login", () => {
     const limiter = new LoginRateLimiter(1, 100, 1000);
-    limiter.recordFailure("ip-a", "anna", 0);
+    reserveTimes(limiter, "ip-a", "anna", 1);
     limiter.resetPair("ip-a", "anna");
-    expect(limiter.isBlocked("ip-a", "anna", 0)).toBe(false);
+    expect(limiter.tryReserve("ip-a", "anna", 0)).not.toBeNull();
   });
 });
 
 describe("LoginRateLimiter – IP counter (spraying)", () => {
-  it("blocks the IP after enough failures spread across many usernames", () => {
-    // Pair budget 5, IP budget 3: three failures against three distinct names
-    // never trip a pair, but do exhaust the IP budget.
+  it("refuses any username once the IP budget is used up", () => {
     const limiter = new LoginRateLimiter(5, 3, 1000);
-    limiter.recordFailure("ip-a", "u1", 0);
-    limiter.recordFailure("ip-a", "u2", 0);
-    limiter.recordFailure("ip-a", "u3", 0);
-    // Even a so-far-unused username from this IP is now blocked.
-    expect(limiter.isBlocked("ip-a", "fresh", 0)).toBe(true);
+    reserveTimes(limiter, "ip-a", "u1", 1);
+    reserveTimes(limiter, "ip-a", "u2", 1);
+    reserveTimes(limiter, "ip-a", "u3", 1);
+    expect(limiter.tryReserve("ip-a", "fresh", 0)).toBeNull();
+  });
+
+  it("does not count a refused reservation against either budget", () => {
+    const limiter = new LoginRateLimiter(1, 2, 1000);
+    reserveTimes(limiter, "ip-a", "anna", 1);
+    for (let i = 0; i < 10; i++) limiter.tryReserve("ip-a", "anna", 0);
+    expect(limiter.tryReserve("ip-a", "bob", 0)).not.toBeNull();
   });
 
   it("keeps IPs isolated: exhausting IP A does not block IP B", () => {
     const limiter = new LoginRateLimiter(5, 3, 1000);
-    limiter.recordFailure("ip-a", "u1", 0);
-    limiter.recordFailure("ip-a", "u2", 0);
-    limiter.recordFailure("ip-a", "u3", 0);
-    expect(limiter.isBlocked("ip-a", "u4", 0)).toBe(true);
-    expect(limiter.isBlocked("ip-b", "u1", 0)).toBe(false);
+    reserveTimes(limiter, "ip-a", "u1", 3);
+    expect(limiter.tryReserve("ip-a", "u4", 0)).toBeNull();
+    expect(limiter.tryReserve("ip-b", "u1", 0)).not.toBeNull();
   });
 
-  it("forgets IP failures older than the window", () => {
+  it("forgets IP reservations older than the window", () => {
     const limiter = new LoginRateLimiter(5, 2, 1000);
-    limiter.recordFailure("ip-a", "u1", 0);
-    limiter.recordFailure("ip-a", "u2", 100);
-    expect(limiter.isBlocked("ip-a", "u3", 200)).toBe(true);
-    expect(limiter.isBlocked("ip-a", "u3", 1200)).toBe(false);
+    reserveTimes(limiter, "ip-a", "u1", 1, 0);
+    reserveTimes(limiter, "ip-a", "u2", 1, 100);
+    expect(limiter.tryReserve("ip-a", "u3", 200)).toBeNull();
+    expect(limiter.tryReserve("ip-a", "u3", 1200)).not.toBeNull();
   });
 
   it("resetPair does NOT clear the IP counter (a valid account cannot drain the IP budget)", () => {
-    // IP budget 2 reached across two names; the attacker owns 'u2' and logs in.
     const limiter = new LoginRateLimiter(5, 2, 60_000);
-    limiter.recordFailure("ip-a", "u1", 0);
-    limiter.recordFailure("ip-a", "u2", 0);
-    expect(limiter.isBlocked("ip-a", "fresh", 0)).toBe(true);
+    reserveTimes(limiter, "ip-a", "u1", 1);
+    reserveTimes(limiter, "ip-a", "u2", 1);
+    limiter.resetPair("ip-a", "u2");
+    expect(limiter.tryReserve("ip-a", "fresh", 0)).toBeNull();
+    expect(limiter.tryReserve("ip-a", "fresh", 60_001)).not.toBeNull();
+  });
+});
 
-    limiter.resetPair("ip-a", "u2"); // successful login for the owned account
-    // IP counter survives; the IP stays blocked and only expires via the window.
-    expect(limiter.isBlocked("ip-a", "fresh", 0)).toBe(true);
-    expect(limiter.isBlocked("ip-a", "fresh", 60_001)).toBe(false);
+describe("LoginRateLimiter – release", () => {
+  it("gives a released reservation back to both budgets", () => {
+    const limiter = new LoginRateLimiter(1, 1, 1000);
+    limiter.tryReserve("ip-a", "anna", 0)?.release();
+    expect(limiter.tryReserve("ip-a", "anna", 0)).not.toBeNull();
+  });
+
+  it("releases only its own reservation", () => {
+    const limiter = new LoginRateLimiter(2, 20, 1000);
+    const first = limiter.tryReserve("ip-a", "anna", 0);
+    reserveTimes(limiter, "ip-a", "anna", 1);
+    first?.release();
+    first?.release();
+    reserveTimes(limiter, "ip-a", "anna", 1);
+    expect(limiter.tryReserve("ip-a", "anna", 0)).toBeNull();
+  });
+});
+
+describe("LoginRateLimiter – attempt", () => {
+  it("refuses without running the check once a budget is used up", async () => {
+    const limiter = new LoginRateLimiter(1, 20, 60_000);
+    reserveTimes(limiter, "ip-a", "anna", 1, Date.now());
+    let checked = false;
+    const result = await limiter.attempt("ip-a", "anna", async () => {
+      checked = true;
+      return true;
+    });
+    expect(result).toEqual({ status: "rate-limited" });
+    expect(checked).toBe(false);
+  });
+
+  it("keeps a failed check as a failure", async () => {
+    const limiter = new LoginRateLimiter(1, 20, 60_000);
+    expect(await limiter.attempt("ip-a", "anna", async () => false)).toEqual({
+      status: "checked",
+      result: false,
+    });
+    expect(await limiter.attempt("ip-a", "anna", async () => true)).toEqual({
+      status: "rate-limited",
+    });
+  });
+
+  it("gives a successful check back and resets the pair", async () => {
+    const limiter = new LoginRateLimiter(2, 3, 60_000);
+    await limiter.attempt("ip-a", "anna", async () => null);
+    expect(await limiter.attempt("ip-a", "anna", async () => "anna")).toEqual({
+      status: "checked",
+      result: "anna",
+    });
+    await limiter.attempt("ip-a", "anna", async () => null);
+    // Pair 1 of 2 and IP 2 of 3: only true if the success counted for neither.
+    expect(limiter.tryReserve("ip-a", "anna")).not.toBeNull();
+  });
+
+  it("gives a check that throws back and passes the error on", async () => {
+    const limiter = new LoginRateLimiter(1, 1, 60_000);
+    await expect(
+      limiter.attempt("ip-a", "anna", async () => {
+        throw new Error("database down");
+      }),
+    ).rejects.toThrow("database down");
+    expect(limiter.tryReserve("ip-a", "anna")).not.toBeNull();
+  });
+});
+
+describe("LoginRateLimiter – IPv6 /64 and IPv4-mapped addresses", () => {
+  it("shares the counters of one IPv6 /64", () => {
+    const limiter = new LoginRateLimiter(2, 20, 1000);
+    reserveTimes(limiter, "2001:db8:1:2::a", "anna", 1);
+    reserveTimes(limiter, "2001:db8:1:2:ffff::b", "anna", 1);
+    expect(limiter.tryReserve("2001:db8:1:2::c", "anna", 0)).toBeNull();
+    expect(limiter.tryReserve("2001:db8:1:3::a", "anna", 0)).not.toBeNull();
+  });
+
+  it("resets the pair for every address of the /64", () => {
+    const limiter = new LoginRateLimiter(1, 20, 1000);
+    reserveTimes(limiter, "2001:db8:1:2::a", "anna", 1);
+    limiter.resetPair("2001:db8:1:2::b", "anna");
+    expect(limiter.tryReserve("2001:db8:1:2::a", "anna", 0)).not.toBeNull();
+  });
+});
+
+describe("limiterAddress", () => {
+  it.each([
+    ["2001:0db8:0001:0002:0003:0004:0005:0006", "2001:db8:1:2::/64"],
+    ["2001:db8:1:2::a", "2001:db8:1:2::/64"],
+    ["2001:db8:1:2:ffff::b", "2001:db8:1:2::/64"],
+    ["2001:DB8:1:2::A", "2001:db8:1:2::/64"],
+    ["2001:db8::1", "2001:db8:0:0::/64"],
+    ["2001:db8:1:3::a", "2001:db8:1:3::/64"],
+    ["::1", "0:0:0:0::/64"],
+    ["::", "0:0:0:0::/64"],
+    ["fe80::", "fe80:0:0:0::/64"],
+    ["::ffff:203.0.113.7", "203.0.113.7"],
+    ["::FFFF:cb00:7107", "203.0.113.7"],
+    ["203.0.113.7", "203.0.113.7"],
+    ["local", "local"],
+    ["", ""],
+    ["2001:db8::1::2", "2001:db8::1::2"],
+    ["2001:db8:1:2:3:4:5:6:7", "2001:db8:1:2:3:4:5:6:7"],
+    ["2001:db8:1:2:3:4:5", "2001:db8:1:2:3:4:5"],
+    ["2001:db8:12345::1", "2001:db8:12345::1"],
+    ["fe80::1%eth0", "fe80:0:0:0::/64"],
+  ])("%s → %s", (ip, expected) => {
+    expect(limiterAddress(ip)).toBe(expected);
   });
 });
 
 describe("LoginRateLimiter – memory eviction", () => {
-  it("does not seed buckets while merely checking isBlocked (failure-free load)", () => {
-    const limiter = new LoginRateLimiter(5, 20, 1000);
-    // Ein fehlerfreier Ansturm: viele distinct IPs prüfen nur ihren Status, ohne
-    // je einen Fehlversuch zu erzeugen. isBlocked darf dabei keine Buckets anlegen,
-    // sonst wächst die Map unbegrenzt (der Sweep läuft nur in recordFailure).
-    for (let i = 0; i < 50; i++) limiter.isBlocked(`ip-${i}`, "u", 0);
-    expect(limiter.trackedKeyCount).toBe(0);
+  it("does not seed buckets for refused reservations", () => {
+    const limiter = new LoginRateLimiter(1, 20, 1000);
+    reserveTimes(limiter, "ip-a", "anna", 1);
+    for (let i = 0; i < 10; i++) limiter.tryReserve("ip-a", "anna", 0);
+    expect(limiter.trackedKeyCount).toBe(2);
   });
 
-  it("neither resurrects nor grows a stale key when only isBlocked touches it", () => {
-    const limiter = new LoginRateLimiter(1, 20, 1000);
-    limiter.recordFailure("ip-a", "anna", 0); // legt pair+ip-Bucket bei t=0 an
-    expect(limiter.isBlocked("ip-a", "anna", 0)).toBe(true);
-    expect(limiter.trackedKeyCount).toBe(2);
-    // Nach dem Fenster: reine isBlocked-Prüfungen beleben den Block nicht wieder
-    // und legen keine weiteren Buckets an.
-    for (let i = 0; i < 10; i++) limiter.isBlocked("ip-a", "anna", 5000);
-    expect(limiter.isBlocked("ip-a", "anna", 5000)).toBe(false);
-    expect(limiter.trackedKeyCount).toBe(2);
+  it("drops the buckets a release empties", () => {
+    const limiter = new LoginRateLimiter(5, 20, 1000);
+    for (let i = 0; i < 50; i++) {
+      limiter.tryReserve(`ip-${i}`, "u", 0)?.release();
+    }
+    expect(limiter.trackedKeyCount).toBe(0);
   });
 
   it("evicts fully-stale buckets so the map cannot grow unbounded", () => {
     const limiter = new LoginRateLimiter(5, 20, 1000);
-    // 50 distinct IPs each fail once at t=0 → 50 IP buckets + 50 pair buckets.
-    for (let i = 0; i < 50; i++) limiter.recordFailure(`ip-${i}`, "u", 0);
-    expect(limiter.trackedKeyCount).toBeGreaterThanOrEqual(100);
-
-    // A single failure past the window sweeps the now-stale t=0 buckets, leaving
-    // only the fresh IP's own pair+IP buckets.
-    limiter.recordFailure("ip-new", "u", 5000);
+    for (let i = 0; i < 50; i++) reserveTimes(limiter, `ip-${i}`, "u", 1);
+    expect(limiter.trackedKeyCount).toBe(100);
+    reserveTimes(limiter, "ip-new", "u", 1, 5000);
     expect(limiter.trackedKeyCount).toBe(2);
   });
 
   it("keeps in-window buckets when it sweeps (a live block survives)", () => {
     const limiter = new LoginRateLimiter(2, 20, 1000);
-    limiter.recordFailure("stale", "x", 0); // first call sets the sweep clock (t=0)
-    limiter.recordFailure("ip-a", "anna", 800); // in-window failure #1
-    limiter.recordFailure("ip-a", "anna", 900); // in-window failure #2 → at budget
-    // A failure past the window triggers a sweep (cutoff t=1): 'stale' (t=0) is
-    // dropped, but ip-a's t=800/900 failures survive and keep the block.
-    limiter.recordFailure("ip-b", "z", 1001);
-    expect(limiter.isBlocked("ip-a", "anna", 1001)).toBe(true);
+    reserveTimes(limiter, "stale", "x", 1, 0);
+    reserveTimes(limiter, "ip-a", "anna", 1, 800);
+    reserveTimes(limiter, "ip-a", "anna", 1, 900);
+    reserveTimes(limiter, "ip-b", "z", 1, 1001);
+    expect(limiter.tryReserve("ip-a", "anna", 1001)).toBeNull();
   });
 });

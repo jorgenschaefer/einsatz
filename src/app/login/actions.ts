@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { setSessionCookie } from "@/server/auth/current-user";
 import { attemptLogin, createSession } from "@/server/auth/login";
+import { RATE_LIMITED_MESSAGE } from "@/server/auth/rate-limit";
 import { loginRateLimiter } from "@/server/auth/rate-limit-instance";
 import { getDb } from "@/server/db/pg";
 import { clientIpFromForwardedFor } from "@/server/http/client-ip";
@@ -27,10 +28,7 @@ export async function loginAction(
     password,
   );
   if (result.status === "rate-limited") {
-    return {
-      error:
-        "Zu viele Fehlversuche. Bitte einen Moment warten und erneut versuchen.",
-    };
+    return { error: RATE_LIMITED_MESSAGE };
   }
   if (result.status === "invalid") {
     return {

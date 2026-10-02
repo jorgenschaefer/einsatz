@@ -12,6 +12,7 @@ import {
   setRole,
 } from "./account-admin";
 import { hashPassword, verifyPassword } from "./password";
+import { LoginRateLimiter } from "./rate-limit";
 import { findUserBySessionToken, insertSession } from "./sessions";
 import {
   countAdmins,
@@ -167,7 +168,14 @@ describe("changePassword (self-service)", () => {
       expiresAt: inAnHour(),
     });
 
-    await changePassword(db, anna.id, "a-good-password", "brand-new-pass");
+    await changePassword(
+      db,
+      new LoginRateLimiter(),
+      "10.0.0.1",
+      anna.id,
+      "a-good-password",
+      "brand-new-pass",
+    );
 
     const stored = (await findUserById(db, anna.id))!.passwordHash;
     expect(await verifyPassword("brand-new-pass", stored)).toBe(true);
@@ -188,7 +196,14 @@ describe("changePassword (self-service)", () => {
     });
 
     await expect(
-      changePassword(db, anna.id, "wrong-password", "brand-new-pass"),
+      changePassword(
+        db,
+        new LoginRateLimiter(),
+        "10.0.0.1",
+        anna.id,
+        "wrong-password",
+        "brand-new-pass",
+      ),
     ).rejects.toBeInstanceOf(ValidationError);
 
     const stored = (await findUserById(db, anna.id))!.passwordHash;

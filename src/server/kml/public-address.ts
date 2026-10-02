@@ -1,4 +1,10 @@
-import { isIPv4, isIPv6 } from "node:net";
+import { isIPv4 } from "node:net";
+import {
+  type Groups,
+  ipv4Groups,
+  ipv6Groups,
+  parseIpv6,
+} from "@/server/http/ip-address";
 
 /**
  * Ob `ip` eine öffentliche Unicast-Adresse ist, die der Server abrufen darf.
@@ -9,13 +15,10 @@ import { isIPv4, isIPv6 } from "node:net";
  */
 export function isPublicUnicast(ip: string): boolean {
   if (isIPv4(ip)) return isPublicIpv4(ipv4Groups(ip));
-  const unzoned = ip.split("%")[0];
-  if (!isIPv6(unzoned)) return false;
-  return isPublicIpv6(ipv6Groups(unzoned));
+  const groups = parseIpv6(ip);
+  return groups !== null && isPublicIpv6(groups);
 }
 
-// Adressen als Folge von 16-Bit-Gruppen: IPv4 zwei, IPv6 acht.
-type Groups = number[];
 type Range = [base: Groups, prefix: number];
 
 const v4 = (base: string, prefix: number): Range => [ipv4Groups(base), prefix];
@@ -64,24 +67,4 @@ function inRange(address: Groups, [base, prefix]: Range): boolean {
     if ((address[i] & mask) !== (base[i] & mask)) return false;
   }
   return true;
-}
-
-function ipv4Groups(ip: string): Groups {
-  const [a, b, c, d] = ip.split(".").map(Number);
-  return [a * 256 + b, c * 256 + d];
-}
-
-/** Gruppen eines gültigen IPv6-Literals, auch mit `::` und IPv4-Schwanz. */
-function ipv6Groups(ip: string): Groups {
-  const [head, tail] = ip.includes("::") ? ip.split("::") : [ip, undefined];
-  const groups = (part: string | undefined): Groups =>
-    part ? part.split(":").flatMap(group) : [];
-  const left = groups(head);
-  const right = groups(tail);
-  const zeros = new Array(8 - left.length - right.length).fill(0);
-  return [...left, ...zeros, ...right];
-}
-
-function group(text: string): Groups {
-  return text.includes(".") ? ipv4Groups(text) : [Number.parseInt(text, 16)];
 }

@@ -1,6 +1,7 @@
 import type { Db, Queryable } from "@/server/db/db";
 import { ValidationError } from "@/server/validation";
 import { hashPassword, verifyPassword } from "./password";
+import { type LoginRateLimiter, RATE_LIMITED_MESSAGE } from "./rate-limit";
 import { deleteSessionsForUser } from "./sessions";
 import {
   countAdmins,
@@ -56,21 +57,31 @@ export async function resetPassword(
 }
 
 /**
- * Selbst-Passwortänderung: prüft zunächst das aktuelle Passwort, bevor
- * {@link resetPassword} das neue setzt und alle Sessions widerruft.
+ * Selbst-Passwortänderung: prüft zunächst das aktuelle Passwort, gezählt gegen
+ * dasselbe Login-Limit wie die Anmeldung, bevor {@link resetPassword} das neue
+ * setzt und alle Sessions widerruft.
  */
 export async function changePassword(
   db: Db,
+  limiter: LoginRateLimiter,
+  ip: string,
   id: string,
   currentPassword: string,
   newPassword: string,
 ): Promise<void> {
   const user = await findUserById(db, id);
-  if (!user || !(await verifyPassword(currentPassword, user.passwordHash))) {
-    throw new ValidationError("Das aktuelle Passwort ist nicht korrekt.");
+  if (!user) throw new ValidationError(WRONG_CURRENT_PASSWORD);
+  const attempt = await limiter.attempt(ip, user.username, () =>
+    verifyPassword(currentPassword, user.passwordHash),
+  );
+  if (attempt.status === "rate-limited") {
+    throw new ValidationError(RATE_LIMITED_MESSAGE);
   }
+  if (!attempt.result) throw new ValidationError(WRONG_CURRENT_PASSWORD);
   await resetPassword(db, id, newPassword);
 }
+
+const WRONG_CURRENT_PASSWORD = "Das aktuelle Passwort ist nicht korrekt.";
 
 export async function deleteAccount(db: Db, id: string): Promise<void> {
   await db.transaction(async (tx) => {

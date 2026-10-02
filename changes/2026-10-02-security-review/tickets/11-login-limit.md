@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:    AC-24, AC-25
 advances:
 after:
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -64,3 +64,11 @@ The login limit holds under concurrent requests and across an IPv6 /64. An attem
 - Sessions (hashing, `__Host-` cookie, ending the previous session on login): ticket `13-sitzungs-token`.
 
 ## Left standing
+- **Departed from the plan (steps 4 and 6):** the reserve → check → keep or release → `resetPair` steps are written once, as `LoginRateLimiter.attempt(ip, username, check)`, rather than separately in `attemptLogin` and `changePassword` as the plan said. The first review found that the two copies had already started to drift. `tryReserve` is still the synchronous core, and `attempt` is built on it. A falsy `check` result counts as a failed attempt.
+- **Departed from the plan (step 3):** `limiterAddress` uses IPv6 parsing that this ticket moved out of `src/server/kml/public-address.ts` into the new shared `src/server/http/ip-address.ts` (which uses `node:net` `isIPv6`). It does not have its own parser. This also means a zoned address (`fe80::1%eth0`) counts as its /64; it is not left unchanged. KML behaviour is unchanged, and the existing `public-address` tests are green.
+- **Nudge on `src/server/validation.ts`:** not applied. This ticket validates no input. The message lives next to the limiter, as the ticket decided.
+- **Review nits not fixed:**
+  - `changePassword(db, limiter, ip, id, currentPassword, newPassword)` takes `ip` and `id` as neighbouring strings that could be swapped. It has one caller, and the action tests would catch a swap there.
+  - Callers of `attempt` cannot see from the call site that "falsy result = failed attempt". The method's doc comment says so.
+  - The action tests share the process-wide `loginRateLimiter` and stay independent only because each test uses its own address. A comment in both test files says this. A reset hook would be code that only tests use.
+- **Not tested:** whether the shared constant `RATE_LIMITED_MESSAGE` shows correctly on `/login` and `/account` in the running app. The UI was not driven, because the wording is unchanged. Both action tests pin the exact text that the actions return.

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { Queryable } from "@/server/db/db";
 import { freshDb } from "@/test/db";
 import { attemptLogin } from "./login";
 import { hashPassword } from "./password";
@@ -29,28 +30,14 @@ describe("attemptLogin", () => {
     expect(result).toEqual({ status: "ok", user });
   });
 
-  it("returns invalid and records a failure for wrong credentials", async () => {
-    const db = await freshDb();
-    await seedAnna(db);
-    const limiter = new LoginRateLimiter(3, 1000, 1000);
-    const result = await attemptLogin(
-      db,
-      limiter,
-      IP,
-      "anna",
-      "wrong-password!",
-    );
-    expect(result).toEqual({ status: "invalid" });
-    expect(limiter.isBlocked(IP, "anna", 0)).toBe(false); // one failure, not yet blocked
-  });
-
-  it("blocks once the pair threshold is reached and short-circuits before authenticating", async () => {
+  it("counts a wrong password and refuses even the correct one once the pair budget is used up", async () => {
     const db = await freshDb();
     await seedAnna(db);
     const limiter = new LoginRateLimiter(2, 1000, 60_000);
-    await attemptLogin(db, limiter, IP, "anna", "wrong-1!!!!!!");
+    expect(
+      await attemptLogin(db, limiter, IP, "anna", "wrong-1!!!!!!"),
+    ).toEqual({ status: "invalid" });
     await attemptLogin(db, limiter, IP, "anna", "wrong-2!!!!!!");
-    // Even the correct password is now rejected as rate-limited.
     const result = await attemptLogin(
       db,
       limiter,
@@ -66,8 +53,43 @@ describe("attemptLogin", () => {
     await seedAnna(db);
     const limiter = new LoginRateLimiter(2, 1000, 60_000);
     await attemptLogin(db, limiter, IP, "anna", "wrong!!!!!!!");
-    await attemptLogin(db, limiter, IP, "anna", "a-good-password"); // success resets pair
-    await attemptLogin(db, limiter, IP, "anna", "wrong!!!!!!!"); // one failure again
+    await attemptLogin(db, limiter, IP, "anna", "a-good-password");
+    await attemptLogin(db, limiter, IP, "anna", "wrong!!!!!!!");
+    const result = await attemptLogin(
+      db,
+      limiter,
+      IP,
+      "anna",
+      "a-good-password",
+    );
+    expect(result.status).toBe("ok");
+  });
+
+  it("does not count a successful login against the IP budget", async () => {
+    const db = await freshDb();
+    await seedAnna(db);
+    const limiter = new LoginRateLimiter(5, 1, 60_000);
+    await attemptLogin(db, limiter, IP, "anna", "a-good-password");
+    const result = await attemptLogin(
+      db,
+      limiter,
+      IP,
+      "anna",
+      "a-good-password",
+    );
+    expect(result.status).toBe("ok");
+  });
+
+  it("does not count an attempt whose check fails, and passes the error on", async () => {
+    const db = await freshDb();
+    await seedAnna(db);
+    const limiter = new LoginRateLimiter(1, 1, 60_000);
+    const down: Queryable = {
+      query: () => Promise.reject(new Error("database down")),
+    };
+    await expect(
+      attemptLogin(down, limiter, IP, "anna", "a-good-password"),
+    ).rejects.toThrow("database down");
     const result = await attemptLogin(
       db,
       limiter,

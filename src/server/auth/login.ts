@@ -30,10 +30,7 @@ export type LoginAttempt =
   | { status: "rate-limited" }
   | { status: "invalid" };
 
-/**
- * Ein Anmeldeversuch inkl. Rate-Limit: blockt gesperrte Schlüssel vorab,
- * zählt Fehlversuche und setzt den Zähler bei Erfolg zurück.
- */
+/** Ein Anmeldeversuch, gezählt gegen das Login-Limit. */
 export async function attemptLogin(
   db: Queryable,
   limiter: LoginRateLimiter,
@@ -41,16 +38,12 @@ export async function attemptLogin(
   username: string,
   password: string,
 ): Promise<LoginAttempt> {
-  if (limiter.isBlocked(ip, username)) return { status: "rate-limited" };
-
-  const user = await authenticate(db, username, password);
-  if (!user) {
-    limiter.recordFailure(ip, username);
-    return { status: "invalid" };
-  }
-
-  limiter.resetPair(ip, username);
-  return { status: "ok", user };
+  const attempt = await limiter.attempt(ip, username, () =>
+    authenticate(db, username, password),
+  );
+  if (attempt.status === "rate-limited") return attempt;
+  if (!attempt.result) return { status: "invalid" };
+  return { status: "ok", user: attempt.result };
 }
 
 /** Erzeugt eine Session und liefert deren Token samt Ablaufzeitpunkt. */
