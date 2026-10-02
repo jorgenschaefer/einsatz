@@ -105,6 +105,12 @@ describe("OperationsOverview", () => {
     await userEvent.click(
       await screen.findByRole("menuitem", { name: /Abschließen/ }),
     );
+    const dialog = await screen.findByRole("dialog", {
+      name: "Einsatz „Hochwasser“ abschließen",
+    });
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Abschließen" }),
+    );
     expect(onCloseOperation).toHaveBeenCalledWith("a");
   });
 

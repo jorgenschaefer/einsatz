@@ -77,6 +77,7 @@ import {
   generateDeviceLinkAction,
   moveMapSymbolAction,
   placeMapSymbolAction,
+  removeDeviceLinkAction,
   updateMapSymbolCompositionAction,
 } from "@/app/operations/[id]/map-symbol-actions";
 import { GET as operationOverlayGET } from "@/app/operations/[id]/overlays/[overlayId]/route";
@@ -189,6 +190,10 @@ const userGuardedActions: Invocation[] = [
   {
     name: "generateDeviceLinkAction",
     run: () => generateDeviceLinkAction("op-1", "s-1"),
+  },
+  {
+    name: "removeDeviceLinkAction",
+    run: () => removeDeviceLinkAction("op-1", "s-1"),
   },
   {
     name: "addKmlFileAction",

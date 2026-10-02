@@ -75,23 +75,33 @@ describe("view links repository", () => {
   it("resolves access only while the operation is active", async () => {
     const db = await freshDb();
     const op = await anOperation(db);
+    expect(await resolveViewAccess(db, "nope")).toBeNull();
+
+    await closeOperation(db, op.id);
     const link = await createViewLink(db, {
       operationId: op.id,
       label: "Leitstelle",
     });
-
-    expect(await resolveViewAccess(db, link.token)).toEqual({
-      operationId: op.id,
-    });
-    expect(await resolveViewAccess(db, "nope")).toBeNull();
-
-    await closeOperation(db, op.id);
     expect(await resolveViewAccess(db, link.token)).toBeNull();
 
     await reopenOperation(db, op.id);
     expect(await resolveViewAccess(db, link.token)).toEqual({
       operationId: op.id,
     });
+  });
+
+  it("gives an old link no access after closing and reopening", async () => {
+    const db = await freshDb();
+    const op = await anOperation(db);
+    const link = await createViewLink(db, {
+      operationId: op.id,
+      label: "Leitstelle",
+    });
+
+    await closeOperation(db, op.id);
+    await reopenOperation(db, op.id);
+
+    expect(await resolveViewAccess(db, link.token)).toBeNull();
   });
 
   it("allows a blank label and lists it", async () => {

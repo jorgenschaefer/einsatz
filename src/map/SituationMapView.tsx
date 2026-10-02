@@ -79,6 +79,7 @@ export interface SituationMapViewProps {
   ) => Promise<ActionResult>;
   onDelete: (id: string) => Promise<ActionResult>;
   onGenerateDeviceLink: (id: string) => Promise<ActionResult>;
+  onRemoveDeviceLink: (id: string) => Promise<ActionResult>;
   onGeocode: (query: string) => Promise<GeoHit[]>;
   geocoderAttribution: string;
   areas: RenderedArea[];
@@ -128,6 +129,7 @@ export function SituationMapView({
   onUpdate,
   onDelete,
   onGenerateDeviceLink,
+  onRemoveDeviceLink,
   onGeocode,
   geocoderAttribution,
   areas,
@@ -366,6 +368,7 @@ export function SituationMapView({
         onUpdate={onUpdate}
         onDelete={onDelete}
         onGenerateDeviceLink={onGenerateDeviceLink}
+        onRemoveDeviceLink={onRemoveDeviceLink}
       />
     </>
   );

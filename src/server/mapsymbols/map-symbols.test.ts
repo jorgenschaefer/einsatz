@@ -16,6 +16,7 @@ import {
   generateDeviceLink,
   listMapSymbols,
   moveMapSymbol,
+  removeDeviceLink,
   reportPosition,
   resolveDeviceAccess,
   updateMapSymbolComposition,
@@ -221,15 +222,32 @@ describe("map symbols repository", () => {
       lat: 1,
       lng: 2,
     });
-    const token = await generateDeviceLink(db, symbol.id);
 
     await closeOperation(db, op.id);
+    const token = await generateDeviceLink(db, symbol.id);
     expect(await reportPosition(db, token, 50, 8, new Date())).toBeNull();
 
     await reopenOperation(db, op.id);
     expect(await reportPosition(db, token, 51, 7, new Date())).toEqual({
       operationId: op.id,
     });
+  });
+
+  it("denies reports over a link from before closing, also after reopening", async () => {
+    const db = await freshDb();
+    const op = await anOperation(db);
+    const symbol = await createMapSymbol(db, {
+      operationId: op.id,
+      composition,
+      lat: 1,
+      lng: 2,
+    });
+    const token = await generateDeviceLink(db, symbol.id);
+
+    await closeOperation(db, op.id);
+    await reopenOperation(db, op.id);
+
+    expect(await reportPosition(db, token, 51, 7, new Date())).toBeNull();
   });
 
   it("resolves device access to the symbol and operation only while the operation is active", async () => {
@@ -254,6 +272,27 @@ describe("map symbols repository", () => {
     await reopenOperation(db, op.id);
     await generateDeviceLink(db, symbol.id); // Token neu generiert
     expect(await resolveDeviceAccess(db, token)).toBeNull(); // alter Link ungültig
+  });
+
+  it("removes a device link so the old link has no access and a new one can be generated", async () => {
+    const db = await freshDb();
+    const op = await anOperation(db);
+    const symbol = await createMapSymbol(db, {
+      operationId: op.id,
+      composition,
+      lat: 1,
+      lng: 2,
+    });
+    const token = await generateDeviceLink(db, symbol.id);
+
+    await removeDeviceLink(db, symbol.id);
+
+    expect((await listMapSymbols(db, op.id))[0].deviceLinkToken).toBeNull();
+    expect(await resolveDeviceAccess(db, token)).toBeNull();
+    const fresh = await generateDeviceLink(db, symbol.id);
+    expect(await resolveDeviceAccess(db, fresh)).toEqual({
+      operationId: op.id,
+    });
   });
 
   it("generates a device link and regenerating yields a different token", async () => {

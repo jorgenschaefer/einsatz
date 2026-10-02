@@ -1,6 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { NO_ROUTE } from "@/journal/entry-route";
+import type { Db } from "@/server/db/db";
 import { appendEntry, listEntries } from "@/server/journal/journal";
+import {
+  createMapSymbol,
+  generateDeviceLink,
+  listMapSymbols,
+  resolveDeviceAccess,
+} from "@/server/mapsymbols/map-symbols";
+import {
+  createViewLink,
+  listViewLinks,
+  resolveViewAccess,
+} from "@/server/viewlinks/view-links";
 import { freshDb } from "@/test/db";
 import {
   createOperation,
@@ -81,5 +93,97 @@ describe("closeOperation / reopenOperation", () => {
     expect(
       (await listEntries(db, op.id)).some((e) => e.text === "nachträglich"),
     ).toBe(true);
+  });
+});
+
+describe("closing an operation deletes its Gerätelinks and Ansichtslinks", () => {
+  async function operationWithLinks(db: Db) {
+    const op = await createOperation(db, { name: "Hochwasser" });
+    for (const label of ["Leitstelle", "Stab"]) {
+      await createViewLink(db, { operationId: op.id, label });
+    }
+    for (const lat of [1, 2]) {
+      const symbol = await createMapSymbol(db, {
+        operationId: op.id,
+        composition: { grundzeichen: "kraftfahrzeug-landgebunden" },
+        lat,
+        lng: 2,
+      });
+      await generateDeviceLink(db, symbol.id);
+    }
+    return op;
+  }
+
+  const deviceTokens = async (db: Db, operationId: string) =>
+    (await listMapSymbols(db, operationId)).map((s) => s.deviceLinkToken);
+
+  it("removes every Gerätelink and Ansichtslink of the closed operation", async () => {
+    const db = await freshDb();
+    const op = await operationWithLinks(db);
+
+    await closeOperation(db, op.id);
+
+    expect(await deviceTokens(db, op.id)).toEqual([null, null]);
+    expect(await listViewLinks(db, op.id)).toEqual([]);
+  });
+
+  it("leaves another operation's links alone", async () => {
+    const db = await freshDb();
+    const op = await operationWithLinks(db);
+    const other = await operationWithLinks(db);
+    const otherTokens = await deviceTokens(db, other.id);
+    const otherViewLinks = await listViewLinks(db, other.id);
+
+    await closeOperation(db, op.id);
+
+    expect(await deviceTokens(db, other.id)).toEqual(otherTokens);
+    expect(await listViewLinks(db, other.id)).toEqual(otherViewLinks);
+  });
+
+  it("changes nothing when the operation is already closed", async () => {
+    const db = await freshDb();
+    const op = await createOperation(db, { name: "Hochwasser" });
+    await closeOperation(db, op.id);
+    const link = await createViewLink(db, {
+      operationId: op.id,
+      label: "Leitstelle",
+    });
+
+    await closeOperation(db, op.id);
+
+    expect(await listViewLinks(db, op.id)).toEqual([link]);
+  });
+
+  it("keeps old links dead after reopening, while new ones work", async () => {
+    const db = await freshDb();
+    const op = await createOperation(db, { name: "Hochwasser" });
+    const symbol = await createMapSymbol(db, {
+      operationId: op.id,
+      composition: { grundzeichen: "kraftfahrzeug-landgebunden" },
+      lat: 1,
+      lng: 2,
+    });
+    const oldDeviceToken = await generateDeviceLink(db, symbol.id);
+    const oldViewLink = await createViewLink(db, {
+      operationId: op.id,
+      label: "Leitstelle",
+    });
+
+    await closeOperation(db, op.id);
+    await reopenOperation(db, op.id);
+
+    expect(await resolveDeviceAccess(db, oldDeviceToken)).toBeNull();
+    expect(await resolveViewAccess(db, oldViewLink.token)).toBeNull();
+    const newDeviceToken = await generateDeviceLink(db, symbol.id);
+    const newViewLink = await createViewLink(db, {
+      operationId: op.id,
+      label: "Leitstelle",
+    });
+    expect(await resolveDeviceAccess(db, newDeviceToken)).toEqual({
+      operationId: op.id,
+    });
+    expect(await resolveViewAccess(db, newViewLink.token)).toEqual({
+      operationId: op.id,
+    });
   });
 });

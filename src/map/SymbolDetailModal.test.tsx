@@ -37,6 +37,7 @@ async function openDetail(over: Partial<Props> = {}) {
     onUpdate: vi.fn(async () => ({})),
     onDelete: vi.fn(async () => ({})),
     onGenerateDeviceLink: vi.fn(async () => ({})),
+    onRemoveDeviceLink: vi.fn(async () => ({})),
     ...over,
   };
   // The workspace closes the dialog by clearing the symbol.
@@ -155,6 +156,14 @@ describe("SymbolDetailModal", () => {
           screen.getByRole("button", { name: "Gerätelink neu generieren" }),
         confirmLabel: "Neu generieren",
         action: "onGenerateDeviceLink",
+      },
+      {
+        name: "removing the device link",
+        title: "Gerätelink entfernen",
+        opener: () =>
+          screen.getByRole("button", { name: "Gerätelink entfernen" }),
+        confirmLabel: "Entfernen",
+        action: "onRemoveDeviceLink",
       },
     ] as const;
 
@@ -315,6 +324,35 @@ describe("SymbolDetailModal", () => {
       expect(screen.getByLabelText("Gerätelink")).toHaveValue(
         `${window.location.origin}/device/fresh-token`,
       );
+    });
+
+    it("keeps the detail open after removing the device link and then offers a new one", async () => {
+      const { props, rerenderWith } = await openDetail();
+      await userEvent.click(
+        screen.getByRole("button", { name: "Gerätelink entfernen" }),
+      );
+      const dialog = await screen.findByRole("dialog", {
+        name: "Gerätelink entfernen",
+      });
+
+      await userEvent.click(
+        within(dialog).getByRole("button", { name: "Entfernen" }),
+      );
+
+      expect(props.onRemoveDeviceLink).toHaveBeenCalledWith("s1");
+      await waitFor(() =>
+        expect(
+          screen.queryByRole("dialog", { name: "Gerätelink entfernen" }),
+        ).toBeNull(),
+      );
+      expect(detailDialog()).toBeInTheDocument();
+
+      rerenderWith({ symbol: rk1(null) });
+
+      expect(
+        screen.getByRole("button", { name: "Gerätelink erzeugen" }),
+      ).toBeInTheDocument();
+      expect(screen.queryByLabelText("Gerätelink")).toBeNull();
     });
   });
 });

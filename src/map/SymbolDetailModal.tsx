@@ -15,11 +15,12 @@ interface SymbolDetailProps {
   ) => Promise<ActionResult>;
   onDelete: (id: string) => Promise<ActionResult>;
   onGenerateDeviceLink: (id: string) => Promise<ActionResult>;
+  onRemoveDeviceLink: (id: string) => Promise<ActionResult>;
 }
 
 /**
  * Der Dialog „Kartenzeichen": die Zusammensetzung ändern, das Kartenzeichen
- * löschen, den Gerätelink erzeugen. Offen, solange `symbol` gesetzt ist.
+ * löschen, den Gerätelink erzeugen oder entfernen. Offen, solange `symbol` gesetzt ist.
  */
 export function SymbolDetailModal({
   symbol,
@@ -45,6 +46,7 @@ function SymbolDetail({
   onUpdate,
   onDelete,
   onGenerateDeviceLink,
+  onRemoveDeviceLink,
 }: SymbolDetailProps & { symbol: WorkspaceSymbol }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -109,6 +111,7 @@ function SymbolDetail({
         positionSource={symbol.positionSource}
         reportedAt={symbol.reportedAt}
         onGenerate={() => onGenerateDeviceLink(symbol.id)}
+        onRemove={() => onRemoveDeviceLink(symbol.id)}
       />
     </Stack>
   );

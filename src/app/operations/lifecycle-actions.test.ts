@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { access, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Db } from "@/server/db/db";
 
@@ -29,16 +30,30 @@ vi.mock("next/navigation", () => ({
   },
 }));
 
+import DevicePage from "@/app/device/[token]/page";
+import ViewPage from "@/app/view/[token]/page";
+import { DeviceClosed } from "@/map/DeviceClosed";
 import { hashPassword } from "@/server/auth/password";
 import { insertSession } from "@/server/auth/sessions";
 import { insertUser } from "@/server/auth/users";
+import { subscribeOperation } from "@/server/events/operation-events";
 import { storeOverlayImage } from "@/server/image-overlays/image-storage";
 import { listEntries } from "@/server/journal/journal";
+import {
+  createMapSymbol,
+  generateDeviceLink,
+  listMapSymbols,
+} from "@/server/mapsymbols/map-symbols";
 import { createOperation } from "@/server/operations/create-operation";
 import { closeOperation } from "@/server/operations/operation-lifecycle";
 import { getOperation } from "@/server/operations/operations";
+import { createViewLink, listViewLinks } from "@/server/viewlinks/view-links";
 import { freshDb } from "@/test/db";
-import { deleteOperationAction } from "./lifecycle-actions";
+import {
+  closeOperationAction,
+  deleteOperationAction,
+  reopenOperationAction,
+} from "./lifecycle-actions";
 
 async function login(role: "admin" | "user"): Promise<void> {
   const db = state.db as Db;
@@ -129,5 +144,58 @@ describe("deleteOperationAction", () => {
 
     expect(await getOperation(state.db as Db, op.id)).toBeNull();
     await expect(access(join(uploadsDir, op.id))).rejects.toThrow();
+  });
+});
+
+describe("closeOperationAction", () => {
+  async function operationWithLinks() {
+    const db = state.db as Db;
+    const op = await createOperation(db, { name: "Hochwasser" });
+    const symbol = await createMapSymbol(db, {
+      operationId: op.id,
+      composition: { grundzeichen: "kraftfahrzeug-landgebunden" },
+      lat: 53.55,
+      lng: 10,
+    });
+    const deviceToken = await generateDeviceLink(db, symbol.id);
+    const viewLink = await createViewLink(db, {
+      operationId: op.id,
+      label: "Leitstelle",
+    });
+    return { op, deviceToken, viewToken: viewLink.token };
+  }
+
+  async function expectLinksClosed(deviceToken: string, viewToken: string) {
+    const closed = createElement(DeviceClosed);
+    expect(
+      await DevicePage({ params: Promise.resolve({ token: deviceToken }) }),
+    ).toEqual(closed);
+    expect(
+      await ViewPage({ params: Promise.resolve({ token: viewToken }) }),
+    ).toEqual(closed);
+  }
+
+  it("ends every Gerätelink and Ansichtslink for good, also after reopening", async () => {
+    await login("user");
+    const { op, deviceToken, viewToken } = await operationWithLinks();
+    const listener = vi.fn();
+    const unsubscribe = subscribeOperation(op.id, listener);
+
+    try {
+      await closeOperationAction(op.id);
+    } finally {
+      unsubscribe();
+    }
+
+    expect(listener).toHaveBeenCalledTimes(1);
+    await expectLinksClosed(deviceToken, viewToken);
+
+    await reopenOperationAction(op.id);
+
+    await expectLinksClosed(deviceToken, viewToken);
+    const db = state.db as Db;
+    const [symbol] = await listMapSymbols(db, op.id);
+    expect(symbol.deviceLinkToken).toBeNull();
+    expect(await listViewLinks(db, op.id)).toEqual([]);
   });
 });

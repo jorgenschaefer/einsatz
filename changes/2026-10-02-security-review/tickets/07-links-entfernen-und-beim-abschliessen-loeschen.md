@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:    AC-11, AC-12
 advances:
 after:     06-einsatz-loeschen-nur-admin
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -178,3 +178,48 @@ them).
 - Ein abgeschlossener Einsatz bleibt bearbeitbar; Abschließen sperrt nichts außer den Links.
 
 ## Left standing
+- **Review should-fix not fixed: the Positionsquelle stays "Live (Gerät)".**
+  `removeDeviceLink` and `removeAllDeviceLinks` only clear the token. A
+  Kartenzeichen whose device had reported keeps `position_source = 'device'`
+  after its Gerätelink is removed, or after "Abschließen". Its panel then shows
+  "Gerätelink erzeugen" right under "Positionsquelle: Live (Gerät) – zuletzt
+  gemeldet …", and the marker later fades as if the device had gone silent.
+  The plan decided this on purpose ("leaves the Kartenzeichen's position and
+  Positionsquelle as they are"), so I didn't change it. But it contradicts the
+  glossary's **Kartenzeichen** entry, "Ohne Gerätelink immer manuell
+  verortet". Acceptance should decide which one gives way. If it is the
+  behaviour, the fix is to add `position_source = 'manual'` to both UPDATEs.
+- **"Ohne Neuladen" is proven in two halves.** The tests show that removing a
+  Gerätelink and closing an Einsatz each publish once on the Einsatz's bus, and
+  that `DevicePage`/`ViewPage` then render `<DeviceClosed />`. That an open
+  page refreshes on the event was not tested here; the reviewer saw it in the
+  running app. An open Gerätelink page (phone, 390×844) switched to "Zugang
+  beendet" after "Gerätelink entfernen", and an open Ansichtslink page did the
+  same after "Abschließen". Both happened without reloading.
+- **Browser check (plan step 10):** I didn't do it myself; the reviewer drove
+  it at 1280×800 and 390×844. After "Abschließen" and "Wieder öffnen", the old
+  Gerätelink and Ansichtslink still showed "Zugang beendet", and a position
+  report over the old token got 403. The Teilen dialog showed "Noch kein
+  Ansichtslink", and the Kartenzeichen panel offered "Gerätelink erzeugen".
+  Both confirmations fit at both sizes.
+- **Plan detail: the close confirmation has a second sentence.** After the
+  required "Dabei werden alle Gerätelinks und Ansichtslinks dieses Einsatzes
+  gelöscht.", it also says "Sie funktionieren auch nach „Wieder öffnen“ nicht
+  mehr." Its confirm button keeps `ConfirmationModal`'s default red, because
+  deleting the links can't be undone. `closeOperationAction` still returns
+  `Promise<void>`; the modal wraps it (`await onClose(); return {};`).
+- **Plan detail: the old tests became two each.** In `view-links.test.ts`
+  and `map-symbols.test.ts`, the reopen tests now use a link created while the
+  Einsatz is closed (no access) and reopened (access). That keeps the
+  `status = 'active'` check pinned, because a closed Einsatz stays editable
+  and can still get new links. A second test in each shows that a link from
+  before closing stays dead after reopening. I also added a workspace-level
+  test (`SituationWorkspace.symbols.test.tsx`) that shows
+  `onRemoveDeviceLink` is passed through `SituationMapView`.
+- **Tests that passed before their code existed:** the panel test "is not
+  offered when there is no device link" guards that the button is absent, so
+  it was green from the start. In `SymbolDetailModal.test.tsx`, the cancel
+  cases of the new "removing the device link" confirmation row were also green
+  before the wiring, because the panel already rendered the button. The tests
+  that confirm the dialog failed first, as they should.
+

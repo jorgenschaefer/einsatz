@@ -58,6 +58,7 @@ import {
   generateDeviceLinkAction,
   moveMapSymbolAction,
   placeMapSymbolAction,
+  removeDeviceLinkAction,
   updateMapSymbolCompositionAction,
 } from "./map-symbol-actions";
 import {
@@ -198,6 +199,7 @@ export default async function LageansichtPage({
       onUpdate={updateMapSymbolCompositionAction.bind(null, operation.id)}
       onDelete={deleteMapSymbolAction.bind(null, operation.id)}
       onGenerateDeviceLink={generateDeviceLinkAction.bind(null, operation.id)}
+      onRemoveDeviceLink={removeDeviceLinkAction.bind(null, operation.id)}
       onGeocode={geocodeAddressAction}
       geocoderAttribution={GEOCODER_ATTRIBUTION}
       areas={areas}

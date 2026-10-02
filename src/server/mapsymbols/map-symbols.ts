@@ -160,6 +160,28 @@ export async function generateDeviceLink(
   return token;
 }
 
+/** Entfernt den Gerätelink eines Kartenzeichens; der alte Link gibt danach keinen Zugang mehr. */
+export async function removeDeviceLink(
+  db: Queryable,
+  id: string,
+): Promise<void> {
+  await db.query(
+    "UPDATE map_symbols SET device_link_token = NULL WHERE id = $1",
+    [id],
+  );
+}
+
+/** Entfernt alle Gerätelinks eines Einsatzes (beim Abschließen). */
+export async function removeAllDeviceLinks(
+  db: Queryable,
+  operationId: string,
+): Promise<void> {
+  await db.query(
+    "UPDATE map_symbols SET device_link_token = NULL WHERE operation_id = $1",
+    [operationId],
+  );
+}
+
 /**
  * Löst einen Gerätelink-Token auf: liefert die Einsatz-Zugehörigkeit
  * (`operationId`) nur, solange der Token gültig und der Einsatz `aktiv` ist –

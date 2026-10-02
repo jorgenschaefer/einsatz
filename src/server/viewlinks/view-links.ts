@@ -57,6 +57,16 @@ export async function deleteViewLink(db: Queryable, id: string): Promise<void> {
   await db.query("DELETE FROM view_links WHERE id = $1", [id]);
 }
 
+/** Löscht alle Ansichtslinks eines Einsatzes (beim Abschließen). */
+export async function deleteAllViewLinks(
+  db: Queryable,
+  operationId: string,
+): Promise<void> {
+  await db.query("DELETE FROM view_links WHERE operation_id = $1", [
+    operationId,
+  ]);
+}
+
 /**
  * Löst einen Ansichtslink-Token auf: liefert die Einsatz-Zugehörigkeit
  * (`operationId`) nur, solange der Token gültig und der Einsatz `aktiv` ist –

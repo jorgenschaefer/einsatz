@@ -1,6 +1,8 @@
 import { NO_ROUTE } from "@/journal/entry-route";
 import type { Db, Queryable } from "@/server/db/db";
 import { appendEntry } from "@/server/journal/journal";
+import { removeAllDeviceLinks } from "@/server/mapsymbols/map-symbols";
+import { deleteAllViewLinks } from "@/server/viewlinks/view-links";
 import { OPERATION_OPENED_ENTRY_TEXT } from "./create-operation";
 import { getOperation, lockOperation, setOperationStatus } from "./operations";
 
@@ -42,6 +44,11 @@ async function transition(
     const operation = await getOperation(tx, id);
     if (!operation || operation.status !== change.from) return; // kein No-op-Meilenstein
     await setOperationStatus(tx, id, change.to);
+    if (change.to === "closed") {
+      // Alte Links dürfen auch nach „Wieder öffnen" nicht mehr funktionieren.
+      await removeAllDeviceLinks(tx, id);
+      await deleteAllViewLinks(tx, id);
+    }
     await appendEntry(tx, {
       operationId: id,
       text: change.text,

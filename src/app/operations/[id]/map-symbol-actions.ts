@@ -7,6 +7,7 @@ import {
   deleteMapSymbol,
   generateDeviceLink,
   moveMapSymbol,
+  removeDeviceLink,
   updateMapSymbolComposition,
 } from "@/server/mapsymbols/map-symbols";
 import { operationAction } from "./operation-action";
@@ -62,6 +63,16 @@ export async function generateDeviceLinkAction(
 ): Promise<ActionResult> {
   return operationAction(async (db) => {
     await generateDeviceLink(db, id);
+    return operationId;
+  });
+}
+
+export async function removeDeviceLinkAction(
+  operationId: string,
+  id: string,
+): Promise<ActionResult> {
+  return operationAction(async (db) => {
+    await removeDeviceLink(db, id);
     return operationId;
   });
 }

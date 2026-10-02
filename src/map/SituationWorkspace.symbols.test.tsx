@@ -368,6 +368,29 @@ describe("SituationWorkspace", () => {
     expect(onGenerateDeviceLink).toHaveBeenCalledWith("s1");
   });
 
+  it("removes a device link from the Kartenzeichen detail", async () => {
+    const onRemoveDeviceLink = vi.fn(async () => ({}));
+    const { adapter } = renderWorkspace({
+      symbols: [{ ...SYMBOL, deviceLinkToken: "secret-token-123" }],
+      onRemoveDeviceLink,
+    });
+    await waitFor(() => expect(adapter.setMarker).toHaveBeenCalled());
+    const spec = adapter.setMarker.mock.calls.at(-1)![1] as MarkerSpec;
+    act(() => spec.onClick!());
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Gerätelink entfernen" }),
+    );
+    const dialog = await screen.findByRole("dialog", {
+      name: "Gerätelink entfernen",
+    });
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Entfernen" }),
+    );
+
+    expect(onRemoveDeviceLink).toHaveBeenCalledWith("s1");
+  });
+
   it("does not show an earlier Kartenzeichen's save error after it vanished", async () => {
     const { adapter, props } = buildProps({
       symbols: [aSymbol({ id: "s1" }), aSymbol({ id: "s2" })],

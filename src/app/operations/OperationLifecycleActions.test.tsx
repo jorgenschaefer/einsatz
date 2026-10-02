@@ -2,7 +2,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { ActionResult } from "@/app/action-result";
 import { clickModalOverlay } from "@/test/modal-overlay";
-import { render, screen, within } from "@/test/render";
+import { render, screen, waitFor, within } from "@/test/render";
 import {
   OperationLifecycleActions,
   type OperationLifecycleActionsProps,
@@ -28,8 +28,7 @@ const openMenu = () =>
   userEvent.click(screen.getByRole("button", { name: /Einsatz-Aktionen/ }));
 
 describe("OperationLifecycleActions", () => {
-  it("closes an active Einsatz from the menu", async () => {
-    const props = setup({ status: "active" });
+  async function askToClose() {
     await openMenu();
     expect(
       screen.queryByRole("menuitem", { name: /Wieder öffnen/ }),
@@ -37,7 +36,37 @@ describe("OperationLifecycleActions", () => {
     await userEvent.click(
       await screen.findByRole("menuitem", { name: /Abschließen/ }),
     );
-    expect(props.onClose).toHaveBeenCalled();
+    return screen.findByRole("dialog", {
+      name: "Einsatz „Hochwasser“ abschließen",
+    });
+  }
+
+  it("closes an active Einsatz only after confirming that its links get deleted", async () => {
+    const props = setup({ status: "active" });
+
+    const dialog = await askToClose();
+
+    expect(dialog).toHaveTextContent(
+      "Dabei werden alle Gerätelinks und Ansichtslinks dieses Einsatzes gelöscht.",
+    );
+    expect(props.onClose).not.toHaveBeenCalled();
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Abschließen" }),
+    );
+    expect(props.onClose).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
+  it("does not close the Einsatz when the confirmation is cancelled", async () => {
+    const props = setup({ status: "active" });
+
+    const dialog = await askToClose();
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Abbrechen" }),
+    );
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(props.onClose).not.toHaveBeenCalled();
   });
 
   it("reopens a closed Einsatz from the menu", async () => {

@@ -19,6 +19,7 @@ function setup(over: Partial<DeviceLinkPanelProps> = {}) {
     positionSource: "manual",
     reportedAt: null,
     onGenerate: vi.fn(async () => ({})),
+    onRemove: vi.fn(async () => ({})),
     ...over,
   };
   render(<DeviceLinkPanel {...props} />);
@@ -36,6 +37,16 @@ const askToRegenerate = async () => {
 
 const confirmButton = (dialog: HTMLElement) =>
   within(dialog).getByRole("button", { name: "Neu generieren" });
+
+const askToRemove = async () => {
+  await userEvent.click(
+    screen.getByRole("button", { name: "Gerätelink entfernen" }),
+  );
+  return screen.findByRole("dialog", { name: "Gerätelink entfernen" });
+};
+
+const removeButton = (dialog: HTMLElement) =>
+  within(dialog).getByRole("button", { name: "Entfernen" });
 
 describe("DeviceLinkPanel", () => {
   it("offers to generate a device link when there is none", async () => {
@@ -154,6 +165,59 @@ describe("DeviceLinkPanel", () => {
       ).toBeDisabled();
       expect(screen.getByRole("dialog")).toBe(dialog);
       expect(onGenerate).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("removing an existing device link", () => {
+    it("asks for confirmation first and removes only once confirmed", async () => {
+      const props = setup({ token: "secret-token-123" });
+
+      const dialog = await askToRemove();
+
+      expect(props.onRemove).not.toHaveBeenCalled();
+      expect(dialog).toHaveTextContent(
+        "Der Link funktioniert sofort nicht mehr. Ein Gerät, das ihn offen hat, zeigt „Zugang beendet“.",
+      );
+      expect(buttonColor(removeButton(dialog))).toBe("red");
+
+      await userEvent.click(removeButton(dialog));
+
+      expect(props.onRemove).toHaveBeenCalledTimes(1);
+      expect(props.onGenerate).not.toHaveBeenCalled();
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    });
+
+    it("does not remove when cancelled", async () => {
+      const props = setup({ token: "secret-token-123" });
+      const dialog = await askToRemove();
+
+      await userEvent.click(
+        within(dialog).getByRole("button", { name: "Abbrechen" }),
+      );
+
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+      expect(props.onRemove).not.toHaveBeenCalled();
+    });
+
+    it("shows a returned error in the open confirmation", async () => {
+      setup({
+        token: "secret-token-123",
+        onRemove: vi.fn(async () => ({ error: "Kartenzeichen fehlt." })),
+      });
+      const dialog = await askToRemove();
+
+      await userEvent.click(removeButton(dialog));
+
+      expect(within(dialog).getByRole("alert")).toHaveTextContent(
+        "Kartenzeichen fehlt.",
+      );
+    });
+
+    it("is not offered when there is no device link", () => {
+      setup({ token: null });
+      expect(
+        screen.queryByRole("button", { name: "Gerätelink entfernen" }),
+      ).toBeNull();
     });
   });
 

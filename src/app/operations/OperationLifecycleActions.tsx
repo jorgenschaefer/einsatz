@@ -22,7 +22,8 @@ export function OperationLifecycleActions({
   onReopen,
   onDelete,
 }: OperationLifecycleActionsProps) {
-  const [confirmOpen, confirm] = useDisclosure(false);
+  const [closeConfirmOpen, closeConfirm] = useDisclosure(false);
+  const [deleteConfirmOpen, deleteConfirm] = useDisclosure(false);
 
   return (
     <>
@@ -38,14 +39,14 @@ export function OperationLifecycleActions({
         </Menu.Target>
         <Menu.Dropdown>
           {status === "active" ? (
-            <Menu.Item onClick={() => onClose()}>Abschließen</Menu.Item>
+            <Menu.Item onClick={closeConfirm.open}>Abschließen</Menu.Item>
           ) : (
             <Menu.Item onClick={() => onReopen()}>Wieder öffnen</Menu.Item>
           )}
           {isAdmin && status === "closed" && (
             <>
               <Menu.Divider />
-              <Menu.Item color="red" onClick={confirm.open}>
+              <Menu.Item color="red" onClick={deleteConfirm.open}>
                 Einsatz löschen
               </Menu.Item>
             </>
@@ -54,8 +55,24 @@ export function OperationLifecycleActions({
       </Menu>
 
       <ConfirmationModal
-        opened={confirmOpen}
-        onClose={confirm.close}
+        opened={closeConfirmOpen}
+        onClose={closeConfirm.close}
+        title={`Einsatz „${name}“ abschließen`}
+        confirmLabel="Abschließen"
+        onConfirm={async () => {
+          await onClose();
+          return {};
+        }}
+      >
+        <Text>
+          Dabei werden alle Gerätelinks und Ansichtslinks dieses Einsatzes
+          gelöscht. Sie funktionieren auch nach „Wieder öffnen“ nicht mehr.
+        </Text>
+      </ConfirmationModal>
+
+      <ConfirmationModal
+        opened={deleteConfirmOpen}
+        onClose={deleteConfirm.close}
         title={`Einsatz „${name}“ löschen`}
         confirmLabel="Endgültig löschen"
         onConfirm={onDelete}

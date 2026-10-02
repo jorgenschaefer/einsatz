@@ -13,6 +13,7 @@ export interface DeviceLinkPanelProps {
   positionSource: PositionSource;
   reportedAt: Date | null;
   onGenerate: () => Promise<ActionResult>;
+  onRemove: () => Promise<ActionResult>;
 }
 
 const deviceUrl = (token: string): string => {
@@ -25,9 +26,11 @@ export function DeviceLinkPanel({
   positionSource,
   reportedAt,
   onGenerate,
+  onRemove,
 }: DeviceLinkPanelProps) {
   const { status: copyStatus, copy } = useClipboardCopy();
   const [askingToRegenerate, regenerateConfirmation] = useDisclosure(false);
+  const [askingToRemove, removeConfirmation] = useDisclosure(false);
   const url = token ? deviceUrl(token) : "";
 
   return (
@@ -83,6 +86,20 @@ export function DeviceLinkPanel({
           >
             Der bisherige Link funktioniert sofort nicht mehr. Das Gerät muss
             den neuen Link öffnen.
+          </ConfirmationModal>
+          <Button variant="light" color="red" onClick={removeConfirmation.open}>
+            Gerätelink entfernen
+          </Button>
+          <ConfirmationModal
+            stackId="geraetelink-entfernen"
+            opened={askingToRemove}
+            onClose={removeConfirmation.close}
+            title="Gerätelink entfernen"
+            confirmLabel="Entfernen"
+            onConfirm={onRemove}
+          >
+            Der Link funktioniert sofort nicht mehr. Ein Gerät, das ihn offen
+            hat, zeigt „Zugang beendet“.
           </ConfirmationModal>
         </>
       ) : (

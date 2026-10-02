@@ -49,6 +49,7 @@ export function buildProps(over: Partial<SituationWorkspaceProps> = {}) {
     onUpdate: vi.fn(async () => ({})),
     onDelete: vi.fn(async () => ({})),
     onGenerateDeviceLink: vi.fn(async () => ({})),
+    onRemoveDeviceLink: vi.fn(async () => ({})),
     onGeocode: vi.fn(async () => []),
     geocoderAttribution: "© OpenStreetMap",
     areas: [],
