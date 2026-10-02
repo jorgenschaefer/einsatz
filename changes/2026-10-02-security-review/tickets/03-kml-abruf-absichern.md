@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:
 advances:  AC-7, AC-9
 after:
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -190,3 +190,67 @@ dispatcher: new Agent({ connect: { lookup } }) })`); the rest stays.
   reaches it.)
 
 ## Left standing
+- **Plan departure (agreed at approval): `node:http`/`node:https` instead of
+  an undici `Agent`.** This departs from the nudge "Die geprüfte IP auch für
+  die Verbindung verwenden (undici-`Agent` mit eigenem `connect.lookup`)".
+  `undici` would be a new production dependency, which the nudge "Keine neuen
+  Abhängigkeiten" rules out. `pinnedFetch` (`src/server/kml/pinned-fetch.ts`)
+  hands the socket the `lookup` option `checkedLookup`.
+- **Nudge not applicable: nothing changed in `src/server/validation.ts`.** The
+  address check lives in `src/server/kml/public-address.ts`, as the plan said.
+  No zod was added.
+- **Gap from leaving undici: no transparent decompression.** `fetch` sent
+  `Accept-Encoding` and unpacked gzip/br; `pinnedFetch` sends no
+  `Accept-Encoding`. So servers answer uncompressed. A server that compresses
+  anyway would now fail with „Die Adresse liefert keine KML-Datei.". None of
+  the real URLs tried did that.
+- **Plan addition: `3fff::/20` is also not public.** It is the newer IPv6
+  documentation range (RFC 9637) and lies inside 2000::/3, but the plan's list
+  left it out. `2001:db8::1`, which the old `isBlockedIp` allowed, is now
+  rejected, as the plan said.
+- **Plan addition: unusual HTTP statuses.** The first review found that a 204,
+  205 or 304 answer, or a status above 599, threw inside the response callback
+  and hung until the 15 s timeout. Statuses without a body now come back as an
+  empty response. A status above 599 rejects at once, and the user sees
+  „KML konnte nicht geladen werden.". Tests in `pinned-fetch.test.ts` cover
+  both. Their red was a 5 s test timeout, not a failed assertion, because the
+  hang was the defect.
+- **Small departure in step 4:** `scriptedFetch` returns a real `Response` with
+  status, body and `location`, but has no `content-length`/`content-type`
+  options. No test needs them yet. Ticket 21 can add them.
+- **Red for the resolved-name action tests** (`kml-actions.address.test.ts`)
+  was shown against the original `kml-fetch.ts`. There
+  `cgnat.example.test → 100.64.0.1` got „KML konnte nicht geladen werden."
+  instead of „Diese Adresse ist nicht erlaubt.". The other names in that file
+  (loopback, private, IPv4-mapped link-local) were already refused by the old
+  blocklist. The rebinding guarantee itself is proven in `pinned-fetch.test.ts`:
+  one DNS lookup per fetch, and the socket uses only the checked answer.
+- **Review nit not fixed:** the rebinding test in `pinned-fetch.test.ts`
+  ("connects to the checked address, not to a later answer …") lets the socket
+  try a real TCP connection to `93.184.216.34` on a random port for up to
+  500 ms. That shows the socket uses the checked answer. A public address that
+  is also guaranteed unreachable does not exist, and avoiding the connection
+  would mean patching `net`. The test does not depend on the outcome: it
+  passes whether the connection is refused, unreachable or timed out.
+- **Step 6 (real network), checked by hand and by the reviewer in the running
+  app at 390×844, 1280×800 and 1920×1080:**
+  - These imported with content: `http://developers.google.com/kml/documentation/KML_Samples.kml`
+    (301 redirect), the KMZ `https://www.spc.noaa.gov/products/outlook/day1otlk.kmz`,
+    the USGS NetworkLink KML `2.5_week_age_link.kml` (1916 Placemarks), and
+    the Google „Meine Karten" link `https://www.google.com/maps/d/viewer?mid=1mRODUrb15J38DJ0QfaDLCzK7kEn9UfwX`
+    (about 1.86 MB). A file with a NetworkLink to that „Meine Karten" export
+    also imported. "Neu laden" on the KMZ and the „Meine Karten" overlay
+    worked.
+  - „Diese Adresse ist nicht erlaubt." appeared for `http://127.0.0.1:3000/`,
+    `http://100.64.0.1/x.kml`, `http://10.0.0.1.sslip.io/x.kml` (a name that
+    resolves to a private address), `http://100.64.0.1.sslip.io/x.kml`,
+    `http://[::ffff:127.0.0.1]:3000/`, `http://0x7f.1:3000/`,
+    `http://localhost./` and `http://169.254.169.254/latest`. It also appeared
+    for "Neu laden" on an overlay whose stored URL was set to the sslip.io
+    name. A file whose NetworkLinks pointed at `10.0.0.1.sslip.io`,
+    `127.0.0.1:3000` and a public KML imported only the public content.
+  - `localtest.me` and `127.0.0.1.nip.io` do not resolve on this machine, so
+    `sslip.io` was used instead.
+  - The redirect to `googleusercontent.com` did not happen for that map: the
+    `forcekml` export answered directly. That redirect hop is covered only by
+    the redirect tests in `kml-fetch.test.ts`, not by a real Google download.

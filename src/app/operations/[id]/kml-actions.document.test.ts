@@ -1,8 +1,12 @@
 import { strToU8, zipSync } from "fflate";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { type FetchStub, scriptedFetch } from "@/test/scripted-fetch";
 
 const createKmlOverlay = vi.fn();
+const pinnedFetch = vi.fn();
+vi.mock("@/server/kml/pinned-fetch", () => ({
+  pinnedFetch: (...args: unknown[]) => pinnedFetch(...args),
+}));
 
 vi.mock("@/server/auth/current-user", () => ({
   requireUser: async () => ({ id: "u1", username: "anna", role: "user" }),
@@ -32,18 +36,17 @@ const NOT_KML_FILE = "Die Datei ist keine KML- oder KMZ-Datei.";
 const HTML =
   "<!doctype html><html><head><title>Anmelden</title></head><body></body></html>";
 const KML = '<kml xmlns="http://www.opengis.net/kml/2.2"><Document/></kml>';
+const networkLinkTo = (href: string) =>
+  `<NetworkLink><Link><href>${href}</href></Link></NetworkLink>`;
 
 const serve = (handler: (url: string) => FetchStub) =>
-  vi.stubGlobal("fetch", scriptedFetch(handler));
+  pinnedFetch.mockImplementation(scriptedFetch(handler));
 
 const savedContent = (): string => createKmlOverlay.mock.calls[0][1].content;
 
 beforeEach(() => {
   createKmlOverlay.mockReset().mockResolvedValue(undefined);
-});
-
-afterEach(() => {
-  vi.unstubAllGlobals();
+  pinnedFetch.mockReset();
 });
 
 describe("a URL that does not deliver KML", () => {
@@ -118,11 +121,9 @@ describe("KML that works today", () => {
   });
 
   it("skips a NetworkLink target that delivers no KML like a dead link", async () => {
-    const link = (href: string) =>
-      `<NetworkLink><Link><href>${href}</href></Link></NetworkLink>`;
-    const myMaps = `<kml><Document>${link("http://93.184.216.34/html")}${link(
-      "http://93.184.216.34/a.kml",
-    )}</Document></kml>`;
+    const myMaps = `<kml><Document>${networkLinkTo(
+      "http://93.184.216.34/html",
+    )}${networkLinkTo("http://93.184.216.34/a.kml")}</Document></kml>`;
     const target = "<kml><Document><Placemark>A</Placemark></Document></kml>";
     serve((url) => {
       if (url.endsWith("/html")) return { body: HTML };
@@ -138,5 +139,77 @@ describe("KML that works today", () => {
 
     expect(result).toEqual({});
     expect(savedContent()).toBe(target);
+  });
+});
+
+describe("an address outside the public unicast address space", () => {
+  const NOT_ALLOWED = "Diese Adresse ist nicht erlaubt.";
+  const requested: string[] = [];
+  const serveKmlAndRecord = () =>
+    serve((url) => {
+      requested.push(url);
+      return { body: KML };
+    });
+
+  beforeEach(() => {
+    requested.length = 0;
+  });
+
+  it.each([
+    "http://100.64.0.1/x.kml",
+    "http://224.0.0.1/x.kml",
+    "http://192.0.2.1/x.kml",
+    "http://[2001:db8::1]/x.kml",
+    "http://[64:ff9b::7f00:1]/x.kml",
+  ])("is not fetched when added as URL %s", async (url) => {
+    serveKmlAndRecord();
+
+    const result = await addKmlUrlAction("op-1", "Pegel", url);
+
+    expect(result).toEqual({ error: NOT_ALLOWED });
+    expect(requested).toEqual([]);
+    expect(createKmlOverlay).not.toHaveBeenCalled();
+  });
+
+  const linkToPublicAndCgnat = `<kml><Document>${networkLinkTo(
+    "http://100.64.0.1/a.kml",
+  )}${networkLinkTo("http://93.184.216.34/b.kml")}</Document></kml>`;
+  const publicTarget =
+    "<kml><Document><Placemark>B</Placemark></Document></kml>";
+
+  it("skips such a NetworkLink in a file like a dead link", async () => {
+    serve((url) => {
+      requested.push(url);
+      return { body: publicTarget };
+    });
+
+    const result = await addKmlFileAction(
+      "op-1",
+      "Meine Karte",
+      linkToPublicAndCgnat,
+    );
+
+    expect(result).toEqual({});
+    expect(savedContent()).toBe(publicTarget);
+    expect(requested).toEqual(["http://93.184.216.34/b.kml"]);
+  });
+
+  it("skips such a NetworkLink behind a URL like a dead link", async () => {
+    serve((url) => {
+      requested.push(url);
+      return {
+        body: url.endsWith("/karte.kml") ? linkToPublicAndCgnat : publicTarget,
+      };
+    });
+
+    const result = await addKmlUrlAction(
+      "op-1",
+      "Meine Karte",
+      "http://93.184.216.34/karte.kml",
+    );
+
+    expect(result).toEqual({});
+    expect(savedContent()).toBe(publicTarget);
+    expect(requested).not.toContain("http://100.64.0.1/a.kml");
   });
 });

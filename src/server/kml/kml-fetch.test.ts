@@ -1,18 +1,26 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { MAX_KML_BYTES } from "@/kml/kmz";
 import { ValidationError } from "@/server/validation";
-import { scriptedFetch } from "@/test/scripted-fetch";
+import { type FetchStub, scriptedFetch } from "@/test/scripted-fetch";
+
+const pinnedFetch = vi.fn();
+vi.mock("./pinned-fetch", () => ({
+  pinnedFetch: (...args: unknown[]) => pinnedFetch(...args),
+}));
+
 import {
   assertFetchableKmlUrl,
   assertKmlDocument,
   enforceContentLength,
   enforceKmlSizeLimit,
   fetchKmlFromUrl,
-  isBlockedIp,
   MAX_NETWORK_LINK_DEPTH,
   normalizeKmlSourceUrl,
   resolveKmlNetworkLinks,
 } from "./kml-fetch";
+
+const serve = (handler: (url: string) => FetchStub) =>
+  pinnedFetch.mockReset().mockImplementation(scriptedFetch(handler));
 
 const doc = (marker: string) =>
   `<kml><Document><Placemark>${marker}</Placemark></Document></kml>`;
@@ -180,68 +188,24 @@ describe("normalizeKmlSourceUrl", () => {
   });
 });
 
-describe("isBlockedIp", () => {
-  it("blocks loopback, unspecified, private and link-local IPv4", () => {
-    for (const ip of [
-      "0.0.0.0",
-      "127.0.0.1",
-      "10.1.2.3",
-      "172.16.0.1",
-      "172.31.255.255",
-      "192.168.1.1",
-      "169.254.169.254",
-    ]) {
-      expect(isBlockedIp(ip), ip).toBe(true);
-    }
-  });
-
-  it("blocks loopback, link-local and unique-local IPv6, and IPv4-mapped forms", () => {
-    for (const ip of [
-      "::1",
-      "::",
-      "fe80::1",
-      "fc00::1",
-      "fd12:3456::1",
-      "::ffff:169.254.169.254",
-      "::ffff:a9fe:a9fe", // hex-Form von 169.254.169.254
-    ]) {
-      expect(isBlockedIp(ip), ip).toBe(true);
-    }
-  });
-
-  it("allows public IPv4/IPv6 addresses and non-IP hostnames", () => {
-    for (const host of [
-      "8.8.8.8",
-      "172.15.0.1",
-      "172.32.0.1",
-      "2001:db8::1",
-      "fda.gov",
-      "fc-bayern.de",
-      "example.com",
-    ]) {
-      expect(isBlockedIp(host), host).toBe(false);
-    }
-  });
-});
-
 describe("fetchKmlFromUrl (redirect handling)", () => {
   it("re-checks each hop and blocks a redirect to an internal address", async () => {
-    const doFetch = scriptedFetch(() => ({
+    serve(() => ({
       status: 302,
       location: "http://169.254.169.254/internal.kml",
     }));
     await expect(
-      fetchKmlFromUrl("http://93.184.216.34/start.kml", 0, doFetch),
+      fetchKmlFromUrl("http://93.184.216.34/start.kml"),
     ).rejects.toThrow("Diese Adresse ist nicht erlaubt.");
   });
 
   it("gives up after too many redirects", async () => {
-    const doFetch = scriptedFetch(() => ({
+    serve(() => ({
       status: 302,
       location: "http://93.184.216.34/next.kml",
     }));
     await expect(
-      fetchKmlFromUrl("http://93.184.216.34/start.kml", 0, doFetch),
+      fetchKmlFromUrl("http://93.184.216.34/start.kml"),
     ).rejects.toThrow("Zu viele Weiterleitungen");
   });
 });
@@ -252,39 +216,35 @@ describe("resolveKmlNetworkLinks", () => {
   )}${networkLink("http://93.184.216.34/b.kml")}</Document></kml>`;
 
   it("resolves NetworkLinks and merges the fetched documents", async () => {
-    const doFetch = scriptedFetch((url) => ({
+    serve((url) => ({
       body: url.includes("/a.kml") ? doc("A") : doc("B"),
     }));
-    const merged = await resolveKmlNetworkLinks(twoLinks, 0, doFetch);
+    const merged = await resolveKmlNetworkLinks(twoLinks);
     expect(merged).toContain("<Placemark>A</Placemark>");
     expect(merged).toContain("<Placemark>B</Placemark>");
   });
 
   it("skips a NetworkLink that fails to load and keeps the rest", async () => {
-    const doFetch = scriptedFetch((url) =>
+    serve((url) =>
       url.includes("/a.kml") ? { status: 500 } : { body: doc("B") },
     );
-    const out = await resolveKmlNetworkLinks(twoLinks, 0, doFetch);
+    const out = await resolveKmlNetworkLinks(twoLinks);
     expect(out).toContain("<Placemark>B</Placemark>");
     expect(out).not.toContain("<Placemark>A</Placemark>");
   });
 
   it("keeps the original KML when every NetworkLink is dead", async () => {
-    const doFetch = scriptedFetch(() => ({ status: 500 }));
-    expect(await resolveKmlNetworkLinks(twoLinks, 0, doFetch)).toBe(twoLinks);
+    serve(() => ({ status: 500 }));
+    expect(await resolveKmlNetworkLinks(twoLinks)).toBe(twoLinks);
   });
 
   it("stops at the depth limit without fetching", async () => {
     let calls = 0;
-    const doFetch = scriptedFetch(() => {
+    serve(() => {
       calls++;
       return { body: doc("X") };
     });
-    const out = await resolveKmlNetworkLinks(
-      twoLinks,
-      MAX_NETWORK_LINK_DEPTH,
-      doFetch,
-    );
+    const out = await resolveKmlNetworkLinks(twoLinks, MAX_NETWORK_LINK_DEPTH);
     expect(out).toBe(twoLinks);
     expect(calls).toBe(0);
   });

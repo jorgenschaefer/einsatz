@@ -1,8 +1,12 @@
 import { strToU8, zipSync } from "fflate";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { extractKml } from "@/kml/kmz";
 import { scriptedFetch } from "@/test/scripted-fetch";
 
+const pinnedFetch = vi.fn();
+vi.mock("@/server/kml/pinned-fetch", () => ({
+  pinnedFetch: (...args: unknown[]) => pinnedFetch(...args),
+}));
 vi.mock("@/server/auth/current-user", () => ({
   requireUser: async () => ({ id: "u1", username: "anna", role: "user" }),
 }));
@@ -55,14 +59,7 @@ function kmlOfSize(piece = ""): string {
 const kmz = (kml: string): Uint8Array => zipSync({ "doc.kml": strToU8(kml) });
 
 const serve = (body: (url: string) => string | Uint8Array) =>
-  vi.stubGlobal(
-    "fetch",
-    scriptedFetch((url) => ({ body: body(url) })),
-  );
-
-afterEach(() => {
-  vi.unstubAllGlobals();
-});
+  pinnedFetch.mockImplementation(scriptedFetch((url) => ({ body: body(url) })));
 
 /** `prepare` sets up an import of the given KML and returns the step to time. */
 async function expectAtMostTwiceOrdinary(
