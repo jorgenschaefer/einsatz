@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:
 advances:
 after:
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -62,4 +62,9 @@ helpers are in `src/map/SituationWorkspace.fixtures.tsx`.
 - Splitting the other workspace test files or `SituationMapView.tsx`.
 
 ## Left standing
+- Review nit, not fixed: in `SituationWorkspace.map-view.test.tsx` the two
+  "set the default view" tests come first, then the zoom-on-jump block, then
+  the three "return to the default view" tests. This is the order they had in
+  the original file. I kept it so the split stays a pure move.
+- The app was not run. Only test files change, and no screen is touched.
 
