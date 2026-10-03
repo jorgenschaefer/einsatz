@@ -35,6 +35,16 @@ requires. The rule is written into `CLAUDE.md`.
 
 > **AC-13** The test file of every page checks what its location requires: under `src/app/view/` and `src/app/device/`, that no Einsatz data is shown without a valid token; under `src/app/admin/`, that admin rights are required; anywhere else, that login is required, or the test file declares the page public. A page under `view/`, `device/` or `admin/` cannot be declared public. `npm run check` fails when a page's test file does not check what its location requires.
 
+Beyond the criteria: each violation the check reports says what to do
+about it, so the fix follows from the message without reading `CLAUDE.md`
+or the check's code. It names the file at fault, what is missing or
+doubled, and the remedy - the test file to create or merge into, or the
+helper to call and the file in `src/test/` that defines it. For example:
+`src/app/x/actions.ts: its test file src/app/x/actions.test.ts does not
+call expectBadCallsRejected (src/test/action-checks.ts)`, or
+`src/map/Foo.bar.test.tsx: no source file Foo.bar.tsx - move its tests
+into src/map/Foo.test.tsx`.
+
 ## Nudges
 > The pairing check lives in `src/test/` next to `server-action-modules.ts`, as a source file with its own test file, and that test runs it against the repository.
 
@@ -83,22 +93,32 @@ requires. The rule is written into `CLAUDE.md`.
     otherwise `expectPageRequiresLogin` or `expectPublicPage`;
     `expectPublicPage` is refused under `view/`, `device/` and `admin/`
     (AC-5, AC-13).
+- Who reads the messages: mostly a coding agent that has just added an
+  action, route, page or test file and sees `npm run check` fail. A
+  message that names the remedy lets it fix the violation in one step
+  instead of searching for the rule. Where the remedy is ambiguous (a
+  topic test file whose tests may belong to several files), the message
+  names the source file of the same stem and says each test goes to the
+  file whose behaviour it tests.
 
 ## Plan
 1. The AC-4 test first, red: `src/test/test-files.test.ts` (new) with
    cases for a lone topic test file, two test files for one source, and a
    test file without a source, against `checkTestFiles(files)` in
    `src/test/test-files.ts` (new), which takes the file list and returns the
-   violations. Proof: red, then green once the pairing rule is written.
+   violations as messages; each case asserts the whole message, file and
+   remedy included. Proof: red, then green once the pairing rule is written.
 2. The entry-point rules (AC-5, AC-6, AC-7, AC-13) in the same function,
    with a case each in the test: a `"use server"` module without a test
    file, an action test without `expectBadCallsRejected`, a token route
    test calling `expectRouteRequiresLogin`, an admin page declared public.
-   Proof: each case red before its rule, green after.
+   Each case asserts that the message names the missing helper and the
+   file in `src/test/` that defines it. Proof: each case red before its
+   rule, green after.
 3. A test in `test-files.test.ts` that runs `checkTestFiles` on the real
    `git ls-files` output and expects no violations. Proof: green on the
-   tree; make a copy of a topic test file by hand and see it fail; remove
-   the copy. If the real tree has violations, fix them here when each is a
+   tree; make a copy of a topic test file by hand and see it fail with a
+   message that names the remedy; remove the copy. If the real tree has violations, fix them here when each is a
    single file; more than that halts the ticket naming them.
 4. Add the rule to the "Tests" section of `CLAUDE.md` (German, like the
    rest): one test file per source file, named after it; a test tests its
