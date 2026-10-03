@@ -32,13 +32,15 @@ vi.mock("@/server/kml/kml-overlays", () => ({
   ) => createKmlOverlay("db", { content: await fetcher(MAIN_URL) }),
 }));
 
-import {
-  addKmlFileAction,
-  addKmlUrlAction,
-  reloadKmlAction,
-} from "./kml-actions";
+import { addKmlFile } from "@/server/kml/kml-import";
+import { addKmlUrlAction, reloadKmlAction } from "./kml-actions";
 
 const MAIN_URL = "http://93.184.216.34/karte.kml";
+
+// Direkt über die Domänenfunktion: Unter jsdom kann die Upload-Route ihr
+// Formular nicht lesen (undici erwartet seine eigene `File`-Klasse).
+const addFile = (content: string) =>
+  addKmlFile({} as never, { operationId: "op-1", name: "Karte", content });
 const PIN = "http://93.184.216.34/pin.png";
 const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 1, 2, 3]);
 const PNG_DATA_URI = `data:image/png;base64,${Buffer.from(PNG).toString("base64")}`;
@@ -108,9 +110,7 @@ describe("an IconStyle icon from an http(s) address", () => {
   it("is embedded when a file is added", async () => {
     servePng("");
 
-    expect(await addKmlFileAction("op-1", "Karte", kmlWithIcon(PIN))).toEqual(
-      {},
-    );
+    await expect(addFile(kmlWithIcon(PIN))).resolves.toBeUndefined();
 
     expect(savedContent()).not.toContain(PIN);
     expect(markerIconUrls(savedContent())).toEqual([PNG_DATA_URI]);
@@ -128,7 +128,7 @@ describe("an IconStyle icon from an http(s) address", () => {
   it("is embedded with the image type its server names, without parameters", async () => {
     serve(() => ({ contentType: "Image/GIF; charset=binary", body: PNG }));
 
-    await addKmlFileAction("op-1", "Karte", kmlWithIcon(PIN));
+    await addFile(kmlWithIcon(PIN));
 
     expect(markerIconUrls(savedContent())).toEqual([
       PNG_DATA_URI.replace("image/png", "image/gif"),
@@ -139,7 +139,7 @@ describe("an IconStyle icon from an http(s) address", () => {
     const icon = new Uint8Array(256 * 1024);
     serve(() => ({ contentType: "image/png", body: icon }));
 
-    await addKmlFileAction("op-1", "Karte", kmlWithIcon(PIN));
+    await addFile(kmlWithIcon(PIN));
 
     expect(markerIconUrls(savedContent())).toEqual([
       `data:image/png;base64,${Buffer.from(icon).toString("base64")}`,
@@ -154,7 +154,7 @@ describe("an IconStyle icon from an http(s) address", () => {
       `<Document>${" ".repeat(MAX_KML_BYTES - kml.length)}`,
     );
 
-    expect(await addKmlFileAction("op-1", "Karte", padded)).toEqual({});
+    await expect(addFile(padded)).resolves.toBeUndefined();
 
     expect(savedContent()).toContain(PNG_DATA_URI);
   });
@@ -222,13 +222,11 @@ describe("an icon that cannot be embedded", () => {
         url === href ? stub : { contentType: "image/png", body: PNG },
       );
 
-      const result = await addKmlFileAction(
-        "op-1",
-        "Karte",
-        kmlWithPoints(styledPoint("bad", href), styledPoint("good", PIN)),
-      );
-
-      expect(result).toEqual({});
+      await expect(
+        addFile(
+          kmlWithPoints(styledPoint("bad", href), styledPoint("good", PIN)),
+        ),
+      ).resolves.toBeUndefined();
       expect(savedContent()).toContain(`<href>${href}</href>`);
       expect(circleCount(savedContent())).toBe(1);
       expect(markerIconUrls(savedContent())).toContain(PNG_DATA_URI);
@@ -242,7 +240,7 @@ describe("an icon that cannot be embedded", () => {
     const body = generatedBody({ chunkBytes: 1024 });
     serve(() => ({ ...stub, body: body.stream }));
 
-    await addKmlFileAction("op-1", "Karte", kmlWithIcon(PIN));
+    await addFile(kmlWithIcon(PIN));
 
     expect(body.cancelled()).toBe(true);
   });
@@ -250,11 +248,7 @@ describe("an icon that cannot be embedded", () => {
   it("is not requested when its address is outside the public address space", async () => {
     servePng("");
 
-    await addKmlFileAction(
-      "op-1",
-      "Karte",
-      kmlWithIcon("http://100.64.0.1/x.png"),
-    );
+    await addFile(kmlWithIcon("http://100.64.0.1/x.png"));
 
     expect(requested).toEqual([]);
   });

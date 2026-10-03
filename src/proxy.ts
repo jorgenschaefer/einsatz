@@ -23,14 +23,14 @@ export function proxy(request: NextRequest) {
 
 // Pages only. The proxy buffers every request body it runs for and silently
 // truncates it at proxyClientMaxBodySize, so it must not run for server actions
-// (uploads) or route handlers (SSE, position reports, overlay images), which
+// or route handlers (SSE, position reports, uploads, overlay images), which
 // need no CSP anyway. A new route handler must be excluded here; proxy.test.ts
 // fails for one that is not.
 export const config = {
   matcher: [
     {
       source:
-        "/((?!_next/static|_next/image|icon\\.svg|manifest\\.webmanifest|(?:operations|device|view)/[^/]+/(?:events|geocode|position|overlays)(?:/|$)).*)",
+        "/((?!_next/static|_next/image|icon\\.svg|manifest\\.webmanifest|(?:operations|device|view)/[^/]+/(?:events|geocode|position|overlays|kml)(?:/|$)).*)",
       missing: [
         { type: "header", key: "next-action" },
         { type: "header", key: "next-router-prefetch" },

@@ -18,12 +18,21 @@ import {
   SituationMapView,
   type SituationMapViewProps,
 } from "./SituationMapView";
+import {
+  uploadImageOverlay,
+  uploadKmlFile,
+  uploadReplacementImage,
+} from "./uploads";
 import { useMainView } from "./useMainView";
 import { type LiveConnection, useOperationEvents } from "./useOperationEvents";
 import { useStalenessClock } from "./useStalenessClock";
 import type { ViewLinkItem } from "./ViewLinkPanel";
 
-export interface SituationWorkspaceProps extends SituationMapViewProps {
+/** Die Uploads baut die Lageansicht selbst; sie laufen über Route Handler. */
+type UploadProps = "onAddKmlFile" | "onAddImage" | "onReplaceImage";
+
+export interface SituationWorkspaceProps
+  extends Omit<SituationMapViewProps, UploadProps> {
   operationName: string;
   status: OperationStatus;
   /** Nutzername des angemeldeten Nutzers; eigene ETB-Einträge zählen nicht als neu. */
@@ -86,6 +95,15 @@ export function SituationWorkspace({
     router.refresh(),
   );
   useEffect(() => closeLageansichtNotifications, []);
+  // Anders als eine Server Action aktualisiert ein Route Handler die Seite des
+  // Hochladenden nicht von selbst.
+  const refreshingAfter = async (
+    upload: Promise<ActionResult>,
+  ): Promise<ActionResult> => {
+    const result = await upload;
+    if (!result.error) router.refresh();
+    return result;
+  };
   const {
     isDesktop,
     mainView,
@@ -125,6 +143,15 @@ export function SituationWorkspace({
         <SituationMapView
           {...mapProps}
           operationId={operationId}
+          onAddKmlFile={(name, content) =>
+            refreshingAfter(uploadKmlFile(operationId, name, content))
+          }
+          onAddImage={(file, view) =>
+            refreshingAfter(uploadImageOverlay(operationId, file, view))
+          }
+          onReplaceImage={(id, file) =>
+            refreshingAfter(uploadReplacementImage(operationId, id, file))
+          }
           isDesktop={isDesktop}
           mapShown={mapShown}
           shownPanel={shownPanel}

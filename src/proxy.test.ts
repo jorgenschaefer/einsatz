@@ -105,6 +105,17 @@ describe("proxy: which requests it runs for", () => {
   );
 
   it.each([
+    `/operations/${operationId}/kml`,
+    `/operations/${operationId}/overlays`,
+    `/operations/${operationId}/overlays/${operationId}`,
+    "/device/x/position",
+  ])("does not run for the upload %s, so it cannot truncate it", (url) => {
+    expect(
+      runsFor(url, { "content-type": "multipart/form-data; boundary=x" }),
+    ).toBe(false);
+  });
+
+  it.each([
     "/_next/static/chunks/main.js",
     "/_next/image",
     "/icon.svg",

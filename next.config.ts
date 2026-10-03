@@ -10,11 +10,10 @@ const nextConfig: NextConfig = {
     "pdfjs-dist",
   ],
   experimental: {
-    // Bild-Overlay-Uploads sind bis 20 MB erlaubt (MAX_UPLOAD_BYTES); der
-    // Server-Action-Body braucht etwas Luft darüber (Multipart-Overhead), sonst
-    // greift Nexts 1-MB-Default. So greift unsere eigene 20-MB-Prüfung mit
-    // verständlicher Meldung, statt eines rohen „Body exceeded"-Fehlers.
-    serverActions: { bodySizeLimit: "25mb" },
+    // Der Proxy (src/proxy.ts) läuft nur für Seitenaufrufe; einen Body tragen
+    // dort höchstens Formulare vor der Hydrierung. Mehr als 1 MB puffert er
+    // nicht. Uploads gehen an Route Handler, die selbst begrenzen.
+    proxyClientMaxBodySize: "1mb",
   },
   poweredByHeader: false,
   // Die Content-Security-Policy setzt src/proxy.ts je Seite (Nonce).

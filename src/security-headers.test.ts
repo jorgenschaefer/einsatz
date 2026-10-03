@@ -25,3 +25,12 @@ describe("security headers from next.config.ts", () => {
     expect(nextConfig.poweredByHeader).toBe(false);
   });
 });
+
+describe("request body limits from next.config.ts", () => {
+  it("leaves server actions at Next's 1 MB and lets the proxy buffer at most 1 MB", () => {
+    expect(
+      nextConfig.experimental?.serverActions?.bodySizeLimit,
+    ).toBeUndefined();
+    expect(nextConfig.experimental?.proxyClientMaxBodySize).toBe("1mb");
+  });
+});

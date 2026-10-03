@@ -9,6 +9,7 @@ vi.mock("@/server/kml/pinned-fetch", () => ({
 }));
 vi.mock("@/server/auth/current-user", () => ({
   requireUser: async () => ({ id: "u1", username: "anna", role: "user" }),
+  getCurrentUser: async () => ({ id: "u1", username: "anna", role: "user" }),
 }));
 vi.mock("@/server/db/pg", () => ({ getDb: () => ({ tag: "db" }) }));
 vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
@@ -24,11 +25,8 @@ vi.mock("@/server/kml/kml-overlays", () => ({
   ) => fetcher("http://93.184.216.34/x.kml"),
 }));
 
-import {
-  addKmlFileAction,
-  addKmlUrlAction,
-  reloadKmlAction,
-} from "./kml-actions";
+import { postKmlFile } from "@/test/kml-upload";
+import { addKmlUrlAction, reloadKmlAction } from "./kml-actions";
 
 // Groß genug, dass eine gewöhnliche Datei so lange braucht, dass die Last
 // anderer Prozesse das Verhältnis kaum verschiebt.
@@ -103,7 +101,7 @@ const expectAdded = async (result: Promise<unknown>) =>
   expect(await result).toEqual({});
 
 const addFile = (kml: string) => () =>
-  expectAdded(addKmlFileAction("op-1", "Abschnitte", kml));
+  expectAdded(postKmlFile("op-1", "Abschnitte", kml));
 
 const addByUrl = () =>
   expectAdded(addKmlUrlAction("op-1", "Pegel", "http://93.184.216.34/x.kml"));

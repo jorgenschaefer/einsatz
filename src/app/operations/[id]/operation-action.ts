@@ -19,17 +19,19 @@ export function revalidateOperation(operationId: string): void {
 }
 
 /**
- * Gemeinsamer Ablauf mutierender Einsatz-Actions – der eine Choke-Point, den die
- * Auth-Tests (S2) absichern, analog zum `guarded` der Nutzerverwaltung: erzwingt
- * die Anmeldung, führt die Domänenlogik aus, revalidiert danach den Einsatz und
- * übersetzt eine Business-{@link ValidationError} einheitlich in einen
- * Formularfehler. Unerwartete Fehler fliegen weiter, außer mit `fallback`: dann
- * werden sie protokolliert und als diese Meldung zurückgegeben (Next-
- * Navigationsfehler wie `redirect` fliegen trotzdem weiter). `run` liefert die
- * `operationId`, die anschließend revalidiert wird.
+ * Gemeinsamer Ablauf mutierender Einsatz-Actions – neben `handleUpload` (die
+ * Upload-Routen) der Choke-Point, den die Auth-Tests (S2) absichern, analog
+ * zum `guarded` der Nutzerverwaltung: erzwingt die Anmeldung, führt die
+ * Domänenlogik aus, revalidiert danach den Einsatz und übersetzt eine
+ * Business-{@link ValidationError} einheitlich in einen Formularfehler.
+ * Unerwartete Fehler fliegen weiter, außer mit `fallback`: dann werden sie
+ * protokolliert und als diese Meldung zurückgegeben (Next-Navigationsfehler
+ * wie `redirect` fliegen trotzdem weiter). `run` liefert die `operationId`,
+ * die anschließend revalidiert wird.
  *
  * Zugehörigkeit (flaches Trust-Modell): Die Kind-Objekt-Actions (Kartenzeichen,
- * Bereiche, Overlays, Ansichtslinks) mutieren über die vom Client gelieferte
+ * Bereiche, Overlays, Ansichtslinks) und das Ersetzen einer Bild-Overlay-Datei
+ * (`PUT …/overlays/[overlayId]`) mutieren über die vom Client gelieferte
  * Objekt-`id`, ohne zu prüfen, dass das Objekt zu `operationId` gehört
  * (`operationId` dient dort nur Revalidate/Live-Event). Das ist bewusst
  * unkritisch, solange jeder angemeldete Nutzer jeden Einsatz bearbeiten darf;
@@ -42,15 +44,28 @@ export async function operationAction(
 ): Promise<ActionResult> {
   const user = await requireUser();
   const db = getDb();
+  const { error } = await changeOperation(() => run(db, user), fallback);
+  return error === undefined ? {} : { error };
+}
+
+/**
+ * Der Teil von {@link operationAction} nach der Anmeldung, für Route Handler,
+ * die die Sitzung selbst prüfen. `unexpected` unterscheidet einen
+ * protokollierten unerwarteten Fehler von einer {@link ValidationError}.
+ */
+export async function changeOperation(
+  run: () => Promise<string>,
+  fallback?: string,
+): Promise<ActionResult & { unexpected?: true }> {
   let operationId: string;
   try {
-    operationId = await run(db, user);
+    operationId = await run();
   } catch (err) {
     if (err instanceof ValidationError) return { error: err.message };
     if (fallback === undefined) throw err;
     unstable_rethrow(err);
     console.error("Einsatz-Action fehlgeschlagen:", err);
-    return { error: fallback };
+    return { error: fallback, unexpected: true };
   }
   revalidateOperation(operationId);
   return {};

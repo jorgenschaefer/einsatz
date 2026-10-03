@@ -48,3 +48,22 @@ export function assertScale(scale: number): void {
     throw new ValidationError("Die Skalierung muss größer als 0 sein.");
   }
 }
+
+const MAX_NAME_LENGTH = 200;
+
+/**
+ * Ein vom Nutzer gegebener Name, getrimmt; leer, wenn keiner gegeben ist.
+ * Lehnt alles ab, was kein Text oder länger als 200 Zeichen ist.
+ */
+export function trimmedName(value: unknown): string {
+  if (typeof value !== "string") {
+    throw new ValidationError("Der Name muss Text sein.");
+  }
+  const name = value.trim();
+  if (name.length > MAX_NAME_LENGTH) {
+    throw new ValidationError(
+      `Der Name darf höchstens ${MAX_NAME_LENGTH} Zeichen lang sein.`,
+    );
+  }
+  return name;
+}

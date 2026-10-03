@@ -128,7 +128,6 @@ describe("SituationWorkspace saving a Bild-Overlay placement", () => {
       const { adapter } = renderWorkspace({
         imageOverlays: [anImageOverlay],
         onUpdateImagePlacement: failThenSucceed(),
-        onReplaceImage: vi.fn(async () => ({})),
         onDeleteImage: vi.fn(async () => ({})),
       });
       await openImageEditor();

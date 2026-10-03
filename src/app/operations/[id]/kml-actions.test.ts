@@ -8,7 +8,6 @@ const deleteKmlOverlay = vi.fn();
 const createKmlOverlay = vi.fn();
 const reloadKmlOverlay = vi.fn();
 const loadKmlFromUrl = vi.fn();
-const resolveKmlFile = vi.fn();
 
 vi.mock("@/server/auth/current-user", () => ({
   requireUser: () => requireUser(),
@@ -26,18 +25,12 @@ vi.mock("@/server/kml/kml-overlays", () => ({
   createKmlOverlay: (...args: unknown[]) => createKmlOverlay(...args),
   reloadKmlOverlay: (...args: unknown[]) => reloadKmlOverlay(...args),
 }));
-vi.mock("@/server/kml/kml-fetch", () => ({
-  assertKmlDocument: () => {},
-  enforceKmlSizeLimit: () => {},
-}));
 vi.mock("@/server/kml/kml-import", () => ({
   loadKmlFromUrl: (...args: unknown[]) => loadKmlFromUrl(...args),
-  resolveKmlFile: (...args: unknown[]) => resolveKmlFile(...args),
 }));
 
 import { ValidationError } from "@/server/validation";
 import {
-  addKmlFileAction,
   addKmlUrlAction,
   reloadKmlAction,
   removeKmlAction,
@@ -58,18 +51,10 @@ beforeEach(() => {
   createKmlOverlay.mockReset().mockResolvedValue(undefined);
   reloadKmlOverlay.mockReset().mockResolvedValue(undefined);
   loadKmlFromUrl.mockReset().mockResolvedValue("<kml/>");
-  resolveKmlFile
-    .mockReset()
-    .mockImplementation(async (content: string) => content);
 });
 
 // Die Actions mit eigener Meldung für unerwartete Fehler (Netzwerk, Parser).
 describe.each([
-  {
-    name: "addKmlFileAction",
-    call: () => addKmlFileAction("op-1", "Einsatzabschnitte", "<kml/>"),
-    loader: createKmlOverlay,
-  },
   {
     name: "addKmlUrlAction",
     call: () =>

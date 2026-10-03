@@ -25,14 +25,9 @@ vi.mock("@/server/kml/kml-overlays", () => ({
   ) => fetcher("http://93.184.216.34/x.kml"),
 }));
 
-import {
-  addKmlFileAction,
-  addKmlUrlAction,
-  reloadKmlAction,
-} from "./kml-actions";
+import { addKmlUrlAction, reloadKmlAction } from "./kml-actions";
 
 const NOT_KML_URL = "Die Adresse liefert keine KML-Datei.";
-const NOT_KML_FILE = "Die Datei ist keine KML- oder KMZ-Datei.";
 const HTML =
   "<!doctype html><html><head><title>Anmelden</title></head><body></body></html>";
 const KML = '<kml xmlns="http://www.opengis.net/kml/2.2"><Document/></kml>';
@@ -72,21 +67,6 @@ describe("a URL that does not deliver KML", () => {
   });
 });
 
-describe("a file that is not KML", () => {
-  it.each([
-    ["JSON", "{}"],
-    ["HTML", "<html/>"],
-  ])(
-    "adds no overlay for %s and says it is no KML or KMZ file",
-    async (_kind, content) => {
-      const result = await addKmlFileAction("op-1", "Abschnitte", content);
-
-      expect(result).toEqual({ error: NOT_KML_FILE });
-      expect(createKmlOverlay).not.toHaveBeenCalled();
-    },
-  );
-});
-
 describe("KML that works today", () => {
   it("adds a URL whose KML has a declaration, a comment and whitespace before the root", async () => {
     const body = `<?xml version="1.0" encoding="UTF-8"?>\n<!-- Export -->\n  ${KML}`;
@@ -112,11 +92,6 @@ describe("KML that works today", () => {
     );
 
     expect(result).toEqual({});
-    expect(savedContent()).toBe(KML);
-  });
-
-  it("adds a file whose content is KML", async () => {
-    expect(await addKmlFileAction("op-1", "Abschnitte", KML)).toEqual({});
     expect(savedContent()).toBe(KML);
   });
 
@@ -176,23 +151,6 @@ describe("an address outside the public unicast address space", () => {
   )}${networkLinkTo("http://93.184.216.34/b.kml")}</Document></kml>`;
   const publicTarget =
     "<kml><Document><Placemark>B</Placemark></Document></kml>";
-
-  it("skips such a NetworkLink in a file like a dead link", async () => {
-    serve((url) => {
-      requested.push(url);
-      return { body: publicTarget };
-    });
-
-    const result = await addKmlFileAction(
-      "op-1",
-      "Meine Karte",
-      linkToPublicAndCgnat,
-    );
-
-    expect(result).toEqual({});
-    expect(savedContent()).toBe(publicTarget);
-    expect(requested).toEqual(["http://93.184.216.34/b.kml"]);
-  });
 
   it("skips such a NetworkLink behind a URL like a dead link", async () => {
     serve((url) => {

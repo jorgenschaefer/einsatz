@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { Queryable } from "@/server/db/db";
-import { ValidationError } from "@/server/validation";
+import { trimmedName, ValidationError } from "@/server/validation";
 
 export type KmlSourceType = "file" | "url";
 
@@ -37,16 +37,21 @@ const toOverlay = (row: KmlRow): KmlOverlay => ({
 const COLUMNS =
   "id, operation_id, source_type, source_url, name, content, visible";
 
+/**
+ * Legt eine KML-Ebene an. `name` ist der Name, wie ihn der Nutzer gegeben hat;
+ * ohne Namen heißt die Ebene wie ihre Adresse bzw. „KML-Datei“.
+ */
 export async function createKmlOverlay(
   db: Queryable,
   input: {
     operationId: string;
     sourceType: KmlSourceType;
     sourceUrl: string | null;
-    name: string;
+    name: unknown;
     content: string;
   },
 ): Promise<KmlOverlay> {
+  const name = trimmedName(input.name) || (input.sourceUrl ?? "KML-Datei");
   const { rows } = await db.query<KmlRow>(
     `INSERT INTO kml_overlays (id, operation_id, source_type, source_url, name, content)
      VALUES ($1, $2, $3, $4, $5, $6)
@@ -56,7 +61,7 @@ export async function createKmlOverlay(
       input.operationId,
       input.sourceType,
       input.sourceUrl,
-      input.name,
+      name,
       input.content,
     ],
   );

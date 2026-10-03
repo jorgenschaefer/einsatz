@@ -112,3 +112,81 @@ describe("kml overlays repository", () => {
     ).rejects.toBeInstanceOf(ValidationError);
   });
 });
+
+describe("the name of a new KML-Ebene", () => {
+  const TOO_LONG = "Der Name darf höchstens 200 Zeichen lang sein.";
+  const NOT_TEXT = "Der Name muss Text sein.";
+
+  async function create(
+    name: unknown,
+    source: { sourceType: "file" | "url"; sourceUrl: string | null } = {
+      sourceType: "file",
+      sourceUrl: null,
+    },
+  ) {
+    const db = await freshDb();
+    const op = await anOperation(db);
+    const created = createKmlOverlay(db, {
+      operationId: op.id,
+      ...source,
+      name,
+      content: "<kml/>",
+    });
+    return { created, stored: () => listKmlOverlays(db, op.id) };
+  }
+
+  it.each([
+    ["201 characters", "x".repeat(201)],
+    ["201 characters inside spaces", ` ${"x".repeat(201)} `],
+  ])("is refused with %s, and nothing is stored", async (_, name) => {
+    const { created, stored } = await create(name);
+
+    await expect(created).rejects.toThrow(new ValidationError(TOO_LONG));
+    expect(await stored()).toEqual([]);
+  });
+
+  it.each([
+    ["200 characters", "x".repeat(200)],
+    ["200 umlauts", "ä".repeat(200)],
+    ["200 characters inside spaces", `  ${"x".repeat(200)}  `],
+  ])("is stored trimmed with %s", async (_, name) => {
+    const { created, stored } = await create(name);
+
+    await created;
+    expect((await stored())[0].name).toBe(name.trim());
+  });
+
+  it.each([
+    ["a number", 42],
+    ["an object", { name: "Karte" }],
+    ["a file", new File(["x"], "karte.kml")],
+  ])("is refused as %s, and nothing is stored", async (_, name) => {
+    const { created, stored } = await create(name);
+
+    await expect(created).rejects.toThrow(new ValidationError(NOT_TEXT));
+    expect(await stored()).toEqual([]);
+  });
+
+  it.each(["", "   "])(
+    "falls back to „KML-Datei“ for a file given %j",
+    async (name) => {
+      const { created, stored } = await create(name);
+
+      await created;
+      expect((await stored())[0].name).toBe("KML-Datei");
+    },
+  );
+
+  it.each([
+    ["a URL", "https://example.com/route.kml"],
+    ["a URL over 200 characters", `https://example.com/${"r".repeat(300)}.kml`],
+  ])("falls back to the address for %s given blanks", async (_, url) => {
+    const { created, stored } = await create("  ", {
+      sourceType: "url",
+      sourceUrl: url,
+    });
+
+    await created;
+    expect((await stored())[0].name).toBe(url);
+  });
+});

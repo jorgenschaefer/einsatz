@@ -1,10 +1,31 @@
+import type { Queryable } from "@/server/db/db";
 import { createFetchBudget } from "./fetch-budget";
 import {
+  assertKmlDocument,
   enforceKmlSizeLimit,
   fetchKmlFromUrl,
   resolveKmlNetworkLinks,
 } from "./kml-fetch";
 import { embedKmlIcons } from "./kml-icons";
+import { createKmlOverlay } from "./kml-overlays";
+
+/** Bindet eine hochgeladene KML-Datei als KML-Ebene des Einsatzes ein. */
+export async function addKmlFile(
+  db: Queryable,
+  input: { operationId: string; name: unknown; content: string },
+): Promise<void> {
+  enforceKmlSizeLimit(input.content);
+  assertKmlDocument(input.content, "Die Datei ist keine KML- oder KMZ-Datei.");
+  // KMZ-Dateien aus Google „Meine Karten“ enthalten oft nur einen
+  // NetworkLink; dessen Ziel serverseitig auflösen, damit Geometrie erscheint.
+  await createKmlOverlay(db, {
+    operationId: input.operationId,
+    sourceType: "file",
+    sourceUrl: null,
+    name: input.name,
+    content: await resolveKmlFile(input.content),
+  });
+}
 
 /** Lädt eine KML-URL zum Einbinden oder „Neu laden“, mit eigenem Budget, und
  *  bettet ihre Symbole ein. */

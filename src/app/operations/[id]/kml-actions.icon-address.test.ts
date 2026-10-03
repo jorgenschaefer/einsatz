@@ -22,6 +22,7 @@ vi.mock("node:dns/promises", () => ({
 const createKmlOverlay = vi.fn();
 vi.mock("@/server/auth/current-user", () => ({
   requireUser: async () => ({ id: "u1", username: "anna", role: "user" }),
+  getCurrentUser: async () => ({ id: "u1", username: "anna", role: "user" }),
 }));
 vi.mock("@/server/db/pg", () => ({ getDb: () => ({ tag: "db" }) }));
 vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
@@ -32,7 +33,7 @@ vi.mock("@/server/kml/kml-overlays", () => ({
   createKmlOverlay: (...args: unknown[]) => createKmlOverlay(...args),
 }));
 
-import { addKmlFileAction } from "./kml-actions";
+import { postKmlFile } from "@/test/kml-upload";
 
 const answers = (...addresses: string[]): LookupAddress[] =>
   addresses.map((address) => ({ address, family: 4 }));
@@ -66,7 +67,7 @@ const kmlWithIcon = (href: string) =>
   `<kml><Document><Style id="s"><IconStyle><Icon><href>${href}</href></Icon></IconStyle></Style></Document></kml>`;
 
 async function expectNotEmbedded(href: string) {
-  const result = await addKmlFileAction("op-1", "Karte", kmlWithIcon(href));
+  const result = await postKmlFile("op-1", "Karte", kmlWithIcon(href));
 
   expect(result).toEqual({});
   expect(createKmlOverlay.mock.calls[0][1].content).toBe(kmlWithIcon(href));

@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:    AC-14
 advances:  AC-22
 after:     04-kml-icons-einbetten, 05-sicherheits-header, 08-bild-overlay-dateien-absichern, 22-standortmeldung-begrenzen
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -104,3 +104,106 @@ Test harness: `src/app/auth-enforcement.test.ts` lists every guarded action and 
 - From *Out of scope*: header and body limits in Caddy (`../drk-barmbek`). The app sets its limits itself and does not count on the reverse proxy.
 
 ## Left standing
+- **Addition beyond the plan: the upload routes refuse a foreign `Origin`
+  with 403, before reading any byte.** The first review found that moving off
+  server actions dropped Next's CSRF check. The session cookie is
+  `SameSite=Lax`, so it also goes along from sibling hosts of the same domain
+  (the gateway serves several under `drk-barmbek.de`). The reviewer showed a
+  cross-site multipart POST adding a KML-Ebene. `handleUpload` now applies
+  Next's rule for server actions: if an `Origin` is present, its host must be
+  `X-Forwarded-Host` (first value) or else `Host`; `null` and malformed
+  origins are refused. A missing `Origin` is let through, as Next does. This
+  is pinned in `uploads.test.ts`. The second reviewer checked it with curl
+  against `next dev`: foreign origins got 403, the same origin got 200. The
+  client shows the fallback message on 403.
+- **Addition: an unreadable body answers 400 with the fallback message.**
+  The plan only names 400 for a `ValidationError`. This covers an aborted
+  upload or a body that is no multipart form, so it is not logged as a 500.
+- **Server actions over 1 MB answer HTTP 500, not 413.** The ticket's context
+  expected a 413. On `npm run build && next start`, a 5 MB chunked
+  `Next-Action` POST to `/login` (with the real login action ID, no
+  `Content-Length`) was refused by Next. The log said "Body exceeded 1 MB
+  limit" (`statusCode: 413`), but the HTTP status was 500 with an RSC error
+  payload. Next stops reading: curl had sent about 2.8 MB of 5 MB, and the
+  second reviewer saw about 1.9 MB. AC-14 holds, because the body is not
+  accepted. The status code is Next's to choose.
+- **Step 9, observed on `npm run build && next start` (port 3100), no
+  session, chunked with no `Content-Length`:**
+  - 5 MB POST to `/` and to `/login` without `Next-Action`: answered 307 and
+    200. The log said "Request body exceeded 1MB for / … Only the first 1MB
+    will be available" (and the same for `/login`).
+  - 5 MB to each upload route: 401. curl had sent about 1.7 MB when the
+    answer came.
+  - 2 KB to `/device/<token>/position`: 413 "Standortmeldung zu groß".
+  - Signed in, through the UI (done by both reviewers, not by me):
+    - They added a KMZ/KML and an 18.8–19 MB PNG, and replaced an overlay's
+      file with 18.8 MB. They did this at 1920×1080 and at 390×844 (touch).
+      Each result showed without a reload.
+    - A 21.08 MB PNG got 400 "Die Datei ist größer als 20 MB." from the file
+      check. A 23.5–24 MB file got 413 with the same message.
+    - A JSON file named `.kml` showed "Die Datei ist keine KML- oder
+      KMZ-Datei.".
+    - With the cookie deleted, an upload went to `/login` and showed no
+      error.
+  - No PDF of 19 MB was tried; the size path is the same as for PNG.
+- **Plan departure: the `PUT` tests are in a new
+  `overlays/[overlayId]/route.put.test.ts`, not in ticket 16's `route.test.ts`
+  next to it.** That file mocks `requireUser`, `getImageOverlay` and the image
+  storage at module level. The moved replace tests need the real database
+  and storage, so the two sets cannot share one module's mocks without
+  rewriting 16's test.
+- **Plan departure: `kml-actions.icons.test.ts` calls `addKmlFile` directly,
+  not the route.** That file runs under jsdom (it parses saved KML with
+  `parseKml`). Under jsdom, undici's `Response.formData()` cannot parse any
+  multipart body, because it asserts its own `File` class. The other KML
+  tests that used `addKmlFileAction` (budget, timing, icon address) now go
+  through `POST /operations/[id]/kml` via `src/test/kml-upload.ts`. The test
+  request builder (`src/test/upload-request.ts`) encodes multipart by hand
+  for the same reason.
+- **Plan detail: names.**
+  - The client helper for replacing is `uploadReplacementImage`, not
+    `replaceImageOverlayImage`, which is the domain function's name in
+    `src/server/image-overlays/image-overlay-uploads.ts`.
+  - The split part of `operationAction` is `changeOperation`. It also
+    returns `unexpected: true` for a logged fallback, so a route can answer
+    500 instead of 400. `operationAction` strips that flag, and
+    `operation-action.test.ts` is unchanged and green.
+  - `addKmlFile` sits in `kml-import.ts`, not next to `createKmlOverlay`,
+    because several KML tests mock all of `kml-overlays.ts`.
+- **On 401 the client helper's promise never settles** while the page goes to
+  `/login`. A server action's redirect behaves the same way, and it means no
+  error or success is shown for the moment before navigation.
+- **Nudge followed:** the name check is `trimmedName` in
+  `src/server/validation.ts`, without zod, and there are no new dependencies.
+  Ticket 23 may fold it into its `assertText` and keep the messages.
+- **Tests that passed on their first run:**
+  - **Written after their code:** the tests in `kml/route.test.ts`. The red
+    for the route was the KML cases of `uploads.test.ts`. To show the tests
+    bite, I broke the code twice: answering 400 instead of 500 for an
+    unexpected error, and turning a `File` sent as `name` into text. Each
+    time the matching test went red.
+  - **Behaviour carried over:** the tests moved from the image actions to
+    `overlays/route.test.ts` and `route.put.test.ts` went green at once.
+  - **Already covered by the domain check:** in `kml-actions.name.test.ts`,
+    the 201-character case for `addKmlUrlAction`. The non-string case went
+    red first (a `TypeError` logged as a server error).
+  - **Never red at all:** the proxy matcher tests for `overlays` and
+    `/device/x/position`, because the matcher already excluded them. The
+    `kml` cases went red.
+- **Review nits not fixed:**
+  - **The message for a KML file name over 200 characters says "Der Name"**,
+    though the user never typed one: the client sends the file name. The
+    ticket fixed this message. It only comes up for file names over 200
+    characters.
+  - **The 200 limit counts `.length` (UTF-16 units)**, so 101 emoji are
+    refused. The ticket decided this ("counting `.length`, like
+    `assertComposition`").
+  - **`kml-actions.budget/timing/icon-address.test.ts` keep their names**,
+    although their file cases now go through the KML route. Renaming them
+    would only move code, and they still test the URL and reload actions
+    too.
+- **Second review round's remaining nits were fixed after that round, and
+  nobody reviewed the fixes:** test names and helpers renamed, the
+  `operationAction` comment re-wrapped, and the `proxyClientMaxBodySize`
+  comment corrected (the proxy can see a body from a form posted before
+  hydration).

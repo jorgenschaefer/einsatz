@@ -14,6 +14,7 @@ vi.mock("@/server/kml/pinned-fetch", () => ({
 
 vi.mock("@/server/auth/current-user", () => ({
   requireUser: async () => ({ id: "u1", username: "anna", role: "user" }),
+  getCurrentUser: async () => ({ id: "u1", username: "anna", role: "user" }),
 }));
 vi.mock("@/server/db/pg", () => ({ getDb: () => ({ tag: "db" }) }));
 vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
@@ -29,11 +30,8 @@ vi.mock("@/server/kml/kml-overlays", () => ({
   ) => createKmlOverlay("db", { content: await fetcher(MAIN_URL) }),
 }));
 
-import {
-  addKmlFileAction,
-  addKmlUrlAction,
-  reloadKmlAction,
-} from "./kml-actions";
+import { postKmlFile } from "@/test/kml-upload";
+import { addKmlUrlAction, reloadKmlAction } from "./kml-actions";
 
 const TOO_LARGE = "Die KML-Datei ist größer als 20 MB.";
 const MAIN_URL = "http://93.184.216.34/karte.kml";
@@ -106,7 +104,7 @@ describe("at most 20 addresses per import", () => {
   it("fetches 20 of a file's 25 NetworkLinks", async () => {
     serveLinkedDocs("");
 
-    const result = await addKmlFileAction("op-1", "Karte", kmlWithLinks(25));
+    const result = await postKmlFile("op-1", "Karte", kmlWithLinks(25));
 
     expect(result).toEqual({});
     expect(requested).toHaveLength(20);
@@ -120,7 +118,7 @@ describe("at most 20 addresses per import", () => {
       return { body: doc(`L${url.match(/link-(\d+)/)?.[1]}`) };
     });
 
-    const result = await addKmlFileAction("op-1", "Karte", kmlWithLinks(1));
+    const result = await postKmlFile("op-1", "Karte", kmlWithLinks(1));
 
     expect(result).toEqual({});
     expect(requested).toHaveLength(20);
@@ -137,7 +135,7 @@ describe("at most 20 addresses per import", () => {
       return { body: doc(`L${url.match(/link-(\d+)/)?.[1]}`) };
     });
 
-    const result = await addKmlFileAction("op-1", "Karte", kmlWithLinks(21));
+    const result = await postKmlFile("op-1", "Karte", kmlWithLinks(21));
 
     expect(result).toEqual({});
     expect(requested).toHaveLength(23);
@@ -167,7 +165,7 @@ describe("at most 20 MB read per import", () => {
       body: bodies[Number(url.match(/link-(\d+)/)?.[1]) - 1].stream,
     }));
 
-    const result = await addKmlFileAction("op-1", "Karte", kmlWithLinks(3));
+    const result = await postKmlFile("op-1", "Karte", kmlWithLinks(3));
 
     expect(result).toEqual({});
     expect(mergedMarkers(savedContent())).toEqual(["L1", "L2"]);
@@ -186,7 +184,7 @@ describe("at most 20 MB read per import", () => {
       };
     });
 
-    const result = await addKmlFileAction("op-1", "Karte", kmlWithLinks(3));
+    const result = await postKmlFile("op-1", "Karte", kmlWithLinks(3));
 
     expect(result).toEqual({});
     expect(requested).toEqual([linkUrl(1), linkUrl(2)]);
@@ -236,7 +234,7 @@ describe("icons share the budget with the KML", () => {
           },
     );
 
-    const result = await addKmlFileAction("op-1", "Karte", kmlWithLinks(1));
+    const result = await postKmlFile("op-1", "Karte", kmlWithLinks(1));
 
     expect(result).toEqual({});
     expect(requested).toEqual([linkUrl(1), icon]);
@@ -249,7 +247,7 @@ describe("icons share the budget with the KML", () => {
     ).join("");
     serve(() => ({ contentType: "image/png", body: PNG }));
 
-    const result = await addKmlFileAction(
+    const result = await postKmlFile(
       "op-1",
       "Karte",
       `<kml><Document>${refused}${iconStyle(iconUrl(1))}</Document></kml>`,

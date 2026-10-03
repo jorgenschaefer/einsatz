@@ -35,9 +35,7 @@ import {
 } from "./area-actions";
 import { geocodeAddressAction } from "./geocode-actions";
 import {
-  addImageOverlayAction,
   deleteImageOverlayAction,
-  replaceImageOverlayFileAction,
   setImageOverlayVisibilityAction,
   updateImageOverlayPlacementAction,
 } from "./image-overlay-actions";
@@ -47,7 +45,6 @@ import {
   correctEntryAction,
 } from "./journal-actions";
 import {
-  addKmlFileAction,
   addKmlUrlAction,
   reloadKmlAction,
   removeKmlAction,
@@ -208,18 +205,15 @@ export default async function LageansichtPage({
       onUpdateAreaGeometry={updateAreaGeometryAction.bind(null, operation.id)}
       onDeleteArea={deleteAreaAction.bind(null, operation.id)}
       kmlOverlays={kmlOverlays}
-      onAddKmlFile={addKmlFileAction.bind(null, operation.id)}
       onAddKmlUrl={addKmlUrlAction.bind(null, operation.id)}
       onSetKmlVisibility={setKmlVisibilityAction.bind(null, operation.id)}
       onReloadKml={reloadKmlAction.bind(null, operation.id)}
       onRemoveKml={removeKmlAction.bind(null, operation.id)}
       imageOverlays={imageOverlays}
-      onAddImage={addImageOverlayAction.bind(null, operation.id)}
       onUpdateImagePlacement={updateImageOverlayPlacementAction.bind(
         null,
         operation.id,
       )}
-      onReplaceImage={replaceImageOverlayFileAction.bind(null, operation.id)}
       onSetImageVisibility={setImageOverlayVisibilityAction.bind(
         null,
         operation.id,

@@ -7,7 +7,7 @@
 export async function readRequestBody(
   request: Request,
   maxBytes: number,
-): Promise<Uint8Array> {
+): Promise<Uint8Array<ArrayBuffer>> {
   if (Number(request.headers.get("content-length")) > maxBytes) {
     throw new RequestBodyTooLargeError(maxBytes);
   }
@@ -35,7 +35,7 @@ export class RequestBodyTooLargeError extends Error {
   }
 }
 
-function concat(chunks: Uint8Array[], length: number): Uint8Array {
+function concat(chunks: Uint8Array[], length: number): Uint8Array<ArrayBuffer> {
   const body = new Uint8Array(length);
   let offset = 0;
   for (const chunk of chunks) {

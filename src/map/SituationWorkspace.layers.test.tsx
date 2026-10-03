@@ -1,9 +1,10 @@
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ActionResult } from "@/app/action-result";
 import { redirectError } from "@/test/redirect-error";
 import { act, screen, waitFor, within } from "@/test/render";
 import type { ImagePlacement } from "./image-overlay";
+import type { SituationWorkspaceProps } from "./SituationWorkspace";
 import {
   anImageOverlay,
   mapPanel,
@@ -14,6 +15,10 @@ import {
   scaleOnMap,
   startEditingImage,
 } from "./SituationWorkspace.fixtures";
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe("SituationWorkspace", () => {
   it("renders each visible KML overlay on the map as a layer", async () => {
@@ -157,17 +162,6 @@ describe("SituationWorkspace", () => {
     expect(placement.scaleM).toBe(anImageOverlay.placement.scaleM);
   });
 
-  it("replaces the file of an image overlay, keeping it in edit mode", async () => {
-    const onReplaceImage = vi.fn(async () => ({}));
-    renderWorkspace({ imageOverlays: [anImageOverlay], onReplaceImage });
-    await openImageEditor();
-    const file = new File(["%PDF-1.4"], "neu.pdf", {
-      type: "application/pdf",
-    });
-    await userEvent.upload(screen.getByLabelText("Datei ersetzen"), file);
-    expect(onReplaceImage).toHaveBeenCalledWith("i1", file);
-  });
-
   it("finishes editing, removing the handles from the map", async () => {
     const { adapter } = renderWorkspace({ imageOverlays: [anImageOverlay] });
     await openImageEditor();
@@ -217,24 +211,36 @@ describe("SituationWorkspace", () => {
         new File(["%PDF-1.4"], "neu.pdf", { type: "application/pdf" }),
       );
 
+    const offline = async () => {
+      throw new Error("offline");
+    };
     type UserAction = [
       string,
-      "onUpdateImagePlacement" | "onReplaceImage",
+      () => Partial<SituationWorkspaceProps>,
       (adapter: ReturnType<typeof renderWorkspace>["adapter"]) => Promise<void>,
     ];
     const editorActions: UserAction[] = [
-      ["changing the opacity", "onUpdateImagePlacement", changeOpacity],
-      ["replacing the file", "onReplaceImage", replace],
+      [
+        "changing the opacity",
+        () => ({ onUpdateImagePlacement: vi.fn(offline) }),
+        changeOpacity,
+      ],
+      [
+        "replacing the file",
+        () => {
+          vi.stubGlobal("fetch", vi.fn(offline));
+          return {};
+        },
+        replace,
+      ],
     ];
 
     it.each(editorActions)(
       "shows the failure in the editor when %s throws and leaves it usable",
-      async (_, prop, perform) => {
+      async (_, failing, perform) => {
         const { adapter } = renderWorkspace({
           imageOverlays: [anImageOverlay],
-          [prop]: vi.fn(async () => {
-            throw new Error("offline");
-          }),
+          ...failing(),
         });
         await openImageEditor();
 
@@ -277,18 +283,18 @@ describe("SituationWorkspace", () => {
       },
     );
 
-    it.each<UserAction>([
-      ["scaling it on the map", "onUpdateImagePlacement", scaleOnMap],
-      ...editorActions,
+    it.each([
+      ["scaling it on the map", scaleOnMap],
+      ["changing the opacity", changeOpacity],
     ])(
       "shows no failure when %s redirects to the login",
-      async (_, prop, perform) => {
+      async (_, perform) => {
         const action = vi.fn(async () => {
           throw redirectError();
         });
         const { adapter } = renderWorkspace({
           imageOverlays: [anImageOverlay],
-          [prop]: action,
+          onUpdateImagePlacement: action,
         });
         await openImageEditor();
 
@@ -298,6 +304,22 @@ describe("SituationWorkspace", () => {
         expect(screen.queryByRole("alert")).toBeNull();
       },
     );
+
+    it("goes to the login without a failure when replacing the file meets no session", async () => {
+      const assign = vi.fn();
+      vi.stubGlobal("location", { assign });
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async () => new Response(null, { status: 401 })),
+      );
+      renderWorkspace({ imageOverlays: [anImageOverlay] });
+      await openImageEditor();
+
+      await replace();
+
+      await waitFor(() => expect(assign).toHaveBeenCalledWith("/login"));
+      expect(screen.queryByRole("alert")).toBeNull();
+    });
   });
 
   describe("confirming in the Ebenen panel", () => {

@@ -54,9 +54,7 @@ import {
 import { GET as operationEventsGET } from "@/app/operations/[id]/events/route";
 import { geocodeAddressAction } from "@/app/operations/[id]/geocode-actions";
 import {
-  addImageOverlayAction,
   deleteImageOverlayAction,
-  replaceImageOverlayFileAction,
   setImageOverlayVisibilityAction,
   updateImageOverlayPlacementAction,
 } from "@/app/operations/[id]/image-overlay-actions";
@@ -65,8 +63,8 @@ import {
   annulEntryAction,
   correctEntryAction,
 } from "@/app/operations/[id]/journal-actions";
+import { POST as addKmlFilePOST } from "@/app/operations/[id]/kml/route";
 import {
-  addKmlFileAction,
   addKmlUrlAction,
   reloadKmlAction,
   removeKmlAction,
@@ -80,7 +78,11 @@ import {
   removeDeviceLinkAction,
   updateMapSymbolCompositionAction,
 } from "@/app/operations/[id]/map-symbol-actions";
-import { GET as operationOverlayGET } from "@/app/operations/[id]/overlays/[overlayId]/route";
+import {
+  GET as operationOverlayGET,
+  PUT as replaceImageOverlayPUT,
+} from "@/app/operations/[id]/overlays/[overlayId]/route";
+import { POST as addImageOverlayPOST } from "@/app/operations/[id]/overlays/route";
 import {
   annulStrengthReportAction,
   correctStrengthReportAction,
@@ -142,7 +144,8 @@ const placement: ImagePlacement = {
   opacity: 1,
 };
 const composition: SymbolComposition = {};
-const file = () => new File([], "plan.png", { type: "image/png" });
+const upload = (method: "POST" | "PUT") =>
+  new Request("http://localhost/", { method, body: new FormData() });
 
 interface Invocation {
   name: string;
@@ -196,10 +199,6 @@ const userGuardedActions: Invocation[] = [
     run: () => removeDeviceLinkAction("op-1", "s-1"),
   },
   {
-    name: "addKmlFileAction",
-    run: () => addKmlFileAction("op-1", "n", "<kml/>"),
-  },
-  {
     name: "addKmlUrlAction",
     run: () => addKmlUrlAction("op-1", "n", "https://e.example/x.kml"),
   },
@@ -209,20 +208,6 @@ const userGuardedActions: Invocation[] = [
   },
   { name: "reloadKmlAction", run: () => reloadKmlAction("op-1", "k-1") },
   { name: "removeKmlAction", run: () => removeKmlAction("op-1", "k-1") },
-  {
-    name: "addImageOverlayAction",
-    run: () =>
-      addImageOverlayAction("op-1", file(), {
-        lat: 53.55,
-        lng: 9.99,
-        widthM: 4000,
-        heightM: 3000,
-      }),
-  },
-  {
-    name: "replaceImageOverlayFileAction",
-    run: () => replaceImageOverlayFileAction("op-1", "i-1", file()),
-  },
   {
     name: "updateImageOverlayPlacementAction",
     run: () => updateImageOverlayPlacementAction("op-1", "i-1", placement),
@@ -313,6 +298,28 @@ const userGuardedRoutes: Invocation[] = [
   },
 ];
 
+// Upload-Routen: Ohne Sitzung 401 statt Umleitung, weil `fetch` einer
+// Umleitung samt Body folgen würde. Dass dabei kein Byte gelesen wird, prüft
+// uploads.test.ts.
+const sessionGuardedUploads: Invocation[] = [
+  {
+    name: "KML file POST",
+    run: () => addKmlFilePOST(upload("POST"), params({ id: "op-1" })),
+  },
+  {
+    name: "image overlay POST",
+    run: () => addImageOverlayPOST(upload("POST"), params({ id: "op-1" })),
+  },
+  {
+    name: "image overlay PUT",
+    run: () =>
+      replaceImageOverlayPUT(
+        upload("PUT"),
+        params({ id: "op-1", overlayId: "ov-1" }),
+      ),
+  },
+];
+
 // Nutzerverwaltung und Einsatz löschen: requireAdmin. Anonym → /login, angemeldet ohne Admin → /operations.
 const adminGuardedActions: Invocation[] = [
   {
@@ -352,6 +359,14 @@ describe("route handler auth enforcement (requireUser)", () => {
   describe.each(userGuardedRoutes)("$name", ({ run }) => {
     it("redirects to /login when unauthenticated", async () => {
       await expectRedirect(run, "/login");
+    });
+  });
+});
+
+describe("upload route auth enforcement (401 without a session)", () => {
+  describe.each(sessionGuardedUploads)("$name", ({ run }) => {
+    it("answers 401 when unauthenticated", async () => {
+      expect(await run()).toMatchObject({ status: 401 });
     });
   });
 });
