@@ -198,6 +198,12 @@ describe("limiterAddress", () => {
 });
 
 describe("LoginRateLimiter – memory eviction", () => {
+  it("keeps a key of fixed size however long the username", () => {
+    const limiter = new LoginRateLimiter(5, 20, 1000);
+    reserveTimes(limiter, "ip-a", "x".repeat(1024 * 1024), 1);
+    expect(limiter.trackedKeyChars).toBeLessThan(200);
+  });
+
   it("does not seed buckets for refused reservations", () => {
     const limiter = new LoginRateLimiter(1, 20, 1000);
     reserveTimes(limiter, "ip-a", "anna", 1);

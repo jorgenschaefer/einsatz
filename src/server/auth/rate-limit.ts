@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { type Groups, parseIpv6 } from "@/server/http/ip-address";
 
 /** Antwort an Nutzer, deren Versuch das Login-Limit verweigert. */
@@ -39,6 +40,13 @@ export class LoginRateLimiter {
   /** Anzahl aktuell verfolgter Schlüssel – Beobachtungspunkt für die Speichergröße. */
   get trackedKeyCount(): number {
     return this.attempts.size;
+  }
+
+  /** Zeichen aller verfolgten Schlüssel zusammen – ebenso ein Beobachtungspunkt. */
+  get trackedKeyChars(): number {
+    let chars = 0;
+    for (const key of this.attempts.keys()) chars += key.length;
+    return chars;
   }
 
   /**
@@ -147,8 +155,16 @@ export class LoginRateLimiter {
   }
 }
 
+/**
+ * Der Nutzername geht als Hash ein: Ein Versuch wird vor der Passwortprüfung
+ * gezählt, und ohne Hash hielte jeder Schlüssel einen beliebig langen
+ * Nutzernamen eines Anonymen fünf Minuten im Speicher.
+ */
 function pairKey(ip: string, username: string): string {
-  return `pair:${limiterAddress(ip)}:${username.toLowerCase()}`;
+  const name = createHash("sha256")
+    .update(username.toLowerCase())
+    .digest("base64url");
+  return `pair:${limiterAddress(ip)}:${name}`;
 }
 
 function ipKey(ip: string): string {
