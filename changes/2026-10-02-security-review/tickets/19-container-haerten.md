@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:    AC-34, AC-37
 advances:
 after:     08-bild-overlay-dateien-absichern, 09-uploads-ueber-route-handler
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -193,3 +193,129 @@ log rotation at 3 × 10 MB; chowning the existing volume from
     step, no dump.
 
 ## Left standing
+
+No automated test proves AC-34 or AC-37: `npm run check` covers TypeScript
+only, and removing `USER node`, `cap_drop` or `mem_limit` would leave it
+green. Both criteria were checked by hand on a local container. It was built
+from this `Dockerfile` and started from `docker-compose.prod.yml`, merged with
+a scratch override outside the repo. The override pointed the container at
+its own database on the dev Postgres and replaced the external network. The
+outputs are below. The scratch containers, volumes, database and images have
+been removed again.
+
+**AC-34 (not root).**
+- Red, old image: `docker run --rm --entrypoint id` printed `uid=0(root)`, and
+  `docker compose top` showed `npm run start` and `next-server` running as
+  root.
+- Green, new image: `id` printed `uid=1000(node)`. `ps` inside the container
+  showed `1 node /sbin/docker-init -- ./docker-entrypoint.sh` and
+  `7 node next-server`, with no npm process. Migrate and seed ran as `node`.
+- Writes as `node`, all without EACCES: in the browser, uploading,
+  replacing and deleting a Bild-Overlay; writing an ETB entry; Next's writes
+  into `.next` and `.next/cache`.
+
+**AC-37 (limits).**
+- `docker inspect` showed:
+  - `Memory=MemorySwap=2952790016` and `PidsLimit=256`;
+  - `CapDrop=[ALL]` and `SecurityOpt=[no-new-privileges:true]`;
+  - `Init=true`;
+  - `LogConfig` json-file with `max-size 10m` and `max-file 3`.
+- Memory, a separate container: same image, same limits, `restart` and
+  `init`, with the plan's `Buffer.alloc` loop as its entrypoint.
+  - It ended with `OOMKilled=true`, `ExitCode=137`, and `RestartCount` rose
+    1 → 3 → 5 → 6 in 20 s.
+  - Meanwhile the dev Postgres kept `StartedAt=2026-09-30T11:22:25Z` and
+    answered `select 1`.
+  - The app container on :3008 answered `/login` 200, and the host stayed
+    healthy (`uptime`, `free -m` fine).
+  - Repeated after `memswap_limit` was added: `OOMKilled=true`,
+    `RestartCount=6`, Postgres unaffected.
+- Memory, `docker compose exec app node -e …` inside the real app container:
+  - the kernel killed the exec'd allocator (exit 137, `memory.events`
+    `oom_kill 1`);
+  - `next-server` survived with the same PID, `RestartCount` stayed 0, and
+    `/login` returned 200.
+  - A runaway exec is therefore killed on its own, and the container is not
+    restarted. A runaway in `next-server` itself restarts the container, as
+    the separate container above showed.
+- Processes: the spawner inside the app container got `spawn failed after
+  189 children: EAGAIN`. Threads of `next-server` and the spawner count
+  toward the 256 too.
+  - At the limit, `docker stats` showed `PIDS=256`.
+  - The host still started 50 `sleep`s in 1.0 s, and Postgres answered.
+  - `/login` answered 200 during and after.
+  - `RestartCount` stayed 0. This is the difference from AC-37's wording: no
+    restart happens at the process limit, and starting further processes
+    fails only inside the container, as Context said.
+
+**`mem_limit` (step 5).** Peaks of the cgroup's `memory.peak` without a
+limit, each on a freshly started container (baseline after login about
+110-120 MB):
+
+| Input | Peak |
+|---|---|
+| PNG 10,000 × 10,000 | 304 MB |
+| PDF 20 MB, 200,000 × 100,000 pt, 811,267 filled rectangles | 1745 MB; repeated 1723 and 1868 MB |
+| KML 20 MB, 100,826 Placemarks | 457 MB |
+| All three at the same time | 1848 MB; repeated 1859 MB |
+
+- 1.5 × 1859 MB = 2789 MB, rounded up to 256 MB, gives **`mem_limit:
+  2816m`**.
+- With that limit, every upload got 200, `RestartCount` stayed 0,
+  `OOMKilled` stayed false, and the logs had no "heap out of memory". The
+  peaks were PNG 310, PDF 1715, KML 350 and all three 1864 MB, then
+  1868 / 1828 MB after `memswap_limit`.
+- The PDF needs about 9× the 200 MB measured while slicing. Pdf.js builds
+  the operator list for all 800k drawing operators before ticket 08's
+  4000 px cap applies. A 20 MB PDF is therefore what sizes the limit.
+- Not measured by the plan, and found during review: rendering the
+  Lagekarte of an Einsatz costs about 250 MB per maximum-size KML layer. One
+  layer peaked at 465 MB and 8 layers at 2.25 GB, from a single page load
+  of 245 MB HTML.
+  - Nothing limits the number of KML layers per Einsatz. With about 10 such
+    layers, opening the Lagekarte exceeds 2816 MB and restarts the container.
+  - The host stays safe, which is what AC-37 asks. But such an Einsatz could
+    not be opened, and the restart would hit every user.
+  - Limiting the layers, or rendering them without holding the whole HTML in
+    memory, is not this ticket's.
+
+**Departures from the plan.**
+- `memswap_limit: 2816m` is added next to `mem_limit` (review finding).
+  Otherwise Docker grants the same amount again as swap, and a runaway app
+  pushes up to 2.75 GB into the swap it shares with Postgres before it is
+  killed.
+- `bin/deploy-prod` stops the old container before the chown (review
+  finding). Otherwise the old root container could still create root-owned
+  uploads between the chown and `up -d`. This costs the few seconds of the
+  chown in extra downtime; `up -d` would stop the container anyway.
+- The chown runs as `docker compose run --rm --no-deps --user root
+  --cap-add CHOWN --entrypoint chown app -R node:node /data/uploads`.
+  Without `--cap-add CHOWN`, `cap_drop: [ALL]` makes it fail with
+  "Operation not permitted" (tried).
+- Step 7's proof: the old image wrote a root-owned volume, including a
+  `0600` file in its own directory. Then came stop, chown and `up -d` with
+  the new image. Everything was 1000:1000 and `node` could write.
+  - Replacing a Bild-Overlay whose file the root container had written went
+    through ticket 09's PUT route with curl (200). The new file was written
+    and the old one deleted.
+  - The browser was not used for this replace: that Einsatz held the
+    measurement's eight 20 MB KML layers and would not load in the browser.
+    Before that, replacing an overlay in the browser had already failed with
+    `EACCES` before the chown and succeeded after it.
+- Step 3's proof does not hold as the plan put it. Without an open
+  Live-Verbindung the old image also stopped in 0.25 s, because npm passes
+  SIGTERM on, and the new one stops in 0.46 s. With a browser on the
+  Lagekarte, the new image needs the full 10 s: Next waits for the open SSE
+  stream. `exec next start` is in place as asked. Ending the
+  Live-Verbindungen on SIGTERM is not this ticket's.
+- The chown on later deploys depends on the app creating only 755
+  directories (as `image-storage.ts` does today). Root without
+  DAC_OVERRIDE cannot enter a `node`-owned 700 directory, so the deploy
+  would stop after `stop app` (second review, reproduced there).
+
+**Review finding not fixed.** The new comments in `.dockerignore` and
+`bin/deploy-prod` are German, while CODING_STANDARDS.md asks for English.
+They match the German comments everywhere else in these files.
+
+**Not run.** `bin/deploy-prod` itself, because it pushes to production. Its
+remote command sequence was run locally, without `pull`.

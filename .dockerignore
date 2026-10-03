@@ -24,3 +24,6 @@ vitest.config.mts
 .vscode
 .idea
 .DS_Store
+
+# Lokale Uploads aus dem Dev-Betrieb
+data

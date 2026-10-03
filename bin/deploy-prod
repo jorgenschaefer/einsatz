@@ -6,4 +6,7 @@ docker compose -f docker-compose.prod.yml build
 docker compose -f docker-compose.prod.yml push
 ssh barmbek@drk-barmbek.de mkdir -p einsatz
 scp docker-compose.prod.yml barmbek@drk-barmbek.de:einsatz/
-ssh -t barmbek@drk-barmbek.de "cd einsatz && docker compose -f docker-compose.prod.yml pull && docker compose -f docker-compose.prod.yml up -d --remove-orphans"
+# Die App läuft als `node`; Uploads aus der Zeit, als sie als root lief,
+# gehören root und müssen ihr erst übergeben werden – bei gestopptem alten
+# Container, damit danach keine neuen root-Dateien mehr entstehen.
+ssh -t barmbek@drk-barmbek.de "cd einsatz && docker compose -f docker-compose.prod.yml pull && docker compose -f docker-compose.prod.yml stop app && docker compose -f docker-compose.prod.yml run --rm --no-deps --user root --cap-add CHOWN --entrypoint chown app -R node:node /data/uploads && docker compose -f docker-compose.prod.yml up -d --remove-orphans"

@@ -88,7 +88,9 @@ The [Dockerfile](Dockerfile) builds a production image. On start the container
 runs the migrations, makes sure the first admin exists and then starts the
 server on port 3000. [docker-compose.prod.yml](docker-compose.prod.yml) shows a
 setup with an external database and a volume for uploads; set `UPLOADS_DIR` to
-the mounted path.
+the mounted path. The container runs as the unprivileged user `node` (uid
+1000), so the uploads volume must belong to uid 1000; `bin/deploy-prod` hands
+it over on every deploy.
 
 ## License
 
