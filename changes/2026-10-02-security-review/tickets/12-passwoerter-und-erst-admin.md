@@ -11,15 +11,13 @@ attempts:  1
 Passwords that are common, equal to the username, or longer than bcrypt reads are refused wherever a password is set. The first-admin seed no longer needs credentials once users exist, and `.env.example` stops shipping a password. Usernames are unique regardless of case, enforced by the database.
 
 ## Done when
-> **AC-26** Beim Erst-Admin, beim Anlegen, Zurücksetzen und Wechseln wird ein Passwort mit einer Meldung abgelehnt, wenn es unter den 10.000 häufigsten Passwörtern ist, `change-me-please` lautet, dem Nutzernamen ohne Rücksicht auf Groß-/Kleinschreibung gleicht oder länger als 72 Byte ist.
+> **AC-26** Beim Erst-Admin, beim Anlegen, Zurücksetzen und Wechseln wird ein Passwort mit einer Meldung abgelehnt, wenn es dem Nutzernamen ohne Rücksicht auf Groß-/Kleinschreibung gleicht oder länger als 72 Byte ist.
 
 > **AC-27** `.env.example` enthält kein Admin-Passwort. Gibt es schon Nutzer, startet der Container auch ohne `ADMIN_USERNAME` und `ADMIN_PASSWORD`.
 
 > **AC-28** Ein Nutzername, der sich von einem vorhandenen nur in Groß-/Kleinschreibung unterscheidet, lässt sich nicht anlegen: „Dieser Nutzername ist bereits vergeben.".
 
 ## Nudges
-> Die Liste häufiger Passwörter liegt als Datei im Repo (etwa die 10.000 häufigsten aus SecLists); keine Abhängigkeit.
-
 > Ein eindeutiger Index auf `lower(username)`; die Migration bricht mit einer klaren Meldung ab, falls es schon Kollisionen gibt.
 
 ## Context

@@ -1,5 +1,3 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import bcrypt from "bcryptjs";
 import { ValidationError } from "@/server/validation";
 
@@ -7,20 +5,6 @@ export const MIN_PASSWORD_LENGTH = 12;
 
 /** bcrypt liest nur die ersten 72 Byte; alles danach würde stillschweigend ignoriert. */
 const MAX_PASSWORD_BYTES = 72;
-
-/** Das frühere Beispielpasswort aus `.env.example`. */
-const FORMER_EXAMPLE_PASSWORD = "change-me-please";
-
-// Nicht über import.meta.url: im Next-Bundle zeigt das nicht auf den Quellbaum.
-// `src/` liegt auch im Container-Image, und cwd ist überall das App-Verzeichnis.
-const COMMON_PASSWORDS = new Set(
-  readFileSync(
-    join(process.cwd(), "src/server/auth/common-passwords.txt"),
-    "utf8",
-  )
-    .split("\n")
-    .filter(Boolean),
-);
 
 /** bcrypt-Kostenfaktor für den interaktiven Login (aktuelle Empfehlung). Ein
  *  Ort für echte Hashes und den Dummy-Hash, damit die Zeit-Angleichung stimmt. */
@@ -43,11 +27,6 @@ export function assertPasswordPolicy(password: string, username: string): void {
   if (Buffer.byteLength(password, "utf8") > MAX_PASSWORD_BYTES) {
     throw new ValidationError(
       `Das Passwort darf höchstens ${MAX_PASSWORD_BYTES} Byte lang sein (Umlaute zählen doppelt).`,
-    );
-  }
-  if (COMMON_PASSWORDS.has(password) || password === FORMER_EXAMPLE_PASSWORD) {
-    throw new ValidationError(
-      "Dieses Passwort ist zu verbreitet. Bitte ein anderes wählen.",
     );
   }
   if (password.toLowerCase() === username.toLowerCase()) {

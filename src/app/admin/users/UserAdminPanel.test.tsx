@@ -45,8 +45,7 @@ const rowOf = (username: string) => {
   return row;
 };
 
-const PASSWORD_RULES =
-  "12 Zeichen bis 72 Byte, nicht der Nutzername, kein verbreitetes Passwort.";
+const PASSWORD_RULES = "12 Zeichen bis 72 Byte, nicht der Nutzername.";
 
 describe("UserAdminPanel", () => {
   it("lists each account with its role", () => {

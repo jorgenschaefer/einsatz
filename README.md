@@ -60,9 +60,8 @@ Log in with the `ADMIN_USERNAME` and `ADMIN_PASSWORD` from `.env`.
 | `UPLOADS_DIR`      | Optional. Where uploaded images are stored; defaults to `data/uploads` in the working directory. |
 
 Every password, the first admin's included, must be 12 characters to 72 bytes
-long (an umlaut counts as two bytes), must not be one of the 10,000 most common
-passwords ([SecLists](src/server/auth/common-passwords.LICENSE)), and must not
-equal the username, ignoring case. Usernames are unique, ignoring case.
+long (an umlaut counts as two bytes) and must not equal the username, ignoring
+case. Usernames are unique, ignoring case.
 
 ## Development
 

@@ -47,7 +47,7 @@ Einen Vorfall gab es nicht; Grundlage ist der
 - **AC-23** Ändern oder Löschen eines Kartenzeichens, Bereichs, einer KML-Ebene, eines Bild-Overlays oder Ansichtslinks unter der ID eines Einsatzes, zu dem es nicht gehört, ändert nichts und meldet einen Fehler.
 - **AC-24** Von einer IP-Adresse aus – bei IPv6 einem /64 – werden in 5 Minuten höchstens 5 Fehlversuche je Nutzername und 20 insgesamt geprüft, auch bei gleichzeitigen Anfragen; jeder weitere Versuch bekommt „Zu viele Fehlversuche. Bitte einen Moment warten und erneut versuchen.".
 - **AC-25** Die Prüfung des aktuellen Passworts beim Passwortwechsel unterliegt demselben Limit.
-- **AC-26** Beim Erst-Admin, beim Anlegen, Zurücksetzen und Wechseln wird ein Passwort mit einer Meldung abgelehnt, wenn es unter den 10.000 häufigsten Passwörtern ist, `change-me-please` lautet, dem Nutzernamen ohne Rücksicht auf Groß-/Kleinschreibung gleicht oder länger als 72 Byte ist.
+- **AC-26** Beim Erst-Admin, beim Anlegen, Zurücksetzen und Wechseln wird ein Passwort mit einer Meldung abgelehnt, wenn es dem Nutzernamen ohne Rücksicht auf Groß-/Kleinschreibung gleicht oder länger als 72 Byte ist.
 - **AC-27** `.env.example` enthält kein Admin-Passwort. Gibt es schon Nutzer, startet der Container auch ohne `ADMIN_USERNAME` und `ADMIN_PASSWORD`.
 - **AC-28** Ein Nutzername, der sich von einem vorhandenen nur in Groß-/Kleinschreibung unterscheidet, lässt sich nicht anlegen: „Dieser Nutzername ist bereits vergeben.".
 - **AC-29** Eine Sitzung endet frühestens 24 Stunden und spätestens 24 Stunden und 5 Minuten nach der letzten Nutzung, spätestens aber 30 Tage nach der Anmeldung. Nutzung ist, was der Nutzer selbst tut: eine Seite laden oder neu laden und jede Aktion, auch ein Upload; ein Link-Klick innerhalb der App, die Live-Verbindung und das automatische Neuladen nach Änderungen zählen nicht.
@@ -85,7 +85,6 @@ bleibt je IP.
 - `publishOperationChanged` je Einsatz entprellen, statt in jedem Client.
 - Ein geöffneter Live-Stream schließt nach höchstens 1 Stunde; EventSource verbindet neu.
 - Geocoding: das gemeinsame `RateGate` (1 s) in `src/server/geocoder/geocode-service.ts` bleibt; die Token-Routen gehen zusätzlich durch ein eigenes `RateGate` (3 s).
-- Die Liste häufiger Passwörter liegt als Datei im Repo (etwa die 10.000 häufigsten aus SecLists); keine Abhängigkeit.
 - `UBIQUITOUS_LANGUAGE.md` anpassen: Gerätelinks sind entfernbar, und Abschließen löscht Geräte- und Ansichtslinks.
 - Ein eindeutiger Index auf `lower(username)`; die Migration bricht mit einer klaren Meldung ab, falls es schon Kollisionen gibt.
 - `USER node` im `Dockerfile`, `data` in `.dockerignore`, `exec next start` statt `npm run start` in `docker-entrypoint.sh`; in `docker-compose.prod.yml` `init: true`, `cap_drop: [ALL]`, `security_opt: [no-new-privileges:true]`, `mem_limit`, `pids_limit` und Log-Rotation.
@@ -136,3 +135,4 @@ bleibt je IP.
 - **PDFs mit extremem Seitenverhältnis trotzdem umwandeln** – kein realer Lageplan hat diese Form.
 - **Photon aus der Datenschutzerklärung streichen** – Suchbegriffe gehen weiter an Photon; die Erklärung wäre unvollständig.
 - **Fehlermeldung für „Wieder öffnen"** – scheitert nur bei gefälschten Aufrufen.
+- **Liste häufiger Passwörter** – bei 12 Zeichen Mindestlänge fast wirkungslos (`password1234` ging durch); bei der Abnahme gestrichen.

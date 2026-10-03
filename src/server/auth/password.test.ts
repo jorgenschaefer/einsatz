@@ -45,17 +45,10 @@ describe("assertPasswordPolicy", () => {
     refuses(`q${"ä".repeat(36)}`, TOO_LONG);
   });
 
-  it("refuses entries of the common-password list", () => {
-    refuses("unbelievable", COMMON);
-    refuses("scandinavian", COMMON);
-  });
-
-  it("compares the list exactly, not ignoring case", () => {
-    accepts("Unbelievable");
-  });
-
-  it("refuses the former example password", () => {
-    refuses("change-me-please", COMMON);
+  it("accepts common passwords that meet the length rule", () => {
+    accepts("password1234");
+    accepts("unbelievable");
+    accepts("change-me-please");
   });
 
   it("refuses the username, ignoring case on both sides", () => {
@@ -66,5 +59,4 @@ describe("assertPasswordPolicy", () => {
 
 const TOO_LONG =
   "Das Passwort darf höchstens 72 Byte lang sein (Umlaute zählen doppelt).";
-const COMMON = "Dieses Passwort ist zu verbreitet. Bitte ein anderes wählen.";
 const SAME_AS_USERNAME = "Das Passwort darf nicht dem Nutzernamen gleichen.";

@@ -10,7 +10,7 @@ describe("ChangePasswordForm", () => {
   it("names the password rules under the new password", () => {
     render(<ChangePasswordForm action={vi.fn<ChangePasswordAction>()} />);
     expect(screen.getByLabelText(/Neues Passwort/)).toHaveAccessibleDescription(
-      "12 Zeichen bis 72 Byte, nicht der Nutzername, kein verbreitetes Passwort.",
+      "12 Zeichen bis 72 Byte, nicht der Nutzername.",
     );
   });
 

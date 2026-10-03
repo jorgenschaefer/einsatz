@@ -101,7 +101,7 @@ export function UserAdminPanel({
           />
           <PasswordInput
             label="Start-Passwort"
-            description="12 Zeichen bis 72 Byte, nicht der Nutzername, kein verbreitetes Passwort."
+            description="12 Zeichen bis 72 Byte, nicht der Nutzername."
             value={password}
             onChange={(e) => setPassword(e.currentTarget.value)}
             required
