@@ -118,7 +118,19 @@ const MAX_NAME_LENGTH = 200;
  * Lehnt alles ab, was kein Text oder länger als 200 Zeichen ist.
  */
 export function trimmedName(value: unknown): string {
-  const name = typeof value === "string" ? value.trim() : value;
-  assertText(name, "Der Name", MAX_NAME_LENGTH);
-  return name;
+  return trimmedText(value, "Der Name", MAX_NAME_LENGTH);
+}
+
+/**
+ * Text, getrimmt; wie {@link assertText}, nur zählt die Länge nach dem
+ * Trimmen, also das, was gespeichert würde.
+ */
+export function trimmedText(
+  value: unknown,
+  field: string,
+  max: number,
+): string {
+  const text = typeof value === "string" ? value.trim() : value;
+  assertText(text, field, max);
+  return text;
 }

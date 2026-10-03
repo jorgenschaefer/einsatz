@@ -8,11 +8,12 @@ import {
   reviseEntry,
 } from "@/server/journal/journal";
 import { lockOperation } from "@/server/operations/operations";
-import { ValidationError } from "@/server/validation";
+import { assertUuid, ValidationError } from "@/server/validation";
 import {
   formatStrengthReportText,
   type StrengthValues,
 } from "@/strength/strength";
+import { requireStrengthValues } from "./strength-input";
 
 /** Zeit, Zustand und Reihenfolge einer Meldung sind die ihres ETB-Eintrags. */
 export interface StrengthReport extends StrengthValues {
@@ -31,6 +32,7 @@ export async function recordStrengthReport(
   tx: Queryable,
   input: { stationId: string; values: StrengthValues; author: string },
 ): Promise<string> {
+  assertUuid(input.stationId);
   const values = requireStrengthValues(input.values);
   const station = await loadStation(tx, input.stationId);
   // Erst die Einsatz-Sperre, dann der Name: eine Umbenennung, die vor dieser
@@ -87,6 +89,8 @@ export async function correctStrengthReport(
     author: string;
   },
 ): Promise<string> {
+  assertUuid(input.reportId);
+  assertUuid(input.stationId);
   const values = requireStrengthValues(input.values);
   return db.transaction(async (tx) => {
     const { operationId, journalEntryId } = await loadReport(
@@ -135,6 +139,7 @@ export async function annulStrengthReport(
   db: Db,
   reportId: string,
 ): Promise<string> {
+  assertUuid(reportId);
   return db.transaction(async (tx) => {
     const report = await loadReport(tx, reportId);
     await markEntryAnnulled(tx, report.journalEntryId);
@@ -201,24 +206,4 @@ export async function listStrengthReports(
     state: row.state,
     number: row.number,
   }));
-}
-
-const MAX_COUNT = 9999;
-
-function requireStrengthValues(values: StrengthValues): StrengthValues {
-  const counts = [
-    values.leaders,
-    values.subLeaders,
-    values.crew,
-    values.additionalPersonnel,
-  ];
-  if (!counts.every((n) => Number.isInteger(n) && n >= 0 && n <= MAX_COUNT)) {
-    throw new ValidationError(
-      "Die Stärke muss aus ganzen Zahlen von 0 bis 9999 bestehen.",
-    );
-  }
-  if (values.note !== null && typeof values.note !== "string") {
-    throw new ValidationError("Die Notiz muss Text sein.");
-  }
-  return { ...values, note: values.note?.trim() || null };
 }

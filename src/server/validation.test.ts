@@ -10,6 +10,7 @@ import {
   assertText,
   assertUuid,
   isValidLatLng,
+  trimmedText,
   ValidationError,
 } from "./validation";
 
@@ -155,6 +156,26 @@ describe("assertText", () => {
   ])("rejects %s as no text", (_, value) => {
     expect(() => assertText(value, "Die Beschriftung", 200)).toThrow(
       new ValidationError("Die Beschriftung muss Text sein."),
+    );
+  });
+});
+
+describe("trimmedText", () => {
+  it("returns the text trimmed, its length counted after trimming", () => {
+    const value = "x".repeat(200);
+
+    expect(trimmedText(` ${value}\n`, "Von", 200)).toBe(value);
+  });
+
+  it("rejects a text over the maximum once trimmed", () => {
+    expect(() => trimmedText(` ${"x".repeat(201)} `, "Von", 200)).toThrow(
+      new ValidationError("Von darf höchstens 200 Zeichen lang sein."),
+    );
+  });
+
+  it("rejects a number as no text", () => {
+    expect(() => trimmedText(7, "Von", 200)).toThrow(
+      new ValidationError("Von muss Text sein."),
     );
   });
 });

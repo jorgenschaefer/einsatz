@@ -2,7 +2,8 @@ import { randomUUID } from "node:crypto";
 import { NO_ROUTE } from "@/journal/entry-route";
 import type { Db, Queryable } from "@/server/db/db";
 import { appendEntry } from "@/server/journal/journal";
-import { ValidationError } from "@/server/validation";
+import { assertUuid, ValidationError } from "@/server/validation";
+import { requireStationName } from "./strength-input";
 
 export interface Station {
   id: string;
@@ -58,6 +59,7 @@ export async function renameStation(
   db: Db,
   input: { stationId: string; name: string; author: string },
 ): Promise<string> {
+  assertUuid(input.stationId);
   const name = requireStationName(input.name);
   return db.transaction(async (tx) => {
     const { rows } = await tx.query<StationRow>(
@@ -95,14 +97,6 @@ export async function listStations(
     [operationId],
   );
   return rows.map(toStation);
-}
-
-function requireStationName(raw: string): string {
-  const name = raw.trim();
-  if (!name) {
-    throw new ValidationError("Der Name der Stelle darf nicht leer sein.");
-  }
-  return name;
 }
 
 const UNIQUE_VIOLATION = "23505";

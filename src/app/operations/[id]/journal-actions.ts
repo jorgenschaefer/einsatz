@@ -6,15 +6,18 @@ import {
   annulEntry,
   appendEntry,
   correctEntry,
+  requireEntryContent,
 } from "@/server/journal/journal";
 import { operationAction } from "./operation-action";
 
 export async function addJournalEntryAction(
   operationId: string,
-  { text, ...route }: EntryContent,
+  content: EntryContent,
 ): Promise<ActionResult> {
   return operationAction(async (db, user) => {
-    // Die Leer-Prüfung liegt in der Domäne (appendEntry), nicht hier.
+    // Geprüft vor dem Aufteilen, damit `null` eine Meldung ergibt; appendEntry
+    // prüft für alle übrigen Aufrufer noch einmal.
+    const { text, ...route } = requireEntryContent(content);
     await db.transaction((tx) =>
       appendEntry(tx, {
         operationId,

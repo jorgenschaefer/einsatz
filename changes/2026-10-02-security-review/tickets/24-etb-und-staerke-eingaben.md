@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:
 advances:  AC-22
 after:     23-kartenobjekte-eingaben
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -133,3 +133,40 @@ ETB entry, `MAX_CHANNEL_LENGTH`, proposed 200 like Von and An.
   ETB or Stärke input because the Einsatz is closed.
 
 ## Left standing
+- **Step 5, in the browser:** the reviewer checked this, not me, at 360×740,
+  1280×800 and 1920×1080. An ETB entry with Von, An and Weg was written,
+  corrected and annulled. A Stelle was created and renamed. A Stärkemeldung
+  with a note was recorded, corrected and annulled, and the Gesamtstärke was
+  reported. All worked as before. A 10,001-character ETB text showed "Der
+  Text darf höchstens 10.000 Zeichen lang sein.", kept the draft and wrote
+  nothing. A 2,001-character note showed "Die Notiz darf höchstens 2.000
+  Zeichen lang sein." and stored nothing. At 360 px the ETB alert starts
+  partly behind the bottom navigation and can be read once scrolled into view.
+- **Open product point:** I took the proposed value unchanged:
+  `MAX_ROUTE_LENGTH` is 200 and applies to Von, An and Weg alike, so there
+  is no separate `MAX_CHANNEL_LENGTH`.
+- **Departures from the plan:**
+  - The ETB content check, `requireEntryContent`, is exported. The new-entry
+    action calls it before it splits the content, and `appendEntry` calls it
+    again for its other callers, so the content is checked twice on that
+    path. The action has a comment explaining this (review nit).
+  - Stellenname and note are checked in the new
+    `src/server/strength/strength-input.ts`, which is what the plan's
+    `strength-input.test.ts` tests. `requireStationName` and
+    `requireStrengthValues` moved there. `requireStrengthValues` now returns
+    only the four counts and the note, and drops any other fields the client
+    sends.
+  - `createStation` has no id check of its own. Its Einsatz-ID is checked by
+    `appendEntry`, which runs first, and the action test pins this.
+  - `trimmedName` in `validation.ts` now uses the new `trimmedText` helper
+    (trim, then `assertText`).
+- **Tests that passed without a red run:** the boundary tests (10,000 / 200
+  / 2,000 accepted) passed before the change, which is expected because they
+  guard against limits that are too tight. The unit tests in
+  `journal.validation.test.ts` were written after the code. I checked that
+  they catch real faults by breaking the absent-route handling, which made
+  2 of the 4 fail. Several red rows in the action tests failed with a thrown
+  `TypeError` or Postgres error rather than an assertion mismatch. That
+  thrown error is the defect this ticket fixes.
+- **Seen in review, not this ticket's:** the third Von/An chip is cut off at
+  the edge of its scrolling chip row at every width.

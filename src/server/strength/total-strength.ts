@@ -2,7 +2,7 @@ import { NO_ROUTE } from "@/journal/entry-route";
 import type { Db } from "@/server/db/db";
 import { appendEntry } from "@/server/journal/journal";
 import { lockOperation } from "@/server/operations/operations";
-import { ValidationError } from "@/server/validation";
+import { assertUuid, ValidationError } from "@/server/validation";
 import { formatTotalStrengthText, totalOf } from "@/strength/strength";
 import { listStrengthReports, type StrengthReport } from "./strength-reports";
 
@@ -11,6 +11,7 @@ export async function reportTotalStrength(
   db: Db,
   input: { operationId: string; author: string },
 ): Promise<void> {
+  assertUuid(input.operationId);
   await db.transaction(async (tx) => {
     // Erst die Einsatz-Sperre, dann die Summe: eine Meldung, die vor diesem
     // Eintrag ins ETB kommt, ist so auch in ihm enthalten.

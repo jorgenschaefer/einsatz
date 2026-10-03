@@ -1,9 +1,5 @@
 import { randomUUID } from "node:crypto";
-import {
-  type EntryContent,
-  type EntryRoute,
-  trimRouteValue,
-} from "@/journal/entry-route";
+import type { EntryContent, EntryRoute } from "@/journal/entry-route";
 import {
   canAnnulEntry,
   canCorrectEntry,
@@ -11,7 +7,12 @@ import {
 } from "@/journal/entry-type";
 import type { Db, Queryable } from "@/server/db/db";
 import { lockOperation } from "@/server/operations/operations";
-import { ValidationError } from "@/server/validation";
+import {
+  assertObject,
+  assertUuid,
+  trimmedText,
+  ValidationError,
+} from "@/server/validation";
 
 export type JournalEntryState = "gueltig" | "annulliert";
 
@@ -94,11 +95,29 @@ const REVISION_COLUMNS = "text, author, created_at, sender, recipient, channel";
 const COLUMNS =
   "id, operation_id, number, created_at, text, type, state, author, edited_at, sender, recipient, channel";
 
-/** Die eine Stelle für „ETB-Text darf nicht leer sein": trimmt und erzwingt. */
-function requireEntryText(raw: string): string {
-  const text = raw.trim();
+const MAX_TEXT_LENGTH = 10_000;
+const MAX_ROUTE_LENGTH = 200;
+
+/**
+ * Prüft, was eine Fassung eines Eintrags sagt, und liefert es getrimmt, wie
+ * es gespeichert wird: der Text nicht leer, Von, An und Weg ohne Angabe
+ * `null`. Die Längen gelten nach dem Trimmen.
+ */
+export function requireEntryContent(content: unknown): EntryContent {
+  assertObject(content, "Ungültiger ETB-Eintrag.");
+  const text = trimmedText(content.text, "Der Text", MAX_TEXT_LENGTH);
   if (!text) throw new ValidationError("Der Text darf nicht leer sein.");
-  return text;
+  return {
+    text,
+    sender: trimmedRouteValue(content.sender, "Von"),
+    recipient: trimmedRouteValue(content.recipient, "An"),
+    channel: trimmedRouteValue(content.channel, "Der Weg"),
+  };
+}
+
+function trimmedRouteValue(value: unknown, field: string): string | null {
+  if (value === null || value === undefined) return null;
+  return trimmedText(value, field, MAX_ROUTE_LENGTH) || null;
 }
 
 /**
@@ -120,8 +139,11 @@ export async function appendEntry(
     route: EntryRoute;
   },
 ): Promise<JournalEntry> {
-  const text = requireEntryText(input.text);
-  const { sender, recipient, channel } = input.route;
+  assertUuid(input.operationId);
+  const { text, sender, recipient, channel } = requireEntryContent({
+    text: input.text,
+    ...input.route,
+  });
   await lockOperation(tx, input.operationId);
   const { rows: numberRows } = await tx.query<{ next: number }>(
     "SELECT COALESCE(MAX(number), 0) + 1 AS next FROM journal_entries WHERE operation_id = $1",
@@ -141,9 +163,9 @@ export async function appendEntry(
       text,
       input.type,
       input.author,
-      trimRouteValue(sender),
-      trimRouteValue(recipient),
-      trimRouteValue(channel),
+      sender,
+      recipient,
+      channel,
     ],
   );
   return toEntry(rows[0]);
@@ -245,6 +267,7 @@ export async function correctEntry(
   content: EntryContent,
   author: string,
 ): Promise<JournalEntry> {
+  assertUuid(entryId);
   return db.transaction(async (tx) => {
     const {
       rows: [entry],
@@ -275,7 +298,7 @@ export async function reviseEntry(
   content: EntryContent,
   author: string,
 ): Promise<JournalEntry> {
-  const text = requireEntryText(content.text);
+  const { text, sender, recipient, channel } = requireEntryContent(content);
   const entry = await loadEntry(tx, entryId, true);
   assertValid(entry);
 
@@ -299,14 +322,7 @@ export async function reviseEntry(
         SET text = $2, author = $3, edited_at = now(),
             sender = $4, recipient = $5, channel = $6
       WHERE id = $1`,
-    [
-      entryId,
-      text,
-      author,
-      trimRouteValue(content.sender),
-      trimRouteValue(content.recipient),
-      trimRouteValue(content.channel),
-    ],
+    [entryId, text, author, sender, recipient, channel],
   );
   const updated = await loadEntry(tx, entryId);
   if (!updated) throw new Error("Eintrag nach Aktualisierung nicht gefunden.");
@@ -322,6 +338,7 @@ export async function annulEntry(
   db: Db,
   entryId: string,
 ): Promise<JournalEntry> {
+  assertUuid(entryId);
   return db.transaction(async (tx) => {
     const {
       rows: [entry],
