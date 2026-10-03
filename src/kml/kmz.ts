@@ -75,8 +75,8 @@ export function inlineKmzAssets(
   }
   let inlined = "";
   let copied = 0;
-  for (const { start, end } of hrefTexts(kml)) {
-    const dataUri = assetDataUri(assets, kml.slice(start, end));
+  for (const { start, end, href } of hrefTexts(kml)) {
+    const dataUri = assetDataUri(assets, href);
     if (!dataUri) continue;
     inlined += kml.slice(copied, start) + dataUri;
     copied = end;
@@ -94,16 +94,12 @@ function assetDataUri(
   return bytes && mime ? bytesToDataUri(bytes, mime) : null;
 }
 
-/** Lage des Texts jedes `<href>…</href>` (genau so geschrieben), dessen Text
- *  nicht leer ist und kein `<` enthält. */
-function* hrefTexts(kml: string): Generator<{ start: number; end: number }> {
-  let at = kml.indexOf("<href>");
-  while (at >= 0) {
-    const start = at + "<href>".length;
-    const end = kml.indexOf("<", start);
-    if (end < 0) return;
-    if (end > start && kml.startsWith("</href>", end)) yield { start, end };
-    at = kml.indexOf("<href>", end);
+/** Lage und Text jedes `<href>`, der Text gelesen wie von {@link xmlText}. */
+function* hrefTexts(
+  kml: string,
+): Generator<{ start: number; end: number; href: string }> {
+  for (const { start, end } of elementRanges(kml, "href")) {
+    yield { start, end, href: xmlText(kml.slice(start, end)) };
   }
 }
 
@@ -158,7 +154,7 @@ export function extractKml(
 export function networkLinkHrefs(kml: string): string[] {
   const hrefs: string[] = [];
   for (const link of elementBodies(kml, "NetworkLink")) {
-    const href = elementBodies(link, "href")[0]?.trim();
+    const href = hrefTexts(link).next().value?.href;
     if (href && /^https?:\/\//i.test(href)) hrefs.push(href);
   }
   return hrefs;
@@ -195,11 +191,10 @@ function* iconStyleHrefTexts(
 ): Generator<{ start: number; end: number; url: string }> {
   for (const style of elementRanges(kml, "IconStyle")) {
     const body = kml.slice(style.start, style.end);
-    for (const href of elementRanges(body, "href")) {
-      const start = style.start + href.start;
-      const end = style.start + href.end;
-      const url = xmlText(kml.slice(start, end));
-      if (/^https?:\/\//i.test(url)) yield { start, end, url };
+    for (const { start, end, href: url } of hrefTexts(body)) {
+      if (/^https?:\/\//i.test(url)) {
+        yield { start: style.start + start, end: style.start + end, url };
+      }
     }
   }
 }

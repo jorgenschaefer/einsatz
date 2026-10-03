@@ -131,6 +131,19 @@ describe("inlineKmzAssets", () => {
     );
   });
 
+  it("reads the href as XML, like the icon and NetworkLink hrefs", () => {
+    const assets = { "images/a&b.png": strToU8("Man") };
+    const kml =
+      "<href>images/a&amp;b.png</href>" +
+      "<HREF><![CDATA[images/a&b.png]]></HREF>" +
+      '<href id="x">images/a&#38;b.png</href>';
+    expect(inlineKmzAssets(kml, assets, "doc.kml")).toBe(
+      "<href>data:image/png;base64,TWFu</href>" +
+        "<HREF>data:image/png;base64,TWFu</HREF>" +
+        '<href id="x">data:image/png;base64,TWFu</href>',
+    );
+  });
+
   it("inlines every matching href and keeps the text between them", () => {
     const kml =
       "<a><href>images/icon.png</href><b/><href>images/icon.png</href>";
@@ -140,10 +153,8 @@ describe("inlineKmzAssets", () => {
   });
 
   it.each([
-    ["contains <", "<href><![CDATA[images/icon.png]]></href>"],
     ["is empty", "<href></href>"],
     ["is not closed", "<href>images/icon.png"],
-    ["is written in capitals", "<HREF>images/icon.png</HREF>"],
   ])("leaves an href alone that %s", (_case, kml) => {
     expect(inlineKmzAssets(kml, entries, "doc.kml")).toBe(kml);
   });
@@ -204,6 +215,16 @@ describe("networkLinkHrefs", () => {
         https://a.example/x.kml
       </href></Link><Url><href>https://b.example/y.kml</href></Url></NetworkLink>`;
     expect(networkLinkHrefs(kml)).toEqual(["https://a.example/x.kml"]);
+  });
+
+  it("reads the href as XML: entities resolved, CDATA literally", () => {
+    const kml =
+      "<NetworkLink><Link><href>https://a.example/kml?mid=1&amp;lid=2</href></Link></NetworkLink>" +
+      "<NetworkLink><Link><href><![CDATA[https://b.example/kml?mid=1&lid=2]]></href></Link></NetworkLink>";
+    expect(networkLinkHrefs(kml)).toEqual([
+      "https://a.example/kml?mid=1&lid=2",
+      "https://b.example/kml?mid=1&lid=2",
+    ]);
   });
 
   it("finds the href after names whose lower case is longer, like İ", () => {
