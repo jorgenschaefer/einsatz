@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:
 advances:  AC-1, AC-3, AC-11
 after:     07-routes-links
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -124,3 +124,71 @@ described under Context.
 - No change to the routes or the stream.
 
 ## Left standing
+- **Review findings not fixed.** One review round. It found no blocker and
+  nothing that should be fixed, and one nit, so there was no second round.
+  - Fixed (nit): tests that only open a stream ("still lets another … in",
+    "lets the next in once one closes", "frees the user's places") had their
+    one assertion, status 200, hidden inside the helper. The helper is now
+    called `expectAccepted`, and those lines call it directly.
+- **Checks not run.** None skipped. After the last code edit, `npm run
+  check` is green (224 files, 2779 tests), with no Biome warning. After
+  that I only rewrapped a
+  comment in `src/test/live-connections.ts`. `npm run test:coverage` and
+  then `compare-coverage.mjs` exit 0. The script names only the `src/test/`
+  helpers as "new, compared with nothing": `action-checks.ts`,
+  `live-events.ts`, `page-checks.ts` and `route-checks.ts`, as after
+  tickets 06-08, and this ticket's new `live-connections.ts`. Its code came
+  out of test files, which are not in the baseline. So
+  `coverage-splits.json` has no entry for it.
+- **Coverage drop fixed by a new test.** Without the old files,
+  `src/server/events/sse.ts` dropped one branch (10/12 → 9/12): the guard
+  `if (torndown) return` after a pending access check. The old route-level
+  tests only hit it by chance. `sse.ts` already has a test file. I added
+  "does nothing more when it was cancelled during the access check" to
+  `sse.test.ts`. With the guard removed, the test fails: `controller.close()`
+  throws on the cancelled stream, and the test catches the unhandled
+  `TypeError`.
+- **Advanced without an automated test.**
+  - AC-1: I checked by listing the files. Both files are deleted.
+  - AC-3: I broke each route by hand, and every break made the moved tests
+    fail. I restored all of them.
+    - In all three routes:
+      - `stillAllowed` always true: the operations route failed 6 session
+        and Einsatz cases, the device route 3, the view route 2.
+      - The limit raised: each route's "lets ten/fifty in … refuses the
+        eleventh/fifty-first" test failed.
+      - `onClose` no longer releasing the place: the same limit test
+        failed. In the operations route, "frees the user's places" failed
+        too.
+    - Device and view routes only: the limit key shared across links made
+      "still lets another … of the same Einsatz in" fail.
+    - Operations route only: the limit key shared across users made "still
+      lets another user in" fail.
+    - `sse.ts`: `MAX_STREAM_MS` doubled made "ends after one hour at the
+      latest" fail.
+  - AC-11: the commit's `Removed tests:` section is written from
+    `removed-tests.mjs`. It names all 18 removed tests, and each has its `→`
+    line.
+- **AC-3 review list.** No change. All three route test files are already
+  in `ac3-reviewed.txt` from tickets 06 and 07, and this ticket only adds
+  tests to them. Each added test drives its own route, and loss of access
+  is set up through server-layer functions or a direct `UPDATE sessions`.
+  `src/server/events/sse.test.ts` is not listed: this ticket only edited
+  it.
+- **Departures from the plan / Context.**
+  - "Ends after an hour, and frees its place" was not copied. `sse.test.ts`
+    already had "ends after one hour at the latest" (the stream ends at the
+    hour, and `onClose` runs once). That the route's `onClose` frees the
+    place is pinned by the limit tests' "once one closes" in all three
+    routes.
+  - The stream openers are not in the shared helper. After the split, each
+    opener is used only by its own route's test file, so each file has a
+    one-line opener. The shared helper `src/test/live-connections.ts` holds
+    `useStreamClock` (the fake-timer setup and closing the connections),
+    `expectAccepted` (formerly `watch`), `elapse` and `WITHIN_A_HEARTBEAT`.
+  - The limit tests use the same helper. They open their streams in
+    parallel, and the helper closes them, replacing `openMany`/`closeAll`.
+  - Abmelden, idle and expired are one `it.each`, "ends within 30 seconds
+    %s". Idle and expiry are still set up with a direct `UPDATE sessions`,
+    as before. `sessions.ts` has no function that ages a session.
+- **Departures from a nudge.** None.

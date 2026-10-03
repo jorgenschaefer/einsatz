@@ -142,6 +142,30 @@ describe("operationEventStream", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  it("does nothing more when it was cancelled during the access check", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval", "Date"] });
+    let answerAccessCheck: (allowed: boolean) => void = () => {};
+    const res = stream({
+      stillAllowed: () =>
+        new Promise((resolve) => {
+          answerAccessCheck = resolve;
+        }),
+    });
+    const tickFailures: unknown[] = [];
+    const recordFailure = (reason: unknown) => tickFailures.push(reason);
+    process.on("unhandledRejection", recordFailure);
+    try {
+      await vi.advanceTimersByTimeAsync(HEARTBEAT_MS);
+      await res.body!.cancel();
+      answerAccessCheck(false);
+      await new Promise((resolve) => setImmediate(resolve));
+    } finally {
+      process.off("unhandledRejection", recordFailure);
+    }
+
+    expect(tickFailures).toEqual([]);
+  });
+
   it("ends after one hour at the latest", async () => {
     vi.useFakeTimers();
     const onClose = vi.fn();
