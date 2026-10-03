@@ -8,8 +8,8 @@ import {
   within,
 } from "@/test/render";
 import { fakeMapAdapterFactory } from "./adapter.fixtures";
+import { anImageOverlay } from "./map-objects.fixtures";
 import {
-  anImageOverlay,
   openImageEditor,
   openPanel,
   renderWorkspace,

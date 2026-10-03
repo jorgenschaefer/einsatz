@@ -3,8 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { stubMatchMedia } from "@/test/match-media";
 import { act, screen, waitFor, within } from "@/test/render";
 import type { fakeMapAdapterFactory } from "./adapter.fixtures";
+import { anImageOverlay } from "./map-objects.fixtures";
 import {
-  anImageOverlay,
   buttonWithText,
   modeBand,
   openPanel,

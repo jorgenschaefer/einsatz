@@ -3,9 +3,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { stubMatchMedia } from "@/test/match-media";
 import { clickModalCloseButton } from "@/test/modal-close-button";
 import { render, screen, waitFor, within } from "@/test/render";
+import { anImageOverlay } from "./map-objects.fixtures";
 import { SituationWorkspace } from "./SituationWorkspace";
 import {
-  anImageOverlay,
   buildProps,
   mapPanel,
   openPanel,

@@ -193,19 +193,35 @@ describe("SituationMap", () => {
 
   it("arms drawing a shape and reports the completed geometry", async () => {
     const onDrawComplete = vi.fn();
-    const { adapter } = renderMap({ drawShape: "polygon", onDrawComplete });
+    const { adapter } = renderMap({ drawShape: "line", onDrawComplete });
     await waitFor(() =>
       expect(adapter.startDrawing).toHaveBeenCalledWith(
-        "polygon",
+        "line",
         expect.any(Function),
       ),
     );
     const onComplete = adapter.startDrawing.mock.calls.at(-1)![1] as (
       g: unknown,
     ) => void;
-    const geometry = { shape: "polygon", points: [{ lat: 1, lng: 2 }] };
+    const geometry = {
+      shape: "line",
+      points: [
+        { lat: 1, lng: 2 },
+        { lat: 3, lng: 4 },
+      ],
+    };
     onComplete(geometry);
     expect(onDrawComplete).toHaveBeenCalledWith(geometry);
+  });
+
+  it("cancels drawing when the shape is disarmed", async () => {
+    const { adapter, update } = renderMap({ drawShape: "line" });
+    await waitFor(() => expect(adapter.startDrawing).toHaveBeenCalled());
+    expect(adapter.cancelDrawing).not.toHaveBeenCalled();
+
+    update({ drawShape: null });
+
+    expect(adapter.cancelDrawing).toHaveBeenCalled();
   });
 
   it("reconciles KML overlays: sets each with its visibility and removes when gone", async () => {
@@ -323,9 +339,11 @@ describe("SituationMap", () => {
       label: "",
     };
 
+    const movingAreas = [circle];
+
     /** Renders the map while the circle is being moved. */
     async function moving() {
-      const map = renderMap({ areas: [circle], movingCircleId: "c1" });
+      const map = renderMap({ areas: movingAreas, movingCircleId: "c1" });
       await waitFor(() =>
         expect(map.adapter.startCirclePreview).toHaveBeenCalled(),
       );
@@ -370,11 +388,11 @@ describe("SituationMap", () => {
       expect(adapter.setView).toHaveBeenCalledTimes(1);
     });
 
-    it("restores the circle when moving ends", async () => {
+    it("restores the circle when moving ends without a change to areas", async () => {
       const { adapter, update } = await moving();
       expect(adapter.setArea).not.toHaveBeenCalled();
 
-      update({ areas: [circle], movingCircleId: null });
+      update({ areas: movingAreas, movingCircleId: null });
       await waitFor(() =>
         expect(adapter.setArea).toHaveBeenCalledWith(
           "c1",

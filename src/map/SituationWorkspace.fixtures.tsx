@@ -5,11 +5,11 @@ import type { JournalEntryView } from "@/journal/JournalPanel";
 import { act, render, screen, waitFor, within } from "@/test/render";
 import { fakeMapAdapterFactory } from "./adapter.fixtures";
 import type { ImagePlacement } from "./image-overlay";
+import { anImageOverlay } from "./map-objects.fixtures";
 import {
   SituationWorkspace,
   type SituationWorkspaceProps,
 } from "./SituationWorkspace";
-import { aSymbol } from "./symbol.fixtures";
 
 export const selectMainView = (name: "Lagekarte" | "ETB" | "Stärke") =>
   userEvent.click(screen.getAllByText(name)[0]);
@@ -32,52 +32,55 @@ export function buildProps(over: Partial<SituationWorkspaceProps> = {}) {
     status: "active",
     currentUsername: "anna",
     viewLinks: [],
-    onCreateViewLink: vi.fn(async () => ({})),
-    onDeleteViewLink: vi.fn(async () => ({})),
+    onCreateViewLink: vi.fn(succeed),
+    onDeleteViewLink: vi.fn(succeed),
     operationDefaultView: null,
     tileUrl: "t",
     attribution: "© OpenStreetMap",
     symbols: [],
     journalEntries: [],
     correspondents: [],
-    onAddJournalEntry: vi.fn(async () => ({})),
-    onCorrectJournalEntry: vi.fn(async () => ({})),
-    onAnnulJournalEntry: vi.fn(async () => ({})),
-    onSetDefaultView: vi.fn(async () => ({})),
-    onPlace: vi.fn(async () => ({})),
-    onMove: vi.fn(async () => ({})),
-    onUpdate: vi.fn(async () => ({})),
-    onDelete: vi.fn(async () => ({})),
-    onGenerateDeviceLink: vi.fn(async () => ({})),
-    onRemoveDeviceLink: vi.fn(async () => ({})),
+    onAddJournalEntry: vi.fn(succeed),
+    onCorrectJournalEntry: vi.fn(succeed),
+    onAnnulJournalEntry: vi.fn(succeed),
+    onSetDefaultView: vi.fn(succeed),
+    onPlace: vi.fn(succeed),
+    onMove: vi.fn(succeed),
+    onUpdate: vi.fn(succeed),
+    onDelete: vi.fn(succeed),
+    onGenerateDeviceLink: vi.fn(succeed),
+    onRemoveDeviceLink: vi.fn(succeed),
     onGeocode: vi.fn(async () => []),
     geocoderAttribution: "© OpenStreetMap",
     areas: [],
-    onCreateArea: vi.fn(async () => ({})),
-    onUpdateAreaStyle: vi.fn(async () => ({})),
-    onUpdateAreaGeometry: vi.fn(async () => ({})),
-    onDeleteArea: vi.fn(async () => ({})),
+    onCreateArea: vi.fn(succeed),
+    onUpdateAreaStyle: vi.fn(succeed),
+    onUpdateAreaGeometry: vi.fn(succeed),
+    onDeleteArea: vi.fn(succeed),
     kmlOverlays: [],
-    onAddKmlUrl: vi.fn(async () => ({})),
-    onSetKmlVisibility: vi.fn(async () => ({})),
-    onReloadKml: vi.fn(async () => ({})),
-    onRemoveKml: vi.fn(async () => ({})),
+    onAddKmlUrl: vi.fn(succeed),
+    onSetKmlVisibility: vi.fn(succeed),
+    onReloadKml: vi.fn(succeed),
+    onRemoveKml: vi.fn(succeed),
     imageOverlays: [],
-    onUpdateImagePlacement: vi.fn(async () => ({})),
-    onSetImageVisibility: vi.fn(async () => ({})),
-    onDeleteImage: vi.fn(async () => ({})),
+    onUpdateImagePlacement: vi.fn(succeed),
+    onSetImageVisibility: vi.fn(succeed),
+    onDeleteImage: vi.fn(succeed),
     stations: [],
-    onCreateStation: vi.fn(async () => ({})),
-    onRenameStation: vi.fn(async () => ({})),
-    onRecordStrengthReport: vi.fn(async () => ({})),
-    onReportTotalStrength: vi.fn(async () => ({})),
-    onCorrectStrengthReport: vi.fn(async () => ({})),
-    onAnnulStrengthReport: vi.fn(async () => ({})),
+    onCreateStation: vi.fn(succeed),
+    onRenameStation: vi.fn(succeed),
+    onRecordStrengthReport: vi.fn(succeed),
+    onReportTotalStrength: vi.fn(succeed),
+    onCorrectStrengthReport: vi.fn(succeed),
+    onAnnulStrengthReport: vi.fn(succeed),
     factory: fake.factory,
     ...over,
   };
   return { ...fake, props };
 }
+
+/** A server action that succeeds. */
+const succeed = async () => ({});
 
 export function renderWorkspace(over: Partial<SituationWorkspaceProps> = {}) {
   const built = buildProps(over);
@@ -98,26 +101,6 @@ export const mapPanel = (name: PanelName) =>
   screen.getByRole("region", { name });
 export const anyMapPanel = () =>
   screen.queryByRole("region", { name: /^(Kartenzeichen|Bereiche|Ebenen)$/ });
-
-export const SYMBOL = aSymbol({
-  composition: {
-    grundzeichen: "taktische-formation",
-    organisation: "hilfsorganisation",
-    text: "Pumpe 1",
-  },
-});
-
-export const AREA = {
-  id: "a1",
-  geometry: {
-    shape: "circle" as const,
-    center: { lat: 53.5, lng: 9.9 },
-    radius: 100,
-  },
-  color: "#e2001a",
-  opacity: 0.4,
-  label: "Deich",
-};
 
 export const journalEntry = (
   number: number,
@@ -168,19 +151,4 @@ export const scaleOnMap = async (
     placement: ImagePlacement,
   ) => void;
   await act(async () => onChange({ ...anImageOverlay.placement, scaleM: 800 }));
-};
-
-export const anImageOverlay = {
-  id: "i1",
-  name: "Lageplan",
-  imageUrl: "/img/i1",
-  placement: {
-    centerLat: 53.5,
-    centerLng: 9.9,
-    scaleM: 500,
-    rotationDeg: 10,
-    opacity: 0.8,
-  },
-  aspect: 1.5,
-  visible: true,
 };

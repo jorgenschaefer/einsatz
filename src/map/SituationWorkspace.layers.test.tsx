@@ -4,9 +4,9 @@ import type { ActionResult } from "@/app/action-result";
 import { redirectError } from "@/test/redirect-error";
 import { act, screen, waitFor, within } from "@/test/render";
 import type { ImagePlacement } from "./image-overlay";
+import { anImageOverlay } from "./map-objects.fixtures";
 import type { SituationWorkspaceProps } from "./SituationWorkspace";
 import {
-  anImageOverlay,
   mapPanel,
   modeBand,
   openImageEditor,

@@ -2,6 +2,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { act, render, screen, waitFor, within } from "@/test/render";
 import type { MarkerSpec } from "./adapter";
+import { SYMBOL } from "./map-objects.fixtures";
 import { QUICK_SELECT } from "./quick-select";
 import {
   SituationWorkspace,
@@ -12,7 +13,6 @@ import {
   mapPanel,
   openPanel,
   renderWorkspace,
-  SYMBOL,
 } from "./SituationWorkspace.fixtures";
 import { aSymbol } from "./symbol.fixtures";
 

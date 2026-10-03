@@ -3,13 +3,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ActionResult } from "@/app/action-result";
 import { stubMatchMedia } from "@/test/match-media";
 import { act, render, screen, waitFor, within } from "@/test/render";
+import { AREA, anImageOverlay } from "./map-objects.fixtures";
 import {
   SituationWorkspace,
   type SituationWorkspaceProps,
 } from "./SituationWorkspace";
 import {
-  AREA,
-  anImageOverlay,
   buildProps,
   mapPanel,
   modeBand,

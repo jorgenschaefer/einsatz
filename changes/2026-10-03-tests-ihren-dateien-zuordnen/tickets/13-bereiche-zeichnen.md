@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:
 advances:  AC-3, AC-9, AC-11
 after:     12-situation-map-leaflet
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -149,3 +149,102 @@ described under Context.
   its own.
 
 ## Left standing
+- **Review findings not fixed.** There were two review rounds. Round 1
+  found two should-fix and three nits. Round 2 found one should-fix and
+  one nit. I fixed both should-fix from round 1 and the one from round 2
+  (see the departures below), plus the round 2 nit and one round 1 nit
+  (the restore test's name). Two round 1 nits are not fixed:
+  - Not fixed (nit): moving a circle has a "throws" case in two places in
+    `useAreaFlows.test.ts`: the "saves" table and the moving `it.each`.
+    The table row stays because it also carries the login-redirect case
+    for moving a circle, which no other test has. The table reads as one
+    list of the three saves.
+  - Not fixed (nit): the reviewer wanted the `succeed` stub in
+    `buildProps` (`SituationWorkspace.fixtures.tsx`) in a commit of its
+    own. It is part of this commit. The run's instructions ask for one
+    commit, and the change is what keeps the coverage comparison clean
+    after the moves. Once the redraw workspace tests left, no test
+    called the default `onUpdateAreaGeometry` stub. One shared `succeed`
+    replaces the 29 copies of `async () => ({})`, so no stub body is
+    left uncalled.
+- **Checks not run.** None skipped. After the last edit, `npm run check`
+  is green (2738 tests). `npm run test:coverage` and then
+  `compare-coverage.mjs` exit 0. The script names only new files as
+  "new, compared with nothing": the `src/test/` helpers from earlier
+  tickets, `leaflet-map.fixtures.ts`, and this ticket's
+  `map-hooks.fixtures.tsx`, which is new harness code and not split from
+  a baseline file. No file needed a new test file for coverage.
+  - Unexplained: the first `npm run check` of this build reported
+    `Errors 1 error` with every test passing. Ticket 11 saw the same
+    thing. Its output was lost because I only kept the tail. After that,
+    four `npm test` runs, five `npm run check` runs and three coverage
+    runs were clean, and ten runs of the six changed test files were
+    clean too.
+- **Advanced without an automated test.**
+  - AC-9: checked with `wc -l`. `useAreaFlows.test.ts` has 432 lines,
+    `SituationWorkspace.areas.test.tsx` 191 and `SituationMap.test.tsx`
+    468.
+  - AC-11: the commit's `Removed tests:` section comes from
+    `removed-tests.mjs` and names all 33 removed tests. For each test I
+    dropped as a duplicate, I broke the behaviour by hand and saw the
+    named test fail, then restored the code. For the moved tests, I broke
+    each branch of `useAreaFlows.ts` by hand and saw the moved tests
+    fail:
+    - `onCreateArea` skipped
+    - the redraw sent to create
+    - no `reset`
+    - no `endMoveCircle`, or `endMoveCircle` also after an error
+    - `reset` instead of `endMoveCircle`
+    - a fixed radius
+    - no saving flag
+    - no view guard
+    - no effect for a disappearing circle
+    - the editor opening for any shape, or never
+    - the sheet closing on toggle-off, or not on Verschieben
+    - the editor kept open on redraw or Verschieben
+  - AC-3: I added `src/map/useAreaFlows.test.ts` to `ac3-reviewed.txt`
+    because this ticket created it. I also edited `AreasPanel.test.tsx`
+    and `SituationMap.test.tsx`, but they are not added:
+    `SituationMap.test.tsx` was already listed by ticket 12, and
+    `AreasPanel.test.tsx` was only edited.
+- **Departures from the plan.**
+  - All four steps are in one commit. `useAreaFlows.ts` did not change, so
+    there was no restructuring commit to keep apart.
+  - Two tests stay in `SituationWorkspace.areas.test.tsx` that Context
+    meant to move or drop. Both are now wiring of `SituationMapView`, and
+    ticket 15's list does not name them, so **ticket 15 must take them**:
+    - "draws a Bereich: arming a shape then completing creates the area"
+      (L23). It is the only test that `SituationMapView` hands
+      `onDrawComplete` to `areaFlows.handleDrawComplete`. When that prop
+      was `async () => {}`, every other test passed.
+    - "a second tap while saving does not write again" (L324). Context
+      called its busy band a duplicate of `ModeBand.test` and
+      `SituationMap.test`. But only this test holds that `SituationMapView`
+      passes `circleMoveSaving` and that `MapModeBands` passes it on as
+      `busy`. `MapModeBands.tsx` has no test file. When either prop was
+      `false`, every other test passed. `setCircleHere` has no guard of
+      its own, so the disabled button is the only thing that stops a
+      second write.
+  - Three duplicates in Context were not fully held by the named tests.
+    I strengthened those tests before dropping the workspace tests, and
+    each one now fails when its behaviour is broken by hand:
+    - `AreasPanel.test.tsx` now clicks all three shapes.
+    - `SituationMap.test.tsx` arms a line instead of a polygon.
+    - `SituationMap.test.tsx` has a new test, "cancels drawing when the
+      shape is disarmed".
+    - The `SituationMap.test.tsx` restore test keeps the same `areas`
+      array, so it pins `movingCircleId` in the reconcile deps. It is
+      renamed "restores the circle when moving ends without a change to
+      areas".
+  - L348 was listed as a duplicate of `useMapMode.test` L117. That test
+    pins only the reducer, so the test moved to `useAreaFlows.test.ts`
+    instead. There it pins that `setCircleHere` ends the move with
+    `endMoveCircle` and not `reset`. The round 2 review caught this.
+  - L265's crosshair assertion moved into the kept "Abbrechen ends moving
+    without saving" test, which is SituationMapView wiring for ticket 15.
+  - `map-hooks.fixtures.tsx` also exports `aMapRef(view)` for the plain
+    `mapRef`, so tickets 14 and 15 can build theirs the same way.
+  - The test file has two tests the workspace never had: redraw closes the
+    editor, and Hier setzen saves nothing while the map has no view.
+- **Departures from a nudge.** None. `browserTestsInTs` already matches
+  `src/map/use*.test.ts`. The suite gains one jsdom file of about 1 s.

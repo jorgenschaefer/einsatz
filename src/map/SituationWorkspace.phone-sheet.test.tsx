@@ -2,14 +2,12 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { stubMatchMedia } from "@/test/match-media";
 import { act, screen, waitFor, within } from "@/test/render";
+import { AREA, anImageOverlay, SYMBOL } from "./map-objects.fixtures";
 import {
-  AREA,
-  anImageOverlay,
   anyMapPanel,
   mapPanel,
   openPanel,
   renderWorkspace,
-  SYMBOL,
   startEditingImage,
 } from "./SituationWorkspace.fixtures";
 
@@ -45,27 +43,6 @@ describe("SituationWorkspace", () => {
       expect(mapPanel("Kartenzeichen")).toBeInTheDocument();
       await userEvent.click(
         within(await screen.findByRole("dialog")).getByText("Platzieren"),
-      );
-      expect(anyMapPanel()).toBeNull();
-    });
-
-    it("closes it when drawing a Bereich starts", async () => {
-      renderWorkspace();
-      await openPanel("Bereiche");
-      await userEvent.click(screen.getByText("Polygon"));
-      expect(anyMapPanel()).toBeNull();
-    });
-
-    it("closes it when a Bereich is redrawn", async () => {
-      renderWorkspace({ areas: [AREA] });
-      await openPanel("Bereiche");
-      await userEvent.click(
-        screen.getByLabelText("Deich bearbeiten", { selector: "button" }),
-      );
-      await userEvent.click(
-        within(await screen.findByRole("dialog")).getByText(
-          "Form neu zeichnen",
-        ),
       );
       expect(anyMapPanel()).toBeNull();
     });
@@ -114,15 +91,6 @@ describe("SituationWorkspace", () => {
       await openPanel("Kartenzeichen");
       await userEvent.click(screen.getByText(/KTW/));
       expect(mapPanel("Kartenzeichen")).toBeVisible();
-    });
-
-    it("keeps it open when drawing is toggled off", async () => {
-      renderWorkspace();
-      await openPanel("Bereiche");
-      await userEvent.click(screen.getByText("Polygon"));
-      await openPanel("Bereiche");
-      await userEvent.click(screen.getByText("Polygon"));
-      expect(mapPanel("Bereiche")).toBeVisible();
     });
 
     it("keeps the sidebar panel open on the desktop", async () => {

@@ -5,6 +5,7 @@ import { act, fireEvent, screen, waitFor, within } from "@/test/render";
 import { stubVisualViewport } from "@/test/visual-viewport";
 import type { MarkerSpec } from "./adapter";
 import type { fakeMapAdapterFactory } from "./adapter.fixtures";
+import { SYMBOL } from "./map-objects.fixtures";
 import type { SituationWorkspaceProps } from "./SituationWorkspace";
 import {
   anyMapPanel,
@@ -12,7 +13,6 @@ import {
   openPanel,
   type PanelName,
   renderWorkspace,
-  SYMBOL,
   selectMainView,
 } from "./SituationWorkspace.fixtures";
 

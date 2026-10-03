@@ -64,8 +64,12 @@ describe("AreasPanel", () => {
       "aria-pressed",
       "false",
     );
-    await userEvent.click(screen.getByRole("button", { name: "Polygon" }));
-    expect(onToggleDraw).toHaveBeenCalledWith("polygon");
+    for (const name of ["Polygon", "Linie", "Kreis"]) {
+      await userEvent.click(screen.getByRole("button", { name }));
+    }
+    expect(onToggleDraw).toHaveBeenNthCalledWith(1, "polygon");
+    expect(onToggleDraw).toHaveBeenNthCalledWith(2, "line");
+    expect(onToggleDraw).toHaveBeenNthCalledWith(3, "circle");
   });
 
   it("lists each Bereich with its colour and shape, unlabelled ones as Bereich", () => {

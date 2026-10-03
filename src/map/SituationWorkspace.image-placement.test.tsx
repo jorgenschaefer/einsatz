@@ -3,8 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 import type { ActionResult } from "@/app/action-result";
 import { act, screen, waitFor, within } from "@/test/render";
 import type { ImagePlacement } from "./image-overlay";
+import { anImageOverlay } from "./map-objects.fixtures";
 import {
-  anImageOverlay,
   mapPanel,
   modeBand,
   openImageEditor,

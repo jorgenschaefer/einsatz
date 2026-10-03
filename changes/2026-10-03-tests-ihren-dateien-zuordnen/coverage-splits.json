@@ -1,5 +1,9 @@
 {
   "src/test/bad-calls/journal-strength.ts": [],
   "src/test/bad-calls/map.ts": [],
-  "src/test/bad-calls/operations-accounts.ts": []
+  "src/test/bad-calls/operations-accounts.ts": [],
+  "src/map/SituationWorkspace.fixtures.tsx": [
+    "src/map/SituationWorkspace.fixtures.tsx",
+    "src/map/map-objects.fixtures.ts"
+  ]
 }

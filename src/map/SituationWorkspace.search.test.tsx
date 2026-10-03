@@ -2,12 +2,12 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { stubMatchMedia } from "@/test/match-media";
 import { act, fireEvent, render, screen, waitFor, within } from "@/test/render";
+import { SYMBOL } from "./map-objects.fixtures";
 import { SituationWorkspace } from "./SituationWorkspace";
 import {
   buildProps,
   openPanel,
   renderWorkspace,
-  SYMBOL,
   selectMainView,
 } from "./SituationWorkspace.fixtures";
 import { aSymbol } from "./symbol.fixtures";
