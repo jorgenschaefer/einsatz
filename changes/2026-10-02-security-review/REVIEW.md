@@ -85,3 +85,14 @@ in a fresh context against CRITERIA.md. Fixed findings are in the commits after
   `kmz.test.ts`.
 - The fixes from round 2 were not reviewed a third time, because the run
   allows two rounds.
+
+## Settled at acceptance
+
+- Removing a Gerätelink, also by closing the Einsatz, now makes the
+  Kartenzeichen manually placed again (`position_source = 'manual'`), as
+  the glossary says; AC-11 and AC-12 say so too.
+- The common-password list was dropped: with 12 characters minimum it
+  refused almost nothing. AC-26 now names only the username and the
+  72-byte rules.
+- A token search refused by the 3 s limit still shows "Keine Treffer.";
+  accepted as is.

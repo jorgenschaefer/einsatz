@@ -198,7 +198,7 @@ export async function removeDeviceLink(
   assertUuid(operationId);
   assertUuid(id);
   const { rows } = await db.query(
-    "UPDATE map_symbols SET device_link_token = NULL WHERE operation_id = $1 AND id = $2 RETURNING id",
+    "UPDATE map_symbols SET device_link_token = NULL, position_source = 'manual' WHERE operation_id = $1 AND id = $2 RETURNING id",
     [operationId, id],
   );
   assertFound(rows);
@@ -210,7 +210,7 @@ export async function removeAllDeviceLinks(
   operationId: string,
 ): Promise<void> {
   await db.query(
-    "UPDATE map_symbols SET device_link_token = NULL WHERE operation_id = $1",
+    "UPDATE map_symbols SET device_link_token = NULL, position_source = 'manual' WHERE operation_id = $1",
     [operationId],
   );
 }

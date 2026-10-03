@@ -308,9 +308,16 @@ describe("map symbols repository", () => {
     });
     const token = await generateDeviceLink(db, symbol.operationId, symbol.id);
 
+    await reportPosition(db, token, 53.6, 10.1);
+
     await removeDeviceLink(db, symbol.operationId, symbol.id);
 
-    expect((await listMapSymbols(db, op.id))[0].deviceLinkToken).toBeNull();
+    expect((await listMapSymbols(db, op.id))[0]).toMatchObject({
+      deviceLinkToken: null,
+      lat: 53.6,
+      lng: 10.1,
+      positionSource: "manual",
+    });
     expect(await resolveDeviceAccess(db, token)).toBeNull();
     const fresh = await generateDeviceLink(db, symbol.operationId, symbol.id);
     expect(await resolveDeviceAccess(db, fresh)).toEqual({

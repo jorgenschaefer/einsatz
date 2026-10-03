@@ -43,6 +43,7 @@ import {
   createMapSymbol,
   generateDeviceLink,
   listMapSymbols,
+  reportPosition,
 } from "@/server/mapsymbols/map-symbols";
 import { createOperation } from "@/server/operations/create-operation";
 import { closeOperation } from "@/server/operations/operation-lifecycle";
@@ -220,5 +221,21 @@ describe("closeOperationAction", () => {
     const [symbol] = await listMapSymbols(db, op.id);
     expect(symbol.deviceLinkToken).toBeNull();
     expect(await listViewLinks(db, op.id)).toEqual([]);
+  });
+
+  it("places Kartenzeichen whose device had reported by hand again", async () => {
+    await login("user");
+    const { op, deviceToken } = await operationWithLinks();
+    const db = state.db as Db;
+    await reportPosition(db, deviceToken, 53.6, 10.1);
+
+    await closeOperationAction(op.id);
+
+    const [symbol] = await listMapSymbols(db, op.id);
+    expect(symbol).toMatchObject({
+      lat: 53.6,
+      lng: 10.1,
+      positionSource: "manual",
+    });
   });
 });

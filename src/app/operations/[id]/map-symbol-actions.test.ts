@@ -30,6 +30,7 @@ import {
   createMapSymbol,
   generateDeviceLink,
   listMapSymbols,
+  reportPosition,
 } from "@/server/mapsymbols/map-symbols";
 import { insertOperation } from "@/server/operations/operations";
 import { freshDb } from "@/test/db";
@@ -95,6 +96,21 @@ describe("removeDeviceLinkAction", () => {
     expect(await devicePageFor(token)).toEqual(createElement(DeviceClosed));
     const [after] = await listMapSymbols(state.db as Db, op.id);
     expect(after).toEqual({ ...symbol, deviceLinkToken: null });
+  });
+
+  it("places a Kartenzeichen whose device had reported by hand again", async () => {
+    await login();
+    const { op, symbol, token } = await aSymbolWithDeviceLink();
+    await reportPosition(state.db as Db, token, 53.6, 10.1);
+
+    await removeDeviceLinkAction(op.id, symbol.id);
+
+    const [after] = await listMapSymbols(state.db as Db, op.id);
+    expect(after).toMatchObject({
+      lat: 53.6,
+      lng: 10.1,
+      positionSource: "manual",
+    });
   });
 
   it("refuses without a session and keeps the link", async () => {

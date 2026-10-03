@@ -14,9 +14,9 @@ all its Gerätelinks and Ansichtslinks in the same transaction as the status
 change, so no old link works again after "Wieder öffnen".
 
 ## Done when
-> **AC-11** Hat ein Kartenzeichen einen Gerätelink, bietet sein Panel „Gerätelink entfernen" mit Rückfrage an. Nach dem Bestätigen bietet das Panel „Gerätelink erzeugen" an, ein offenes Gerät zeigt ohne Neuladen „Zugang beendet", und der alte Link führt zu „Zugang beendet".
+> **AC-11** Hat ein Kartenzeichen einen Gerätelink, bietet sein Panel „Gerätelink entfernen" mit Rückfrage an. Nach dem Bestätigen bietet das Panel „Gerätelink erzeugen" an, ein offenes Gerät zeigt ohne Neuladen „Zugang beendet", der alte Link führt zu „Zugang beendet", und das Kartenzeichen ist wieder manuell verortet.
 
-> **AC-12** „Abschließen" fragt nach, bevor der Einsatz abgeschlossen wird; die Rückfrage sagt, dass dabei alle Gerätelinks und Ansichtslinks gelöscht werden. Nach dem Abschließen führen alle bisherigen Links zu „Zugang beendet", auch nach „Wieder öffnen"; die Panels bieten dann an, neue zu erzeugen.
+> **AC-12** „Abschließen" fragt nach, bevor der Einsatz abgeschlossen wird; die Rückfrage sagt, dass dabei alle Gerätelinks und Ansichtslinks gelöscht werden. Nach dem Abschließen führen alle bisherigen Links zu „Zugang beendet", auch nach „Wieder öffnen"; die Panels bieten dann an, neue zu erzeugen. Kartenzeichen, deren Gerätelink so gelöscht wurde, sind wieder manuell verortet.
 
 ## Nudges
 > `UBIQUITOUS_LANGUAGE.md` anpassen: Gerätelinks sind entfernbar, und Abschließen löscht Geräte- und Ansichtslinks.
