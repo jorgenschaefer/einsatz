@@ -17,6 +17,8 @@ import {
 import { closeOperation } from "@/server/operations/operation-lifecycle";
 import { insertOperation } from "@/server/operations/operations";
 import { freshDb } from "@/test/db";
+import { expectRouteRequiresToken } from "@/test/route-checks";
+import * as route from "./route";
 import { POST } from "./route";
 
 const params = (token: string) => ({ params: Promise.resolve({ token }) });
@@ -56,20 +58,16 @@ async function postAt(at: Date, token: string, body: unknown) {
   return post(token, body);
 }
 
+expectRouteRequiresToken(route, {
+  POST: { send: (token) => post(token, { lat: 53.55, lng: 9.99 }) },
+});
+
 const first = new Date("2026-10-03T12:00:00.000Z");
 const later = (ms: number) => new Date(first.getTime() + ms);
 
 describe("device position route", () => {
   it("publishes with the operationId from reportPosition, without a second lookup", async () => {
-    const db = state.db as Db;
-    const op = await insertOperation(db, { name: "Lage", description: null });
-    const symbol = await createMapSymbol(db, {
-      operationId: op.id,
-      composition: {},
-      lat: 1,
-      lng: 2,
-    });
-    const token = await generateDeviceLink(db, symbol.operationId, symbol.id);
+    const { op, token } = await aDeviceLink();
 
     const res = await post(token, { lat: 53.55, lng: 9.99 });
 

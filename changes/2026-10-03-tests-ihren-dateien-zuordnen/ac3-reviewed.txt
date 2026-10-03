@@ -13,3 +13,9 @@ src/app/operations/[id]/geocode-actions.test.ts
 src/app/operations/[id]/journal-actions.test.ts
 src/app/operations/[id]/strength-actions.test.ts
 src/app/operations/[id]/events/route.test.ts
+src/app/device/[token]/events/route.test.ts
+src/app/device/[token]/geocode/route.test.ts
+src/app/view/[token]/events/route.test.ts
+src/app/view/[token]/geocode/route.test.ts
+src/app/view/[token]/overlays/[overlayId]/route.test.ts
+src/app/device/[token]/overlays/[overlayId]/route.test.ts

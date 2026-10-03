@@ -58,6 +58,33 @@ export function expectRouteRequiresLogin(
   });
 }
 
+/** How to send a request to one method with a given link token. */
+export interface TokenCall {
+  send: (token: string) => Promise<Response>;
+}
+
+/**
+ * Registers tests that `calls` names exactly the methods `route` exports, and
+ * that each method answers 403 to a token that is no link. The test file gives
+ * the route a real database, so the route's own access lookup runs.
+ */
+export function expectRouteRequiresToken(
+  route: RouteModule,
+  calls: Partial<Record<Method, TokenCall>>,
+): void {
+  describe("valid token required", () => {
+    itNamesEveryMethod(route, calls);
+
+    for (const [method, { send }] of entries(calls)) {
+      it(`refuses ${method} for a token that is no link`, async () => {
+        expect(await answerOf(() => send("no-such-link"))).toEqual({
+          status: 403,
+        });
+      });
+    }
+  });
+}
+
 /** A call with an object id that is not a UUID, and what is stored around it. */
 export interface NonUuidCall extends RouteCall {
   stored: () => Promise<unknown>;

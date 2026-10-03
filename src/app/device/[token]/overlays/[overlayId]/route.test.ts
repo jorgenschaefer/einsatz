@@ -1,40 +1,88 @@
-import { describe, expect, it, vi } from "vitest";
+import { randomUUID } from "node:crypto";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { Db } from "@/server/db/db";
 
-vi.mock("@/server/db/pg", () => ({ getDb: () => ({}) }));
-vi.mock("@/server/mapsymbols/map-symbols", () => ({
-  resolveDeviceAccess: vi.fn(),
-}));
-vi.mock("@/server/image-overlays/image-overlays", () => ({
-  getImageOverlay: vi.fn(),
-}));
-vi.mock("@/server/image-overlays/image-storage", () => ({
-  readOverlayFile: vi.fn(),
-}));
+const state = vi.hoisted(() => ({ db: undefined as unknown }));
 
-import { getImageOverlay } from "@/server/image-overlays/image-overlays";
-import { resolveDeviceAccess } from "@/server/mapsymbols/map-symbols";
+vi.mock("@/server/db/pg", () => ({ getDb: () => state.db }));
+
+import { createImageOverlay } from "@/server/image-overlays/image-overlays";
+import {
+  createMapSymbol,
+  generateDeviceLink,
+} from "@/server/mapsymbols/map-symbols";
+import { insertOperation } from "@/server/operations/operations";
+import { freshDb } from "@/test/db";
+import { snapshotDb } from "@/test/db-snapshot";
+import {
+  expectNonUuidObjectIdRefused,
+  expectRouteRequiresToken,
+} from "@/test/route-checks";
+import { routeParams } from "@/test/upload-request";
+import * as route from "./route";
 import { GET } from "./route";
 
-const call = () =>
-  GET(new Request("http://localhost/"), {
-    params: Promise.resolve({ token: "tok", overlayId: "o1" }),
-  });
+const db = () => state.db as Db;
+
+let token: string;
+
+beforeEach(async () => {
+  state.db = await freshDb();
+  token = await aLinkTo((await anOperation("Lage")).id);
+});
+
+const get = (overlayId: string, linkToken = token) =>
+  GET(
+    new Request("http://localhost/"),
+    routeParams({ token: linkToken, overlayId }),
+  );
+
+expectRouteRequiresToken(route, {
+  GET: { send: (noLink) => get(randomUUID(), noLink) },
+});
+
+expectNonUuidObjectIdRefused(route, {
+  GET: {
+    send: () => get("marker-icon.png"),
+    answer: { status: 404 },
+    stored: () => snapshotDb(db()),
+  },
+});
 
 describe("device overlay route", () => {
-  it("returns 403 when the device token has no access", async () => {
-    vi.mocked(resolveDeviceAccess).mockResolvedValue(null);
-    const res = await call();
-    expect(res.status).toBe(403);
-  });
+  it("answers 404 for an overlay of another Einsatz", async () => {
+    const other = await anOperation("Andere Lage");
+    const overlay = await createImageOverlay(db(), {
+      operationId: other.id,
+      filePath: `${other.id}/karte.png`,
+      name: "Karte",
+      widthPx: 1000,
+      heightPx: 1000,
+      placement: {
+        centerLat: 53.55,
+        centerLng: 9.99,
+        scaleM: 500,
+        rotationDeg: 0,
+        opacity: 1,
+      },
+    });
 
-  it("returns 404 when the overlay belongs to another Einsatz", async () => {
-    vi.mocked(resolveDeviceAccess).mockResolvedValue({ operationId: "op-a" });
-    vi.mocked(getImageOverlay).mockResolvedValue({
-      id: "o1",
-      operationId: "op-b",
-      filePath: "op-b/o1.png",
-    } as Awaited<ReturnType<typeof getImageOverlay>>);
-    const res = await call();
+    const res = await get(overlay.id);
+
     expect(res.status).toBe(404);
   });
 });
+
+function anOperation(name: string) {
+  return insertOperation(db(), { name, description: null });
+}
+
+async function aLinkTo(operationId: string) {
+  const symbol = await createMapSymbol(db(), {
+    operationId,
+    composition: {},
+    lat: 53.55,
+    lng: 9.99,
+  });
+  return generateDeviceLink(db(), operationId, symbol.id);
+}

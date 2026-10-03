@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:
 advances:  AC-1, AC-3, AC-5, AC-7, AC-8, AC-11
 after:     05-actions-etb-staerke, 06-routes-einsatz
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -146,3 +146,60 @@ described under Context.
 - No change to any route's answers.
 
 ## Left standing
+- **Review findings not fixed.** One review round. It found no blocker and
+  nothing that should be fixed, and two nits, so there was no second round.
+  - Fixed (nit): the first test in `device/[token]/position/route.test.ts`
+    built its device link by hand. It now uses the file's `aDeviceLink()`.
+  - Not fixed (nit): in both `overlays/[overlayId]/route.test.ts`, the
+    "answers 404 for an overlay of another Einsatz" test spells out a
+    15-line `createImageOverlay` call. Only one test per file uses it, so
+    moving it into a helper would not make the file shorter.
+- **Checks not run.** None skipped. After the last edit, `npm run check` is
+  green (226 files, 2777 tests). Its one Biome warning was already there at
+  the start commit. `npm run test:coverage` and then `compare-coverage.mjs`
+  exit 0. The script names only `action-checks.ts`, `live-events.ts`,
+  `page-checks.ts` and `route-checks.ts` under `src/test/` as "new,
+  compared with nothing", as after tickets 06 and 08. None of them was split
+  out of a baseline file. No file's coverage dropped, and no file needed a
+  new test file. I ran the comparison before the last nit fix, which only
+  changes how one test builds its device link.
+- **Advanced without an automated test.**
+  - AC-1, AC-5: I checked by listing the files. Both old files are deleted,
+    and all seven routes have a `route.test.ts` next to them. Ticket 23 adds
+    the check to `npm run check`.
+  - AC-7: I proved the helpers by breaking routes by hand. Each break made
+    the named test fail with an expected/actual mismatch, and I restored all
+    of them:
+    - The 403 for a missing access swapped for a 200 (204 in `position`) in
+      each of the seven routes: "valid token required › refuses <method>
+      for a token that is no link" failed in that route's file.
+    - A `PUT` exported from `position/route.ts`: "valid token required ›
+      names every exported method, and nothing else" failed.
+    - `isUuid` removed from `getImageOverlay`: "object id that is not a
+      UUID › refuses it on GET and changes nothing" failed in both overlay
+      files.
+  - AC-8, AC-11: the commit's `Removed tests:` section is written from
+    `removed-tests.mjs`. It names all 11 removed tests, and each has its `→`
+    line.
+- **AC-3 review list.** I added six files to `ac3-reviewed.txt`. This ticket
+  created `device/[token]/events/route.test.ts` and
+  `device/[token]/geocode/route.test.ts`. It rewrote `view/[token]/events`,
+  `view/[token]/geocode` and both `overlays/[overlayId]` test files as a
+  whole, and I held every test in them against its own route. The "another
+  Einsatz" tests pin that the route passes the link's Einsatz on, not
+  `overlayImageResponse`'s own check. `device/[token]/position/route.test.ts`
+  was only edited, so it is not listed.
+- **Departures from the plan / Context.**
+  - The helper takes `{ send: (token) => … }` per method rather than a
+    `RouteCall`. The answer is always 403, and the helper picks the token
+    (`no-such-link`, as `expectPageRequiresToken` does).
+  - The old token checks mocked `resolveViewAccess` / `resolveDeviceAccess`
+    file-wide. The helper now holds them against a real database. View
+    geocode's "returns geocoder hits when the token has access" and both
+    "another Einsatz" cases are rewritten with a real link and a real
+    overlay. Only `geocodeQueryForTokenLink` stays mocked.
+  - The non-UUID cases now also check that nothing in the database changes,
+    as `expectNonUuidObjectIdRefused` does.
+  - `position`'s "does not publish when the token is denied" stays. It pins
+    that nothing is published, which the helper does not check.
+- **Departures from a nudge.** None.

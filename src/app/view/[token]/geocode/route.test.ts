@@ -1,35 +1,45 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { Db } from "@/server/db/db";
 
-vi.mock("@/server/db/pg", () => ({ getDb: () => ({}) }));
-vi.mock("@/server/viewlinks/view-links", () => ({
-  resolveViewAccess: vi.fn(),
-}));
+const state = vi.hoisted(() => ({ db: undefined as unknown }));
+
+vi.mock("@/server/db/pg", () => ({ getDb: () => state.db }));
 vi.mock("@/server/geocoder/geocode-service", () => ({
   geocodeQueryForTokenLink: vi.fn(),
 }));
 
 import { geocodeQueryForTokenLink } from "@/server/geocoder/geocode-service";
-import { resolveViewAccess } from "@/server/viewlinks/view-links";
+import { insertOperation } from "@/server/operations/operations";
+import { createViewLink } from "@/server/viewlinks/view-links";
+import { freshDb } from "@/test/db";
+import { expectRouteRequiresToken } from "@/test/route-checks";
+import { routeParams } from "@/test/upload-request";
+import * as route from "./route";
 import { GET } from "./route";
 
-const call = (q = "hamburg") =>
-  GET(new Request(`http://localhost/?q=${q}`), {
-    params: Promise.resolve({ token: "tok" }),
-  });
+const call = (token: string, q = "hamburg") =>
+  GET(new Request(`http://localhost/?q=${q}`), routeParams({ token }));
+
+beforeEach(async () => {
+  state.db = await freshDb();
+});
+
+expectRouteRequiresToken(route, { GET: { send: (token) => call(token) } });
 
 describe("view geocode route", () => {
-  it("returns 403 when the view token has no access", async () => {
-    vi.mocked(resolveViewAccess).mockResolvedValue(null);
-    const res = await call();
-    expect(res.status).toBe(403);
-  });
-
   it("returns geocoder hits when the token has access", async () => {
-    vi.mocked(resolveViewAccess).mockResolvedValue({ operationId: "op-a" });
+    const db = state.db as Db;
+    const op = await insertOperation(db, { name: "Lage", description: null });
+    const link = await createViewLink(db, {
+      operationId: op.id,
+      label: "Leitstelle",
+    });
     vi.mocked(geocodeQueryForTokenLink).mockResolvedValue([
       { label: "Rathaus", lat: 53.5, lng: 9.9 },
     ]);
-    const res = await call();
+
+    const res = await call(link.token);
+
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual([
       { label: "Rathaus", lat: 53.5, lng: 9.9 },
