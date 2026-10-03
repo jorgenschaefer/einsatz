@@ -1,17 +1,13 @@
 import { isIP } from "node:net";
 import {
   extractKml,
+  kmlTooLarge,
   MAX_KML_BYTES,
   mergeKmlDocuments,
   networkLinkHrefs,
 } from "@/kml/kmz";
 import { ValidationError } from "@/server/validation";
-import {
-  type FetchBudget,
-  kmlTooLarge,
-  readCapped,
-  takeAddress,
-} from "./fetch-budget";
+import { type FetchBudget, readCapped, takeAddress } from "./fetch-budget";
 import { pinnedFetch } from "./pinned-fetch";
 import { isPublicUnicast } from "./public-address";
 

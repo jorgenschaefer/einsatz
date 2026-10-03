@@ -1,6 +1,5 @@
-import { MAX_KML_BYTES } from "@/kml/kmz";
+import { kmlTooLarge, MAX_KML_BYTES } from "@/kml/kmz";
 import { BodyTooLargeError, readBody } from "@/server/http/read-body";
-import { ValidationError } from "@/server/validation";
 
 const MAX_ADDRESSES = 20;
 
@@ -44,8 +43,3 @@ export async function readCapped(
     budget.bytesLeft = Math.max(0, budget.bytesLeft - read);
   }
 }
-
-export const KML_TOO_LARGE = "Die KML-Datei ist größer als 20 MB.";
-
-export const kmlTooLarge = (): ValidationError =>
-  new ValidationError(KML_TOO_LARGE);

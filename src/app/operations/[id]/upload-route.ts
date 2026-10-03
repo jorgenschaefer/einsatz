@@ -71,6 +71,16 @@ export function formFile(form: FormData): File {
   return file;
 }
 
+/** Der Text des Felds `name`, ob als Text oder als Datei geschickt; leer, wenn
+ *  es fehlt. */
+export async function formFileText(
+  form: FormData,
+  name: string,
+): Promise<string> {
+  const value = form.get(name);
+  return typeof value === "string" ? value : (value?.text() ?? "");
+}
+
 /** Ein als JSON gesendetes Feld; `undefined`, wenn es fehlt oder kein JSON ist. */
 export function formJson(form: FormData, name: string): unknown {
   const value = form.get(name);

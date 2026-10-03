@@ -2,6 +2,10 @@ import { unzipSync } from "fflate";
 import { ValidationError } from "@/server/validation";
 
 export const MAX_KML_BYTES = 20 * 1024 * 1024; // 20 MB
+export const KML_TOO_LARGE = "Die KML-Datei ist größer als 20 MB.";
+
+export const kmlTooLarge = (): ValidationError =>
+  new ValidationError(KML_TOO_LARGE);
 
 // ZIP-Dateien (und damit KMZ) beginnen mit der lokalen Datei-Signatur "PK\x03\x04".
 const ZIP_MAGIC = [0x50, 0x4b, 0x03, 0x04];

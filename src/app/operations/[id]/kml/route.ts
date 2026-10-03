@@ -1,7 +1,7 @@
-import { KML_TOO_LARGE } from "@/server/kml/fetch-budget";
+import { KML_TOO_LARGE } from "@/kml/kmz";
 import { addKmlFile } from "@/server/kml/kml-import";
 import { KML_LOAD_FAILED } from "../upload-messages";
-import { handleUpload } from "../upload-route";
+import { formFileText, handleUpload } from "../upload-route";
 
 /** Bindet eine KML-Datei ein (im Browser aus KMZ entpackt): `name`, `content`. */
 export async function POST(
@@ -19,13 +19,9 @@ export async function POST(
       await addKmlFile(db, {
         operationId,
         name: form.get("name") ?? "",
-        content: await textOf(form.get("content")),
+        content: await formFileText(form, "content"),
       });
       return operationId;
     },
   );
 }
-
-/** Der Text eines Felds, ob als Text oder als Datei geschickt. */
-const textOf = async (value: FormDataEntryValue | null): Promise<string> =>
-  typeof value === "string" ? value : (value?.text() ?? "");
