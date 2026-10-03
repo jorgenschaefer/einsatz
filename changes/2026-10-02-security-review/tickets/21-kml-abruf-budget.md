@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:
 advances:  AC-6, AC-9
 after:     03-kml-abruf-absichern
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -133,3 +133,47 @@ plan chose and may have shifted.
 - Regex backtracking in `src/kml/kmz.ts`: ticket `02-kml-ohne-backtracking`.
 
 ## Left standing
+- **Red for the endless body was a crash, not a failed assertion.** Against
+  the old code, the test "a URL with an endless body and no Content-Length"
+  made the Vitest worker run out of memory (SIGKILL). That was the defect: the
+  body was read whole. The other budget tests failed on their assertions
+  (26 instead of 20 requests, and so on).
+- **AC-6 and AC-9 conflict for one kind of file.** Take an uploaded file whose
+  first NetworkLink is over 20 MB and sends no `Content-Length`, followed by
+  small links. Before this change, the big link was skipped and the small ones
+  imported. Now reading the big link uses up the whole 20 MB, so the later
+  links are skipped too. AC-6 ("liest zusammen höchstens 20 MB") and the
+  decision to count the bytes read make this unavoidable. A file whose links
+  together exceed 20 MB no longer fails as a whole: the links that fit are
+  imported.
+- **Review nit not fixed: `Content-Length` is only checked against the full
+  20 MB, not against what is left in the budget.** A NetworkLink that announces
+  more than is left gets read until the cut. That cut empties the budget, so
+  later small links that would have fit are skipped as well. Refusing such a
+  link before reading would keep them. The plan kept `enforceContentLength` as
+  an early refusal against the cap only. This is not a regression: such files
+  used to fail as a whole.
+- **Plan addition: `takeAddress` also returns `false` when no bytes are left.**
+  The first review found that once the 20 MB were used up, every remaining
+  link was still requested and one chunk of it read. Now no request goes out.
+  Tests: "takes no address once no bytes are left" (`fetch-budget.test.ts`) and
+  "requests no further NetworkLink once 20 MB are read"
+  (`kml-actions.budget.test.ts`).
+- **Overshoot per cut.** A cut response is read at most one chunk past the
+  limit. The test bound is "20 MB plus one 64 KB chunk". With a real
+  `pinnedFetch`, the chunk size depends on the socket. The budget counts at
+  most down to 0, so that last chunk is not carried over.
+- **Plan detail: where the entry points live.** `loadKmlFromUrl` and
+  `resolveKmlFile` are in a new `src/server/kml/kml-import.ts`, so
+  `fetch-budget.ts` does not import `kml-fetch.ts` (which imports it).
+  `kml-fetch.ts` still grew from 204 to 214 lines, all of it the import and the
+  new `budget` parameters. The budget logic itself is in `fetch-budget.ts`.
+- **Nudge not applicable: nothing changed in `src/server/validation.ts`.** This
+  ticket adds no input validation. No zod and no new dependency were added.
+- **Not checked against the real network or in the browser.** AC-9 is proven
+  by the existing action tests on the mocked seam ("Meine Karten"-style
+  NetworkLink, KMZ by URL, skipped links) and by the new redirect-and-budget
+  tests. Ticket 03's real Google and NOAA imports were not repeated. Neither
+  reviewer drove the app: the address check refuses local test servers, and no
+  public host was available to serve an endless body. The only visible change
+  is the error text, and the action tests check it.

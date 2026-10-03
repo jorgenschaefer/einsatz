@@ -1,12 +1,8 @@
 "use server";
 
 import type { ActionResult } from "@/app/action-result";
-import {
-  assertKmlDocument,
-  enforceKmlSizeLimit,
-  fetchKmlFromUrl,
-  resolveKmlNetworkLinks,
-} from "@/server/kml/kml-fetch";
+import { assertKmlDocument, enforceKmlSizeLimit } from "@/server/kml/kml-fetch";
+import { loadKmlFromUrl, resolveKmlFile } from "@/server/kml/kml-import";
 import {
   createKmlOverlay,
   deleteKmlOverlay,
@@ -29,7 +25,7 @@ export async function addKmlFileAction(
     assertKmlDocument(content, "Die Datei ist keine KML- oder KMZ-Datei.");
     // KMZ-Dateien aus Google „Meine Karten“ enthalten oft nur einen
     // NetworkLink; dessen Ziel serverseitig auflösen, damit Geometrie erscheint.
-    const resolved = await resolveKmlNetworkLinks(content);
+    const resolved = await resolveKmlFile(content);
     enforceKmlSizeLimit(resolved);
     await createKmlOverlay(db, {
       operationId,
@@ -50,7 +46,7 @@ export async function addKmlUrlAction(
   return operationAction(async (db) => {
     const source = url.trim();
     if (!source) throw new ValidationError("Bitte eine KML-URL angeben.");
-    const content = await fetchKmlFromUrl(source);
+    const content = await loadKmlFromUrl(source);
     await createKmlOverlay(db, {
       operationId,
       sourceType: "url",
@@ -78,7 +74,7 @@ export async function reloadKmlAction(
   id: string,
 ): Promise<ActionResult> {
   return operationAction(async (db) => {
-    await reloadKmlOverlay(db, id, fetchKmlFromUrl);
+    await reloadKmlOverlay(db, id, loadKmlFromUrl);
     return operationId;
   }, LOAD_FAILED);
 }

@@ -7,8 +7,8 @@ const setKmlVisibility = vi.fn();
 const deleteKmlOverlay = vi.fn();
 const createKmlOverlay = vi.fn();
 const reloadKmlOverlay = vi.fn();
-const fetchKmlFromUrl = vi.fn();
-const resolveKmlNetworkLinks = vi.fn();
+const loadKmlFromUrl = vi.fn();
+const resolveKmlFile = vi.fn();
 
 vi.mock("@/server/auth/current-user", () => ({
   requireUser: () => requireUser(),
@@ -29,9 +29,10 @@ vi.mock("@/server/kml/kml-overlays", () => ({
 vi.mock("@/server/kml/kml-fetch", () => ({
   assertKmlDocument: () => {},
   enforceKmlSizeLimit: () => {},
-  fetchKmlFromUrl: (...args: unknown[]) => fetchKmlFromUrl(...args),
-  resolveKmlNetworkLinks: (...args: unknown[]) =>
-    resolveKmlNetworkLinks(...args),
+}));
+vi.mock("@/server/kml/kml-import", () => ({
+  loadKmlFromUrl: (...args: unknown[]) => loadKmlFromUrl(...args),
+  resolveKmlFile: (...args: unknown[]) => resolveKmlFile(...args),
 }));
 
 import { ValidationError } from "@/server/validation";
@@ -56,8 +57,8 @@ beforeEach(() => {
   deleteKmlOverlay.mockReset().mockResolvedValue(undefined);
   createKmlOverlay.mockReset().mockResolvedValue(undefined);
   reloadKmlOverlay.mockReset().mockResolvedValue(undefined);
-  fetchKmlFromUrl.mockReset().mockResolvedValue("<kml/>");
-  resolveKmlNetworkLinks
+  loadKmlFromUrl.mockReset().mockResolvedValue("<kml/>");
+  resolveKmlFile
     .mockReset()
     .mockImplementation(async (content: string) => content);
 });
@@ -73,7 +74,7 @@ describe.each([
     name: "addKmlUrlAction",
     call: () =>
       addKmlUrlAction("op-1", "Pegel", "https://example.org/pegel.kml"),
-    loader: fetchKmlFromUrl,
+    loader: loadKmlFromUrl,
   },
   {
     name: "reloadKmlAction",
@@ -128,7 +129,7 @@ describe("addKmlUrlAction without a URL", () => {
 
     expect(result).toEqual({ error: "Bitte eine KML-URL angeben." });
     expect(requireUser).toHaveBeenCalledTimes(1);
-    expect(fetchKmlFromUrl).not.toHaveBeenCalled();
+    expect(loadKmlFromUrl).not.toHaveBeenCalled();
     expect(createKmlOverlay).not.toHaveBeenCalled();
     expect(revalidatePath).not.toHaveBeenCalled();
   });

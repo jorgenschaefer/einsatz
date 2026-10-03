@@ -6,6 +6,12 @@ import {
   networkLinkHrefs,
 } from "@/kml/kmz";
 import { ValidationError } from "@/server/validation";
+import {
+  type FetchBudget,
+  kmlTooLarge,
+  readCapped,
+  takeAddress,
+} from "./fetch-budget";
 import { pinnedFetch } from "./pinned-fetch";
 import { isPublicUnicast } from "./public-address";
 
@@ -85,16 +91,12 @@ export function enforceKmlSizeLimit(content: string | Uint8Array): void {
     typeof content === "string"
       ? Buffer.byteLength(content, "utf8")
       : content.byteLength;
-  if (size > MAX_KML_BYTES) {
-    throw new ValidationError("Die KML-Datei ist größer als 20 MB.");
-  }
+  if (size > MAX_KML_BYTES) throw kmlTooLarge();
 }
 
 /** Lehnt eine bereits im Content-Length angekündigte Übergröße ab, bevor der Body gelesen wird. */
 export function enforceContentLength(header: string | null): void {
-  if (header && Number(header) > MAX_KML_BYTES) {
-    throw new ValidationError("Die KML-Datei ist größer als 20 MB.");
-  }
+  if (header && Number(header) > MAX_KML_BYTES) throw kmlTooLarge();
 }
 
 const isLocalhostName = (hostname: string): boolean => {
@@ -163,10 +165,12 @@ async function fetchFollowingRedirects(start: URL): Promise<Response> {
  * Dokumente werden zusammengeführt. Ohne Verweise bleibt das KML unverändert.
  * Nötig für Google-„Meine Karten“-Exporte, die nur einen NetworkLink enthalten;
  * togeojson selbst folgt diesen nicht, sonst bliebe das Overlay leer.
- * Lässt sich ein Verweis nicht laden, bleibt das ursprüngliche KML erhalten.
+ * Lässt sich ein Verweis nicht laden oder reicht das Budget nicht, wird er
+ * übersprungen; lädt keiner, bleibt das ursprüngliche KML erhalten.
  */
 export async function resolveKmlNetworkLinks(
   kml: string,
+  budget: FetchBudget,
   depth = 0,
 ): Promise<string> {
   const hrefs = networkLinkHrefs(kml);
@@ -174,7 +178,7 @@ export async function resolveKmlNetworkLinks(
   const docs: string[] = [];
   for (const href of hrefs) {
     try {
-      docs.push(await fetchKmlFromUrl(href, depth + 1));
+      docs.push(await fetchKmlFromUrl(href, budget, depth + 1));
     } catch {
       // Einzelner toter Verweis: überspringen, restliche Links weiter auflösen.
     }
@@ -184,21 +188,27 @@ export async function resolveKmlNetworkLinks(
 
 /**
  * Holt KML- oder KMZ-Inhalt serverseitig (umgeht CORS), entpackt KMZ zu KML,
- * löst NetworkLinks auf und deckelt bei 20 MB.
+ * löst NetworkLinks auf und deckelt bei 20 MB. Verbraucht eine Adresse und
+ * die gelesenen Bytes aus `budget`.
  */
-export async function fetchKmlFromUrl(url: string, depth = 0): Promise<string> {
+export async function fetchKmlFromUrl(
+  url: string,
+  budget: FetchBudget,
+  depth = 0,
+): Promise<string> {
   const target = assertFetchableKmlUrl(normalizeKmlSourceUrl(url));
+  if (!takeAddress(budget))
+    throw new ValidationError("Das Abruf-Budget dieser KML ist aufgebraucht.");
   const response = await fetchFollowingRedirects(target);
   if (!response.ok)
     throw new ValidationError(
       `KML konnte nicht geladen werden (${response.status}).`,
     );
   enforceContentLength(response.headers.get("content-length"));
-  const bytes = new Uint8Array(await response.arrayBuffer());
-  enforceKmlSizeLimit(bytes); // deckelt den (ggf. komprimierten) Download
+  const bytes = await readCapped(response, budget, MAX_KML_BYTES); // ggf. komprimiert
   const kml = extractKml(bytes);
   assertKmlDocument(kml, "Die Adresse liefert keine KML-Datei.");
-  const content = await resolveKmlNetworkLinks(kml, depth);
+  const content = await resolveKmlNetworkLinks(kml, budget, depth);
   enforceKmlSizeLimit(content); // deckelt das entpackte/aufgelöste KML
   return content;
 }

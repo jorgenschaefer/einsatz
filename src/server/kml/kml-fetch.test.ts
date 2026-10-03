@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { MAX_KML_BYTES } from "@/kml/kmz";
 import { ValidationError } from "@/server/validation";
 import { type FetchStub, scriptedFetch } from "@/test/scripted-fetch";
+import { createFetchBudget } from "./fetch-budget";
 
 const pinnedFetch = vi.fn();
 vi.mock("./pinned-fetch", () => ({
@@ -195,7 +196,7 @@ describe("fetchKmlFromUrl (redirect handling)", () => {
       location: "http://169.254.169.254/internal.kml",
     }));
     await expect(
-      fetchKmlFromUrl("http://93.184.216.34/start.kml"),
+      fetchKmlFromUrl("http://93.184.216.34/start.kml", createFetchBudget()),
     ).rejects.toThrow("Diese Adresse ist nicht erlaubt.");
   });
 
@@ -205,7 +206,7 @@ describe("fetchKmlFromUrl (redirect handling)", () => {
       location: "http://93.184.216.34/next.kml",
     }));
     await expect(
-      fetchKmlFromUrl("http://93.184.216.34/start.kml"),
+      fetchKmlFromUrl("http://93.184.216.34/start.kml", createFetchBudget()),
     ).rejects.toThrow("Zu viele Weiterleitungen");
   });
 });
@@ -219,7 +220,7 @@ describe("resolveKmlNetworkLinks", () => {
     serve((url) => ({
       body: url.includes("/a.kml") ? doc("A") : doc("B"),
     }));
-    const merged = await resolveKmlNetworkLinks(twoLinks);
+    const merged = await resolveKmlNetworkLinks(twoLinks, createFetchBudget());
     expect(merged).toContain("<Placemark>A</Placemark>");
     expect(merged).toContain("<Placemark>B</Placemark>");
   });
@@ -228,14 +229,16 @@ describe("resolveKmlNetworkLinks", () => {
     serve((url) =>
       url.includes("/a.kml") ? { status: 500 } : { body: doc("B") },
     );
-    const out = await resolveKmlNetworkLinks(twoLinks);
+    const out = await resolveKmlNetworkLinks(twoLinks, createFetchBudget());
     expect(out).toContain("<Placemark>B</Placemark>");
     expect(out).not.toContain("<Placemark>A</Placemark>");
   });
 
   it("keeps the original KML when every NetworkLink is dead", async () => {
     serve(() => ({ status: 500 }));
-    expect(await resolveKmlNetworkLinks(twoLinks)).toBe(twoLinks);
+    expect(await resolveKmlNetworkLinks(twoLinks, createFetchBudget())).toBe(
+      twoLinks,
+    );
   });
 
   it("stops at the depth limit without fetching", async () => {
@@ -244,7 +247,11 @@ describe("resolveKmlNetworkLinks", () => {
       calls++;
       return { body: doc("X") };
     });
-    const out = await resolveKmlNetworkLinks(twoLinks, MAX_NETWORK_LINK_DEPTH);
+    const out = await resolveKmlNetworkLinks(
+      twoLinks,
+      createFetchBudget(),
+      MAX_NETWORK_LINK_DEPTH,
+    );
     expect(out).toBe(twoLinks);
     expect(calls).toBe(0);
   });
