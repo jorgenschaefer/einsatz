@@ -144,7 +144,7 @@ describe("SituationWorkspace", () => {
         within(dialog).getByRole("button", { name: "Festlegen" }),
       );
 
-      expect(onSetDefault).toHaveBeenCalledWith({
+      expect(onSetDefaultView).toHaveBeenCalledWith({
         lat: 53.5,
         lng: 9.9,
         zoom: 14,
@@ -167,7 +167,7 @@ describe("SituationWorkspace", () => {
     ).toBeNull();
   });
 
-  // Das CSS blendet `.map-controls__view` unter `[data-panel-open]` aus.
+  // Das CSS blendet `.map-controls` unter `[data-panel-open]` aus.
   it("puts Zum Standard-Ausschnitt zurück where an open sheet hides it on a phone", async () => {
     renderWorkspace();
     await openPanel("Ebenen");

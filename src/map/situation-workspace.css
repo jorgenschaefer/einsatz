@@ -222,7 +222,7 @@
 }
 
 @media not all and (min-width: 48em) {
-  [data-panel-open] .map-controls__view {
+  [data-panel-open] .map-controls {
     display: none;
   }
 }

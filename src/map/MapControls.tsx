@@ -18,17 +18,15 @@ export function MapControls({
       gap={8}
       className="map-controls"
     >
-      <Stack gap={8} className="map-controls__view">
-        <ActionIcon
-          variant="default"
-          size="lg"
-          aria-label="Zum Standard-Ausschnitt zurück"
-          disabled={!canReturnToDefault}
-          onClick={onReturnToDefault}
-        >
-          <IconHome size={18} />
-        </ActionIcon>
-      </Stack>
+      <ActionIcon
+        variant="default"
+        size="lg"
+        aria-label="Zum Standard-Ausschnitt zurück"
+        disabled={!canReturnToDefault}
+        onClick={onReturnToDefault}
+      >
+        <IconHome size={18} />
+      </ActionIcon>
     </Stack>
   );
 }
