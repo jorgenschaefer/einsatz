@@ -24,3 +24,10 @@ src/app/operations/[id]/upload-route.test.ts
 src/map/KmlPanel.test.tsx
 src/map/ImageOverlayPanel.test.tsx
 src/map/ViewLinkPanel.test.tsx
+src/map/leaflet-adapter.test.ts
+src/map/leaflet-image-overlay-handles.test.ts
+src/map/leaflet-kml-overlays.test.ts
+src/map/leaflet-areas.test.ts
+src/map/leaflet-markers.test.ts
+src/map/leaflet-image-overlays.test.ts
+src/map/SituationMap.test.tsx

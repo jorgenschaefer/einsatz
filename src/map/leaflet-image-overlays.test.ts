@@ -1,13 +1,9 @@
 import L from "leaflet";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ImageOverlaySpec, MapAdapter } from "./adapter";
-import {
-  imageOverlayCorners,
-  imageOverlayHandles,
-  rotationFromHandle,
-  scaleMFromCorner,
-} from "./image-overlay";
-import { leafletMapAdapterFactory } from "./leaflet-adapter";
+import { imageOverlayCorners, imageOverlayHandles } from "./image-overlay";
+import { imageSignature } from "./leaflet-image-overlays";
+import { mountLeafletMap } from "./leaflet-map.fixtures";
 
 const saved: ImageOverlaySpec = {
   imageUrl: "/img/i1",
@@ -31,7 +27,6 @@ type RotatedLayer = L.ImageOverlay & {
 };
 
 let adapter: MapAdapter;
-let container: HTMLDivElement;
 
 /**
  * Draws the saved image, starts editing it and collects what the adapter
@@ -58,15 +53,7 @@ function editSavedImage() {
     return layer;
   });
 
-  container = document.createElement("div");
-  Object.defineProperty(container, "clientWidth", { value: 800 });
-  Object.defineProperty(container, "clientHeight", { value: 600 });
-  document.body.appendChild(container);
-  adapter = leafletMapAdapterFactory.create(container, {
-    initialView: { lat: 53.55, lng: 9.99, zoom: 13 },
-    tileUrl: "https://tiles.example/{z}/{x}/{y}.png",
-    attribution: "©",
-  });
+  ({ adapter } = mountLeafletMap());
   adapter.setImageOverlay("i1", saved);
   const onChange = vi.fn();
   adapter.startImageOverlayEdit("i1", onChange);
@@ -85,8 +72,6 @@ const latLngOf = (p: L.LatLng) => ({ lat: p.lat, lng: p.lng });
 
 afterEach(() => {
   vi.restoreAllMocks();
-  adapter.destroy();
-  container.remove();
 });
 
 describe("dragging an image overlay's move handle", () => {
@@ -117,38 +102,6 @@ describe("dragging an image overlay's move handle", () => {
     dragMoveHandle(handles);
 
     expect(onChange).toHaveBeenCalledWith(moved);
-  });
-});
-
-describe("dropping the other handles of an image overlay", () => {
-  const dropped = { lat: 53.56, lng: 10.02 };
-
-  /** Handles in drawing order: four corners, rotate, move. */
-  function drop(handle: L.Marker) {
-    handle.setLatLng([dropped.lat, dropped.lng]);
-    handle.fire("drag");
-    handle.fire("dragend");
-  }
-
-  it("scales the image from a corner", () => {
-    const { handles, onChange } = editSavedImage();
-    drop(handles.at(-6)!);
-
-    const scaleM = scaleMFromCorner(saved.placement, saved.aspect, dropped);
-    expect(scaleM).not.toBe(saved.placement.scaleM);
-    expect(onChange).toHaveBeenCalledWith({ ...saved.placement, scaleM });
-  });
-
-  it("rotates the image with the rotate handle", () => {
-    const { handles, onChange } = editSavedImage();
-    drop(handles.at(-2)!);
-
-    const rotationDeg = rotationFromHandle(saved.placement, dropped);
-    expect(rotationDeg).not.toBe(saved.placement.rotationDeg);
-    expect(onChange).toHaveBeenCalledWith({
-      ...saved.placement,
-      rotationDeg,
-    });
   });
 });
 
@@ -192,5 +145,30 @@ describe("restoring an image overlay after a gesture", () => {
     editSavedImage();
 
     expect(() => adapter.restoreImageOverlay("unknown")).not.toThrow();
+  });
+});
+
+describe("imageSignature", () => {
+  const image = (over: Partial<ImageOverlaySpec> = {}): ImageOverlaySpec => ({
+    ...saved,
+    ...over,
+  });
+
+  it("changes with url, placement, aspect or visibility", () => {
+    expect(imageSignature(image())).toBe(imageSignature(image()));
+    expect(imageSignature(image())).not.toBe(
+      imageSignature(image({ imageUrl: "/img/i2" })),
+    );
+    expect(imageSignature(image())).not.toBe(
+      imageSignature(image({ visible: false })),
+    );
+    expect(imageSignature(image())).not.toBe(
+      imageSignature(image({ aspect: 2 })),
+    );
+    expect(imageSignature(image())).not.toBe(
+      imageSignature(
+        image({ placement: { ...saved.placement, rotationDeg: 90 } }),
+      ),
+    );
   });
 });

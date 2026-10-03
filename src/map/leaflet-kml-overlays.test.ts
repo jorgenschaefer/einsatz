@@ -1,100 +1,79 @@
-import { afterEach, describe, expect, it } from "vitest";
-import type { MapAdapter } from "./adapter";
-import { leafletMapAdapterFactory } from "./leaflet-adapter";
+import { describe, expect, it } from "vitest";
+import { createKmlOverlayLayers, kmlSignature } from "./leaflet-kml-overlays";
+import { mountPlainLeafletMap } from "./leaflet-map.fixtures";
 
-const kmlWithPoint = (style: string) => `<?xml version="1.0"?>
+const POINT = `<?xml version="1.0"?>
   <kml xmlns="http://www.opengis.net/kml/2.2"><Document>
-    <Style id="s">${style}</Style>
-    <Placemark><name>Sammelplatz</name><styleUrl>#s</styleUrl>
-      <Point><coordinates>9.99,53.55,0</coordinates></Point>
-    </Placemark>
+    <Placemark><Point><coordinates>9.99,53.55,0</coordinates></Point></Placemark>
   </Document></kml>`;
 
-let adapter: MapAdapter;
-let container: HTMLDivElement;
+describe("KML-Ebenen on the map", () => {
+  function kmlLayers() {
+    const { map, container } = mountPlainLeafletMap();
+    const points = () => [...container.querySelectorAll(".kml-point")];
+    return { layers: createKmlOverlayLayers(map), points };
+  }
 
-function drawKml(content: string) {
-  container = document.createElement("div");
-  Object.defineProperty(container, "clientWidth", { value: 800 });
-  Object.defineProperty(container, "clientHeight", { value: 600 });
-  document.body.appendChild(container);
-  adapter = leafletMapAdapterFactory.create(container, {
-    initialView: { lat: 53.55, lng: 9.99, zoom: 13 },
-    tileUrl: "https://tiles.example/{z}/{x}/{y}.png",
-    attribution: "©",
+  it("draws a visible KML-Ebene", () => {
+    const { layers, points } = kmlLayers();
+
+    layers.set("k1", { content: POINT, visible: true });
+
+    expect(points()).toHaveLength(1);
   });
-  adapter.setKmlOverlay("k1", { content, visible: true });
-}
 
-afterEach(() => {
-  adapter.destroy();
-  container.remove();
+  it("draws nothing for a hidden KML-Ebene, and takes it off when hidden", () => {
+    const { layers, points } = kmlLayers();
+
+    layers.set("k1", { content: POINT, visible: false });
+    expect(points()).toHaveLength(0);
+
+    layers.set("k2", { content: POINT, visible: true });
+    layers.set("k2", { content: POINT, visible: false });
+    expect(points()).toHaveLength(0);
+  });
+
+  it("keeps the drawn KML-Ebene when it is set again unchanged", () => {
+    const { layers, points } = kmlLayers();
+    layers.set("k1", { content: POINT, visible: true });
+    const [drawn] = points();
+
+    layers.set("k1", { content: POINT, visible: true });
+
+    expect(points()).toEqual([drawn]);
+    expect(drawn.isConnected).toBe(true);
+  });
+
+  it("draws nothing for content that is not KML", () => {
+    const { layers, points } = kmlLayers();
+
+    layers.set("k1", { content: "<kml><unclosed>", visible: true });
+
+    expect(points()).toHaveLength(0);
+  });
+
+  it("removes a KML-Ebene, and draws it again when it is set after that", () => {
+    const { layers, points } = kmlLayers();
+    layers.set("k1", { content: POINT, visible: true });
+
+    layers.remove("k1");
+    expect(points()).toHaveLength(0);
+
+    layers.set("k1", { content: POINT, visible: true });
+    expect(points()).toHaveLength(1);
+  });
 });
 
-describe.each([
-  ["without an IconStyle", ""],
-  [
-    "with a relative icon href",
-    "<IconStyle><Icon><href>pin.png</href></Icon></IconStyle>",
-  ],
-])("a KML point %s", (_, style) => {
-  it("is drawn as a circle without loading any image", () => {
-    drawKml(kmlWithPoint(style));
-
-    const marker = container.querySelector<HTMLElement>(".leaflet-marker-icon");
-    expect(marker).not.toBeNull();
-    expect(marker?.tagName).not.toBe("IMG");
-    expect(
-      container.querySelector(
-        ".leaflet-marker-pane img, .leaflet-shadow-pane img, img[src*='marker-']",
-      ),
-    ).toBeNull();
-    expect(marker?.querySelector(".kml-point-circle")).not.toBeNull();
-  });
-
-  it("has a 32 px tap area centred on the point", () => {
-    drawKml(kmlWithPoint(style));
-
-    const marker = container.querySelector<HTMLElement>(".leaflet-marker-icon");
-    expect(marker?.style.width).toBe("32px");
-    expect(marker?.style.height).toBe("32px");
-    expect(marker?.style.marginLeft).toBe("-16px");
-    expect(marker?.style.marginTop).toBe("-16px");
-  });
-
-  it("opens the popup with the name when clicked", () => {
-    drawKml(kmlWithPoint(style));
-
-    container
-      .querySelector<HTMLElement>(".leaflet-marker-icon")
-      ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-
-    expect(
-      container.querySelector(".leaflet-popup-content")?.textContent,
-    ).toContain("Sammelplatz");
-  });
-
-  it("points the popup tip at the top of the circle, not into it", () => {
-    drawKml(kmlWithPoint(style));
-
-    container
-      .querySelector<HTMLElement>(".leaflet-marker-icon")
-      ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-
-    // Layer y of an element: translate3d(…, Y) or, in jsdom without 3D
-    // transforms, the inline top. The popup hangs from its `bottom`, and
-    // Leaflet's default 7 px offset is the height of its tip.
-    const px = (v: string) => Number.parseFloat(v) || 0;
-    const layerY = (el: HTMLElement) => {
-      const t = /translate3d\([^,]+,\s*(-?\d+(?:\.\d+)?)px/.exec(
-        el.style.transform,
-      );
-      return t ? Number(t[1]) : px(el.style.top);
-    };
-    const marker = container.querySelector<HTMLElement>(".leaflet-marker-icon");
-    const popup = container.querySelector<HTMLElement>(".leaflet-popup");
-    const pointY = layerY(marker!);
-    const tipY = layerY(popup!) - px(popup!.style.bottom) - 7;
-    expect(pointY - tipY).toBeGreaterThanOrEqual(19 / 2);
+describe("kmlSignature", () => {
+  it("changes with content or visibility", () => {
+    expect(kmlSignature({ content: "<kml/>", visible: true })).toBe(
+      kmlSignature({ content: "<kml/>", visible: true }),
+    );
+    expect(kmlSignature({ content: "<kml/>", visible: true })).not.toBe(
+      kmlSignature({ content: "<kml/>", visible: false }),
+    );
+    expect(kmlSignature({ content: "<kml/>", visible: true })).not.toBe(
+      kmlSignature({ content: "<other/>", visible: true }),
+    );
   });
 });

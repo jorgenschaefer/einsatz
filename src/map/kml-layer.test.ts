@@ -1,6 +1,7 @@
-import L from "leaflet";
+import type L from "leaflet";
 import { describe, expect, it } from "vitest";
 import { kmlIconOptions, kmlPopupContent, parseKml } from "./kml-layer";
+import { mountPlainLeafletMap } from "./leaflet-map.fixtures";
 
 const DATA_PIN = "data:image/png;base64,AA";
 
@@ -92,16 +93,12 @@ describe("parseKml", () => {
   });
 
   it("draws the circle and loads nothing for an icon from an http(s) address", () => {
-    const container = document.createElement("div");
-    document.body.append(container);
-    const map = L.map(container).setView([53.55, 9.99], 10);
+    const { map, container } = mountPlainLeafletMap();
 
     parseKml(kmlWithIcon("https://example.com/pin.png"))?.addTo(map);
 
     expect(container.querySelector(".kml-point-circle")).not.toBeNull();
     expect(container.querySelector("img")).toBeNull();
-    map.remove();
-    container.remove();
   });
 });
 
@@ -232,5 +229,85 @@ describe("kmlIconOptions", () => {
       "icon-offset-units": ["insetPixels", "insetPixels"],
     });
     expect(opts?.iconAnchor).toEqual([16, 16]);
+  });
+});
+
+describe.each([
+  ["without an IconStyle", ""],
+  [
+    "with a relative icon href",
+    "<IconStyle><Icon><href>pin.png</href></Icon></IconStyle>",
+  ],
+])("a KML point %s", (_, style) => {
+  const kmlWithPoint = `<?xml version="1.0"?>
+    <kml xmlns="http://www.opengis.net/kml/2.2"><Document>
+      <Style id="s">${style}</Style>
+      <Placemark><name>Sammelplatz</name><styleUrl>#s</styleUrl>
+        <Point><coordinates>9.99,53.55,0</coordinates></Point>
+      </Placemark>
+    </Document></kml>`;
+
+  /** Draws the point on a map and returns its marker element. */
+  function drawPoint() {
+    const { map, container } = mountPlainLeafletMap();
+    parseKml(kmlWithPoint)?.addTo(map);
+    const marker = container.querySelector<HTMLElement>(".leaflet-marker-icon");
+    return { container, marker };
+  }
+
+  const click = (el: HTMLElement | null) =>
+    el?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+  it("is drawn as a circle without loading any image", () => {
+    const { container, marker } = drawPoint();
+
+    expect(marker).not.toBeNull();
+    expect(marker?.tagName).not.toBe("IMG");
+    expect(
+      container.querySelector(
+        ".leaflet-marker-pane img, .leaflet-shadow-pane img, img[src*='marker-']",
+      ),
+    ).toBeNull();
+    expect(marker?.querySelector(".kml-point-circle")).not.toBeNull();
+  });
+
+  it("has a 32 px tap area centred on the point", () => {
+    const { marker } = drawPoint();
+
+    expect(marker?.style.width).toBe("32px");
+    expect(marker?.style.height).toBe("32px");
+    expect(marker?.style.marginLeft).toBe("-16px");
+    expect(marker?.style.marginTop).toBe("-16px");
+  });
+
+  it("opens the popup with the name when clicked", () => {
+    const { container, marker } = drawPoint();
+
+    click(marker);
+
+    expect(
+      container.querySelector(".leaflet-popup-content")?.textContent,
+    ).toContain("Sammelplatz");
+  });
+
+  it("points the popup tip at the top of the circle, not into it", () => {
+    const { container, marker } = drawPoint();
+
+    click(marker);
+
+    // Layer y of an element: translate3d(…, Y) or, in jsdom without 3D
+    // transforms, the inline top. The popup hangs from its `bottom`, and
+    // Leaflet's default 7 px offset is the height of its tip.
+    const px = (v: string) => Number.parseFloat(v) || 0;
+    const layerY = (el: HTMLElement) => {
+      const t = /translate3d\([^,]+,\s*(-?\d+(?:\.\d+)?)px/.exec(
+        el.style.transform,
+      );
+      return t ? Number(t[1]) : px(el.style.top);
+    };
+    const popup = container.querySelector<HTMLElement>(".leaflet-popup");
+    const pointY = layerY(marker!);
+    const tipY = layerY(popup!) - px(popup!.style.bottom) - 7;
+    expect(pointY - tipY).toBeGreaterThanOrEqual(19 / 2);
   });
 });

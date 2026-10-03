@@ -1,25 +1,43 @@
 import { describe, expect, it } from "vitest";
-import { leafletMapAdapterFactory } from "./leaflet-adapter";
+import type { MarkerSpec } from "./adapter";
+import { mountLeafletMap } from "./leaflet-map.fixtures";
+import { markerVisualSignature } from "./leaflet-markers";
 import { expectTooltipText } from "./tooltip.fixtures";
 
-describe("leaflet marker label", () => {
-  it("places the Bezeichnung tooltip to the right of the symbol icon", () => {
-    const container = document.createElement("div");
-    Object.defineProperty(container, "clientWidth", { value: 800 });
-    Object.defineProperty(container, "clientHeight", { value: 600 });
-    document.body.appendChild(container);
+describe("markerVisualSignature", () => {
+  const marker = (over: Partial<MarkerSpec> = {}): MarkerSpec => ({
+    lat: 53.55,
+    lng: 9.99,
+    iconUrl: "data:image/svg+xml,A",
+    opacity: 1,
+    ...over,
+  });
 
-    const adapter = leafletMapAdapterFactory.create(container, {
-      initialView: { lat: 53.55, lng: 9.99, zoom: 13 },
-      tileUrl: "https://tiles.example/{z}/{x}/{y}.png",
-      attribution: "©",
-    });
-    adapter.setMarker("s1", {
-      lat: 53.55,
-      lng: 9.99,
-      iconUrl: "data:image/svg+xml,A",
-      label: "83/1",
-    });
+  it("ignores callback identity and position", () => {
+    expect(markerVisualSignature(marker({ onClick: () => {} }))).toBe(
+      markerVisualSignature(marker({ onClick: () => {}, lat: 10, lng: 20 })),
+    );
+  });
+
+  it("changes when the icon, opacity or label changes", () => {
+    expect(markerVisualSignature(marker())).not.toBe(
+      markerVisualSignature(marker({ iconUrl: "data:image/svg+xml,B" })),
+    );
+    expect(markerVisualSignature(marker())).not.toBe(
+      markerVisualSignature(marker({ opacity: 0.4 })),
+    );
+    expect(markerVisualSignature(marker())).not.toBe(
+      markerVisualSignature(marker({ label: "83/1" })),
+    );
+  });
+});
+
+describe("leaflet marker label", () => {
+  const spec = { lat: 53.55, lng: 9.99, iconUrl: "data:image/svg+xml,A" };
+
+  it("places the Bezeichnung tooltip to the right of the symbol icon", () => {
+    const { adapter, container } = mountLeafletMap();
+    adapter.setMarker("s1", { ...spec, label: "83/1" });
 
     const tooltip = container.querySelector<HTMLElement>(
       ".leaflet-tooltip-right",
@@ -44,22 +62,10 @@ describe("leaflet marker label", () => {
 
     // Die Beschriftung beginnt rechts der rechten Symbolkante – keine Überlappung.
     expect(tooltipLeft).toBeGreaterThanOrEqual(iconRight);
-
-    adapter.destroy();
-    container.remove();
   });
 
   it("shows a Bezeichnung containing HTML as text, also after it changes", () => {
-    const container = document.createElement("div");
-    Object.defineProperty(container, "clientWidth", { value: 800 });
-    Object.defineProperty(container, "clientHeight", { value: 600 });
-    document.body.appendChild(container);
-    const adapter = leafletMapAdapterFactory.create(container, {
-      initialView: { lat: 53.55, lng: 9.99, zoom: 13 },
-      tileUrl: "https://tiles.example/{z}/{x}/{y}.png",
-      attribution: "©",
-    });
-    const spec = { lat: 53.55, lng: 9.99, iconUrl: "data:image/svg+xml,A" };
+    const { adapter, container } = mountLeafletMap();
     const tooltip = () =>
       container.querySelector<HTMLElement>(".leaflet-tooltip-right");
 
@@ -68,8 +74,5 @@ describe("leaflet marker label", () => {
 
     adapter.setMarker("s1", { ...spec, label: "<b>neu</b>" });
     expectTooltipText(tooltip(), "<b>neu</b>");
-
-    adapter.destroy();
-    container.remove();
   });
 });

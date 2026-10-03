@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:
 advances:  AC-1, AC-2, AC-3, AC-9, AC-11, AC-12
 after:     01-coverage-ausgangswert
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -139,3 +139,89 @@ before; only the file boundaries move.
 - No change of map behaviour.
 
 ## Left standing
+- **Review findings not fixed.** Two review rounds. Round 1 found one
+  should-fix and three nits. Round 2 found one nit. I fixed all but two
+  nits from round 1:
+  - Fixed (round 1 should-fix): once the KML point tests drove
+    `kml-layer.ts` directly, no test called `setKmlOverlay` or
+    `removeKmlOverlay` on the real adapter. `leaflet-adapter.test.ts` now
+    has "draws a KML-Ebene and takes it off again". When either was wired
+    to `() => {}`, that test failed.
+  - Fixed (nits): the copies of the bare `L.map` setup are now
+    `mountPlainLeafletMap` in `leaflet-map.fixtures.ts`. Its unused `size`
+    parameter (round 2) is gone.
+  - Not fixed (nit): `search-hit-pin.test.ts` still builds its adapter by
+    hand instead of using `mountLeafletMap`. That file is outside this
+    ticket, and the review tickets 26-31 read it.
+  - Not fixed (nit): the German comments that moved with the tests stay
+    German. The project's comments are German throughout, and ticket 11
+    left the same nit for the same reason.
+- **Checks not run.** None skipped. After the last edit, `npm run check` is
+  green (209 files, 2742 tests). `npm run test:coverage` and then
+  `compare-coverage.mjs` exit 0. The script names the `src/test/` helpers
+  from tickets 02-10 and the new `src/map/leaflet-map.fixtures.ts` as "new,
+  compared with nothing". The fixture's code came out of test files, which
+  are not in the baseline, so `coverage-splits.json` has no entry for it.
+  The last edit only removed the fixture's `size` parameter, and I did not
+  rerun coverage after it.
+- **Coverage drop fixed by new tests.** After the KML point tests moved to
+  `kml-layer.test.ts`, `leaflet-kml-overlays.ts` dropped from 14/17 lines
+  and 3/6 branches to 4/17 and 0/6. Its test file now has five tests of
+  `createKmlOverlayLayers`: visible, hidden and hidden again, set again
+  unchanged, content that is not KML, and set again after a remove. I
+  broke each branch by hand, and each break failed its test: no signature
+  check, `visible` ignored, the old layer not removed, the signature kept
+  on remove, nothing added, and an unparsed layer added.
+- **Advanced without an automated test.**
+  - AC-1, AC-2: I checked by listing the files. None of the topic files is
+    left. Each of the six modules has exactly one test file, and so does
+    `leaflet-image-overlay-handles.ts` (new).
+  - AC-9: checked with `wc -l`. `SituationMap.test.tsx` has 450 lines and
+    `kml-layer.test.ts` 313. The other written files are under 200.
+  - AC-11: the commit's `Removed tests:` section is written from
+    `removed-tests.mjs`. It names all 33 removed tests, and each has its
+    `→` line. I broke code by hand to see the moved or rewritten tests
+    fail, and restored it each time:
+    - Rotation +1° and scale ×2 in `leaflet-image-overlay-handles.ts`:
+      the moved rotate and scale tests failed.
+    - `popupAnchor` at 0 and `iconAnchor` at 0 in `kml-layer.ts`: the
+      moved popup-tip and tap-area tests failed.
+    - `imageUrl` left out of `imageSignature`: the signature test failed.
+      I added that assertion, as the test's name promised it.
+    - In `SituationMap.tsx`: `areas` in the centring effect's deps failed
+      "does not re-centre…". `operationDefaultView` in the map effect's
+      deps failed "keeps the same map instance…". `previewOpacity` or
+      `previewRadius` dropped from the preview's deps failed the opacity
+      or radius row. A search hit never set failed four Suchtreffer tests.
+  - AC-12: no production file changed.
+- **AC-3 review list.** I added seven files to `ac3-reviewed.txt`.
+  - This ticket created `leaflet-adapter.test.ts` and
+    `leaflet-image-overlay-handles.test.ts`.
+  - I rewrote `leaflet-kml-overlays.test.ts`, `leaflet-areas.test.ts`,
+    `leaflet-markers.test.ts`, `leaflet-image-overlays.test.ts` and
+    `SituationMap.test.tsx` as a whole, and held every test in them
+    against their own file. In the areas, markers and image files, the
+    real adapter runs only as a harness.
+  - One judgement call: "reports the new placement when the handle is
+    dropped" stays in `leaflet-image-overlays.test.ts`. The centre comes
+    from the handles file, but what the test pins is that the overlays
+    module reports on drop and not while dragging.
+  - `kml-layer.test.ts` was only edited (tests moved in), so it is not
+    listed.
+- **Departures from the plan.**
+  - All five steps are in one commit. No production code moved, so there
+    was no restructuring commit to keep apart. `SituationMap.tsx` is not
+    split, because the merged test file was 450 lines after shortening.
+    So `coverage-splits.json` is unchanged.
+  - The moved KML point tests and the scale/rotate tests drive their own
+    module on a bare Leaflet map (`parseKml(...).addTo(map)`,
+    `createImageOverlayHandles(map).show(...)`), not the adapter.
+  - New shared fixture `src/map/leaflet-map.fixtures.ts`, with
+    `mountLeafletMap` (the adapter) and `mountPlainLeafletMap`. It replaces
+    the per-file setup copies, as the shortening nudge suggests.
+  - Renamed tests: "verlinkt Impressum und Datenschutz…" is now "links
+    Impressum and Datenschutz in the attribution bar", in English. The
+    describe "dropping the other handles of an image overlay" is now
+    "dropping a corner or the rotate handle". The colour/opacity preview
+    test is split into `it.each` rows with the radius test.
+- **Departures from a nudge.** None.
