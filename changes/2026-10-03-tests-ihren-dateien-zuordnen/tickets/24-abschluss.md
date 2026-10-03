@@ -39,12 +39,13 @@ behaviour changed. Each gap found is fixed here.
 - The change started on the commit in
   `changes/2026-10-03-tests-ihren-dateien-zuordnen/start-commit.txt`; the
   coverage baseline (`coverage-baseline.json`), `coverage-splits.json` and
-  `compare-coverage.mjs` are beside it (ticket 01).
+  `compare-coverage.mjs` and `removed-tests.mjs` are beside it (ticket 01).
 - What tickets 02-22 and 25-31 were told for AC-11: each commit that removes or
   merges tests has a `Removed tests:` section in its body, one line per
   removed test, `- <old file> › <describe> › <it>` and `→ <new file> ›
   <it>` or `→ gone: <why>; broke <behaviour> by hand, <test that failed>
-  failed`.
+  failed`; and before each such commit they ran `removed-tests.mjs` and
+  put every name it listed as removed into that section.
 - Before this change, checks of the kinds AC-6 and AC-7 name lived in
   many test files, not only the ones over many files. Find them across
   every test file at the start commit (`git grep` at `<start>` for login
@@ -81,16 +82,16 @@ behaviour changed. Each gap found is fixed here.
    file. Proof: both outputs clean; any drop fixed by restoring the lost
    test.
 4. AC-11: for every commit since the start commit that touches a test,
-   fixture or `src/test/` file, compare the list of test names before and
-   after it (`npx vitest list` once per commit, each list reused as the
-   next commit's "before") - this also catches rows removed from `it.each` /
+   fixture or `src/test/` file, run `removed-tests.mjs <commit>^ <commit>`
+   (ticket 01) - it also catches rows removed from `it.each` /
    `describe.each` tables and bad-call tables, which a search for `it(`
    lines misses - and check its body names each test name that disappeared
-   as agreed (a renamed test counts as moved). Proof: a script or listing of
-   commits checked, in Left standing. A commit missing its record halts
-   this ticket naming the commit and the tests it removed without a
-   record: AC-11 asks for the record in the commit, and only the user can
-   decide whether branch commits are reworded.
+   as agreed (a renamed test counts as moved). Every ticket ran the same
+   script before each commit, so this is a safety net, not the first look.
+   Proof: the list of commits checked, in Left standing. A commit missing
+   its record halts this ticket naming the commit and the tests it removed
+   without a record: AC-11 asks for the record in the commit, and only the
+   user can decide whether branch commits are reworded.
 5. AC-12: read `git diff <start>..HEAD -- src next.config.ts
    ':(exclude)*.test.*' ':(exclude)src/test'` and confirm it only moves
    code between files and updates imports. Proof: the verdict in Left

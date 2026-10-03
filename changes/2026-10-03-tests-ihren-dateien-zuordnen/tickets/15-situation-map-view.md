@@ -125,6 +125,11 @@ Lageansicht behaves as before; only the file boundaries move.
   is deleted, and
   helper code moved to another file gets an entry in
   `coverage-splits.json`.
+- Before each commit that touches a test, fixture or `src/test/` file, run
+  `node changes/2026-10-03-tests-ihren-dateien-zuordnen/removed-tests.mjs`
+  (ticket 01). Every name it lists as removed is in the commit's `Removed
+  tests:` section; the names it lists as added show where a moved or
+  renamed test went.
 - AC-3 review list: add a test file to `ac3-reviewed.txt` in this change's
   directory (one path per line, in the same commit) only if this ticket
   created it, or held every test in it against its own file - say which in

@@ -80,6 +80,11 @@ leaves the app behaving as before.
   is deleted, and
   helper code moved to another file gets an entry in
   `coverage-splits.json`.
+- Before each commit that touches a test, fixture or `src/test/` file, run
+  `node changes/2026-10-03-tests-ihren-dateien-zuordnen/removed-tests.mjs`
+  (ticket 01). Every name it lists as removed is in the commit's `Removed
+  tests:` section; the names it lists as added show where a moved or
+  renamed test went.
 - More than a handful of tests to move out of one test file means a slice
   was missed: halt the ticket naming the file and the tests, rather than
   leaving them in place.
