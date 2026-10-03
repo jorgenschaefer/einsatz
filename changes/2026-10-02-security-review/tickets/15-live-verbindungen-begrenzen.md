@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:    AC-17, AC-18
 advances:
 after:     07-links-entfernen-und-beim-abschliessen-loeschen, 14-sitzungs-laufzeit
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -159,3 +159,36 @@ reconnecting.
   Vertrauensmodell bleibt."
 
 ## Left standing
+- **Review nit not fixed: the hourly close shows „Verbindung getrennt"
+  briefly and reloads once.** When the server ends a stream after the hour,
+  EventSource fires `onerror` while reconnecting by itself, so each open
+  Lageansicht or Ansicht shows the indicator for the browser's reconnect delay
+  (about 3 s in Chromium) and then reloads the full state once. Left as is:
+  the reload is the existing behaviour after any gap and is correct, since
+  changes made in the gap are not replayed. Hiding the indicator would need the
+  server to announce a planned close, which is more than this ticket needs.
+- **„Ein abgelehnter Browser zeigt ‚Verbindung getrennt'" is proven only up to
+  the hook.** `useOperationEvents.test.ts` proves that a refused connection
+  reports `connected: false` and retries every 5 s. The display of
+  `connected: false` already existed. The review checked it in the real app at
+  390×844 and 1920×1080: a Lageansicht refused with 429 showed „Verbindung
+  getrennt – wird automatisch wiederhergestellt" and reconnected about 5 s
+  after a place became free; an Ansichtslink view showed its badge and did the
+  same. Screenshots were taken under `/tmp/einsatz-shots/`, not committed.
+- **Departed from the plan, step 5: deleting an Einsatz is tested on the
+  Lageansicht only.** A Gerätelink or Ansichtslink stream cannot be open when
+  an Einsatz is deleted: only a closed Einsatz can be deleted, and closing
+  already removes its links (tested in the closing case).
+- **Password change is not tested as its own trigger.** It ends the session by
+  the same deletion of the user's sessions that the „Abmelden", „Überall
+  abmelden" and „Nutzer löschen" cases test.
+- **Departed from the plan, step 7: I did not open the browser myself.** The
+  fresh-context review drove the app instead, as described above.
+- **Tests that passed before their code existed:** in
+  `useOperationEvents.test.ts`, "leaves reconnecting to EventSource while it is
+  still trying" and "stops trying once unmounted" passed before the retry
+  existed. After the change, removing the `readyState` check or the
+  `clearTimeout` makes each fail. `live-connections-end.test.ts` was written
+  after steps 3 and 4, which the plan allows. With the access check and the
+  one-hour limit disabled in `sse.ts`, 11 of its 12 cases fail on their
+  assertions; the 12th checks that a stream stays open.
