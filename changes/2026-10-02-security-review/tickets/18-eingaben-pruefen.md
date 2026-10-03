@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:    AC-22
 advances:
 after:     06-einsatz-loeschen-nur-admin, 07-links-entfernen-und-beim-abschliessen-loeschen, 09-uploads-ueber-route-handler, 11-login-limit, 12-passwoerter-und-erst-admin, 14-sitzungs-laufzeit, 17-kartenobjekte-pruefen, 23-kartenobjekte-eingaben, 24-etb-und-staerke-eingaben, 25-einsatz-und-konten-eingaben
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -106,3 +106,41 @@ keeping a hand-written list of modules.
   `12-passwoerter-und-erst-admin`.
 
 ## Left standing
+- **Step 1 found no gaps, so step 2 changed no production code.** All
+  bad calls answered with their message and stored nothing on the first
+  run: 144 calls across the 46 exported actions, more than the plan's
+  minimum (NaN, Infinity, BigInt and arrays, which React's action
+  transport can deliver, as well as wrong types, non-UUID ids, unknown
+  shapes and over-length texts). Tickets 23-25 had already closed every
+  gap. The red runs that show the test can fail: removing
+  `logoutOtherSessionsAction` from the table failed the completeness
+  check. A call that wrote a row and still answered with a message failed
+  on the database snapshot. A call that succeeded failed on the answer.
+  Two more checks failed when an action was given an empty list, listed
+  twice, or labelled "takes no input" while it has parameters.
+- **Departure from the plan, file layout:** the table is too long for one
+  test file (882 lines). It is split by area into
+  `src/test/bad-calls/{map,journal-strength,operations-accounts}.ts`, with
+  the shared helpers in `bad-call.ts` and the objects in `fixture.ts`. The
+  one test file, `src/app/server-actions.validation.test.ts`, merges them
+  and runs the completeness check and the walk. Finding the
+  `"use server"` modules lives in `src/test/server-action-modules.ts`
+  with its own test. It allows comments above the directive (found in
+  review).
+- **Review finding, not fixed, partly closed:** the completeness check
+  makes sure every action is named, none twice, each with at least one bad
+  call, and that "takes no input" is only used for actions without
+  parameters. It cannot tell whether a parameter added to an action that
+  already has calls gets its own bad call. That still depends on whoever
+  adds the parameter. Today every parameter of every action has one; the
+  reviewer checked this by hand against every signature.
+- **`loginAction` has no length check.** A Nutzername longer than 200
+  characters gets the normal login failure, which is a message and stores
+  nothing. No account can have such a name, so nothing more was added.
+  The table row is named for what it pins.
+- **Not run:** the app in the browser. The change adds only tests and
+  touches no screen, and neither reviewer saw a reason to drive it.
+- **Existing per-area validation tests overlap with this one** (for
+  example `map-actions.validation.test.ts`). They pin the boundaries (200
+  accepted, 201 refused) and the "nothing fetched" order, which this test
+  does not. They were left as they are.
