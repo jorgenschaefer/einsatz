@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:    AC-36
 advances:
 after:     04-kml-icons-einbetten, 07-links-entfernen-und-beim-abschliessen-loeschen, 13-sitzungs-token, 14-sitzungs-laufzeit
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -132,3 +132,48 @@ services a browser contacts.
     dem Deploy gehört dort dazu." - backups are not described here.
 
 ## Left standing
+- **The "browser contacts only MapTiler" half of AC-36 is checked in the
+  browser, not by a test.** The tests pin what the page says (the sentence
+  that MapTiler is the only external service, the embedded icons, and that
+  the only hosts the page names are `api.maptiler.com` and
+  `photon.komoot.io`). Whether the app really keeps to that, the first
+  reviewer checked on a production build (`npm run build` + `next start`,
+  `MAPTILER_API_KEY` from `.env`) with the driver's network log and, for
+  the Gerätelink with geolocation granted, a throwaway Playwright script.
+  Screens: an Einsatz with two Kartenzeichen, a Kreis-Bereich, a KML-Ebene
+  by URL (Google's `KML_Samples.kml`, with IconStyle icons and
+  Ground/ScreenOverlays), a Bild-Overlay upload, the Kartensuche, the QR
+  code of an Ansichtslink, an ETB entry and a Stelle in Stärke; then the
+  Ansichtslink, and the Gerätelink at 390 px reporting its position.
+  **Hosts seen: `localhost:3000` and `api.maptiler.com`, nothing else.** A
+  real Google „Meine Karten" export with custom icons was not used (as in
+  ticket 04, none was at hand).
+- **Plan step 4:** both reviewers read `/datenschutz` at 390 px and 1440 px
+  (production build, then dev server): headings 1–13 without gaps, then
+  „Änderungen dieser Datenschutzerklärung"; no cut-off text, no horizontal
+  overflow, no console errors.
+- **Test that did not start red:** "names no external hosts but MapTiler and
+  Photon" passed on the old page, which already named only those two. It
+  guards against naming OSM or another host later.
+- **Beyond the plan, each pinned by a test:**
+  - Section 4 now says the IP address is also used, in memory only, when
+    changing the password (ticket 11 limits both).
+  - Section 10 covers uploaded KML/KMZ files too: the server fetches their
+    NetworkLinks and icons as well, not only for KML-Ebenen added by URL
+    (review finding).
+  - Section 12 says user accounts stay until an admin deletes them, and that
+    the user name stays as Urheber in ETB entries until the Einsatz is
+    deleted (review finding: the Urheber is stored as text).
+  - Section 7: the last reported position stays as the Kartenzeichen's
+    position until it is moved or deleted, at the latest until the Einsatz
+    is deleted; removing or deleting links does not delete it.
+  - Sections 6 and 7 use the glossary's terms (Kartenzeichen, Bereiche,
+    KML-Ebenen, Bild-Overlays) instead of „taktische Zeichen, Gebiete" and
+    „Einsatzmittel".
+  - Section 8 adds the sentence that MapTiler is the only external service
+    the browser contacts; the new KML section is 10, so Uploads is 11,
+    Speicherdauer 12 and Tracking 13.
+- **Not reviewed again:** the second review's should-fix (a test for the
+  "only MapTiler" and embedded-icons sentences) and its three nits were
+  fixed after it; two review rounds is the limit, so no third reviewer read
+  those last changes. `npm run check` is green after them.
