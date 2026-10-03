@@ -67,21 +67,22 @@ function AreaDialogBody({
     }
   };
 
-  // The centre comes from the latest `area`, so that a move made elsewhere
-  // while the editor was open is not undone.
+  // The style goes first: the server rejects a bad colour or Beschriftung,
+  // while the radius is already checked in the editor. The centre comes from
+  // the latest `area`, so that a move made elsewhere while the editor was
+  // open is not undone.
   const saveStyleAndRadius = async (
     style: AreaStyle,
     radius: number | undefined,
   ): Promise<ActionResult> => {
-    if (radius !== undefined && area.geometry.shape === "circle") {
-      const { error } = await onUpdateAreaGeometry(area.id, {
-        shape: "circle",
-        center: area.geometry.center,
-        radius,
-      });
-      if (error) return { error };
-    }
-    return onUpdateAreaStyle(area.id, style);
+    const { error } = await onUpdateAreaStyle(area.id, style);
+    if (error) return { error };
+    if (radius === undefined || area.geometry.shape !== "circle") return {};
+    return onUpdateAreaGeometry(area.id, {
+      shape: "circle",
+      center: area.geometry.center,
+      radius,
+    });
   };
 
   const deleteArea = async () => {

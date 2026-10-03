@@ -2,7 +2,12 @@ import { randomUUID } from "node:crypto";
 import { MAX_TILE_ZOOM, type MapView } from "@/map/view";
 import type { Queryable } from "@/server/db/db";
 import { isUuid } from "@/server/db/uuid";
-import { assertLatLng, ValidationError } from "@/server/validation";
+import {
+  assertLatLng,
+  assertObject,
+  assertUuid,
+  ValidationError,
+} from "@/server/validation";
 
 export type OperationStatus = "active" | "closed";
 
@@ -71,6 +76,7 @@ export async function listOperations(db: Queryable): Promise<Operation[]> {
  * Tile-Layers gebunden).
  */
 export function assertMapView(view: MapView): void {
+  assertObject(view, "Der Kartenausschnitt ist ungültig.");
   assertLatLng(view.lat, view.lng);
   if (
     !Number.isFinite(view.zoom) ||
@@ -87,6 +93,7 @@ export async function setDefaultView(
   id: string,
   view: MapView,
 ): Promise<void> {
+  assertUuid(id);
   assertMapView(view);
   await db.query("UPDATE operations SET default_view = $2 WHERE id = $1", [
     id,

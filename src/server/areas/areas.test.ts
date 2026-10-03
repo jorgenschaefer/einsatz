@@ -66,7 +66,7 @@ describe("areas repository", () => {
     await createArea(db, {
       operationId: a.id,
       geometry: circle,
-      color: "#000",
+      color: "#000000",
       opacity: 0.5,
       label: "",
     });
@@ -79,7 +79,7 @@ describe("areas repository", () => {
     const area = await createArea(db, {
       operationId: op.id,
       geometry: polygon,
-      color: "#000",
+      color: "#000000",
       opacity: 0.5,
       label: "alt",
     });
@@ -161,6 +161,37 @@ describe("areas repository", () => {
         label: "",
       }),
     ).rejects.toBeInstanceOf(ValidationError);
+  });
+
+  it.each<{ name: string; geometry: AreaGeometry; message: string }>([
+    {
+      name: "a polygon of 2 points",
+      geometry: { shape: "polygon", points: polygon.points.slice(0, 2) },
+      message: "Ein Polygon braucht mindestens 3 Punkte.",
+    },
+    {
+      name: "a line of 1 point",
+      geometry: { shape: "line", points: line.points.slice(0, 1) },
+      message: "Eine Linie braucht mindestens 2 Punkte.",
+    },
+    {
+      name: "a line without points",
+      geometry: { shape: "line", points: [] },
+      message: "Eine Linie braucht mindestens 2 Punkte.",
+    },
+  ])("rejects $name and stores nothing", async ({ geometry, message }) => {
+    const db = await freshDb();
+    const op = await anOperation(db);
+    await expect(
+      createArea(db, {
+        operationId: op.id,
+        geometry,
+        color: "#e2001a",
+        opacity: 0.4,
+        label: "",
+      }),
+    ).rejects.toThrow(new ValidationError(message));
+    expect(await listAreas(db, op.id)).toHaveLength(0);
   });
 });
 

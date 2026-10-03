@@ -8,9 +8,11 @@ import {
   reloadKmlOverlay,
   setKmlVisibility,
 } from "@/server/kml/kml-overlays";
-import { ValidationError } from "@/server/validation";
+import { assertText, ValidationError } from "@/server/validation";
 import { operationAction } from "./operation-action";
 import { KML_LOAD_FAILED } from "./upload-messages";
+
+const MAX_KML_URL_LENGTH = 2000;
 
 export async function addKmlUrlAction(
   operationId: string,
@@ -18,6 +20,7 @@ export async function addKmlUrlAction(
   url: string,
 ): Promise<ActionResult> {
   return operationAction(async (db) => {
+    assertText(url, "Die KML-URL", MAX_KML_URL_LENGTH);
     const source = url.trim();
     if (!source) throw new ValidationError("Bitte eine KML-URL angeben.");
     const content = await loadKmlFromUrl(source);

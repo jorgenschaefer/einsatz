@@ -3,9 +3,12 @@ import type { ImagePlacement } from "@/map/image-overlay";
 import type { Queryable } from "@/server/db/db";
 import { isUuid } from "@/server/db/uuid";
 import {
+  assertBoolean,
   assertLatLng,
+  assertObject,
   assertOpacity,
   assertScale,
+  assertUuid,
   ValidationError,
 } from "@/server/validation";
 
@@ -63,6 +66,7 @@ const COLUMNS =
  * `rotationDeg` wird nicht normalisiert – endliche Werte außerhalb 0–360 sind erlaubt.
  */
 function assertPlacement(placement: ImagePlacement): void {
+  assertObject(placement, "Ungültige Platzierung.");
   assertLatLng(placement.centerLat, placement.centerLng);
   assertOpacity(placement.opacity);
   assertScale(placement.scaleM);
@@ -135,6 +139,8 @@ export async function updateImagePlacement(
   id: string,
   placement: ImagePlacement,
 ): Promise<void> {
+  assertUuid(operationId);
+  assertUuid(id);
   assertPlacement(placement);
   const { rows } = await db.query(
     "UPDATE image_overlays SET center_lat = $3, center_lng = $4, scale_m = $5, rotation_deg = $6, opacity = $7 WHERE operation_id = $1 AND id = $2 RETURNING id",
@@ -161,6 +167,8 @@ export async function replaceImageOverlayFile(
   id: string,
   file: { filePath: string; name: string; widthPx: number; heightPx: number },
 ): Promise<void> {
+  assertUuid(operationId);
+  assertUuid(id);
   const { rows } = await db.query(
     "UPDATE image_overlays SET file_path = $3, name = $4, width_px = $5, height_px = $6 WHERE operation_id = $1 AND id = $2 RETURNING id",
     [operationId, id, file.filePath, file.name, file.widthPx, file.heightPx],
@@ -174,6 +182,9 @@ export async function setImageOverlayVisibility(
   id: string,
   visible: boolean,
 ): Promise<void> {
+  assertUuid(operationId);
+  assertUuid(id);
+  assertBoolean(visible, "Die Sichtbarkeit");
   const { rows } = await db.query(
     "UPDATE image_overlays SET visible = $3 WHERE operation_id = $1 AND id = $2 RETURNING id",
     [operationId, id, visible],
@@ -187,6 +198,8 @@ export async function deleteImageOverlay(
   operationId: string,
   id: string,
 ): Promise<{ filePath: string }> {
+  assertUuid(operationId);
+  assertUuid(id);
   const { rows } = await db.query<{ file_path: string }>(
     "DELETE FROM image_overlays WHERE operation_id = $1 AND id = $2 RETURNING file_path",
     [operationId, id],

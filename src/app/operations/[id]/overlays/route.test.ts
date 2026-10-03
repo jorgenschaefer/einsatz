@@ -212,6 +212,7 @@ describe("POST /operations/[id]/overlays", () => {
 
   it.each([
     ["no view", undefined],
+    ["a view of null", null],
     ["a width of zero", { ...A_VIEW, widthM: 0 }],
     ["a negative height", { ...A_VIEW, heightM: -1 }],
     ["an infinite width", { ...A_VIEW, widthM: Number.POSITIVE_INFINITY }],
@@ -287,6 +288,22 @@ describe("POST /operations/[id]/overlays", () => {
     expect(errorLog).toHaveBeenCalledWith(expect.anything(), dbDown);
     expect(await readdir(join(dir, op.id))).toEqual([]);
     expect(state.revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it("answers 400 for an Einsatz-ID that is not a UUID, before processing the file", async () => {
+    await login();
+    const form = new FormData();
+    form.append("file", await pngFile(600, 300));
+    form.append("view", JSON.stringify(A_VIEW));
+
+    const response = await POST(
+      await multipartRequest("POST", form),
+      routeParams({ id: "op-1" }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "Ungültige ID." });
+    expect(await readdir(dir)).toEqual([]);
   });
 
   it("asks for a file and creates nothing when none was sent", async () => {

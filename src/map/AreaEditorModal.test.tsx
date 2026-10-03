@@ -227,7 +227,40 @@ describe("AreaEditorModal", () => {
       expect(props.onUpdateAreaGeometry).not.toHaveBeenCalled();
     });
 
-    it("does not write the style when the radius save fails", async () => {
+    it("does not write the radius when the style save fails", async () => {
+      const { props } = await openEditor({
+        area: LEGACY_CIRCLE,
+        onUpdateAreaStyle: vi.fn(async () => ({
+          error: "Die Farbe muss # und sechs Hex-Ziffern sein, etwa #e2001a.",
+        })),
+      });
+      await typeRadius("250");
+      await save();
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "Die Farbe muss # und sechs Hex-Ziffern sein",
+      );
+      expect(props.onUpdateAreaStyle).toHaveBeenCalled();
+      expect(props.onUpdateAreaGeometry).not.toHaveBeenCalled();
+    });
+
+    it("does not write the radius when the style save throws", async () => {
+      const { props } = await openEditor({
+        area: LEGACY_CIRCLE,
+        onUpdateAreaStyle: vi.fn(async () => {
+          throw new Error("boom");
+        }),
+      });
+      await typeRadius("250");
+      await save();
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "Speichern fehlgeschlagen.",
+      );
+      expect(props.onUpdateAreaGeometry).not.toHaveBeenCalled();
+    });
+
+    it("shows the error when the radius fails after the style was saved", async () => {
       const { props } = await openEditor({
         area: LEGACY_CIRCLE,
         onUpdateAreaGeometry: vi.fn(async () => ({
@@ -240,42 +273,9 @@ describe("AreaEditorModal", () => {
       expect(await screen.findByRole("alert")).toHaveTextContent(
         "Bereich nicht gefunden.",
       );
-      expect(props.onUpdateAreaGeometry).toHaveBeenCalled();
-      expect(props.onUpdateAreaStyle).not.toHaveBeenCalled();
-    });
-
-    it("does not write the style when the radius save throws", async () => {
-      const { props } = await openEditor({
-        area: LEGACY_CIRCLE,
-        onUpdateAreaGeometry: vi.fn(async () => {
-          throw new Error("boom");
-        }),
-      });
-      await typeRadius("250");
-      await save();
-
-      expect(await screen.findByRole("alert")).toHaveTextContent(
-        "Speichern fehlgeschlagen.",
-      );
-      expect(props.onUpdateAreaStyle).not.toHaveBeenCalled();
-    });
-
-    it("shows the error when the style fails after the radius was saved", async () => {
-      const { props } = await openEditor({
-        area: LEGACY_CIRCLE,
-        onUpdateAreaStyle: vi.fn(async () => ({
-          error: "Die Deckkraft muss zwischen 0 und 1 liegen.",
-        })),
-      });
-      await typeRadius("250");
-      await save();
-
-      expect(await screen.findByRole("alert")).toHaveTextContent(
-        "Die Deckkraft muss zwischen 0 und 1 liegen.",
-      );
-      expect(props.onUpdateAreaGeometry).toHaveBeenCalledWith(
+      expect(props.onUpdateAreaStyle).toHaveBeenCalledWith(
         "a1",
-        expect.objectContaining({ radius: 250 }),
+        expect.objectContaining({ label: "Deich" }),
       );
     });
   });

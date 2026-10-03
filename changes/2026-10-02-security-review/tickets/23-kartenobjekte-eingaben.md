@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:
 advances:  AC-22
 after:     09-uploads-ueber-route-handler, 17-kartenobjekte-pruefen
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -208,3 +208,46 @@ Open product points (each answer changes one constant):
   input because the Einsatz is closed.
 
 ## Left standing
+- **Bereiche already stored with another colour or a longer Beschriftung**
+  (review nit, not fixed). "Farbe (Hex)" was never checked, so rows like
+  `#f00` or `red` can exist. Every style save now checks the colour, so
+  changing only the Beschriftung or radius of such a Bereich fails with
+  the colour message until the user enters a valid colour. The message
+  says how to fix it. Normalising old rows with a migration is a product
+  decision this ticket did not settle.
+- **`addKmlUrlAction` fetches before it rejects a non-UUID Einsatz-ID**
+  (review nit, not fixed). The id is checked in `createKmlOverlay`, which
+  runs after the fetch. Nothing is stored and the answer is "Ungültige ID.".
+  Checking in the action breaks six KML test files that call it with
+  `"op-1"` against a mocked repository, and only a tampered client sends
+  such an id. The same order applies to the KML name: 09's check in
+  `createKmlOverlay` runs after the fetch. Its table rows here pin "message,
+  nothing stored" and not "nothing fetched".
+- **Departure from the plan, Bereich editor:** `AreaEditorModal` saved the
+  radius before the style. Once the server rejected a bad colour or
+  Beschriftung, a circle whose radius changed in the same save was left
+  half-saved (found in review). It now saves the style first, and the three
+  tests that pinned the old order were turned around. A radius the server
+  rejects after the style was saved still leaves the style saved. The editor
+  checks the radius before sending, so only "Bereich nicht gefunden." gets
+  there.
+- **Beyond the plan:** a Kartenzeichen Bezeichnung over 200 characters now
+  answers "Die Bezeichnung darf höchstens 200 Zeichen lang sein." instead
+  of "Ungültige Zeichen-Komposition." (`assertComposition` uses
+  `assertText` for `text`). The upload routes now answer "Ungültige ID."
+  for a malformed `[id]` / `[overlayId]`, where they used to say "Der
+  Einsatz existiert nicht mehr." / "Bild-Overlay nicht gefunden.". A `null`
+  `view` was already rejected by `assertViewExtent` and is now pinned.
+- **Step 7, in the browser:** the reviewers checked this, not me, at
+  1280×800, 1920×1080 and 390×844. Colour `red` and a 201-character
+  Beschriftung showed their messages and left the Bereich unchanged, also
+  with a changed radius in the same save. Valid edits saved. Polygon, line
+  and circle drew and stored. A KML-Ebene by URL, with and without a name,
+  was added, and the URL was used as the name when none was given. A KML
+  URL of 2,001 characters was refused without a fetch. Ansichtslinks of 200
+  characters were created and those of 201 refused. The default view
+  saved. A 201-character Kartenzeichen Bezeichnung (form `maxLength`
+  removed) showed the length message.
+- **Open product points:** I took the proposed values unchanged:
+  `MAX_KML_URL_LENGTH` 2,000 and `MIN_AREA_POINTS` 3 / 2. Geoman finishes
+  polygons at 3 and lines at 2 vertices, so drawing never sends fewer.

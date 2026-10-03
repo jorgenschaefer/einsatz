@@ -145,6 +145,18 @@ describe("POST /operations/[id]/kml", () => {
     expect(await stored(operationId)).toEqual([]);
   });
 
+  it("refuses an Einsatz-ID that is not a UUID and adds nothing", async () => {
+    const response = await POST(
+      await multipartRequest("POST", kmlFileForm("Karte", KML)),
+      routeParams({ id: "op-1" }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "Ungültige ID." });
+    const { rows } = await db().query("SELECT id FROM kml_overlays");
+    expect(rows).toEqual([]);
+  });
+
   it("names the KML-Ebene „KML-Datei“ when no name is sent", async () => {
     const form = new FormData();
     form.append("content", new Blob([KML]), "karte.kml");

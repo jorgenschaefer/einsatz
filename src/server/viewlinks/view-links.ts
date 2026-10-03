@@ -1,6 +1,6 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import type { Queryable } from "@/server/db/db";
-import { ValidationError } from "@/server/validation";
+import { assertText, assertUuid, ValidationError } from "@/server/validation";
 
 export interface ViewLink {
   id: string;
@@ -28,11 +28,15 @@ const toViewLink = (row: ViewLinkRow): ViewLink => ({
 
 const COLUMNS = "id, operation_id, token, label, created_at";
 
+const MAX_LABEL_LENGTH = 200;
+
 /** Erzeugt einen Ansichtslink mit geheimem Token für einen Einsatz. */
 export async function createViewLink(
   db: Queryable,
   input: { operationId: string; label: string },
 ): Promise<ViewLink> {
+  assertUuid(input.operationId);
+  assertText(input.label, "Die Bezeichnung", MAX_LABEL_LENGTH);
   const token = randomBytes(32).toString("base64url");
   const { rows } = await db.query<ViewLinkRow>(
     `INSERT INTO view_links (id, operation_id, token, label)
@@ -59,6 +63,8 @@ export async function deleteViewLink(
   operationId: string,
   id: string,
 ): Promise<void> {
+  assertUuid(operationId);
+  assertUuid(id);
   const { rows } = await db.query(
     "DELETE FROM view_links WHERE operation_id = $1 AND id = $2 RETURNING id",
     [operationId, id],

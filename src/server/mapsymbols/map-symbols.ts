@@ -5,7 +5,12 @@ import {
   type SymbolComposition,
 } from "@/map/composition";
 import type { Queryable } from "@/server/db/db";
-import { assertLatLng, ValidationError } from "@/server/validation";
+import {
+  assertLatLng,
+  assertText,
+  assertUuid,
+  ValidationError,
+} from "@/server/validation";
 
 const COMPOSITION_KEYS: ReadonlySet<string> = new Set(COMPOSITION_AXES);
 
@@ -29,6 +34,10 @@ export function assertComposition(composition: SymbolComposition): void {
       throw new ValidationError("Ungültige Zeichen-Komposition.");
     }
     if (value === undefined) continue; // optionales Feld, nicht gesetzt
+    if (key === "text") {
+      assertText(value, "Die Bezeichnung", MAX_COMPOSITION_FIELD_LENGTH);
+      continue;
+    }
     if (
       typeof value !== "string" ||
       value.length > MAX_COMPOSITION_FIELD_LENGTH
@@ -85,6 +94,7 @@ export async function createMapSymbol(
     lng: number;
   },
 ): Promise<MapSymbol> {
+  assertUuid(input.operationId);
   assertLatLng(input.lat, input.lng);
   assertComposition(input.composition);
   const { rows } = await db.query<MapSymbolRow>(
@@ -120,6 +130,8 @@ export async function moveMapSymbol(
   lat: number,
   lng: number,
 ): Promise<void> {
+  assertUuid(operationId);
+  assertUuid(id);
   assertLatLng(lat, lng);
   // Manuelles Verschieben setzt die Positionsquelle zurück auf manuell;
   // eine spätere Live-Meldung überschreibt sie wieder.
@@ -136,6 +148,8 @@ export async function updateMapSymbolComposition(
   id: string,
   composition: SymbolComposition,
 ): Promise<void> {
+  assertUuid(operationId);
+  assertUuid(id);
   assertComposition(composition);
   const { rows } = await db.query(
     "UPDATE map_symbols SET composition = $3 WHERE operation_id = $1 AND id = $2 RETURNING id",
@@ -149,6 +163,8 @@ export async function deleteMapSymbol(
   operationId: string,
   id: string,
 ): Promise<void> {
+  assertUuid(operationId);
+  assertUuid(id);
   const { rows } = await db.query(
     "DELETE FROM map_symbols WHERE operation_id = $1 AND id = $2 RETURNING id",
     [operationId, id],
@@ -162,6 +178,8 @@ export async function generateDeviceLink(
   operationId: string,
   id: string,
 ): Promise<string> {
+  assertUuid(operationId);
+  assertUuid(id);
   const token = randomBytes(32).toString("base64url");
   const { rows } = await db.query(
     "UPDATE map_symbols SET device_link_token = $3 WHERE operation_id = $1 AND id = $2 RETURNING id",
@@ -177,6 +195,8 @@ export async function removeDeviceLink(
   operationId: string,
   id: string,
 ): Promise<void> {
+  assertUuid(operationId);
+  assertUuid(id);
   const { rows } = await db.query(
     "UPDATE map_symbols SET device_link_token = NULL WHERE operation_id = $1 AND id = $2 RETURNING id",
     [operationId, id],

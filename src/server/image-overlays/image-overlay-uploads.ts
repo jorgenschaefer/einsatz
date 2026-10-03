@@ -2,7 +2,11 @@ import { defaultImagePlacement } from "@/map/image-overlay";
 import type { ViewExtent } from "@/map/view";
 import type { Queryable } from "@/server/db/db";
 import { getOperation } from "@/server/operations/operations";
-import { isValidLatLng, ValidationError } from "@/server/validation";
+import {
+  assertUuid,
+  isValidLatLng,
+  ValidationError,
+} from "@/server/validation";
 import {
   createImageOverlay,
   getImageOverlay,
@@ -25,6 +29,7 @@ export async function addImageOverlay(
   input: { operationId: string; file: File; view: unknown },
 ): Promise<void> {
   const { operationId, file, view } = input;
+  assertUuid(operationId);
   assertViewExtent(view);
   const { webp, width, height } = await prepareUpload(file);
   const operation = await getOperation(db, operationId);
@@ -57,6 +62,8 @@ export async function replaceImageOverlayImage(
   input: { operationId: string; overlayId: string; file: File },
 ): Promise<void> {
   const { operationId, overlayId, file } = input;
+  assertUuid(operationId);
+  assertUuid(overlayId);
   const existing = await getImageOverlay(db, overlayId);
   if (existing?.operationId !== operationId) {
     // Vor dem Aufbereiten abbrechen – keine Datei in einem fremden Einsatz.

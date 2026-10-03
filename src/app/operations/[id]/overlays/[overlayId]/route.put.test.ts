@@ -29,6 +29,7 @@ import * as repo from "@/server/image-overlays/image-overlays";
 import {
   createImageOverlay,
   getImageOverlay,
+  listImageOverlays,
 } from "@/server/image-overlays/image-overlays";
 import { storeOverlayImage } from "@/server/image-overlays/image-storage";
 import { insertOperation } from "@/server/operations/operations";
@@ -234,6 +235,31 @@ describe("PUT /operations/[id]/overlays/[overlayId] under another Einsatz", () =
 
     expect(result).toEqual({ error: "Bild-Overlay nicht gefunden." });
   });
+
+  it.each<{ name: string; ids: (op: string, overlay: string) => string[] }>([
+    { name: "an Einsatz-ID", ids: (_, overlay) => ["op-1", overlay] },
+    { name: "an Overlay-ID", ids: (op) => [op, "overlay-1"] },
+  ])(
+    "answers 400 for $name that is not a UUID and changes nothing",
+    async ({ ids }) => {
+      await login();
+      const op = await anOperation("Lage");
+      const { overlay } = await anOverlayWithStoredFile(op.id);
+      const [operationId, overlayId] = ids(op.id, overlay.id);
+      const form = new FormData();
+      form.append("file", await pngFile(600, 300));
+
+      const response = await PUT(
+        await multipartRequest("PUT", form),
+        routeParams({ id: operationId, overlayId }),
+      );
+
+      expect(response.status).toBe(400);
+      expect(await response.json()).toEqual({ error: "Ungültige ID." });
+      expect(await listImageOverlays(state.db as Db, op.id)).toEqual([overlay]);
+      expect(await filesUnderUploads()).toHaveLength(1);
+    },
+  );
 
   it("creates nothing outside the uploads directory for an Einsatz-ID like ../escape", async () => {
     await login();

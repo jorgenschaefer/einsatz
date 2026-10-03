@@ -1,6 +1,11 @@
 import { randomUUID } from "node:crypto";
 import type { Queryable } from "@/server/db/db";
-import { trimmedName, ValidationError } from "@/server/validation";
+import {
+  assertBoolean,
+  assertUuid,
+  trimmedName,
+  ValidationError,
+} from "@/server/validation";
 
 export type KmlSourceType = "file" | "url";
 
@@ -51,6 +56,7 @@ export async function createKmlOverlay(
     content: string;
   },
 ): Promise<KmlOverlay> {
+  assertUuid(input.operationId);
   const name = trimmedName(input.name) || (input.sourceUrl ?? "KML-Datei");
   const { rows } = await db.query<KmlRow>(
     `INSERT INTO kml_overlays (id, operation_id, source_type, source_url, name, content)
@@ -85,6 +91,9 @@ export async function setKmlVisibility(
   id: string,
   visible: boolean,
 ): Promise<void> {
+  assertUuid(operationId);
+  assertUuid(id);
+  assertBoolean(visible, "Die Sichtbarkeit");
   const { rows } = await db.query(
     "UPDATE kml_overlays SET visible = $3 WHERE operation_id = $1 AND id = $2 RETURNING id",
     [operationId, id, visible],
@@ -98,6 +107,8 @@ export async function updateKmlContent(
   id: string,
   content: string,
 ): Promise<void> {
+  assertUuid(operationId);
+  assertUuid(id);
   const { rows } = await db.query(
     "UPDATE kml_overlays SET content = $3 WHERE operation_id = $1 AND id = $2 RETURNING id",
     [operationId, id, content],
@@ -110,6 +121,8 @@ export async function deleteKmlOverlay(
   operationId: string,
   id: string,
 ): Promise<void> {
+  assertUuid(operationId);
+  assertUuid(id);
   const { rows } = await db.query(
     "DELETE FROM kml_overlays WHERE operation_id = $1 AND id = $2 RETURNING id",
     [operationId, id],
@@ -128,6 +141,8 @@ export async function reloadKmlOverlay(
   id: string,
   fetcher: (url: string) => Promise<string>,
 ): Promise<void> {
+  assertUuid(operationId);
+  assertUuid(id);
   const overlay = await getKmlOverlay(db, operationId, id);
   if (!overlay) throw new ValidationError(NOT_FOUND);
   if (overlay.sourceType !== "url" || !overlay.sourceUrl) {
