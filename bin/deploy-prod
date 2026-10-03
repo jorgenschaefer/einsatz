@@ -15,7 +15,8 @@ compose() {
 compose build
 compose config --images \
   | xargs docker save \
-  | zstd -10 -T0 --progress \
+  | zstd -10 -T0 \
+  | dd bs=1M status=progress \
   | ssh "$host" 'zstd -d | docker load'
 ssh "$host" mkdir -p "$remote_dir"
 scp docker-compose.prod.yml "$host:$remote_dir/"
