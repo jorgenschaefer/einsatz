@@ -5,6 +5,7 @@ import { getOperation } from "@/server/operations/operations";
 import {
   assertUuid,
   isValidLatLng,
+  trimmedName,
   ValidationError,
 } from "@/server/validation";
 import {
@@ -31,6 +32,7 @@ export async function addImageOverlay(
   const { operationId, file, view } = input;
   assertUuid(operationId);
   assertViewExtent(view);
+  const name = trimmedName(file.name);
   const { webp, width, height } = await prepareUpload(file);
   const operation = await getOperation(db, operationId);
   if (!operation) {
@@ -42,7 +44,7 @@ export async function addImageOverlay(
     await createImageOverlay(db, {
       operationId,
       filePath,
-      name: file.name,
+      name,
       widthPx: width,
       heightPx: height,
       placement: defaultImagePlacement(view, width / height),
@@ -64,6 +66,7 @@ export async function replaceImageOverlayImage(
   const { operationId, overlayId, file } = input;
   assertUuid(operationId);
   assertUuid(overlayId);
+  const name = trimmedName(file.name);
   const existing = await getImageOverlay(db, overlayId);
   if (existing?.operationId !== operationId) {
     // Vor dem Aufbereiten abbrechen – keine Datei in einem fremden Einsatz.
@@ -74,7 +77,7 @@ export async function replaceImageOverlayImage(
   try {
     await replaceImageOverlayFile(db, operationId, overlayId, {
       filePath,
-      name: file.name,
+      name,
       widthPx: width,
       heightPx: height,
     });

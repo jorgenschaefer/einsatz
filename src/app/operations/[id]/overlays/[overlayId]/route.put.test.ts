@@ -67,15 +67,18 @@ async function login(): Promise<void> {
   state.token = await signIn(state.db as Db);
 }
 
-function pngFile(width: number, height: number): Promise<File> {
+function pngFile(
+  width: number,
+  height: number,
+  name = "neu.png",
+): Promise<File> {
   return sharp({
     create: { width, height, channels: 3, background: { r: 1, g: 2, b: 3 } },
   })
     .png()
     .toBuffer()
     .then(
-      (buf) =>
-        new File([new Uint8Array(buf)], "neu.png", { type: "image/png" }),
+      (buf) => new File([new Uint8Array(buf)], name, { type: "image/png" }),
     );
 }
 
@@ -186,6 +189,22 @@ describe("PUT /operations/[id]/overlays/[overlayId]", () => {
     expect(await filesUnderUploads()).toEqual([oldPath]);
     expect(result).toEqual({ error: EMBED_FAILED });
     expect(errorLog).toHaveBeenCalledWith(expect.anything(), dbDown);
+  });
+
+  it("refuses a file name of 201 characters and changes nothing", async () => {
+    await login();
+    const op = await anOperation("Lage");
+    const { overlay, oldPath } = await anOverlayWithStoredFile(op.id);
+    const file = await pngFile(600, 300, `${"x".repeat(197)}.png`);
+
+    const result = await putImageOverlayFile(op.id, overlay.id, file);
+
+    expect(result).toEqual({
+      error: "Der Name darf höchstens 200 Zeichen lang sein.",
+    });
+    const unchanged = await getImageOverlay(state.db as Db, overlay.id);
+    expect(unchanged).toMatchObject({ filePath: oldPath, name: "Alt" });
+    expect(await filesUnderUploads()).toEqual([oldPath]);
   });
 
   it("asks for a file and changes nothing when none was sent", async () => {

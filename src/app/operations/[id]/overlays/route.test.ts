@@ -306,6 +306,20 @@ describe("POST /operations/[id]/overlays", () => {
     expect(await readdir(dir)).toEqual([]);
   });
 
+  it("refuses a file name of 201 characters and creates nothing", async () => {
+    await login();
+    const op = await anOperation("Lage");
+    const file = await pngFile(600, 300, `${"x".repeat(197)}.png`);
+
+    const result = await postImageOverlay(op.id, file, A_VIEW);
+
+    expect(result).toEqual({
+      error: "Der Name darf höchstens 200 Zeichen lang sein.",
+    });
+    expect(await listImageOverlays(state.db as Db, op.id)).toEqual([]);
+    expect(await readdir(dir)).toEqual([]);
+  });
+
   it("asks for a file and creates nothing when none was sent", async () => {
     await login();
     const op = await insertOperation(state.db as Db, {
