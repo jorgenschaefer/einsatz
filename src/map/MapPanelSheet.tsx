@@ -2,7 +2,7 @@
 
 import { Box, CloseButton, Group, Text } from "@mantine/core";
 import type { ReactNode } from "react";
-import { MAP_PANEL_LABEL, type MapPanel } from "./MapControls";
+import { MAP_PANEL_LABEL, type MapPanel } from "./MapPanelSwitch";
 
 /**
  * Der Rahmen des Kartenpanels: Titel und Inhalt; am Handy ein Blatt über der

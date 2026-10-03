@@ -2,6 +2,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { stubMatchMedia } from "@/test/match-media";
 import { act, fireEvent, screen, waitFor, within } from "@/test/render";
+import { stubVisualViewport } from "@/test/visual-viewport";
 import type { MarkerSpec } from "./adapter";
 import type { fakeMapAdapterFactory } from "./adapter.fixtures";
 import type { SituationWorkspaceProps } from "./SituationWorkspace";
@@ -15,13 +16,104 @@ import {
   selectMainView,
 } from "./SituationWorkspace.fixtures";
 
+const panelSwitch = () => screen.queryByRole("group", { name: "Kartenpanels" });
+const shownPanelSwitch = () =>
+  within(screen.getByRole("group", { name: "Kartenpanels" }));
+const switchEntry = (name: PanelName) =>
+  shownPanelSwitch().getByLabelText(name, { selector: "button" });
+const pressedEntries = () =>
+  shownPanelSwitch()
+    .getAllByRole("button")
+    .filter((button) => button.getAttribute("aria-pressed") === "true")
+    .map((button) => button.getAttribute("aria-label"));
+
 describe("SituationWorkspace", () => {
+  describe.each([
+    ["on a phone", false],
+    ["on the desktop", true],
+  ])("the panel switch %s", (_, desktop) => {
+    beforeEach(() => {
+      stubMatchMedia(desktop);
+    });
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    it("offers Kartenzeichen, Bereiche and Ebenen under Lagekarte", async () => {
+      renderWorkspace();
+      await selectMainView("Lagekarte");
+      expect(
+        shownPanelSwitch()
+          .getAllByRole("button")
+          .map((button) => button.getAttribute("aria-label")),
+      ).toEqual(["Kartenzeichen", "Bereiche", "Ebenen"]);
+    });
+
+    it("is not shown under the ETB and the Stärke", async () => {
+      renderWorkspace();
+      expect(panelSwitch()).toBeNull();
+      await selectMainView("Stärke");
+      expect(panelSwitch()).toBeNull();
+    });
+
+    it("leaves no panel button among the Kartenknöpfe", async () => {
+      renderWorkspace();
+      await selectMainView("Lagekarte");
+      const column = within(
+        screen.getByRole("group", { name: "Kartenknöpfe" }),
+      );
+      for (const name of ["Kartenzeichen", "Bereiche", "Ebenen"]) {
+        expect(column.queryByLabelText(name)).toBeNull();
+      }
+    });
+  });
+
+  describe("while the on-screen keyboard is open", () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    /** Zeigt die Lagekarte; die Rückgabe öffnet die Bildschirmtastatur. */
+    const renderLagekarteWithKeyboard = async () => {
+      const viewport = stubVisualViewport(window.innerHeight);
+      renderWorkspace();
+      await selectMainView("Lagekarte");
+      return () => act(() => viewport.resizeTo(window.innerHeight - 300));
+    };
+
+    it("hides the panel switch on a phone", async () => {
+      stubMatchMedia(false);
+      const openKeyboard = await renderLagekarteWithKeyboard();
+      openKeyboard();
+      expect(panelSwitch()).toBeNull();
+    });
+
+    // Daran endet das Blatt an der Reihe oder reicht ohne sie bis ganz unten.
+    it("marks the Lagekarte only while the panel switch is shown on a phone", async () => {
+      stubMatchMedia(false);
+      const openKeyboard = await renderLagekarteWithKeyboard();
+      const map = document.querySelector('[data-view="map"]');
+      expect(map).toHaveAttribute("data-panel-switch");
+
+      openKeyboard();
+      expect(map).not.toHaveAttribute("data-panel-switch");
+    });
+
+    it("keeps the panel switch on the desktop", async () => {
+      stubMatchMedia(true);
+      const openKeyboard = await renderLagekarteWithKeyboard();
+      openKeyboard();
+      expect(panelSwitch()).toBeInTheDocument();
+    });
+  });
+
   it("opens no map sheet at start on a phone", async () => {
     stubMatchMedia(false);
     try {
       renderWorkspace();
       await selectMainView("Lagekarte");
       expect(anyMapPanel()).toBeNull();
+      expect(pressedEntries()).toEqual([]);
     } finally {
       vi.unstubAllGlobals();
     }
@@ -35,42 +127,28 @@ describe("SituationWorkspace", () => {
       vi.unstubAllGlobals();
     });
 
-    const mapButton = (name: PanelName) =>
-      screen.getByLabelText(name, { selector: "button" });
-
     it("shows no map panel beside the ETB", () => {
       renderWorkspace();
       expect(anyMapPanel()).toBeNull();
-      expect(mapButton("Kartenzeichen")).toHaveAttribute(
-        "aria-pressed",
-        "false",
-      );
     });
 
     it("shows Kartenzeichen under Lagekarte after loading", async () => {
       renderWorkspace();
       await selectMainView("Lagekarte");
       expect(mapPanel("Kartenzeichen")).toBeVisible();
-      expect(mapButton("Kartenzeichen")).toHaveAttribute(
-        "aria-pressed",
-        "true",
-      );
+      expect(pressedEntries()).toEqual(["Kartenzeichen"]);
     });
 
-    it("shows the panel of a map button, and a second click changes nothing", async () => {
+    it("shows the panel of a switch entry, and a second click changes nothing", async () => {
       renderWorkspace();
       await selectMainView("Lagekarte");
-      await userEvent.click(mapButton("Bereiche"));
-      expect(mapPanel("Bereiche")).toBeVisible();
-      expect(mapButton("Bereiche")).toHaveAttribute("aria-pressed", "true");
-      expect(mapButton("Kartenzeichen")).toHaveAttribute(
-        "aria-pressed",
-        "false",
-      );
+      await userEvent.click(switchEntry("Ebenen"));
+      expect(mapPanel("Ebenen")).toBeVisible();
+      expect(pressedEntries()).toEqual(["Ebenen"]);
 
-      await userEvent.click(mapButton("Bereiche"));
-      expect(mapPanel("Bereiche")).toBeVisible();
-      expect(mapButton("Bereiche")).toHaveAttribute("aria-pressed", "true");
+      await userEvent.click(switchEntry("Ebenen"));
+      expect(mapPanel("Ebenen")).toBeVisible();
+      expect(pressedEntries()).toEqual(["Ebenen"]);
     });
 
     it("switches the sidebar with its own bar", async () => {
@@ -116,25 +194,15 @@ describe("SituationWorkspace", () => {
       ).toBeNull();
     });
 
-    it("switches the sidebar from the ETB to Lagekarte with the panel of a map button", async () => {
-      renderWorkspace();
-      await userEvent.click(mapButton("Ebenen"));
-      expect(mapPanel("Ebenen")).toBeVisible();
-      expect(screen.getByLabelText("Neuer Eintrag")).not.toBeVisible();
-      expect(
-        screen.getAllByText("Lagekarte")[0].closest("button"),
-      ).toHaveAttribute("aria-current", "page");
-    });
-
     it("shows the last chosen panel again after the ETB", async () => {
       renderWorkspace();
-      await userEvent.click(mapButton("Bereiche"));
+      await openPanel("Bereiche");
       await selectMainView("ETB");
       expect(anyMapPanel()).toBeNull();
-      expect(mapButton("Bereiche")).toHaveAttribute("aria-pressed", "false");
 
       await selectMainView("Lagekarte");
       expect(mapPanel("Bereiche")).toBeVisible();
+      expect(pressedEntries()).toEqual(["Bereiche"]);
     });
   });
 
@@ -253,43 +321,37 @@ describe("SituationWorkspace", () => {
       await userEvent.click(screen.getByRole("button", { name: "UHSt 3" }));
       await userEvent.type(screen.getByRole("textbox", { name: "EK" }), "6");
 
-      await userEvent.click(
-        screen.getByLabelText("Ebenen", { selector: "button" }),
-      );
+      await openPanel("Ebenen");
       await selectMainView("Stärke");
 
       expect(screen.getByRole("textbox", { name: "EK" })).toHaveValue("6");
     });
   });
 
-  it("switches and closes map panels via the controls and ✕ on a phone", async () => {
+  it("switches and closes map sheets via the panel switch and ✕ on a phone", async () => {
     renderWorkspace();
-    await openPanel("Kartenzeichen");
+    await selectMainView("Lagekarte");
+    await userEvent.click(switchEntry("Kartenzeichen"));
     expect(mapPanel("Kartenzeichen")).toBeVisible();
-    expect(
-      screen.getByLabelText("Kartenzeichen", { selector: "button" }),
-    ).toHaveAttribute("aria-pressed", "true");
+    expect(pressedEntries()).toEqual(["Kartenzeichen"]);
 
-    await userEvent.click(
-      screen.getByLabelText("Bereiche", { selector: "button" }),
-    );
+    await userEvent.click(switchEntry("Bereiche"));
     expect(mapPanel("Bereiche")).toBeVisible();
     expect(screen.queryByRole("region", { name: "Kartenzeichen" })).toBeNull();
+    expect(pressedEntries()).toEqual(["Bereiche"]);
 
-    await userEvent.click(
-      screen.getByLabelText("Bereiche", { selector: "button" }),
-    );
+    await userEvent.click(switchEntry("Bereiche"));
     expect(anyMapPanel()).toBeNull();
+    expect(pressedEntries()).toEqual([]);
 
-    await userEvent.click(
-      screen.getByLabelText("Ebenen", { selector: "button" }),
-    );
+    await userEvent.click(switchEntry("Ebenen"));
     await userEvent.click(
       within(mapPanel("Ebenen")).getByLabelText("Schließen", {
         selector: "button",
       }),
     );
     expect(anyMapPanel()).toBeNull();
+    expect(pressedEntries()).toEqual([]);
   });
 
   it("marks the Lagekarte while a map panel is open", async () => {
@@ -302,13 +364,17 @@ describe("SituationWorkspace", () => {
     expect(map).toHaveAttribute("data-panel-open");
   });
 
-  it("keeps the open map panel when switching to the ETB and back", async () => {
-    renderWorkspace();
-    await openPanel("Ebenen");
-    await selectMainView("ETB");
-    await selectMainView("Lagekarte");
-    expect(mapPanel("Ebenen")).toBeVisible();
-  });
+  it.each(["ETB", "Stärke"] as const)(
+    "keeps the open map sheet when switching to the %s and back on a phone",
+    async (view) => {
+      renderWorkspace();
+      await openPanel("Ebenen");
+      await selectMainView(view);
+      await selectMainView("Lagekarte");
+      expect(mapPanel("Ebenen")).toBeVisible();
+      expect(pressedEntries()).toEqual(["Ebenen"]);
+    },
+  );
 
   describe("crossing 768 px", () => {
     afterEach(() => {
@@ -344,12 +410,10 @@ describe("SituationWorkspace", () => {
       expect(mapPanel("Kartenzeichen")).toBeVisible();
     });
 
-    it("opens the sheet of the map button pressed on the desktop on a phone", async () => {
+    it("opens the sheet of the switch entry pressed on the desktop on a phone", async () => {
       const { fireChange } = stubMatchMedia(true);
       renderWorkspace();
-      await userEvent.click(
-        screen.getByLabelText("Ebenen", { selector: "button" }),
-      );
+      await openPanel("Ebenen");
 
       act(() => fireChange(false));
       expect(

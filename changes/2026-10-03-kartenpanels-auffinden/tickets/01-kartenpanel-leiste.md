@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:    AC-1, AC-2, AC-3, AC-4, AC-13
 advances:  AC-5, AC-12
 after:
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -186,3 +186,32 @@ with an `aria-label` equal to its text.
   scope for the whole change.
 
 ## Left standing
+
+- **Review finding not fixed (nit, round 2):** `MapControls` still has a group
+  `Stack` around the inner `.map-controls__view` `Stack`. The inner one only
+  existed so the panel buttons could stay while a sheet hid the view buttons.
+  Left as it is because the plan keeps the `[data-panel-open]
+  .map-controls__view` rule unchanged (AC-6), and ticket 02 reworks this
+  column when "Standard-Ausschnitt festlegen" leaves.
+- **Seen in the app, already like this before the change (not filed as
+  findings):** at 360 px "Zum Standard-Ausschnitt zurück" overlaps Leaflet's
+  zoom-in by about 2 px when the attribution wraps to two lines. The phone
+  sheet still covers Leaflet's zoom buttons and attribution.
+- **Not proven by an automated test, checked in the browser instead:** where
+  the row sits (directly above the sidebar's bar on desktop and above the
+  phone's bottom bar), that the phone sheet ends at the row's top edge, that
+  the sheet reaches the bottom with no gap while the keyboard hides the row,
+  and that it looks like the specimen. jsdom does no layout, so the tests pin
+  only the `data-panel-switch` attribute the CSS keys on. The first reviewer
+  drove the app at 1440×900, 768×800 and 360×740. A plain viewport resize
+  does not trigger keyboard detection, so the keyboard case was checked with
+  a faked smaller `visualViewport`.
+- **Departure from the plan, step 5:** I did not look at the app myself. The
+  fresh-context reviewer drove it for the same checks (see above), so the
+  two of us did not both use the dev server.
+- **Departure from the plan, step 4:** the rule that hides the row while the
+  keyboard is open on a phone lives in `useMainView` (`panelSwitchShown`,
+  passed through `SituationWorkspace`), not in `SituationMapView`. It sits
+  next to `shownPanel` and `mapShown`, the hook's other decisions about what
+  is shown.
+- All checks ran: `npm run check` is green (230 files, 2754 tests).

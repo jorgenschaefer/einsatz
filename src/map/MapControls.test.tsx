@@ -3,14 +3,12 @@ import { describe, expect, it, vi } from "vitest";
 import type { ActionResult } from "@/app/action-result";
 import { buttonColor } from "@/test/button-color";
 import { render, screen, within } from "@/test/render";
-import { MapControls, type MapPanel } from "./MapControls";
+import { MapControls } from "./MapControls";
 
 function renderControls(
   over: Partial<React.ComponentProps<typeof MapControls>> = {},
 ) {
   const props = {
-    openPanel: null as MapPanel | null,
-    onSelectPanel: vi.fn(),
     onSetDefault: vi.fn(async (): Promise<ActionResult> => ({})),
     onReturnToDefault: vi.fn(),
     canReturnToDefault: true,
@@ -30,29 +28,9 @@ describe("MapControls", () => {
         .getAllByRole("button")
         .map((button) => button.getAttribute("aria-label")),
     ).toEqual([
-      "Kartenzeichen",
-      "Bereiche",
-      "Ebenen",
       "Standard-Ausschnitt festlegen",
       "Zum Standard-Ausschnitt zurück",
     ]);
-  });
-
-  it("marks the open panel's control as pressed", () => {
-    renderControls({ openPanel: "areas" });
-    expect(screen.getByRole("button", { name: "Bereiche" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
-    expect(
-      screen.getByRole("button", { name: "Kartenzeichen" }),
-    ).toHaveAttribute("aria-pressed", "false");
-  });
-
-  it("reports the tapped panel control", async () => {
-    const { onSelectPanel } = renderControls();
-    await userEvent.click(screen.getByRole("button", { name: "Ebenen" }));
-    expect(onSelectPanel).toHaveBeenCalledWith("layers");
   });
 
   it("returns to the default view", async () => {

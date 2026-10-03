@@ -14,9 +14,10 @@ import type { AreaGeometry, AreaStyle } from "./area";
 import type { SymbolComposition } from "./composition";
 import type { ImagePlacement } from "./image-overlay";
 import { LayersPanel } from "./LayersPanel";
-import { MapControls, type MapPanel } from "./MapControls";
+import { MapControls } from "./MapControls";
 import { MapModeBands } from "./MapModeBands";
 import { MapPanelSheet } from "./MapPanelSheet";
+import { type MapPanel, MapPanelSwitch } from "./MapPanelSwitch";
 import { SITUATION_MAP } from "./notification-sources";
 import { type StatefulSymbol, toPlacedSymbols } from "./placed-symbols";
 import { SearchBar } from "./SearchBar";
@@ -113,9 +114,9 @@ export interface SituationMapViewProps {
 
 /**
  * Die Lagekarte des Arbeitsplatzes: die Karte mit Suche, Modus-Band und
- * Kartenknöpfen, das Kartenpanel und die Dialoge zu Kartenzeichen und
- * Bereichen. Bleibt gemountet, wenn die Karte verborgen ist; verschwindet
- * sie, endet jeder Karten-Modus.
+ * Kartenknöpfen, das Kartenpanel mit seiner Reihe und die Dialoge zu
+ * Kartenzeichen und Bereichen. Bleibt gemountet, wenn die Karte verborgen ist;
+ * verschwindet sie, endet jeder Karten-Modus.
  */
 export function SituationMapView({
   operationId,
@@ -153,6 +154,7 @@ export function SituationMapView({
   isDesktop,
   mapShown,
   shownPanel,
+  panelSwitchShown,
   onSelectPanel,
   onCloseSheet,
   closeSheetOnPhone,
@@ -161,6 +163,7 @@ export function SituationMapView({
   isDesktop: boolean | null;
   mapShown: boolean;
   shownPanel: MapPanel | null;
+  panelSwitchShown: boolean;
   onSelectPanel: (panel: MapPanel) => void;
   onCloseSheet: () => void;
   closeSheetOnPhone: () => void;
@@ -230,6 +233,7 @@ export function SituationMapView({
         className="map-view"
         data-view="map"
         data-panel-open={shownPanel ? "" : undefined}
+        data-panel-switch={panelSwitchShown ? "" : undefined}
         // Inline, damit es jede Klasse schlägt (auch die Regel für unbekannte Breite).
         style={{
           display: mapShown ? undefined : "none",
@@ -287,8 +291,6 @@ export function SituationMapView({
             </Stack>
           </Box>
           <MapControls
-            openPanel={shownPanel}
-            onSelectPanel={onSelectPanel}
             onSetDefault={saveDefaultView}
             onReturnToDefault={returnToDefaultView}
             canReturnToDefault={operationDefaultView !== null}
@@ -338,6 +340,10 @@ export function SituationMapView({
               />
             )}
           </MapPanelSheet>
+        )}
+
+        {panelSwitchShown && (
+          <MapPanelSwitch shownPanel={shownPanel} onSelect={onSelectPanel} />
         )}
       </Box>
 

@@ -88,7 +88,7 @@ export function renderWorkspace(over: Partial<SituationWorkspaceProps> = {}) {
 export type PanelName = "Kartenzeichen" | "Bereiche" | "Ebenen";
 
 // Die Kartenpanels leben nur in der Lagekarten-Hauptansicht; erst hinschalten,
-// dann den Kartenknopf tippen.
+// dann den Eintrag in der Reihe der Kartenpanels tippen.
 export const openPanel = async (name: PanelName) => {
   await selectMainView("Lagekarte");
   await userEvent.click(screen.getByLabelText(name, { selector: "button" }));

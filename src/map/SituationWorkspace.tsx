@@ -112,6 +112,7 @@ export function SituationWorkspace({
     newEntryRef,
     mapShown,
     shownPanel,
+    panelSwitchShown,
     selectMapPanel,
     closeSheet,
     closeSheetOnPhone,
@@ -155,6 +156,7 @@ export function SituationWorkspace({
           isDesktop={isDesktop}
           mapShown={mapShown}
           shownPanel={shownPanel}
+          panelSwitchShown={panelSwitchShown}
           onSelectPanel={selectMapPanel}
           onCloseSheet={closeSheet}
           closeSheetOnPhone={closeSheetOnPhone}

@@ -130,7 +130,7 @@ describe("SituationWorkspace", () => {
       expect(adapter.setView).not.toHaveBeenCalled();
     });
 
-    it("keeps an armed symbol across the Stärke and back via a map button", async () => {
+    it("keeps an armed symbol across the Stärke and back to another map panel", async () => {
       const onPlace = vi.fn(async () => ({}));
       const { captured, adapter } = renderWorkspace({ onPlace });
       await openPanel("Kartenzeichen");
@@ -139,9 +139,7 @@ describe("SituationWorkspace", () => {
 
       await selectMainView("Stärke");
       expect(modeBand("Kartenzeichen platzieren")).toBeInTheDocument();
-      await userEvent.click(
-        screen.getByLabelText("Bereiche", { selector: "button" }),
-      );
+      await openPanel("Bereiche");
 
       expect(modeBand("Kartenzeichen platzieren")).toBeInTheDocument();
       await clickMap(captured);

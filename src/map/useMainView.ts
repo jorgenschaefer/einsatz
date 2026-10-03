@@ -3,15 +3,16 @@
 import { useEffect, useRef, useState } from "react";
 import type { JournalEntryView } from "@/journal/JournalPanel";
 import type { MainView } from "./MainViewBar";
-import type { MapPanel } from "./MapControls";
+import type { MapPanel } from "./MapPanelSwitch";
 import { countUnseenEntries } from "./unseen-entries";
 import { useIsDesktop } from "./useIsDesktop";
+import { useKeyboardOpen } from "./useKeyboardOpen";
 
 /**
  * Was die Lageansicht zeigt: die Hauptansicht (ETB, Lagekarte, Stärke), das
- * Kartenpanel und ob die Karte zu sehen ist – am Handy und am Desktop nach
- * eigenen Regeln. Dazu die Zahl neuer ETB-Einträge an der Leiste und der Cursor
- * im ETB.
+ * Kartenpanel, ob die Karte und die Kartenpanel-Reihe zu sehen sind – am Handy
+ * und am Desktop nach eigenen Regeln. Dazu die Zahl neuer ETB-Einträge an der
+ * Leiste und der Cursor im ETB.
  */
 export function useMainView({
   journalEntries,
@@ -22,6 +23,7 @@ export function useMainView({
   currentUsername: string;
 }) {
   const isDesktop = useIsDesktop();
+  const keyboardOpen = useKeyboardOpen();
   const [mainView, setMainView] = useState<MainView>("etb");
   const [openPanel, setOpenPanel] = useState<MapPanel | null>(null);
   const newEntryRef = useRef<HTMLTextAreaElement>(null);
@@ -47,6 +49,9 @@ export function useMainView({
     : openPanel;
 
   const mapShown = isMapShown(isDesktop, mainView);
+  // Am Handy weicht die Reihe mit der Leiste der Bildschirmtastatur.
+  const panelSwitchShown =
+    mainView === "map" && !(isDesktop === false && keyboardOpen);
 
   const switchMainView = (view: MainView) => {
     setMainView(view);
@@ -69,7 +74,6 @@ export function useMainView({
       return;
     }
     setOpenPanel(panel);
-    switchMainView("map");
   };
   // Am Handy liegt das Blatt über der unteren Kartenhälfte; wer dort auf der
   // Karte weiterarbeitet (platzieren, zeichnen, angesprungenes Ziel ansehen),
@@ -86,6 +90,7 @@ export function useMainView({
     newEntryRef,
     mapShown,
     shownPanel,
+    panelSwitchShown,
     selectMapPanel,
     closeSheet: () => setOpenPanel(null),
     closeSheetOnPhone,

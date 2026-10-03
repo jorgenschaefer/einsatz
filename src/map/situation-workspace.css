@@ -12,6 +12,7 @@
    gewählten Ansicht (Kartenpanel, ETB oder Stärke) über der eigenen Leiste.
    Dieselbe 48-em-Schwelle wie useIsDesktop und die AppShell-Leiste. */
 .situation-workspace {
+  --map-panel-switch-height: 44px;
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -46,20 +47,24 @@
   overflow: auto;
 }
 
-/* Lagekarte mit Kartenpanel. Am Handy liegt das Panel als Blatt über der
-   unteren Hälfte der Karte (nicht ziehbar, der Inhalt scrollt); am Desktop steht
-   es in der Seitenleiste. Ein Container für beide Formen, damit der Inhalt beim
-   Überschreiten der Schwelle erhalten bleibt. */
+/* Lagekarte mit Kartenpanel und der Reihe Kartenzeichen | Bereiche | Ebenen.
+   Am Handy steht die Reihe unter der Karte, direkt über der Leiste, und das
+   Panel liegt als Blatt über der unteren Hälfte der Karte bis zur Reihe (nicht
+   ziehbar, der Inhalt scrollt); am Desktop stehen beide in der Seitenleiste.
+   Ein Container für beide Formen, damit der Inhalt beim Überschreiten der
+   Schwelle erhalten bleibt. */
 .map-view {
   flex: 1;
   min-height: 0;
   display: flex;
+  flex-direction: column;
   position: relative;
 }
 
 .map-area {
   flex: 1;
   min-width: 0;
+  min-height: 0;
   position: relative;
   isolation: isolate;
 }
@@ -82,12 +87,45 @@
   overscroll-behavior: contain;
 }
 
+/* Das Blatt endet an der Reihe; ohne sie (Bildschirmtastatur offen) reicht es
+   bis ganz unten. */
+.map-view[data-panel-switch] .map-panel {
+  bottom: var(--map-panel-switch-height);
+}
+
+.map-panel-switch {
+  flex: none;
+  height: var(--map-panel-switch-height);
+  display: flex;
+  gap: 4px;
+  padding: 4px 6px;
+  border-top: 1px solid var(--mantine-color-default-border);
+  background: var(--mantine-color-blue-light);
+}
+
+.map-panel-switch__entry {
+  flex: 1;
+  min-width: 0;
+  border-radius: var(--mantine-radius-sm);
+  font-size: var(--mantine-font-size-sm);
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.map-panel-switch__entry[aria-pressed="true"] {
+  background: var(--mantine-color-body);
+  color: var(--mantine-color-blue-6);
+  font-weight: 600;
+}
+
 @media (min-width: 48em) {
   .situation-workspace {
     display: grid;
     /* Seitenleiste: SIDEBAR_WIDTH in src/map/lageansicht-sizes.ts */
     grid-template-columns: minmax(0, 1fr) 360px;
-    grid-template-rows: minmax(0, 1fr) 56px;
+    grid-template-rows: minmax(0, 1fr) auto 56px;
   }
 
   /* Karte und Kartenpanel werden Zellen des Rasters, ohne den DOM umzuhängen
@@ -109,10 +147,15 @@
     grid-row: 1;
   }
 
+  .map-panel-switch {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
   .sidebar-bar {
     display: block;
     grid-column: 2;
-    grid-row: 2;
+    grid-row: 3;
     border-top: 1px solid var(--mantine-color-default-border);
   }
 
@@ -165,8 +208,8 @@
 }
 
 /* Kartenknöpfe unten rechts, über Leaflets Zoom und der Attributionszeile und
-   an deren rechter Kante ausgerichtet. Ist am Handy das Blatt offen, sitzen die
-   Panel-Knöpfe direkt über dessen Kante; für die übrigen ist dort kein Platz. */
+   an deren rechter Kante ausgerichtet. Ist am Handy das Blatt offen, ist für
+   sie kein Platz. */
 .map-controls {
   position: absolute;
   right: 10px;
@@ -179,9 +222,6 @@
 }
 
 @media not all and (min-width: 48em) {
-  [data-panel-open] .map-controls {
-    bottom: calc(50% + 8px);
-  }
   [data-panel-open] .map-controls__view {
     display: none;
   }
