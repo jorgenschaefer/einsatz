@@ -1,7 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import { MAX_KML_BYTES } from "@/kml/kmz";
 import { ValidationError } from "@/server/validation";
-import { type FetchStub, scriptedFetch } from "@/test/scripted-fetch";
+import {
+  type FetchStub,
+  generatedBody,
+  scriptedFetch,
+} from "@/test/scripted-fetch";
 import { createFetchBudget } from "./fetch-budget";
 
 const pinnedFetch = vi.fn();
@@ -194,6 +198,26 @@ describe("fetchKmlFromUrl (redirect handling)", () => {
     await expect(
       fetchKmlFromUrl("http://93.184.216.34/start.kml", createFetchBudget()),
     ).rejects.toThrow("Zu viele Weiterleitungen");
+  });
+
+  it("cancels the unread body of a redirect and of a failed response", async () => {
+    const redirectBody = generatedBody({ totalBytes: 1000 });
+    const failedBody = generatedBody({ totalBytes: 1000 });
+    serve((url) =>
+      url.endsWith("/start.kml")
+        ? {
+            status: 302,
+            location: "http://93.184.216.34/gone.kml",
+            body: redirectBody.stream,
+          }
+        : { status: 404, body: failedBody.stream },
+    );
+
+    await expect(
+      fetchKmlFromUrl("http://93.184.216.34/start.kml", createFetchBudget()),
+    ).rejects.toThrow("(404)");
+    expect(redirectBody.cancelled()).toBe(true);
+    expect(failedBody.cancelled()).toBe(true);
   });
 });
 

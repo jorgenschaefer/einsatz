@@ -134,7 +134,8 @@ export function assertFetchableKmlUrl(url: string): URL {
 /**
  * Folgt Weiterleitungen von Hand und prüft jeden Sprung erneut gegen die
  * SSRF-Sperren. Nötig, weil Google-Downloads (z. B. „Meine Karten“) über eine
- * 302 auf `googleusercontent.com` ausgeliefert werden.
+ * 302 auf `googleusercontent.com` ausgeliefert werden. Der Body einer
+ * Weiterleitung wird verworfen.
  */
 export async function fetchFollowingRedirects(start: URL): Promise<Response> {
   let target = start;
@@ -146,6 +147,7 @@ export async function fetchFollowingRedirects(start: URL): Promise<Response> {
     });
     const location = response.headers.get("location");
     if (response.status >= 300 && response.status < 400 && location) {
+      await response.body?.cancel();
       target = new URL(location, target); // relative Location auflösen
       continue;
     }
@@ -195,10 +197,12 @@ export async function fetchKmlFromUrl(
   if (!takeAddress(budget))
     throw new ValidationError("Das Abruf-Budget dieser KML ist aufgebraucht.");
   const response = await fetchFollowingRedirects(target);
-  if (!response.ok)
+  if (!response.ok) {
+    await response.body?.cancel();
     throw new ValidationError(
       `KML konnte nicht geladen werden (${response.status}).`,
     );
+  }
   const bytes = await readCapped(response, budget, MAX_KML_BYTES); // ggf. komprimiert
   const kml = extractKml(bytes);
   assertKmlDocument(kml, "Die Adresse liefert keine KML-Datei.");
