@@ -92,6 +92,11 @@ the mounted path. The container runs as the unprivileged user `node` (uid
 image creates `/data/uploads` owned by `node`, and Docker copies that ownership
 into an empty volume on first mount.
 
+The production secrets are in [secrets.prod.env](secrets.prod.env), encrypted
+with [sops](https://github.com/getsops/sops); the recipients are in
+[.sops.yaml](.sops.yaml). Edit them with `sops secrets.prod.env`.
+`bin/deploy-prod` decrypts the file and writes it to the server as `.env`.
+
 ## License
 
 Copyright (C) 2026 Jorgen Schaefer

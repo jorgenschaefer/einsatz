@@ -1,0 +1,10 @@
+# Recipients for the encrypted production secrets (secrets.prod.env).
+# The first key is the deploying SSH key, the second an offline recovery
+# key whose private half is kept outside the repo.
+# Edit with `sops <dir>/secrets.prod.env`. After changing this list, run
+# `sops updatekeys` on every secrets.prod.env.
+creation_rules:
+  - path_regex: (^|/)secrets\.prod\.env$
+    age: >-
+      ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILKVx6l4zSGex7DmI6RPyqkfbSWhQImDzkWQP54UXOBF,
+      age1xhzr868ev4hxd55lrhzve70cndhe9sf28yfxezdm6udx9n5esa5qlrqkr6

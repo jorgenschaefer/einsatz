@@ -27,3 +27,8 @@ vitest.config.mts
 
 # Lokale Uploads aus dem Dev-Betrieb
 data
+
+# Encrypted production secrets and their recipients; bin/deploy-prod sends
+# the secrets to the server.
+secrets.prod.env
+.sops.yaml

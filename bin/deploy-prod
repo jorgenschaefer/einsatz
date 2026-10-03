@@ -12,6 +12,14 @@ compose() {
   docker compose -f docker-compose.prod.yml "$@"
 }
 
+# Decrypted up front, so a missing key stops the deploy before the build.
+# The plaintext only ever lives in this variable, never on local disk.
+secrets=
+if [[ -f secrets.prod.env ]]; then
+  echo "==> Decrypting secrets..."
+  secrets=$(sops -d secrets.prod.env)
+fi
+
 echo "==> Building images..."
 compose build --pull
 
@@ -25,6 +33,14 @@ compose config --images \
 echo "==> Copying compose file..."
 ssh "$host" mkdir -p "$remote_dir"
 scp docker-compose.prod.yml "$host:$remote_dir/"
+
+if [[ -n $secrets ]]; then
+  echo "==> Copying secrets..."
+  # Written beside .env and renamed, so a dropped connection can't leave
+  # a truncated .env behind. umask makes it readable by the owner only.
+  printf '%s\n' "$secrets" \
+    | ssh -T "$host" "cd $remote_dir && umask 077 && cat > .env.new && mv -f .env.new .env"
+fi
 
 echo "==> Starting containers..."
 ssh -t "$host" "cd $remote_dir && docker compose -f docker-compose.prod.yml up -d --remove-orphans --wait --wait-timeout 120"
