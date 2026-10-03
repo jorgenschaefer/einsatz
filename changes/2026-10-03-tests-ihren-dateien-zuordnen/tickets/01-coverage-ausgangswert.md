@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:
 advances:  AC-10, AC-11
 after:
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -149,3 +149,54 @@ renamed test. Run on an unchanged tree, it lists nothing.
 - The final comparison against the finished tree is ticket 24's.
 
 ## Left standing
+- **Review findings not fixed.** Round 2, nit: no test pins the worktree
+  cleanup of `removed-tests.mjs` on failure or Ctrl-C. It is a thin wrapper
+  over git and `npx vitest list`, and I checked it by hand: a bad commit
+  name, and SIGINT during `vitest list`, both leave no worktree and no
+  `/tmp/removed-tests*` directory behind.
+- **Fixes made after the last review round, not reviewed again.** Round 2's
+  should-fix said a new file under `src/test/` (a shared helper, say) would
+  fail the comparison with no fix available. Now `compare-coverage.mjs`
+  still names such a file ("new, compared with nothing - if it was split
+  out of a baseline file, list it …") but exits 0 for it. A drop, a
+  missing file or part, a `coverage-splits.json` key that is not in the
+  baseline, or a value that is not a list still exits 1. Also fixed after
+  round 2: two nits (an entry that is not a list is now named instead of
+  crashing, and an interrupted child is reported as "stopped (SIGINT)").
+- **Checks not run.** I did not rerun `npm run check` after those last
+  edits. They touch only `changes/`, which biome excludes and vitest does
+  not collect. The scripts' own tests are not part of `npm run check`. Run
+  them with `node --test changes/2026-10-03-tests-ihren-dateien-zuordnen/*.test.mjs`
+  (22 pass).
+- **Advanced without an automated test (AC-10, AC-11).** `node:test` pins
+  the comparison and listing logic. I checked these by hand:
+  - `npm run test:coverage` writes a summary with an entry for every
+    source file.
+  - `compare-coverage.mjs` on a fresh run names nothing and exits 0.
+  - On a hand-made summary, `compare-coverage.mjs` names the dropped
+    file, sums the split one and skips the `[]` one.
+  - `removed-tests.mjs` prints nothing on the unchanged tree.
+  - `removed-tests.mjs` lists the old names as removed and the new ones
+    as added, for a renamed test, a deleted `it.each` row, a test moved to
+    another `describe`, and a test moved to another file.
+  - `removed-tests.mjs HEAD~1 HEAD` runs and removes its worktree.
+- **Departures from the plan.**
+  - `test:coverage` is `vitest run --coverage --testTimeout=30000`, not
+    plain `vitest run --coverage`. With coverage, under parallel load,
+    two tests regularly took longer than the default 5 s and failed:
+    - `kml-actions.icons.test.ts` › adds at most 20 MB …
+    - `kml-actions.timing.test.ts` › … 20,000 spaces … as a KMZ
+    In 3 runs out of 3, at least one of them failed. Each takes about
+    2 s when run alone. `npm test` is unchanged.
+  - Not in the baseline: vitest leaves the three `setupFiles` (`src/test/fail-on-console.ts`,
+    `src/test/fast-bcrypt.ts`, `src/test/setup.ts`) out of coverage itself,
+    so the baseline has every other source file (229 plus `total`).
+  - Baseline: three runs gave identical coverage for every file, so it is
+    the first run, not a per-file minimum. No file varied.
+  - `removed-tests.mjs` collects with `vitest list --no-staticParse`. The
+    default static parse does not expand `it.each` rows (1930 instead of
+    2773 tests). Collecting needs no test Postgres, so the usage line says
+    nothing about it.
+  - The comparison also names a split whose parts are only partly in the
+    measurement, not just one whose parts are all missing.
+- **Departures from a nudge.** None.

@@ -41,6 +41,13 @@ export default defineConfig({
         },
       },
     ],
+    coverage: {
+      provider: "v8",
+      include: ["src/**/*.{ts,tsx}", "next.config.ts"],
+      exclude: ["**/*.test.*"],
+      reporter: ["json-summary", "text-summary"],
+      reportsDirectory: "coverage",
+    },
     // `taktische-zeichen-core` enthält im veröffentlichten Build versehentliche
     // console.log-Aufrufe beim Base64-Kodieren der dataUrl. Beim Rendern von
     // Kartenzeichen fluten diese das Testprotokoll mit dem kompletten SVG.

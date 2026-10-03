@@ -12,6 +12,7 @@
     "check": "tsc --noEmit && npm run lint && npm test",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage --testTimeout=30000",
     "db:migrate": "node --env-file-if-exists=.env --import tsx src/server/db/migrate-cli.ts",
     "db:seed": "node --env-file-if-exists=.env --import tsx src/server/auth/seed-cli.ts"
   },
@@ -48,6 +49,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "6.1.1",
+    "@vitest/coverage-v8": "5.0.2",
     "jsdom": "29.1.1",
     "postcss": "8.5.28",
     "postcss-preset-mantine": "1.18.0",
