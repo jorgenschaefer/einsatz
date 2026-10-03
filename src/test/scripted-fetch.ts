@@ -5,6 +5,7 @@ import type { pinnedFetch } from "@/server/kml/pinned-fetch";
 export type FetchStub = {
   status?: number;
   location?: string;
+  contentType?: string;
   body?: string | Uint8Array | ReadableStream<Uint8Array>;
 };
 
@@ -14,6 +15,7 @@ export const scriptedFetch =
     const s = handler(String(url));
     const headers = new Headers();
     if (s.location) headers.set("location", s.location);
+    if (s.contentType) headers.set("content-type", s.contentType);
     return new Response(responseBody(s.body), {
       status: s.status ?? 200,
       headers,

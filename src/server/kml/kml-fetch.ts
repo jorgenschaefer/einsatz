@@ -141,7 +141,7 @@ export function assertFetchableKmlUrl(url: string): URL {
  * SSRF-Sperren. Nötig, weil Google-Downloads (z. B. „Meine Karten“) über eine
  * 302 auf `googleusercontent.com` ausgeliefert werden.
  */
-async function fetchFollowingRedirects(start: URL): Promise<Response> {
+export async function fetchFollowingRedirects(start: URL): Promise<Response> {
   let target = start;
   for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
     assertFetchableKmlUrl(target.href);

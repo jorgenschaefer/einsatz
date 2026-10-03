@@ -4,11 +4,13 @@ import { ValidationError } from "@/server/validation";
 import {
   bytesToDataUri,
   extractKml,
+  iconStyleHrefs,
   inlineKmzAssets,
   looksLikeZip,
   MAX_KML_BYTES,
   mergeKmlDocuments,
   networkLinkHrefs,
+  replaceIconStyleHrefs,
 } from "./kmz";
 
 const KML = '<?xml version="1.0"?><kml><Document/></kml>';
@@ -263,5 +265,88 @@ describe("mergeKmlDocuments", () => {
     expect(merged).toContain("<Placemark>A</Placemark>");
     expect(merged).toContain("<Placemark>B</Placemark>");
     expect((merged.match(/<Document>/g) ?? []).length).toBe(1);
+  });
+});
+
+describe("iconStyleHrefs", () => {
+  const iconStyle = (href: string) =>
+    `<IconStyle><Icon><href>${href}</href></Icon></IconStyle>`;
+
+  it("finds the icon href of an inline style", () => {
+    const kml = `<kml><Placemark><Style>${iconStyle("https://a.test/pin.png")}</Style></Placemark></kml>`;
+
+    expect(iconStyleHrefs(kml)).toEqual(["https://a.test/pin.png"]);
+  });
+
+  it("ignores hrefs outside an IconStyle and ones that are not http(s)", () => {
+    const kml = `<kml><Document>
+      <NetworkLink><Link><href>https://a.test/link.kml</href></Link></NetworkLink>
+      <GroundOverlay><Icon><href>https://a.test/overlay.png</href></Icon></GroundOverlay>
+      <Style><ListStyle><ItemIcon><href>https://a.test/item.png</href></ItemIcon></ListStyle></Style>
+      <Style>${iconStyle("files/pin.png")}</Style>
+      <Style>${iconStyle("data:image/png;base64,AAAA")}</Style>
+      <Style>${iconStyle(" HTTP://a.test/pin.png ")}</Style>
+    </Document></kml>`;
+
+    expect(iconStyleHrefs(kml)).toEqual(["HTTP://a.test/pin.png"]);
+  });
+
+  it("names an icon used by several styles once", () => {
+    const kml = `<kml><Document>
+      <Style id="normal">${iconStyle("https://a.test/pin.png")}</Style>
+      <Style id="highlight">${iconStyle("https://a.test/pin.png")}</Style>
+      <Style id="other">${iconStyle("https://a.test/flag.png")}</Style>
+    </Document></kml>`;
+
+    expect(iconStyleHrefs(kml)).toEqual([
+      "https://a.test/pin.png",
+      "https://a.test/flag.png",
+    ]);
+  });
+
+  it("unescapes the XML in an href", () => {
+    const kml = `<kml><Style>${iconStyle("https://a.test/icon?a=1&amp;b=&#50;&#x33;")}</Style></kml>`;
+
+    expect(iconStyleHrefs(kml)).toEqual(["https://a.test/icon?a=1&b=23"]);
+  });
+
+  it("takes an href written as CDATA literally", () => {
+    const kml = `<kml><Style>${iconStyle(" <![CDATA[ https://a.test/icon?a=1&b=&amp; ]]> ")}</Style></kml>`;
+
+    expect(iconStyleHrefs(kml)).toEqual(["https://a.test/icon?a=1&b=&amp;"]);
+  });
+
+  it("leaves an unknown entity and a code point beyond Unicode as written", () => {
+    const kml = `<kml><Style>${iconStyle("https://a.test/?a=&nbsp;&#x110000;")}</Style></kml>`;
+
+    expect(iconStyleHrefs(kml)).toEqual(["https://a.test/?a=&nbsp;&#x110000;"]);
+  });
+});
+
+describe("replaceIconStyleHrefs", () => {
+  const iconStyle = (href: string) =>
+    `<IconStyle><Icon><href>${href}</href></Icon></IconStyle>`;
+
+  it("replaces every IconStyle href of a mapped address and nothing else", () => {
+    const kml = `<kml><Document>
+      <Style id="normal">${iconStyle("https://a.test/pin.png?a=1&amp;b=2")}</Style>
+      <Style id="highlight">${iconStyle(" https://a.test/pin.png?a=1&amp;b=2 ")}</Style>
+      <Style id="other">${iconStyle("https://a.test/flag.png")}</Style>
+      <GroundOverlay><Icon><href>https://a.test/pin.png?a=1&amp;b=2</href></Icon></GroundOverlay>
+    </Document></kml>`;
+
+    const replaced = replaceIconStyleHrefs(
+      kml,
+      new Map([
+        ["https://a.test/pin.png?a=1&b=2", "data:image/png;base64,AA=="],
+      ]),
+    );
+
+    expect(replaced).toBe(`<kml><Document>
+      <Style id="normal">${iconStyle("data:image/png;base64,AA==")}</Style>
+      <Style id="highlight">${iconStyle("data:image/png;base64,AA==")}</Style>
+      <Style id="other">${iconStyle("https://a.test/flag.png")}</Style>
+      <GroundOverlay><Icon><href>https://a.test/pin.png?a=1&amp;b=2</href></Icon></GroundOverlay>
+    </Document></kml>`);
   });
 });

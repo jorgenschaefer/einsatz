@@ -43,6 +43,10 @@ const PIECES: [string, string][] = [
     "the same <href> inside a closed NetworkLink",
     `<NetworkLink><Link>${HREF_WITHOUT_END}</Link></NetworkLink>`,
   ],
+  [
+    "the same <href> inside a closed IconStyle",
+    `<IconStyle><Icon>${HREF_WITHOUT_END}</Icon></IconStyle>`,
+  ],
   ["10,000 unclosed <NetworkLink>", "<NetworkLink>".repeat(10_000)],
 ];
 const UNCLOSED_DOCUMENTS = "<Document>".repeat(10_000);

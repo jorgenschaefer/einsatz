@@ -193,3 +193,69 @@ describe("at most 20 MB read per import", () => {
     expect(mergedMarkers(savedContent())).toEqual(["L1", "L2"]);
   });
 });
+
+describe("icons share the budget with the KML", () => {
+  const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
+  const iconUrl = (i: number) => `http://93.184.216.34/icon-${i}.png`;
+  const iconStyle = (href: string) =>
+    `<Style><IconStyle><Icon><href>${href}</href></Icon></IconStyle></Style>`;
+  const iconsDoc = (from: number, to: number) =>
+    `<kml><Document>${Array.from({ length: to - from + 1 }, (_, i) =>
+      iconStyle(iconUrl(from + i)),
+    ).join("")}</Document></kml>`;
+  const embedded = (content: string) =>
+    content.match(/data:image\/png;base64,/g)?.length ?? 0;
+
+  it("fetches icons only while addresses are left", async () => {
+    serve((url) => {
+      if (url === MAIN_URL) return { body: kmlWithLinks(10) };
+      const link = Number(url.match(/link-(\d+)/)?.[1]);
+      if (link === 1) return { body: iconsDoc(1, 6) };
+      if (link) return { body: iconsDoc(link + 5, link + 5) };
+      return { contentType: "image/png", body: PNG };
+    });
+
+    const result = await addKmlUrlAction("op-1", "Karte", MAIN_URL);
+
+    expect(result).toEqual({});
+    expect(requested).toHaveLength(20);
+    expect(embedded(savedContent())).toBe(9);
+    expect(savedContent()).toContain(`<href>${iconUrl(15)}</href>`);
+  });
+
+  it("skips an icon that no longer fits into 20 MB", async () => {
+    const icon = iconUrl(1);
+    serve((url) =>
+      url === icon
+        ? { contentType: "image/png", body: new Uint8Array(200 * 1024) }
+        : {
+            body: generatedBody({
+              start: `<kml><Document>${iconStyle(icon)}</Document></kml>`,
+              totalBytes: MAX_KML_BYTES - 100 * 1024,
+            }).stream,
+          },
+    );
+
+    const result = await addKmlFileAction("op-1", "Karte", kmlWithLinks(1));
+
+    expect(result).toEqual({});
+    expect(requested).toEqual([linkUrl(1), icon]);
+    expect(savedContent()).toContain(`<href>${icon}</href>`);
+  });
+
+  it("takes no address for an icon whose address is not allowed", async () => {
+    const refused = Array.from({ length: 20 }, (_, i) =>
+      iconStyle(`http://100.64.0.${i + 1}/x.png`),
+    ).join("");
+    serve(() => ({ contentType: "image/png", body: PNG }));
+
+    const result = await addKmlFileAction(
+      "op-1",
+      "Karte",
+      `<kml><Document>${refused}${iconStyle(iconUrl(1))}</Document></kml>`,
+    );
+
+    expect(result).toEqual({});
+    expect(embedded(savedContent())).toBe(1);
+  });
+});

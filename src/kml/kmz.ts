@@ -38,6 +38,10 @@ const IMAGE_MIME: Record<string, string> = {
   bmp: "image/bmp",
 };
 
+/** Ob `mime` einer der Bildtypen ist, die als Symbol eingebettet werden. */
+export const isImageMime = (mime: string): boolean =>
+  Object.values(IMAGE_MIME).includes(mime);
+
 /** Normalisiert einen KMZ-internen Pfad für den Abgleich (klein, ohne `./`). */
 const normalizePath = (path: string): string =>
   path.trim().replace(/^\.\//, "").toLowerCase();
@@ -161,6 +165,77 @@ export function networkLinkHrefs(kml: string): string[] {
 }
 
 /**
+ * Die Bild-Adressen aller `<IconStyle>`-Elemente – die einzigen Symbole, die
+ * die Lagekarte zeichnet.
+ */
+export function iconStyleHrefs(kml: string): string[] {
+  return [...new Set(Array.from(iconStyleHrefTexts(kml), ({ url }) => url))];
+}
+
+/** Ersetzt jedes `<IconStyle>`-`<href>`, dessen Adresse in `replacements`
+ *  steht, durch den dort genannten Text; alle anderen `<href>` bleiben. */
+export function replaceIconStyleHrefs(
+  kml: string,
+  replacements: Map<string, string>,
+): string {
+  let replaced = "";
+  let copied = 0;
+  for (const { start, end, url } of iconStyleHrefTexts(kml)) {
+    const replacement = replacements.get(url);
+    if (replacement === undefined) continue;
+    replaced += kml.slice(copied, start) + replacement;
+    copied = end;
+  }
+  return replaced + kml.slice(copied);
+}
+
+/** Lage und Adresse des Texts jedes `<href>` in einem `<IconStyle>`. */
+function* iconStyleHrefTexts(
+  kml: string,
+): Generator<{ start: number; end: number; url: string }> {
+  for (const style of elementRanges(kml, "IconStyle")) {
+    const body = kml.slice(style.start, style.end);
+    for (const href of elementRanges(body, "href")) {
+      const start = style.start + href.start;
+      const end = style.start + href.end;
+      const url = xmlText(kml.slice(start, end));
+      if (/^https?:\/\//i.test(url)) yield { start, end, url };
+    }
+  }
+}
+
+const XML_ENTITIES: Record<string, string> = {
+  amp: "&",
+  lt: "<",
+  gt: ">",
+  quot: '"',
+  apos: "'",
+};
+
+/** Der Text eines Elements, wie ihn ein XML-Parser liest: ein CDATA-Abschnitt
+ *  wörtlich, sonst mit aufgelösten Entitäten; ohne Leerraum am Rand. */
+function xmlText(raw: string): string {
+  const text = raw.trim();
+  const cdata = text.startsWith("<![CDATA[") && text.endsWith("]]>");
+  return cdata ? text.slice(9, -3).trim() : unescapeXml(text);
+}
+
+/** Löst die Entitäten in XML-Text auf, wie es ein XML-Parser täte. */
+const unescapeXml = (text: string): string =>
+  text.replace(
+    /&(#x[0-9a-f]+|#\d+|\w+);/gi,
+    (entity, name: string) => xmlCharacter(name) ?? entity,
+  );
+
+function xmlCharacter(name: string): string | null {
+  if (!name.startsWith("#")) return XML_ENTITIES[name] ?? null;
+  const code = /^#x/i.test(name)
+    ? Number.parseInt(name.slice(2), 16)
+    : Number(name.slice(1));
+  return code <= 0x10ffff ? String.fromCodePoint(code) : null;
+}
+
+/**
  * Fasst mehrere KML-Dokumente zu einem zusammen, indem der Inhalt jedes
  * `<Document>` in ein neues `<Document>` kopiert wird. Ein einzelnes Dokument
  * wird unverändert durchgereicht.
@@ -179,19 +254,27 @@ export function mergeKmlDocuments(docs: string[]): string {
 /** Inhalt jedes `<tag …>…</tag>` in Reihenfolge, jeweils bis zum ersten
  *  schließenden Tag. */
 function elementBodies(kml: string, tag: string): string[] {
+  return Array.from(elementRanges(kml, tag), ({ start, end }) =>
+    kml.slice(start, end),
+  );
+}
+
+/** Lage des Inhalts jedes `<tag …>…</tag>`, wie {@link elementBodies}. */
+function* elementRanges(
+  kml: string,
+  tag: string,
+): Generator<{ start: number; end: number }> {
   const text = asciiLowerCase(kml);
   const open = `<${tag.toLowerCase()}`;
   const close = `</${tag.toLowerCase()}>`;
-  const bodies: string[] = [];
   let at = openingTagIndex(text, open, 0);
   while (at >= 0) {
     const start = text.indexOf(">", at) + 1;
     const end = start > 0 ? text.indexOf(close, start) : -1;
-    if (end < 0) return bodies;
-    bodies.push(kml.slice(start, end));
+    if (end < 0) return;
+    yield { start, end };
     at = openingTagIndex(text, open, end + close.length);
   }
-  return bodies;
 }
 
 /** Inhalt vom ersten `<tag …>` bis zum letzten `</tag>`, samt verschachtelter

@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:    AC-6, AC-7, AC-8, AC-9
 advances:
 after:     02-kml-ohne-backtracking, 03-kml-abruf-absichern, 21-kml-abruf-budget
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -185,3 +185,89 @@ are the ones their plans chose and may have shifted.
   change them here only if embedding needs a hook they lack.
 
 ## Left standing
+- **Review blocker not fixed: an icon's data URI is written into every
+  `<IconStyle>` that uses it, so stored KML grows with placemarks × icon
+  size.** This follows from the decision "every occurrence is replaced". KML
+  with one inline `<Style>` per placemark (ogr2ogr/LIBKML, GPS exports) is
+  common. The second reviewer measured `replaceIconStyleHrefs` on a 1.0 MB KML
+  with 5,000 such placemarks and one 4 KB icon: 28.1 MB stored. 10,000
+  placemarks gave 56.3 MB. With a 100 KB icon the string got too long
+  (`RangeError: Invalid string length`), so a file that imports today fails
+  with „KML konnte nicht geladen werden.". That breaks AC-9 at the extreme.
+  The decision's estimate ("can grow beyond 20 MB by at most the embedded
+  icons", bounded by the budget) does not hold for repeated hrefs. The
+  existing `inlineKmzAssets` multiplies the same way for KMZ files, and the
+  nudge asked to embed like it. I did not fix this because every fix is a
+  decision this ticket does not settle. The options: (a) a cap on the
+  embedded result, past which icons stay unembedded (circles) or the import
+  is refused; (b) storing each icon once outside the KML and serving it from
+  the app, which AC-8 allows but which departs from the `data:` nudge and
+  needs storage. My recommendation: (b) as its own ticket, or (a) with
+  "circles past 20 MB of embedded text" if a quick bound is wanted first.
+- **Review nits not fixed:**
+  - An icon whose `Content-Length` already says it is over 256 KB is still
+    read up to 256 KB, and those bytes come off the shared 20 MB. With 19 such
+    icons that is about 5 MB of budget. `fetchKmlFromUrl` refuses on the
+    header, the icon path does not. Not worth a branch for a contrived file.
+  - Icons are fetched one after another, with 15 s timeout per hop, like
+    NetworkLinks. A host that drops packets holds up "Einbinden" and "Neu
+    laden" for about 15 s per distinct icon. Before, the browser loaded icons
+    without holding up the import.
+- **Tests that passed before their code ran red.** I built the embedding
+  (step 5) right after the first red action test, before the rest of steps
+  1-3. So the failure cases, the escaped-query/file/reload cases, the
+  256 KB, Content-Type and 20 MB-file cases, and all of step 3 went green on
+  their first run. To show they bite, I broke the code once for each: dropped
+  the status check, the image-type check, the parameter stripping, the size
+  limit (1 MB and 255 KB), and the body cancel; gave icons their own budget;
+  checked the 20 MB limit after embedding again (the old place). Each run
+  went red on its assertion. The step 1 circle assertions went red against
+  the old browser rule, as the plan said.
+- **Step 2's "no request" guard is narrower than the plan says.** Without
+  embedding, only the rebinding case went red (no DNS call). I replaced the
+  icon fetch with global `fetch` to simulate a bypass. With the up-front
+  `assertFetchableKmlUrl` in place, only the rebinding case caught it: real
+  DNS does not resolve the other test names, and literals are refused before
+  any fetch. Without that up-front check, the literal cases caught it too.
+- **Plan departure: the 20 MB check of an uploaded file's resolved content
+  moved from `addKmlFileAction` into `resolveKmlFile`, before embedding.**
+  Otherwise a file just under 20 MB with icons would fail, against the
+  decision. Pinned by "is embedded in a file of just under 20 MB".
+- **Plan additions:**
+  - An icon whose address is refused takes no address from the budget (the
+    address check runs before `takeAddress`, as for NetworkLinks). Pinned in
+    `kml-actions.budget.test.ts`.
+  - An href written as `<![CDATA[…]]>` is read like togeojson reads it
+    (first review: such icons drew before and would have become circles for
+    good).
+  - A rejected icon response's body is cancelled.
+  - `scriptedFetch` takes a `contentType`.
+  - `kml-actions.icons.test.ts` runs under jsdom (file docblock) so it can
+    call `parseKml` on the saved content.
+- **Nudge departure (as in ticket 03): no undici `Agent`.** Icons go through
+  `fetchFollowingRedirects` → `pinnedFetch` on `node:http(s)`, so no new
+  dependency. **Nudge not applicable:** nothing changed in
+  `src/server/validation.ts`, because this ticket adds no input validation.
+- **Step 7 (and AC-8/AC-9 in a real browser) was checked by the two
+  reviewers, not by a test.** At 1280×800 and 390×844:
+  - **Imports:** a file using `www.gstatic.com/mapspro/…/stock` and
+    `maps.google.com` icons plus a 404 icon, and Google's `KML_Samples.kml`
+    by URL with "Neu laden".
+  - **Stored content:** the icons were `data:image/png`. Only the 404 or
+    refused icon kept its http href. The remaining http hrefs were
+    Ground/ScreenOverlay images, which the map does not draw.
+  - **Network log:** in the Lageansicht and in an Ansichtslink opened
+    logged out, every request went to `localhost:3000` or
+    `api.maptiler.com`. Icons drew, and the point whose stored href is still
+    http drew as the round default marker.
+  - **Not checked:**
+    - A real Google „Meine Karten" with custom icons. The suggested public
+      map has no icons, and no other public one was found. The NetworkLink
+      plus icons path is covered only by the scripted action test.
+    - A layer actually imported before this change. It was approximated by a
+      stored http icon href, which is the same stored shape.
+    - The 20-address and 20 MB limits in the UI. They are covered by tests
+      only.
+- **AC-5-style timing case added:** `<IconStyle>` with `<href>` and 20,000
+  spaces, at 02's 3 MB size, in `kml-actions.timing.test.ts`.
+

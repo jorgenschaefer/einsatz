@@ -24,9 +24,9 @@ export async function addKmlFileAction(
     enforceKmlSizeLimit(content);
     assertKmlDocument(content, "Die Datei ist keine KML- oder KMZ-Datei.");
     // KMZ-Dateien aus Google „Meine Karten“ enthalten oft nur einen
-    // NetworkLink; dessen Ziel serverseitig auflösen, damit Geometrie erscheint.
+    // NetworkLink; dessen Ziel serverseitig auflösen, damit Geometrie erscheint,
+    // das Ergebnis erneut auf 20 MB prüfen und die Symbole einbetten.
     const resolved = await resolveKmlFile(content);
-    enforceKmlSizeLimit(resolved);
     await createKmlOverlay(db, {
       operationId,
       sourceType: "file",

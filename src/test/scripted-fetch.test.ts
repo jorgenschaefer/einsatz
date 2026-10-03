@@ -36,4 +36,15 @@ describe("generatedBody", () => {
 
     expect(await response.text()).toBe("<kml/>");
   });
+
+  it("sends the given content type", async () => {
+    const fetch = scriptedFetch(() => ({ contentType: "image/png" }));
+
+    const response = await fetch(new URL("http://93.184.216.34/pin.png"), {
+      headers: {},
+      signal: AbortSignal.timeout(1000),
+    });
+
+    expect(response.headers.get("content-type")).toBe("image/png");
+  });
 });

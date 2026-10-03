@@ -1,6 +1,18 @@
-import type L from "leaflet";
+import L from "leaflet";
 import { describe, expect, it } from "vitest";
 import { kmlIconOptions, kmlPopupContent, parseKml } from "./kml-layer";
+
+const DATA_PIN = "data:image/png;base64,AA";
+
+const kmlWithIcon = (href: string) => `<?xml version="1.0"?>
+  <kml xmlns="http://www.opengis.net/kml/2.2"><Document>
+    <Style id="s"><IconStyle><Icon>
+      <href>${href}</href>
+    </Icon></IconStyle></Style>
+    <Placemark><styleUrl>#s</styleUrl>
+      <Point><coordinates>9.99,53.55,0</coordinates></Point>
+    </Placemark>
+  </Document></kml>`;
 
 describe("parseKml", () => {
   it("parses valid KML into a non-empty GeoJSON layer", () => {
@@ -74,20 +86,22 @@ describe("parseKml", () => {
     expect(path.options.color).toBe("#3388ff");
   });
 
-  it("renders a point's IconStyle icon href onto the marker", () => {
-    const kml = `<?xml version="1.0"?>
-      <kml xmlns="http://www.opengis.net/kml/2.2"><Document>
-        <Style id="s"><IconStyle><Icon>
-          <href>https://example.com/pin.png</href>
-        </Icon></IconStyle></Style>
-        <Placemark><styleUrl>#s</styleUrl>
-          <Point><coordinates>9.99,53.55,0</coordinates></Point>
-        </Placemark>
-      </Document></kml>`;
-    const marker = parseKml(kml)?.getLayers()[0] as L.Marker;
-    expect(marker.options.icon?.options.iconUrl).toBe(
-      "https://example.com/pin.png",
-    );
+  it("renders a point's embedded IconStyle icon onto the marker", () => {
+    const marker = parseKml(kmlWithIcon(DATA_PIN))?.getLayers()[0] as L.Marker;
+    expect(marker.options.icon?.options.iconUrl).toBe(DATA_PIN);
+  });
+
+  it("draws the circle and loads nothing for an icon from an http(s) address", () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const map = L.map(container).setView([53.55, 9.99], 10);
+
+    parseKml(kmlWithIcon("https://example.com/pin.png"))?.addTo(map);
+
+    expect(container.querySelector(".kml-point-circle")).not.toBeNull();
+    expect(container.querySelector("img")).toBeNull();
+    map.remove();
+    container.remove();
   });
 });
 
@@ -170,9 +184,14 @@ describe("kmlIconOptions", () => {
     expect(kmlIconOptions({ icon: "#ff0000" })).toBeNull();
   });
 
-  it("uses a default 32px centered icon for a plain href", () => {
-    expect(kmlIconOptions({ icon: "https://x/pin.png" })).toEqual({
-      iconUrl: "https://x/pin.png",
+  it("returns null for an icon from an http(s) address", () => {
+    expect(kmlIconOptions({ icon: "https://x/pin.png" })).toBeNull();
+    expect(kmlIconOptions({ icon: "http://x/pin.png" })).toBeNull();
+  });
+
+  it("uses a default 32px centered icon for an embedded icon", () => {
+    expect(kmlIconOptions({ icon: DATA_PIN })).toEqual({
+      iconUrl: DATA_PIN,
       iconSize: [32, 32],
       iconAnchor: [16, 16],
     });
@@ -190,7 +209,7 @@ describe("kmlIconOptions", () => {
   it("converts a fractional hotspot to a top-left anchor", () => {
     // KML misst y von unten; unten-Mitte (0.5, 0) → Leaflet-Anker [16, 32].
     const opts = kmlIconOptions({
-      icon: "https://x/pin.png",
+      icon: DATA_PIN,
       "icon-offset": [0.5, 0],
       "icon-offset-units": ["fraction", "fraction"],
     });
@@ -199,7 +218,7 @@ describe("kmlIconOptions", () => {
 
   it("converts a pixel hotspot to a top-left anchor", () => {
     const opts = kmlIconOptions({
-      icon: "https://x/pin.png",
+      icon: DATA_PIN,
       "icon-offset": [10, 5],
       "icon-offset-units": ["pixels", "pixels"],
     });
@@ -208,7 +227,7 @@ describe("kmlIconOptions", () => {
 
   it("falls back to center for unsupported hotspot units", () => {
     const opts = kmlIconOptions({
-      icon: "https://x/pin.png",
+      icon: DATA_PIN,
       "icon-offset": [4, 4],
       "icon-offset-units": ["insetPixels", "insetPixels"],
     });

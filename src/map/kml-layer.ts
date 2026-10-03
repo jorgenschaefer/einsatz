@@ -67,15 +67,17 @@ function kmlPathStyle(props: Record<string, unknown>): L.PathOptions {
 
 /**
  * Baut aus den von togeojson gelieferten Punkt-Eigenschaften die Leaflet-Icon-
- * Optionen. `null`, wenn kein verwertbares Bild vorliegt – dann wird der Punkt
- * ein Kreis. `icon` kann bei `<IconStyle><color>` eine Farbe statt einer
- * URL enthalten; daher nur echte URL-/Data-Verweise akzeptieren.
+ * Optionen. `null`, wenn kein eingebettetes Bild vorliegt – dann wird der Punkt
+ * ein Kreis. Nur `data:`-URLs: Der Server bettet Symbole von http(s)-Adressen
+ * beim Einbinden ein, damit der Browser nichts von fremden Hosts lädt; ein
+ * Symbol, das noch eine solche Adresse trägt, wurde nicht eingebettet. `icon`
+ * kann bei `<IconStyle><color>` auch eine Farbe statt einer URL enthalten.
  */
 export function kmlIconOptions(
   props: Record<string, unknown>,
 ): L.IconOptions | null {
   const icon = props.icon;
-  if (typeof icon !== "string" || !/^(https?:\/\/|data:)/.test(icon)) {
+  if (typeof icon !== "string" || !icon.startsWith("data:")) {
     return null;
   }
   const scale = props["icon-scale"];
