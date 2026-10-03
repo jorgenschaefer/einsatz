@@ -2,11 +2,21 @@
 
 set -xe
 
-docker compose -f docker-compose.prod.yml build
-docker compose -f docker-compose.prod.yml push
-ssh barmbek@drk-barmbek.de mkdir -p einsatz
-scp docker-compose.prod.yml barmbek@drk-barmbek.de:einsatz/
-# Die App läuft als `node`; Uploads aus der Zeit, als sie als root lief,
-# gehören root und müssen ihr erst übergeben werden – bei gestopptem alten
-# Container, damit danach keine neuen root-Dateien mehr entstehen.
-ssh -t barmbek@drk-barmbek.de "cd einsatz && docker compose -f docker-compose.prod.yml pull && docker compose -f docker-compose.prod.yml stop app && docker compose -f docker-compose.prod.yml run --rm --no-deps --user root --cap-add CHOWN --entrypoint chown app -R node:node /data/uploads && docker compose -f docker-compose.prod.yml up -d --remove-orphans"
+# Directory on the server; also the Compose project name.
+remote_dir=einsatz
+host=barmbek@drk-barmbek.de
+
+cd "$(dirname "$0")/.."
+
+compose() {
+  docker compose -f docker-compose.prod.yml "$@"
+}
+
+compose build
+compose config --images \
+  | xargs docker save \
+  | zstd -10 -T0 \
+  | ssh "$host" 'zstd -d | docker load'
+ssh "$host" mkdir -p "$remote_dir"
+scp docker-compose.prod.yml "$host:$remote_dir/"
+ssh -t "$host" "cd $remote_dir && docker compose -f docker-compose.prod.yml up -d --remove-orphans && docker image prune -f"
