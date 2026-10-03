@@ -134,10 +134,11 @@ const MAX_NAME_LENGTH = 200;
 
 /**
  * Ein vom Nutzer gegebener Name, getrimmt; leer, wenn keiner gegeben ist.
- * Lehnt alles ab, was kein Text oder länger als 200 Zeichen ist.
+ * Lehnt alles ab, was kein Text oder länger als 200 Zeichen ist; `field` wie
+ * bei {@link assertText}, etwa „Der Dateiname“ für den Namen einer Datei.
  */
-export function trimmedName(value: unknown): string {
-  return trimmedText(value, "Der Name", MAX_NAME_LENGTH);
+export function trimmedName(value: unknown, field = "Der Name"): string {
+  return trimmedText(value, field, MAX_NAME_LENGTH);
 }
 
 /**

@@ -200,7 +200,7 @@ describe("PUT /operations/[id]/overlays/[overlayId]", () => {
     const result = await putImageOverlayFile(op.id, overlay.id, file);
 
     expect(result).toEqual({
-      error: "Der Name darf höchstens 200 Zeichen lang sein.",
+      error: "Der Dateiname darf höchstens 200 Zeichen lang sein.",
     });
     const unchanged = await getImageOverlay(state.db as Db, overlay.id);
     expect(unchanged).toMatchObject({ filePath: oldPath, name: "Alt" });

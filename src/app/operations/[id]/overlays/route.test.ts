@@ -314,7 +314,7 @@ describe("POST /operations/[id]/overlays", () => {
     const result = await postImageOverlay(op.id, file, A_VIEW);
 
     expect(result).toEqual({
-      error: "Der Name darf höchstens 200 Zeichen lang sein.",
+      error: "Der Dateiname darf höchstens 200 Zeichen lang sein.",
     });
     expect(await listImageOverlays(state.db as Db, op.id)).toEqual([]);
     expect(await readdir(dir)).toEqual([]);

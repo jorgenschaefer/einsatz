@@ -32,7 +32,7 @@ export async function addImageOverlay(
   const { operationId, file, view } = input;
   assertUuid(operationId);
   assertViewExtent(view);
-  const name = trimmedName(file.name);
+  const name = trimmedName(file.name, "Der Dateiname");
   const { webp, width, height } = await prepareUpload(file);
   const operation = await getOperation(db, operationId);
   if (!operation) {
@@ -66,7 +66,7 @@ export async function replaceImageOverlayImage(
   const { operationId, overlayId, file } = input;
   assertUuid(operationId);
   assertUuid(overlayId);
-  const name = trimmedName(file.name);
+  const name = trimmedName(file.name, "Der Dateiname");
   const existing = await getImageOverlay(db, overlayId);
   if (existing?.operationId !== operationId) {
     // Vor dem Aufbereiten abbrechen – keine Datei in einem fremden Einsatz.

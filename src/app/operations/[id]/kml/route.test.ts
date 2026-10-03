@@ -124,10 +124,10 @@ describe("POST /operations/[id]/kml", () => {
     expect(requested).toEqual(["http://93.184.216.34/b.kml"]);
   });
 
-  it("refuses a name of 201 characters and adds nothing", async () => {
+  it("refuses a file name of 201 characters and adds nothing", async () => {
     expect(await post(kmlFileForm("x".repeat(201), KML))).toEqual({
       status: 400,
-      body: { error: "Der Name darf höchstens 200 Zeichen lang sein." },
+      body: { error: "Der Dateiname darf höchstens 200 Zeichen lang sein." },
     });
 
     expect(await stored(operationId)).toEqual([]);
@@ -140,7 +140,7 @@ describe("POST /operations/[id]/kml", () => {
 
     expect(await post(form)).toEqual({
       status: 400,
-      body: { error: "Der Name muss Text sein." },
+      body: { error: "Der Dateiname muss Text sein." },
     });
     expect(await stored(operationId)).toEqual([]);
   });

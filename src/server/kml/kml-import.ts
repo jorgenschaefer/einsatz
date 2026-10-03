@@ -1,4 +1,5 @@
 import type { Queryable } from "@/server/db/db";
+import { trimmedName } from "@/server/validation";
 import { createFetchBudget } from "./fetch-budget";
 import {
   assertKmlDocument,
@@ -9,11 +10,13 @@ import {
 import { embedKmlIcons } from "./kml-icons";
 import { createKmlOverlay } from "./kml-overlays";
 
-/** Bindet eine hochgeladene KML-Datei als KML-Ebene des Einsatzes ein. */
+/** Bindet eine hochgeladene KML-Datei als KML-Ebene des Einsatzes ein; `name`
+ *  ist ihr Dateiname. */
 export async function addKmlFile(
   db: Queryable,
   input: { operationId: string; name: unknown; content: string },
 ): Promise<void> {
+  const name = trimmedName(input.name, "Der Dateiname");
   enforceKmlSizeLimit(input.content);
   assertKmlDocument(input.content, "Die Datei ist keine KML- oder KMZ-Datei.");
   // KMZ-Dateien aus Google „Meine Karten“ enthalten oft nur einen
@@ -22,7 +25,7 @@ export async function addKmlFile(
     operationId: input.operationId,
     sourceType: "file",
     sourceUrl: null,
-    name: input.name,
+    name,
     content: await resolveKmlFile(input.content),
   });
 }
