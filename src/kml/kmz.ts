@@ -168,17 +168,27 @@ export function iconStyleHrefs(kml: string): string[] {
   return [...new Set(Array.from(iconStyleHrefTexts(kml), ({ url }) => url))];
 }
 
-/** Ersetzt jedes `<IconStyle>`-`<href>`, dessen Adresse in `replacements`
- *  steht, durch den dort genannten Text; alle anderen `<href>` bleiben. */
+/**
+ * Ersetzt jedes `<IconStyle>`-`<href>`, dessen Adresse in `replacements`
+ * steht, durch den dort genannten Text; alle anderen `<href>` bleiben. Würde
+ * das Ergebnis um mehr als `maxGrowth` Zeichen wachsen, bleiben die übrigen
+ * `<href>` ebenfalls stehen – ein Symbol, das viele Stile nennen, steht sonst
+ * in jedem einzeln.
+ */
 export function replaceIconStyleHrefs(
   kml: string,
   replacements: Map<string, string>,
+  maxGrowth = Number.POSITIVE_INFINITY,
 ): string {
   let replaced = "";
   let copied = 0;
+  let room = maxGrowth;
   for (const { start, end, url } of iconStyleHrefTexts(kml)) {
     const replacement = replacements.get(url);
     if (replacement === undefined) continue;
+    const growth = replacement.length - (end - start);
+    if (growth > room) break;
+    room -= growth;
     replaced += kml.slice(copied, start) + replacement;
     copied = end;
   }

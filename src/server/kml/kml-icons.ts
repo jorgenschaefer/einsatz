@@ -2,6 +2,7 @@ import {
   bytesToDataUri,
   iconStyleHrefs,
   isImageMime,
+  MAX_KML_BYTES,
   replaceIconStyleHrefs,
 } from "@/kml/kmz";
 import { type FetchBudget, readCapped, takeAddress } from "./fetch-budget";
@@ -14,7 +15,8 @@ const MAX_ICON_BYTES = 256 * 1024;
  * `data:`-URL ein, damit der Browser nichts von fremden Hosts lädt. Ein Symbol,
  * das sich nicht laden lässt, kein Bild ist, größer als 256 KB ist oder nicht
  * mehr ins Budget passt, behält seine Adresse; die Lagekarte zeigt dafür den
- * Standard-Marker.
+ * Standard-Marker. Ebenso die Symbole, die die Ebene zusammen um mehr als
+ * 20 MB vergrößern würden: Ein Symbol steht in jedem Stil, der es nennt.
  */
 export async function embedKmlIcons(
   kml: string,
@@ -25,7 +27,7 @@ export async function embedKmlIcons(
     const dataUri = await fetchIconDataUri(href, budget).catch(() => null);
     if (dataUri) dataUris.set(href, dataUri);
   }
-  return replaceIconStyleHrefs(kml, dataUris);
+  return replaceIconStyleHrefs(kml, dataUris, MAX_KML_BYTES);
 }
 
 async function fetchIconDataUri(

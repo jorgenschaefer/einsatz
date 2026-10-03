@@ -370,4 +370,24 @@ describe("replaceIconStyleHrefs", () => {
       <GroundOverlay><Icon><href>https://a.test/pin.png?a=1&amp;b=2</href></Icon></GroundOverlay>
     </Document></kml>`);
   });
+
+  it("replaces no further href once the result would grow by more than maxGrowth", () => {
+    const kml = [1, 2, 3]
+      .map(() => iconStyle("https://a.test/pin.png"))
+      .join("");
+    const dataUri = `data:image/png;base64,${"A".repeat(100)}`;
+    const growth = dataUri.length - "https://a.test/pin.png".length;
+
+    const replaced = replaceIconStyleHrefs(
+      kml,
+      new Map([["https://a.test/pin.png", dataUri]]),
+      2 * growth,
+    );
+
+    expect(replaced).toBe(
+      iconStyle(dataUri) +
+        iconStyle(dataUri) +
+        iconStyle("https://a.test/pin.png"),
+    );
+  });
 });

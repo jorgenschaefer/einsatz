@@ -147,6 +147,28 @@ describe("an IconStyle icon from an http(s) address", () => {
     ]);
   });
 
+  it("adds at most 20 MB to the layer, however many styles repeat it", async () => {
+    const icon = new Uint8Array(256 * 1024);
+    serve(() => ({ contentType: "image/png", body: icon }));
+    const kml = kmlWithPoints(
+      ...Array.from({ length: 100 }, (_, i) => styledPoint(`s${i}`, PIN)),
+    );
+
+    await addFile(kml);
+
+    const urls = markerIconUrls(savedContent());
+    expect(savedContent().length).toBeLessThanOrEqual(
+      kml.length + MAX_KML_BYTES,
+    );
+    const growth =
+      `data:image/png;base64,${Buffer.from(icon).toString("base64")}`.length -
+      PIN.length;
+    expect(urls.filter((url) => url?.startsWith("data:")).length).toBe(
+      Math.floor(MAX_KML_BYTES / growth),
+    );
+    expect(requested).toEqual([PIN]);
+  });
+
   it("is embedded in a file of just under 20 MB", async () => {
     servePng("");
     const kml = kmlWithIcon(PIN);
