@@ -1,11 +1,9 @@
-import { randomUUID } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NO_ROUTE } from "@/journal/entry-route";
 import type { AreaGeometry, AreaStyle } from "@/map/area";
 import type { SymbolComposition } from "@/map/composition";
 import type { ImagePlacement } from "@/map/image-overlay";
 import type { MapView } from "@/map/view";
-import type { Db } from "@/server/db/db";
 
 // Shared, mutable harness state. Read lazily by the mocks below, set per test.
 const state = vi.hoisted(() => ({
@@ -34,16 +32,6 @@ vi.mock("next/navigation", () => ({
   },
 }));
 
-import {
-  changePasswordAction,
-  logoutOtherSessionsAction,
-} from "@/app/account/actions";
-import {
-  createAccountAction,
-  deleteAccountAction,
-  resetPasswordAction,
-  setRoleAction,
-} from "@/app/admin/users/actions";
 import { GET as deviceEventsGET } from "@/app/device/[token]/events/route";
 import { GET as deviceGeocodeGET } from "@/app/device/[token]/geocode/route";
 import { POST as devicePositionPOST } from "@/app/device/[token]/position/route";
@@ -98,32 +86,7 @@ import {
   createViewLinkAction,
   deleteViewLinkAction,
 } from "@/app/operations/[id]/view-link-actions";
-import { createOperationAction } from "@/app/operations/actions";
-import {
-  closeOperationAction,
-  deleteOperationAction,
-  reopenOperationAction,
-} from "@/app/operations/lifecycle-actions";
-import { hashPassword } from "@/server/auth/password";
-import { insertSession } from "@/server/auth/sessions";
-import { insertUser } from "@/server/auth/users";
 import { freshDb } from "@/test/db";
-
-async function login(role: "admin" | "user"): Promise<string> {
-  const db = state.db as Db;
-  const user = await insertUser(db, {
-    username: `u-${randomUUID().slice(0, 8)}`,
-    passwordHash: await hashPassword("a-very-good-password"),
-    role,
-  });
-  const token = randomUUID();
-  await insertSession(db, {
-    token,
-    userId: user.id,
-    expiresAt: new Date(Date.now() + 3_600_000),
-  });
-  return token;
-}
 
 const expectRedirect = (fn: () => Promise<unknown>, to: string) =>
   expect(fn()).rejects.toMatchObject({ redirectTo: to });
@@ -159,10 +122,6 @@ interface Invocation {
 // Liste ist die bewusst manuell gepflegte, vollständige Bestandsaufnahme aller
 // requireUser-geschützten Actions. Ohne Eintrag prüft kein Test ihren Guard.
 const userGuardedActions: Invocation[] = [
-  {
-    name: "createOperationAction",
-    run: () => createOperationAction({}, new FormData()),
-  },
   {
     name: "setDefaultViewAction",
     run: () => setDefaultViewAction("op-1", view),
@@ -278,14 +237,7 @@ const userGuardedActions: Invocation[] = [
     name: "reportTotalStrengthAction",
     run: () => reportTotalStrengthAction("op-1"),
   },
-  { name: "closeOperationAction", run: () => closeOperationAction("op-1") },
-  { name: "reopenOperationAction", run: () => reopenOperationAction("op-1") },
   { name: "geocodeAddressAction", run: () => geocodeAddressAction("Hamburg") },
-  {
-    name: "changePasswordAction",
-    run: () => changePasswordAction({}, new FormData()),
-  },
-  { name: "logoutOtherSessionsAction", run: () => logoutOtherSessionsAction() },
 ];
 
 // requireUser-geschützte Route-Handler (keine Token-Routen). Token-Routen
@@ -324,28 +276,6 @@ const sessionGuardedUploads: Invocation[] = [
   },
 ];
 
-// Nutzerverwaltung und Einsatz löschen: requireAdmin. Anonym → /login, angemeldet ohne Admin → /operations.
-const adminGuardedActions: Invocation[] = [
-  {
-    name: "createAccountAction",
-    run: () => createAccountAction("neu", "a-very-good-password", false),
-  },
-  { name: "setRoleAction", run: () => setRoleAction("id", "user") },
-  {
-    name: "resetPasswordAction",
-    run: () => resetPasswordAction("id", "a-very-good-password"),
-  },
-  { name: "deleteAccountAction", run: () => deleteAccountAction("id") },
-  { name: "deleteOperationAction", run: () => deleteOperationAction("op-1") },
-];
-
-// Bewusste Ausnahmen (kein requireUser, daher nicht in der Tabelle):
-// - logoutAction löscht nur das eigene Cookie des Aufrufers und ist anonym
-//   erlaubt (endet mit redirect("/login") als regulärer Abmelde-Ablauf, nicht
-//   als Auth-Guard);
-// - loginAction ist der Anmelde-Einstieg selbst – sie erzeugt die Session und
-//   ist naturgemäß unauthentifiziert erreichbar (durch das Rate-Limit geschützt).
-
 beforeEach(async () => {
   state.db = await freshDb();
   state.token = undefined;
@@ -372,25 +302,6 @@ describe("upload route auth enforcement (401 without a session)", () => {
     it("answers 401 when unauthenticated", async () => {
       expect(await run()).toMatchObject({ status: 401 });
     });
-  });
-});
-
-describe("admin action auth enforcement (requireAdmin)", () => {
-  describe.each(adminGuardedActions)("$name", ({ run }) => {
-    it("redirects an anonymous caller to /login", async () => {
-      await expectRedirect(run, "/login");
-    });
-    it("redirects a non-admin to /operations", async () => {
-      state.token = await login("user");
-      await expectRedirect(run, "/operations");
-    });
-  });
-
-  it("createAccountAction succeeds for an admin", async () => {
-    state.token = await login("admin");
-    expect(
-      await createAccountAction("neu", "a-very-good-password", false),
-    ).toEqual({});
   });
 });
 

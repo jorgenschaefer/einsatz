@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Db } from "@/server/db/db";
 
@@ -22,7 +21,6 @@ vi.mock("next/navigation", () => ({
 }));
 
 import { hashPassword, verifyPassword } from "@/server/auth/password";
-import { insertSession } from "@/server/auth/sessions";
 import {
   findUserById,
   findUserByUsername,
@@ -30,30 +28,106 @@ import {
   listUsers,
   type User,
 } from "@/server/auth/users";
+import {
+  type ActAs,
+  expectBadCallsRejected,
+  expectEveryActionRequiresLogin,
+} from "@/test/action-checks";
+import {
+  type Bad,
+  INVALID_ID,
+  NOT_A_UUID,
+  rejects,
+  text,
+  tooLong,
+} from "@/test/bad-calls/bad-call";
 import { freshDb } from "@/test/db";
 import { POLICY_USERNAME, REFUSED_PASSWORDS } from "@/test/refused-passwords";
-import { createAccountAction, resetPasswordAction } from "./actions";
+import { signIn } from "@/test/sign-in";
+import * as actions from "./actions";
+
+const {
+  createAccountAction,
+  deleteAccountAction,
+  resetPasswordAction,
+  setRoleAction,
+} = actions;
 
 const PASSWORD = "a-good-password";
+const NEW_PASSWORD = "brand-new-password";
 const TAKEN = "Dieser Nutzername ist bereits vergeben.";
+const NOT_TEXT = "Das Passwort muss Text sein.";
 
 let db: Db;
+
+const actAs: ActAs = async (caller) => {
+  state.token = caller === "anonymous" ? undefined : await signIn(db, caller);
+};
 
 beforeEach(async () => {
   db = await freshDb();
   state.db = db;
-  const admin = await insertUser(db, {
-    username: "chef",
-    passwordHash: await hashPassword("admin-secret-1"),
-    role: "admin",
-  });
-  state.token = randomUUID();
-  await insertSession(db, {
-    token: state.token,
-    userId: admin.id,
-    expiresAt: new Date(Date.now() + 3_600_000),
-  });
+  await actAs("admin");
 });
+
+expectEveryActionRequiresLogin(actions, {
+  adminOnly: [
+    "createAccountAction",
+    "setRoleAction",
+    "resetPasswordAction",
+    "deleteAccountAction",
+  ],
+  actAs,
+});
+
+expectBadCallsRejected(
+  actions,
+  {
+    createAccountAction: [
+      rejects(
+        "a Nutzername as a number",
+        "Der Nutzername muss Text sein.",
+        () => createAccountAction(7 as Bad, NEW_PASSWORD, false),
+      ),
+      rejects("a Nutzername of 201", tooLong("Der Nutzername", "200"), () =>
+        createAccountAction(text(201), NEW_PASSWORD, false),
+      ),
+      rejects("a password of null", NOT_TEXT, () =>
+        createAccountAction("anna", null as Bad, false),
+      ),
+      rejects("a password as a number", NOT_TEXT, () =>
+        createAccountAction("anna", 7 as Bad, false),
+      ),
+      rejects(
+        'admin as "yes"',
+        "„Administrator“ muss wahr oder falsch sein.",
+        () => createAccountAction("anna", NEW_PASSWORD, "yes" as Bad),
+      ),
+    ],
+    setRoleAction: [
+      rejects("a non-UUID Konto-ID", INVALID_ID, () =>
+        setRoleAction(NOT_A_UUID, "admin"),
+      ),
+      rejects('the role "root"', "Unbekannte Rolle.", (f) =>
+        setRoleAction(f.userId, "root" as Bad),
+      ),
+    ],
+    resetPasswordAction: [
+      rejects("a non-UUID Konto-ID", INVALID_ID, () =>
+        resetPasswordAction(NOT_A_UUID, NEW_PASSWORD),
+      ),
+      rejects("a password as a number", NOT_TEXT, (f) =>
+        resetPasswordAction(f.userId, 7 as Bad),
+      ),
+    ],
+    deleteAccountAction: [
+      rejects("a non-UUID Konto-ID", INVALID_ID, () =>
+        deleteAccountAction(NOT_A_UUID),
+      ),
+    ],
+  },
+  { db: () => db, actAs },
+);
 
 async function insertAccount(username: string): Promise<User> {
   return insertUser(db, {
@@ -62,6 +136,21 @@ async function insertAccount(username: string): Promise<User> {
     role: "user",
   });
 }
+
+describe("createAccountAction", () => {
+  it("stores a Nutzername of 200 characters, trimmed", async () => {
+    const username = text(200);
+
+    expect(await createAccountAction(` ${username} `, PASSWORD, false)).toEqual(
+      {},
+    );
+
+    expect(await findUserByUsername(db, username)).toMatchObject({
+      username,
+      role: "user",
+    });
+  });
+});
 
 describe("createAccountAction password policy", () => {
   it.each(REFUSED_PASSWORDS)(

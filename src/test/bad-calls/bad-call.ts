@@ -36,6 +36,16 @@ export const tooLong = (field: string, max: string) =>
 
 export const text = (length: number) => "x".repeat(length);
 
+export const INVALID_FORM_DATA = "Ungültige Formulardaten.";
+
+export const form = (fields: Record<string, string | Blob>) => {
+  const data = new FormData();
+  for (const [name, value] of Object.entries(fields)) data.append(name, value);
+  return data;
+};
+
+export const aFile = () => new File(["x"], "x.txt");
+
 /** Je ein Aufruf mit einer Einsatz-ID und einer Objekt-ID, die keine UUID sind. */
 export function idCalls(
   object: keyof Fixture,

@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:
 advances:  AC-1, AC-2, AC-3, AC-5, AC-6, AC-8, AC-11
 after:     01-coverage-ausgangswert
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -228,3 +228,84 @@ described under Context.
 - No change to the actions themselves.
 
 ## Left standing
+- **Review findings not fixed.** None. The one review round found no blocker
+  and nothing that should be fixed. It found two nits, and I fixed both: a
+  name declared both `public` and `adminOnly` now fails the new check
+  "declares no export both public and admin-only", and the callback in
+  `lifecycle-actions.test.ts` is now called `actAs`. Since only nits came
+  back, there was no second round.
+- **Checks not run.** None skipped. `npm run check` is green (2813 tests).
+  `compare-coverage.mjs` after `npm run test:coverage` exits 0. It names only
+  `src/test/action-checks.ts` as "new, compared with nothing". That file is
+  new and not split out of a baseline file, so it has no entry in
+  `coverage-splits.json`. No file's coverage dropped, so no new test file was
+  needed. `DevicePage` and `ViewPage` keep their coverage without the
+  lifecycle test.
+- **Advanced without an automated test.**
+  - AC-1, AC-2, AC-5: I checked by listing the files. The four
+    `*.validation.test.ts` files are deleted, and each of the five modules
+    has exactly one test file. Ticket 23 adds the check to `npm run check`.
+  - AC-3: no automated check yet. I grepped the five test files, and none
+    imports another `@/app/` module. Two module tests of this kind remain:
+    - The password-change rate-limit cases fail logins through
+      `attemptLogin` with `loginRateLimiter` from the server layer, not
+      `loginAction`.
+    - The links-end cases use `resolveDeviceAccess` and `resolveViewAccess`.
+  - AC-6: the helpers' own guard tests are proven by breaking things by
+    hand. Each of these made the named test fail, and I restored all of
+    them:
+    - `logoutOtherSessionsAction` left out of the table: "names every
+      export of the module, and nothing else" failed.
+    - `requireUser()` removed from `changePasswordAction`: "sends an
+      anonymous caller to the login" and 7 other tests failed.
+    - `adminOnly` left off `setRoleAction`: "declares every admin-only export
+      admin-only" failed.
+    - `requireAdmin` in `guarded` replaced by `requireUser`: the four "sends
+      a signed-in non-admin to the overview" tests failed.
+    - `requireAdmin` moved after the delete in `deleteOperationAction`: both
+      of its login tests failed.
+    - `deleteOperationAction` declared both public and admin-only: the new
+      overlap check failed.
+  - AC-11: the commit's `Removed tests:` section is written from
+    `removed-tests.mjs`. It names all 45 removed names, and each has its
+    `→` line.
+- **AC-3 review list.** `src/app/operations/actions.test.ts` is added to
+  `ac3-reviewed.txt` because this ticket created it. The other four test
+  files were only edited, so they are not listed.
+- **Departures from the plan.**
+  - The `createAccountAction` admin-success case from
+    `auth-enforcement.test.ts` was not copied as a test of its own. It
+    duplicated tests already in `admin/users/actions.test.ts`: "stores a
+    Nutzername of 200 characters, trimmed" checks `{}` and the stored row,
+    and "accepts 12 characters that are not on the list" checks `{}`. The
+    record points to the first.
+  - The "refuses a non-admin and deletes nothing" case of
+    `lifecycle-actions.test.ts` was dropped. As the plan allows, the admin
+    check covers it: moving `requireAdmin` after the delete makes the
+    helper's tests fail, because a call without an ID then gets an answer
+    instead of a redirect.
+  - Context says `account/actions.test.ts` checked a changed password by
+    calling `loginAction`. In fact `loginAction` was called by the two "shares
+    the counter with failed logins" tests, so those now use `attemptLogin`
+    with the same `loginRateLimiter`. Following the ticket's intent, the new
+    test "replaces the password and keeps this browser signed in" checks the
+    new password with `authenticate`.
+  - The helper recognises admin-only exports by identity, not by name.
+    `action-checks.ts` imports `src/app/admin/users/actions.ts` and
+    `deleteOperationAction`, so a later export of the user administration
+    is also caught when it is not declared `adminOnly`. As a side effect,
+    every test file that uses the helper loads those two modules. Nothing in
+    them runs at import beyond the module definitions.
+  - `INVALID_FORM_DATA`, `form` and `aFile` were added to
+    `src/test/bad-calls/bad-call.ts`, beside the builders. Three of the new
+    tables need them. The originals in `operations-accounts.ts` stay until
+    ticket 05 deletes that file. Nothing moved out of it, so there is no
+    `coverage-splits.json` entry.
+  - Two bad calls from the validation files differed from the shared table,
+    and both are kept as table entries: `createAccountAction` with "a
+    password as a number", and `changePasswordAction` with "a FormData as
+    text". The validation files' "counts no attempt" assertion is now an
+    `it.each` over the account and login tables' unreadable-form entries.
+    The table cannot express it.
+- **Departures from a nudge.** None.
+

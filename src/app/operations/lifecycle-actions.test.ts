@@ -1,8 +1,6 @@
-import { randomUUID } from "node:crypto";
 import { access, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Db } from "@/server/db/db";
 
@@ -30,12 +28,6 @@ vi.mock("next/navigation", () => ({
   },
 }));
 
-import DevicePage from "@/app/device/[token]/page";
-import ViewPage from "@/app/view/[token]/page";
-import { DeviceClosed } from "@/map/DeviceClosed";
-import { hashPassword } from "@/server/auth/password";
-import { insertSession } from "@/server/auth/sessions";
-import { insertUser } from "@/server/auth/users";
 import { subscribeOperation } from "@/server/events/operation-events";
 import { storeOverlayImage } from "@/server/image-overlays/image-storage";
 import { listEntries } from "@/server/journal/journal";
@@ -44,32 +36,74 @@ import {
   generateDeviceLink,
   listMapSymbols,
   reportPosition,
+  resolveDeviceAccess,
 } from "@/server/mapsymbols/map-symbols";
 import { createOperation } from "@/server/operations/create-operation";
 import { closeOperation } from "@/server/operations/operation-lifecycle";
 import { getOperation } from "@/server/operations/operations";
-import { createViewLink, listViewLinks } from "@/server/viewlinks/view-links";
-import { freshDb } from "@/test/db";
 import {
-  closeOperationAction,
-  deleteOperationAction,
-  reopenOperationAction,
-} from "./lifecycle-actions";
+  createViewLink,
+  listViewLinks,
+  resolveViewAccess,
+} from "@/server/viewlinks/view-links";
+import {
+  type ActAs,
+  expectBadCallsRejected,
+  expectEveryActionRequiresLogin,
+} from "@/test/action-checks";
+import {
+  type Bad,
+  INVALID_ID,
+  NOT_A_UUID,
+  rejects,
+} from "@/test/bad-calls/bad-call";
+import { freshDb } from "@/test/db";
+import { signIn } from "@/test/sign-in";
+import * as actions from "./lifecycle-actions";
 
-async function login(role: "admin" | "user"): Promise<void> {
-  const db = state.db as Db;
-  const user = await insertUser(db, {
-    username: `u-${randomUUID().slice(0, 8)}`,
-    passwordHash: await hashPassword("a-very-good-password"),
-    role,
-  });
-  state.token = randomUUID();
-  await insertSession(db, {
-    token: state.token,
-    userId: user.id,
-    expiresAt: new Date(Date.now() + 3_600_000),
-  });
-}
+const { closeOperationAction, deleteOperationAction, reopenOperationAction } =
+  actions;
+
+const actAs: ActAs = async (caller) => {
+  state.token =
+    caller === "anonymous" ? undefined : await signIn(state.db as Db, caller);
+};
+
+expectEveryActionRequiresLogin(actions, {
+  adminOnly: ["deleteOperationAction"],
+  actAs,
+});
+
+expectBadCallsRejected(
+  actions,
+  {
+    closeOperationAction: [
+      rejects("a non-UUID Einsatz-ID", INVALID_ID, () =>
+        closeOperationAction(NOT_A_UUID),
+      ),
+      rejects("an Einsatz-ID as a number", INVALID_ID, () =>
+        closeOperationAction(7 as Bad),
+      ),
+    ],
+    reopenOperationAction: [
+      rejects("a non-UUID Einsatz-ID", INVALID_ID, () =>
+        reopenOperationAction(NOT_A_UUID),
+      ),
+      rejects("an Einsatz-ID of null", INVALID_ID, () =>
+        reopenOperationAction(null as Bad),
+      ),
+    ],
+    deleteOperationAction: [
+      rejects("a non-UUID Einsatz-ID", INVALID_ID, () =>
+        deleteOperationAction(NOT_A_UUID),
+      ),
+      rejects("an Einsatz-ID as an object", INVALID_ID, () =>
+        deleteOperationAction({} as Bad),
+      ),
+    ],
+  },
+  { db: () => state.db as Db, actAs },
+);
 
 async function operationWithUpload(status: "active" | "closed") {
   const db = state.db as Db;
@@ -104,19 +138,8 @@ afterEach(async () => {
 });
 
 describe("deleteOperationAction", () => {
-  it("refuses a non-admin and deletes nothing", async () => {
-    await login("user");
-    const op = await operationWithUpload("closed");
-
-    await expect(deleteOperationAction(op.id)).rejects.toMatchObject({
-      redirectTo: "/operations",
-    });
-
-    await expectUntouched(op.id);
-  });
-
   it("refuses to delete an active Einsatz, even for an admin", async () => {
-    await login("admin");
+    await actAs("admin");
     const op = await operationWithUpload("active");
 
     expect(await deleteOperationAction(op.id)).toEqual({
@@ -127,7 +150,7 @@ describe("deleteOperationAction", () => {
   });
 
   it("refreshes the overview after refusing, so it shows the Einsatz as active", async () => {
-    await login("admin");
+    await actAs("admin");
     const op = await operationWithUpload("active");
 
     await deleteOperationAction(op.id);
@@ -136,7 +159,7 @@ describe("deleteOperationAction", () => {
   });
 
   it("lets an admin delete a closed Einsatz and returns to the overview", async () => {
-    await login("admin");
+    await actAs("admin");
     const op = await operationWithUpload("closed");
 
     await expect(deleteOperationAction(op.id)).rejects.toMatchObject({
@@ -153,7 +176,7 @@ describe.each([
   ["reopenOperationAction", reopenOperationAction, "closed", "active"],
 ] as const)("%s", (_, changeStatus, from, to) => {
   it("changes the status and refreshes the Einsatz and the overview", async () => {
-    await login("user");
+    await actAs("user");
     const op = await operationWithUpload(from);
 
     expect(await changeStatus(op.id)).toEqual({});
@@ -190,17 +213,13 @@ describe("closeOperationAction", () => {
   }
 
   async function expectLinksClosed(deviceToken: string, viewToken: string) {
-    const closed = createElement(DeviceClosed);
-    expect(
-      await DevicePage({ params: Promise.resolve({ token: deviceToken }) }),
-    ).toEqual(closed);
-    expect(
-      await ViewPage({ params: Promise.resolve({ token: viewToken }) }),
-    ).toEqual(closed);
+    const db = state.db as Db;
+    expect(await resolveDeviceAccess(db, deviceToken)).toBeNull();
+    expect(await resolveViewAccess(db, viewToken)).toBeNull();
   }
 
   it("ends every Gerätelink and Ansichtslink for good, also after reopening", async () => {
-    await login("user");
+    await actAs("user");
     const { op, deviceToken, viewToken } = await operationWithLinks();
     const listener = vi.fn();
     const unsubscribe = subscribeOperation(op.id, listener);
@@ -224,7 +243,7 @@ describe("closeOperationAction", () => {
   });
 
   it("places Kartenzeichen whose device had reported by hand again", async () => {
-    await login("user");
+    await actAs("user");
     const { op, deviceToken } = await operationWithLinks();
     const db = state.db as Db;
     await reportPosition(db, deviceToken, 53.6, 10.1);
