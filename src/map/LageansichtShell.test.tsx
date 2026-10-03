@@ -136,6 +136,27 @@ describe("LageansichtShell", () => {
       ).toHaveAttribute("href", "/operations");
     });
 
+    it.each([
+      ["Teilen", "Ansichtslinks teilen"],
+      ["Standard-Ausschnitt festlegen", "Standard-Ausschnitt festlegen"],
+    ])(
+      "returns the focus to ⋮ when the dialog of %s closes",
+      async (entry, title) => {
+        renderShell();
+        await chooseFromMenu(entry, testId);
+        await screen.findByRole("dialog", { name: title });
+
+        await userEvent.keyboard("{Escape}");
+
+        await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+        await waitFor(() =>
+          expect(
+            header(testId).getByRole("button", { name: "Menü" }),
+          ).toHaveFocus(),
+        );
+      },
+    );
+
     it("disables Standard-Ausschnitt festlegen when told to", async () => {
       renderShell({ setDefaultViewDisabled: true });
       await openMenu(testId);

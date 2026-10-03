@@ -16,7 +16,7 @@ import {
 import { useDisclosure } from "@mantine/hooks";
 import { IconWifiOff } from "@tabler/icons-react";
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { type ReactNode, useRef } from "react";
 import type { ActionResult } from "@/app/action-result";
 import { ConfirmationModal } from "@/app/ConfirmationModal";
 import { HEADER_HEIGHT } from "@/map/lageansicht-sizes";
@@ -75,8 +75,13 @@ export function LageansichtShell({
   children: ReactNode;
 }) {
   const [shareOpened, share] = useDisclosure(false);
-  const [setDefaultViewOpened, setDefaultView] = useDisclosure(false);
+  const [setDefaultViewConfirmationOpened, setDefaultViewConfirmation] =
+    useDisclosure(false);
   const keyboardOpen = useKeyboardOpen();
+  // Der Menüeintrag, der einen Dialog geöffnet hat, ist beim Schließen schon
+  // weg; den Fokus bekommt dann der ⋮-Knopf, über den er geöffnet wurde.
+  const menuButton = useRef<HTMLButtonElement | null>(null);
+  const focusMenuButton = () => menuButton.current?.focus();
   const statusBadge = (
     <Badge color={status === "active" ? "green" : "gray"}>
       {status === "active" ? "aktiv" : "abgeschlossen"}
@@ -85,7 +90,14 @@ export function LageansichtShell({
   const menu = (
     <Menu position="bottom-end">
       <Menu.Target>
-        <ActionIcon variant="subtle" color="gray" aria-label="Menü">
+        <ActionIcon
+          variant="subtle"
+          color="gray"
+          aria-label="Menü"
+          onClick={(event) => {
+            menuButton.current = event.currentTarget;
+          }}
+        >
           ⋮
         </ActionIcon>
       </Menu.Target>
@@ -93,7 +105,7 @@ export function LageansichtShell({
         <Menu.Item onClick={share.open}>Teilen</Menu.Item>
         <Menu.Item
           disabled={setDefaultViewDisabled}
-          onClick={setDefaultView.open}
+          onClick={setDefaultViewConfirmation.open}
         >
           Standard-Ausschnitt festlegen
         </Menu.Item>
@@ -188,6 +200,8 @@ export function LageansichtShell({
           stackId="ansichtslinks-teilen"
           opened={shareOpened}
           onClose={share.close}
+          returnFocus={false}
+          onExitTransitionEnd={focusMenuButton}
           title="Ansichtslinks teilen"
         >
           <ViewLinkPanel
@@ -198,12 +212,13 @@ export function LageansichtShell({
         </Modal>
       </Modal.Stack>
       <ConfirmationModal
-        opened={setDefaultViewOpened}
-        onClose={setDefaultView.close}
+        opened={setDefaultViewConfirmationOpened}
+        onClose={setDefaultViewConfirmation.close}
         title="Standard-Ausschnitt festlegen"
         confirmLabel="Festlegen"
         confirmColor="blue"
         onConfirm={onSetDefaultView}
+        onExited={focusMenuButton}
       >
         <Text>
           Der aktuelle Kartenausschnitt wird zum Standard-Ausschnitt dieses

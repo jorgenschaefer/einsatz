@@ -24,6 +24,7 @@ export function ConfirmationModal({
   confirmColor = "red",
   onConfirm,
   stackId,
+  onExited,
   children,
 }: {
   opened: boolean;
@@ -33,6 +34,8 @@ export function ConfirmationModal({
   confirmColor?: string;
   onConfirm: () => Promise<ActionResult>;
   stackId?: string;
+  /** Nach dem Ausblenden, wenn der Fokus zurückgegeben ist. */
+  onExited?: () => void;
   children: ReactNode;
 }) {
   const [pending, setPending] = useState(false);
@@ -67,7 +70,10 @@ export function ConfirmationModal({
       stackId={stackId}
       opened={opened}
       onClose={close}
-      onExitTransitionEnd={returnFocus}
+      onExitTransitionEnd={() => {
+        returnFocus();
+        onExited?.();
+      }}
       title={title}
     >
       <Stack>
