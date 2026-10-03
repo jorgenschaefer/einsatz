@@ -6,8 +6,14 @@ import * as adminUsersActions from "@/app/admin/users/actions";
 import { deleteOperationAction } from "@/app/operations/lifecycle-actions";
 import type { Role } from "@/server/auth/users";
 import type { Db } from "@/server/db/db";
+import { insertOperation } from "@/server/operations/operations";
 import type { BadCalls } from "./bad-calls/bad-call";
-import { oneOfEach } from "./bad-calls/fixture";
+import {
+  everythingIn,
+  type MapObjects,
+  oneOfEach,
+  oneOfEachIn,
+} from "./bad-calls/fixture";
 import { snapshotDb } from "./db-snapshot";
 
 /** A `"use server"` module, imported whole: `import * as actions from "./actions"`. */
@@ -121,36 +127,113 @@ export function expectBadCallsRejected(
   });
 
   describe("bad calls", () => {
-    let uploadsDir: string;
-    let originalUploadsDir: string | undefined;
-
-    beforeEach(async () => {
-      uploadsDir = mkdtempSync(join(tmpdir(), "einsatz-bad-calls-"));
-      originalUploadsDir = process.env.UPLOADS_DIR;
-      process.env.UPLOADS_DIR = uploadsDir;
-      await actAs("admin");
-    });
-
-    afterEach(() => {
-      rmSync(uploadsDir, { recursive: true, force: true });
-      if (originalUploadsDir === undefined) delete process.env.UPLOADS_DIR;
-      else process.env.UPLOADS_DIR = originalUploadsDir;
-    });
+    const uploadsDir = useUploadsDir();
+    beforeEach(() => actAs("admin"));
 
     for (const [name, calls] of Object.entries(table)) {
       if (calls === "takes no input") continue;
       for (const { what, answer, call } of calls) {
         it(`rejects ${name} with ${what} and stores nothing`, async () => {
-          const fixture = await oneOfEach(db(), uploadsDir);
-          const before = await everything(db(), uploadsDir);
+          const fixture = await oneOfEach(db(), uploadsDir());
+          const before = await everything(db(), uploadsDir());
 
           expect(await call(fixture)).toMatchObject(answer as object);
 
-          expect(await everything(db(), uploadsDir)).toEqual(before);
+          expect(await everything(db(), uploadsDir())).toEqual(before);
         });
       }
     }
   });
+}
+
+/** A call with an object of Einsatz A under the Einsatz-ID of Einsatz B. */
+export interface ForeignCall {
+  error: string;
+  call: (objectsOfA: MapObjects, operationIdOfB: string) => Promise<unknown>;
+}
+
+/** Per export its call with another Einsatz's object, or why it has none. */
+export type ForeignCalls = Record<
+  string,
+  ForeignCall | "takes only the Einsatz-ID" | "takes no Einsatz-ID"
+>;
+
+/**
+ * Registers tests that `table` names exactly the exports of `module`, and that
+ * each of its calls, made by a signed-in user with the objects of one Einsatz
+ * ({@link oneOfEachIn}) and the Einsatz-ID of another, gets its error and
+ * changes nothing in the first Einsatz - neither its objects nor any uploaded
+ * file - while the same call under the first Einsatz's own ID is accepted, so
+ * a call that names the wrong kind of object cannot pass. `nothingElseHappened`
+ * adds a check of the test file's own, run after each rejected call.
+ */
+export function expectForeignObjectsRejected(
+  module: ActionModule,
+  table: ForeignCalls,
+  options: {
+    db: () => Db;
+    actAs: ActAs;
+    nothingElseHappened?: () => void | Promise<void>;
+  },
+): void {
+  const { db, actAs, nothingElseHappened } = options;
+  const actions = exportedActions(module);
+
+  describe("the table of calls with another Einsatz's object", () => {
+    it("names every export of the module, and nothing else", () => {
+      expect(Object.keys(table).toSorted()).toEqual(
+        actions.map(([name]) => name).toSorted(),
+      );
+    });
+  });
+
+  const calls = Object.entries(table).filter(
+    (entry): entry is [string, ForeignCall] => typeof entry[1] !== "string",
+  );
+  if (calls.length === 0) return;
+
+  describe("calls with another Einsatz's object", () => {
+    const uploadsDir = useUploadsDir();
+    beforeEach(() => actAs("user"));
+
+    for (const [name, entry] of calls) {
+      it(`rejects ${name} with an object of another Einsatz and changes nothing`, async () => {
+        const a = await insertOperation(db(), { name: "A", description: null });
+        const b = await insertOperation(db(), { name: "B", description: null });
+        const objects = await oneOfEachIn(db(), a.id);
+        const before = await everythingIn(db(), a.id, uploadsDir());
+
+        expect(await entry.call(objects, b.id)).toEqual({ error: entry.error });
+
+        expect(await everythingIn(db(), a.id, uploadsDir())).toEqual(before);
+        await nothingElseHappened?.();
+        expect(await entry.call(objects, a.id)).not.toHaveProperty("error");
+      });
+    }
+  });
+}
+
+/**
+ * Registers hooks that point `UPLOADS_DIR` at a fresh directory for each test
+ * and remove it afterwards; returns the current directory.
+ */
+function useUploadsDir(): () => string {
+  let uploadsDir: string;
+  let originalUploadsDir: string | undefined;
+
+  beforeEach(() => {
+    uploadsDir = mkdtempSync(join(tmpdir(), "einsatz-action-checks-"));
+    originalUploadsDir = process.env.UPLOADS_DIR;
+    process.env.UPLOADS_DIR = uploadsDir;
+  });
+
+  afterEach(() => {
+    rmSync(uploadsDir, { recursive: true, force: true });
+    if (originalUploadsDir === undefined) delete process.env.UPLOADS_DIR;
+    else process.env.UPLOADS_DIR = originalUploadsDir;
+  });
+
+  return () => uploadsDir;
 }
 
 type ServerAction = () => Promise<unknown>;

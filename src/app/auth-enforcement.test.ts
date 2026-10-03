@@ -1,9 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NO_ROUTE } from "@/journal/entry-route";
-import type { AreaGeometry, AreaStyle } from "@/map/area";
-import type { SymbolComposition } from "@/map/composition";
 import type { ImagePlacement } from "@/map/image-overlay";
-import type { MapView } from "@/map/view";
 
 // Shared, mutable harness state. Read lazily by the mocks below, set per test.
 const state = vi.hoisted(() => ({
@@ -35,13 +32,6 @@ vi.mock("next/navigation", () => ({
 import { GET as deviceEventsGET } from "@/app/device/[token]/events/route";
 import { GET as deviceGeocodeGET } from "@/app/device/[token]/geocode/route";
 import { POST as devicePositionPOST } from "@/app/device/[token]/position/route";
-import { setDefaultViewAction } from "@/app/operations/[id]/actions";
-import {
-  createAreaAction,
-  deleteAreaAction,
-  updateAreaGeometryAction,
-  updateAreaStyleAction,
-} from "@/app/operations/[id]/area-actions";
 import { GET as operationEventsGET } from "@/app/operations/[id]/events/route";
 import { geocodeAddressAction } from "@/app/operations/[id]/geocode-actions";
 import {
@@ -62,14 +52,6 @@ import {
   setKmlVisibilityAction,
 } from "@/app/operations/[id]/kml-actions";
 import {
-  deleteMapSymbolAction,
-  generateDeviceLinkAction,
-  moveMapSymbolAction,
-  placeMapSymbolAction,
-  removeDeviceLinkAction,
-  updateMapSymbolCompositionAction,
-} from "@/app/operations/[id]/map-symbol-actions";
-import {
   GET as operationOverlayGET,
   PUT as replaceImageOverlayPUT,
 } from "@/app/operations/[id]/overlays/[overlayId]/route";
@@ -82,10 +64,6 @@ import {
   renameStationAction,
   reportTotalStrengthAction,
 } from "@/app/operations/[id]/strength-actions";
-import {
-  createViewLinkAction,
-  deleteViewLinkAction,
-} from "@/app/operations/[id]/view-link-actions";
 import { freshDb } from "@/test/db";
 
 const expectRedirect = (fn: () => Promise<unknown>, to: string) =>
@@ -95,13 +73,6 @@ const params = <T>(value: T) => ({ params: Promise.resolve(value) });
 const req = (url = "http://localhost/") => new Request(url);
 
 // Repräsentative Argumente; der Auth-Guard wirft, bevor sie ausgewertet werden.
-const geometry: AreaGeometry = {
-  shape: "circle",
-  center: { lat: 53.55, lng: 9.99 },
-  radius: 100,
-};
-const style: AreaStyle = { color: "#e2001a", opacity: 0.4, label: "" };
-const view: MapView = { lat: 53.55, lng: 9.99, zoom: 12 };
 const placement: ImagePlacement = {
   centerLat: 53.55,
   centerLng: 9.99,
@@ -109,7 +80,6 @@ const placement: ImagePlacement = {
   rotationDeg: 0,
   opacity: 1,
 };
-const composition: SymbolComposition = {};
 const upload = (method: "POST" | "PUT") =>
   new Request("http://localhost/", { method, body: new FormData() });
 
@@ -118,48 +88,9 @@ interface Invocation {
   run: () => Promise<unknown>;
 }
 
-// PFLICHT: Jede neue mutierende Server-Action MUSS hier eingetragen werden – die
-// Liste ist die bewusst manuell gepflegte, vollständige Bestandsaufnahme aller
-// requireUser-geschützten Actions. Ohne Eintrag prüft kein Test ihren Guard.
+// Die requireUser-geschützten Actions, deren Login-Pflicht noch nicht der Test
+// ihres eigenen Moduls mit `expectEveryActionRequiresLogin` prüft.
 const userGuardedActions: Invocation[] = [
-  {
-    name: "setDefaultViewAction",
-    run: () => setDefaultViewAction("op-1", view),
-  },
-  { name: "createAreaAction", run: () => createAreaAction("op-1", geometry) },
-  {
-    name: "updateAreaStyleAction",
-    run: () => updateAreaStyleAction("op-1", "a-1", style),
-  },
-  {
-    name: "updateAreaGeometryAction",
-    run: () => updateAreaGeometryAction("op-1", "a-1", geometry),
-  },
-  { name: "deleteAreaAction", run: () => deleteAreaAction("op-1", "a-1") },
-  {
-    name: "placeMapSymbolAction",
-    run: () => placeMapSymbolAction("op-1", composition, 53.55, 9.99),
-  },
-  {
-    name: "moveMapSymbolAction",
-    run: () => moveMapSymbolAction("op-1", "s-1", 53.55, 9.99),
-  },
-  {
-    name: "updateMapSymbolCompositionAction",
-    run: () => updateMapSymbolCompositionAction("op-1", "s-1", composition),
-  },
-  {
-    name: "deleteMapSymbolAction",
-    run: () => deleteMapSymbolAction("op-1", "s-1"),
-  },
-  {
-    name: "generateDeviceLinkAction",
-    run: () => generateDeviceLinkAction("op-1", "s-1"),
-  },
-  {
-    name: "removeDeviceLinkAction",
-    run: () => removeDeviceLinkAction("op-1", "s-1"),
-  },
   {
     name: "addKmlUrlAction",
     run: () => addKmlUrlAction("op-1", "n", "https://e.example/x.kml"),
@@ -181,14 +112,6 @@ const userGuardedActions: Invocation[] = [
   {
     name: "deleteImageOverlayAction",
     run: () => deleteImageOverlayAction("op-1", "i-1"),
-  },
-  {
-    name: "createViewLinkAction",
-    run: () => createViewLinkAction("op-1", "Leitstelle"),
-  },
-  {
-    name: "deleteViewLinkAction",
-    run: () => deleteViewLinkAction("op-1", "v-1"),
   },
   {
     name: "addJournalEntryAction",

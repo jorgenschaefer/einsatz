@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:
 advances:  AC-1, AC-3, AC-5, AC-6, AC-8, AC-11
 after:     02-actions-konten, 08-seiten
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -190,3 +190,79 @@ described under Context.
 - No change to the actions themselves.
 
 ## Left standing
+- **Review findings not fixed.** The one review round found no blocker and
+  nothing that should be fixed. It found three nits, and I fixed two:
+  - `createAreaAction` now has a test that a refused Bereich returns no id.
+  - `expectForeignObjectsRejected` now also expects the same call under
+    Einsatz A's own ID to be accepted, so a table entry that names the
+    wrong kind of object fails. Pointing `deleteMapSymbolAction`'s entry at
+    `a.areaId` made that test fail.
+  Nit 3 is not fixed: the uploads directory is listed by two helpers.
+  `everythingIn` in `src/test/bad-calls/fixture.ts` (moved here) lists files
+  only. `everything` in `src/test/action-checks.ts` (ticket 02) lists files
+  and directories. Merging them would either weaken the bad-calls check or
+  change what `everythingIn` compares, and ticket 04 is told to use both as
+  they are. Since only nits came back, there was no second round. The
+  reviewer also noted the stale "complete inventory" comment in
+  `auth-enforcement.test.ts`, and I reworded it.
+- **Checks not run.** None skipped. `npm run check` is green (232 files,
+  2862 tests). `npm run test:coverage` and then `compare-coverage.mjs` exit
+  0. The script names only `src/test/action-checks.ts` and
+  `src/test/page-checks.ts` as "new, compared with nothing", as after
+  tickets 02 and 08. No file's coverage dropped, and no file needed a new
+  test file. `oneOfEachIn` and `everythingIn` came from a test file, which
+  is not in the baseline, so `coverage-splits.json` has no entry for them.
+- **Advanced without an automated test.**
+  - AC-1, AC-5: I checked by listing the files. `actions.test.ts` exists, and
+    each of the four modules has exactly one test file. Ticket 23 adds the
+    check to `npm run check`.
+  - AC-3: no automated check yet. I grepped the four test files, and none
+    imports another `@/app/` module or a component. `DevicePage` is gone
+    from `map-symbol-actions.test.ts`.
+  - AC-6: the helpers are proven by breaking things by hand. Each break made
+    the named test fail, and I restored all of them:
+    - The Einsatz condition dropped from `moveMapSymbol`'s `UPDATE`: "rejects
+      moveMapSymbolAction with an object of another Einsatz and changes
+      nothing" failed.
+    - `generateDeviceLinkAction` left out of the other-Einsatz table: "names
+      every export of the module, and nothing else" failed.
+    - `requireUser()` replaced in `operationAction`: all eight "sends an
+      anonymous caller to the login" tests of `map-symbol-actions` and
+      `view-link-actions` failed.
+    - `setDefaultView` taken out of `setDefaultViewAction`: the new success
+      test and the bad calls failed.
+    - `createAreaAction` returning no id: "returns the id of the new
+      Bereich …" failed.
+  - AC-8: every name the four old places checked for these 13 exports has a
+    `→` line in the commit's record, and each target is a test that exists.
+  - AC-11: the commit's `Removed tests:` section is written from
+    `removed-tests.mjs`. It names all 82 removed names, and each has its
+    `→` line.
+- **AC-3 review list.** All four test files are added to
+  `ac3-reviewed.txt`. `actions.test.ts` is new. I rewrote the other three
+  whole and held every test in them against their own module.
+- **Departures from the plan.**
+  - `expectForeignObjectsRejected` registers no "calls" block when a table
+    has only "takes only the Einsatz-ID" / "takes no Einsatz-ID" entries, as
+    for `actions.ts`. Vitest fails a `describe` with no tests in it.
+  - The helper calls as a signed-in `user`, not an admin. That is the
+    attacker the check is about, and no export under `operations/[id]` is
+    admin-only.
+  - The `nothingElseHappened` option has no user yet. Ticket 04 is its
+    first user, as the Context decides, so it goes untested until then.
+  - The "takes no Einsatz-ID" entry has no user yet either. The ticket
+    defines it for `geocodeAddressAction` (ticket 04).
+  - In `view-link-actions.test.ts`, the five success tests were merged into
+    two ("creates a named view link and tells open clients", "deletes the
+    view link and tells open clients"), following the nudge to shorten. The
+    two "refuses … without a session" tests were dropped because the login
+    check covers them, and so was `map-symbol-actions`'s. Breaking the
+    login check as above showed that.
+  - `actions.test.ts` also got a success test ("stores the Einsatz's default
+    view and tells open clients"). Before this, no test of the action
+    checked that it stores the view.
+  - The mocked `area-actions.test.ts` case "returns no id on a
+    ValidationError" became a real-database test, "returns no id when the
+    Bereich is refused". The `revalidatePath` assertion of the mocked "returns
+    the id" case is not repeated: `operation-action.test.ts` holds it.
+- **Departures from a nudge.** None.

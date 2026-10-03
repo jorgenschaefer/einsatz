@@ -3,3 +3,7 @@ src/app/page.test.ts
 src/app/admin/users/page.test.ts
 src/app/operations/page.test.ts
 src/app/device/[token]/page.test.ts
+src/app/operations/[id]/actions.test.ts
+src/app/operations/[id]/map-symbol-actions.test.ts
+src/app/operations/[id]/area-actions.test.ts
+src/app/operations/[id]/view-link-actions.test.ts

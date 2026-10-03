@@ -1,6 +1,4 @@
-import { randomUUID } from "node:crypto";
-import { createElement } from "react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Db } from "@/server/db/db";
 
 // IO-/Trust-Grenzen faken, damit die echte Action-Logik unverändert läuft.
@@ -18,68 +16,173 @@ vi.mock("next/headers", () => ({
     delete: () => {},
   }),
 }));
+vi.mock("next/navigation", () => ({
+  redirect: (to: string) => {
+    throw Object.assign(new Error("NEXT_REDIRECT"), { redirectTo: to });
+  },
+}));
 
-import DevicePage from "@/app/device/[token]/page";
-import { removeDeviceLinkAction } from "@/app/operations/[id]/map-symbol-actions";
-import { DeviceClosed } from "@/map/DeviceClosed";
-import { hashPassword } from "@/server/auth/password";
-import { insertSession } from "@/server/auth/sessions";
-import { insertUser } from "@/server/auth/users";
 import { subscribeOperation } from "@/server/events/operation-events";
 import {
   createMapSymbol,
   generateDeviceLink,
   listMapSymbols,
   reportPosition,
+  resolveDeviceAccess,
 } from "@/server/mapsymbols/map-symbols";
 import { insertOperation } from "@/server/operations/operations";
+import {
+  type ActAs,
+  expectBadCallsRejected,
+  expectEveryActionRequiresLogin,
+  expectForeignObjectsRejected,
+} from "@/test/action-checks";
+import {
+  type Bad,
+  INVALID_ID,
+  idCalls,
+  NOT_A_UUID,
+  rejects,
+  text,
+  tooLong,
+} from "@/test/bad-calls/bad-call";
 import { freshDb } from "@/test/db";
+import { signIn } from "@/test/sign-in";
+import * as actions from "./map-symbol-actions";
 
-async function login(): Promise<void> {
-  const db = state.db as Db;
-  const user = await insertUser(db, {
-    username: `u-${randomUUID().slice(0, 8)}`,
-    passwordHash: await hashPassword("a-very-good-password"),
-    role: "user",
-  });
-  const token = randomUUID();
-  await insertSession(db, {
-    token,
-    userId: user.id,
-    expiresAt: new Date(Date.now() + 3_600_000),
-  });
-  state.token = token;
-}
+const {
+  deleteMapSymbolAction,
+  generateDeviceLinkAction,
+  moveMapSymbolAction,
+  placeMapSymbolAction,
+  removeDeviceLinkAction,
+  updateMapSymbolCompositionAction,
+} = actions;
 
-async function aSymbolWithDeviceLink() {
-  const db = state.db as Db;
-  const op = await insertOperation(db, { name: "Lage", description: null });
-  const symbol = await createMapSymbol(db, {
-    operationId: op.id,
-    composition: { grundzeichen: "kraftfahrzeug-landgebunden" },
-    lat: 53.55,
-    lng: 10,
-  });
-  const token = await generateDeviceLink(db, symbol.operationId, symbol.id);
-  return { op, symbol, token };
-}
+const NOT_FOUND = "Kartenzeichen nicht gefunden.";
+const INVALID_COMPOSITION = "Ungültige Zeichen-Komposition.";
+const INVALID_COORDINATES = "Ungültige Koordinaten.";
 
-function devicePageFor(token: string) {
-  return DevicePage({ params: Promise.resolve({ token }) });
-}
+const actAs: ActAs = async (caller) => {
+  state.token =
+    caller === "anonymous" ? undefined : await signIn(state.db as Db, caller);
+};
+const db = () => state.db as Db;
 
 beforeEach(async () => {
   state.db = await freshDb();
   state.token = undefined;
 });
 
-afterEach(() => {
-  vi.restoreAllMocks();
-});
+expectEveryActionRequiresLogin(actions, { actAs });
+
+expectBadCallsRejected(
+  actions,
+  {
+    placeMapSymbolAction: [
+      rejects("a non-UUID Einsatz-ID", INVALID_ID, () =>
+        placeMapSymbolAction(NOT_A_UUID, { text: "A" }, 50, 8),
+      ),
+      rejects("a composition of null", INVALID_COMPOSITION, (f) =>
+        placeMapSymbolAction(f.operationId, null as Bad, 50, 8),
+      ),
+      rejects("a composition as text", INVALID_COMPOSITION, (f) =>
+        placeMapSymbolAction(f.operationId, "A" as Bad, 50, 8),
+      ),
+      rejects("lat as text", INVALID_COORDINATES, (f) =>
+        placeMapSymbolAction(f.operationId, { text: "A" }, "50" as Bad, 8),
+      ),
+      rejects("lng of null", INVALID_COORDINATES, (f) =>
+        placeMapSymbolAction(f.operationId, { text: "A" }, 50, null as Bad),
+      ),
+      rejects("a Bezeichnung of 201", tooLong("Die Bezeichnung", "200"), (f) =>
+        placeMapSymbolAction(f.operationId, { text: text(201) }, 50, 8),
+      ),
+      rejects("an axis of 201", INVALID_COMPOSITION, (f) =>
+        placeMapSymbolAction(f.operationId, { einheit: text(201) }, 50, 8),
+      ),
+    ],
+    moveMapSymbolAction: [
+      ...idCalls("symbolId", (op, id) => moveMapSymbolAction(op, id, 50, 8)),
+      rejects("lat of null", INVALID_COORDINATES, (f) =>
+        moveMapSymbolAction(f.operationId, f.symbolId, null as Bad, 8),
+      ),
+      rejects("lng as text", INVALID_COORDINATES, (f) =>
+        moveMapSymbolAction(f.operationId, f.symbolId, 50, "8" as Bad),
+      ),
+    ],
+    updateMapSymbolCompositionAction: [
+      ...idCalls("symbolId", (op, id) =>
+        updateMapSymbolCompositionAction(op, id, { text: "B" }),
+      ),
+      rejects("a composition of null", INVALID_COMPOSITION, (f) =>
+        updateMapSymbolCompositionAction(
+          f.operationId,
+          f.symbolId,
+          null as Bad,
+        ),
+      ),
+      rejects("a composition as text", INVALID_COMPOSITION, (f) =>
+        updateMapSymbolCompositionAction(f.operationId, f.symbolId, "A" as Bad),
+      ),
+      rejects("a Bezeichnung of 201", tooLong("Die Bezeichnung", "200"), (f) =>
+        updateMapSymbolCompositionAction(f.operationId, f.symbolId, {
+          text: text(201),
+        }),
+      ),
+    ],
+    deleteMapSymbolAction: idCalls("symbolId", deleteMapSymbolAction),
+    generateDeviceLinkAction: idCalls("symbolId", generateDeviceLinkAction),
+    removeDeviceLinkAction: idCalls("symbolId", removeDeviceLinkAction),
+  },
+  { db, actAs },
+);
+
+expectForeignObjectsRejected(
+  actions,
+  {
+    placeMapSymbolAction: "takes only the Einsatz-ID",
+    moveMapSymbolAction: {
+      error: NOT_FOUND,
+      call: (a, b) => moveMapSymbolAction(b, a.symbolId, 50, 8),
+    },
+    updateMapSymbolCompositionAction: {
+      error: NOT_FOUND,
+      call: (a, b) =>
+        updateMapSymbolCompositionAction(b, a.symbolId, { text: "neu" }),
+    },
+    deleteMapSymbolAction: {
+      error: NOT_FOUND,
+      call: (a, b) => deleteMapSymbolAction(b, a.symbolId),
+    },
+    generateDeviceLinkAction: {
+      error: NOT_FOUND,
+      call: (a, b) => generateDeviceLinkAction(b, a.symbolId),
+    },
+    removeDeviceLinkAction: {
+      error: NOT_FOUND,
+      call: (a, b) => removeDeviceLinkAction(b, a.symbolId),
+    },
+  },
+  { db, actAs },
+);
+
+async function aSymbolWithDeviceLink() {
+  const op = await insertOperation(db(), { name: "Lage", description: null });
+  const symbol = await createMapSymbol(db(), {
+    operationId: op.id,
+    composition: { grundzeichen: "kraftfahrzeug-landgebunden" },
+    lat: 53.55,
+    lng: 10,
+  });
+  const token = await generateDeviceLink(db(), symbol.operationId, symbol.id);
+  return { op, symbol, token };
+}
 
 describe("removeDeviceLinkAction", () => {
+  beforeEach(() => actAs("user"));
+
   it("ends the device's access and tells open clients, keeping the Kartenzeichen", async () => {
-    await login();
     const { op, symbol, token } = await aSymbolWithDeviceLink();
     const listener = vi.fn();
     const unsubscribe = subscribeOperation(op.id, listener);
@@ -93,32 +196,22 @@ describe("removeDeviceLinkAction", () => {
 
     expect(result).toEqual({});
     expect(listener).toHaveBeenCalledTimes(1);
-    expect(await devicePageFor(token)).toEqual(createElement(DeviceClosed));
-    const [after] = await listMapSymbols(state.db as Db, op.id);
+    expect(await resolveDeviceAccess(db(), token)).toBeNull();
+    const [after] = await listMapSymbols(db(), op.id);
     expect(after).toEqual({ ...symbol, deviceLinkToken: null });
   });
 
   it("places a Kartenzeichen whose device had reported by hand again", async () => {
-    await login();
     const { op, symbol, token } = await aSymbolWithDeviceLink();
-    await reportPosition(state.db as Db, token, 53.6, 10.1);
+    await reportPosition(db(), token, 53.6, 10.1);
 
     await removeDeviceLinkAction(op.id, symbol.id);
 
-    const [after] = await listMapSymbols(state.db as Db, op.id);
+    const [after] = await listMapSymbols(db(), op.id);
     expect(after).toMatchObject({
       lat: 53.6,
       lng: 10.1,
       positionSource: "manual",
     });
-  });
-
-  it("refuses without a session and keeps the link", async () => {
-    const { op, symbol, token } = await aSymbolWithDeviceLink();
-
-    await expect(removeDeviceLinkAction(op.id, symbol.id)).rejects.toThrow();
-
-    const [after] = await listMapSymbols(state.db as Db, op.id);
-    expect(after.deviceLinkToken).toBe(token);
   });
 });
