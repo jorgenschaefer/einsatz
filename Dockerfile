@@ -5,7 +5,10 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
-RUN npm run build
+# .next/cache ist Build-Cache (~95 MB), den `next start` nicht braucht. Mit ins
+# Image kopiert, ändert er sich bei jedem Build und wird bei jedem Deploy neu
+# übertragen.
+RUN npm run build && rm -rf .next/cache
 
 FROM node:${NODE_VERSION}-alpine AS runner
 WORKDIR /app
