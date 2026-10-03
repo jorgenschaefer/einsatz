@@ -54,6 +54,14 @@ describe("geocodeQuery", () => {
     expect(await geocodeQuery("Hamburg", geocoder)).toHaveLength(1);
   });
 
+  it("finds nothing for a query that is not text, without asking the geocoder or using up the slot", async () => {
+    const geocoder = hamburg();
+    // biome-ignore lint/suspicious/noExplicitAny: die Action nimmt, was der Client schickt
+    expect(await geocodeQuery(12345 as any, geocoder)).toEqual([]);
+    expect(geocoder.geocode).not.toHaveBeenCalled();
+    expect(await geocodeQuery("Hamburg", geocoder)).toHaveLength(1);
+  });
+
   it("ignores surrounding spaces and counts a character outside the BMP once", async () => {
     const geocoder = hamburg();
     expect(

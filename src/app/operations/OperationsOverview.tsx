@@ -30,16 +30,16 @@ const succeed = async (): Promise<ActionResult> => ({});
 export function OperationsOverview({
   operations,
   createAction,
-  onCloseOperation = noop,
-  onReopenOperation = noop,
+  onCloseOperation = succeed,
+  onReopenOperation = succeed,
   onDeleteOperation = succeed,
   onLogout = noop,
   isAdmin = false,
 }: {
   operations: OperationSummary[];
   createAction: OperationFormAction;
-  onCloseOperation?: (operationId: string) => void | Promise<void>;
-  onReopenOperation?: (operationId: string) => void | Promise<void>;
+  onCloseOperation?: (operationId: string) => Promise<ActionResult>;
+  onReopenOperation?: (operationId: string) => Promise<ActionResult>;
   onDeleteOperation?: (operationId: string) => Promise<ActionResult>;
   onLogout?: () => void | Promise<void>;
   isAdmin?: boolean;

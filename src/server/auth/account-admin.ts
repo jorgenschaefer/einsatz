@@ -1,5 +1,5 @@
 import type { Db, Queryable } from "@/server/db/db";
-import { ValidationError } from "@/server/validation";
+import { assertUuid, trimmedText, ValidationError } from "@/server/validation";
 import { assertPasswordPolicy, hashPassword, verifyPassword } from "./password";
 import { type LoginRateLimiter, RATE_LIMITED_MESSAGE } from "./rate-limit";
 import { deleteSessionsForUser } from "./sessions";
@@ -18,9 +18,14 @@ export async function createAccount(
   db: Db,
   input: { username: string; password: string; role: Role },
 ): Promise<User> {
-  const username = input.username.trim();
+  const username = trimmedText(
+    input.username,
+    "Der Nutzername",
+    MAX_USERNAME_LENGTH,
+  );
   if (!username)
     throw new ValidationError("Der Nutzername darf nicht leer sein.");
+  assertPasswordText(input.password);
   assertPasswordPolicy(input.password, username);
   const passwordHash = await hashPassword(input.password);
   try {
@@ -34,9 +39,12 @@ export async function createAccount(
   }
 }
 
+const MAX_USERNAME_LENGTH = 200;
 const UNIQUE_VIOLATION = "23505";
 
 export async function setRole(db: Db, id: string, role: Role): Promise<void> {
+  assertUuid(id);
+  assertRole(role);
   if (role === "user") {
     await db.transaction(async (tx) => {
       await guardLastAdmin(tx, id, "zum Nutzer degradiert");
@@ -56,6 +64,8 @@ export async function resetPassword(
   id: string,
   newPassword: string,
 ): Promise<void> {
+  assertUuid(id);
+  assertPasswordText(newPassword);
   const user = await findUserById(db, id);
   if (user) assertPasswordPolicy(newPassword, user.username);
   const passwordHash = await hashPassword(newPassword);
@@ -93,6 +103,7 @@ export async function changePassword(
 const WRONG_CURRENT_PASSWORD = "Das aktuelle Passwort ist nicht korrekt.";
 
 export async function deleteAccount(db: Db, id: string): Promise<void> {
+  assertUuid(id);
   await db.transaction(async (tx) => {
     await guardLastAdmin(tx, id, "gelöscht");
     await deleteUser(tx, id);
@@ -113,5 +124,17 @@ async function guardLastAdmin(
     throw new ValidationError(
       `Der letzte verbleibende Admin kann nicht ${verb} werden.`,
     );
+  }
+}
+
+function assertPasswordText(password: unknown): asserts password is string {
+  if (typeof password !== "string") {
+    throw new ValidationError("Das Passwort muss Text sein.");
+  }
+}
+
+function assertRole(role: unknown): asserts role is Role {
+  if (role !== "admin" && role !== "user") {
+    throw new ValidationError("Unbekannte Rolle.");
   }
 }

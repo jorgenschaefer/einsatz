@@ -10,7 +10,7 @@ import {
 } from "@/server/auth/account-admin";
 import { requireAdmin } from "@/server/auth/current-user";
 import { getDb } from "@/server/db/pg";
-import { ValidationError } from "@/server/validation";
+import { assertBoolean, ValidationError } from "@/server/validation";
 
 const ADMIN_USERS_PATH = "/admin/users";
 
@@ -31,13 +31,14 @@ export async function createAccountAction(
   password: string,
   admin: boolean,
 ): Promise<ActionResult> {
-  return guarded(() =>
-    createAccount(getDb(), {
+  return guarded(() => {
+    assertBoolean(admin, "„Administrator“");
+    return createAccount(getDb(), {
       username,
       password,
       role: admin ? "admin" : "user",
-    }),
-  );
+    });
+  });
 }
 
 export async function setRoleAction(

@@ -18,7 +18,11 @@ import {
 } from "@/server/auth/sessions";
 import { getDb } from "@/server/db/pg";
 import { clientIpFromForwardedFor } from "@/server/http/client-ip";
-import { ValidationError } from "@/server/validation";
+import {
+  formText,
+  INVALID_FORM_DATA,
+  ValidationError,
+} from "@/server/validation";
 import type { ChangePasswordState } from "./ChangePasswordForm";
 
 export async function changePasswordAction(
@@ -26,8 +30,7 @@ export async function changePasswordAction(
   formData: FormData,
 ): Promise<ChangePasswordState> {
   const user = await requireUser();
-  const currentPassword = String(formData.get("currentPassword") ?? "");
-  const password = String(formData.get("password") ?? "");
+  if (!(formData instanceof FormData)) return { error: INVALID_FORM_DATA };
   const ip = clientIpFromForwardedFor((await headers()).get("x-forwarded-for"));
   try {
     await changePassword(
@@ -35,8 +38,8 @@ export async function changePasswordAction(
       loginRateLimiter,
       ip,
       user.id,
-      currentPassword,
-      password,
+      formText(formData, "currentPassword", "Das aktuelle Passwort"),
+      formText(formData, "password", "Das neue Passwort"),
     );
   } catch (error) {
     if (error instanceof ValidationError) return { error: error.message };

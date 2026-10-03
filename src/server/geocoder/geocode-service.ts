@@ -21,14 +21,16 @@ export const geocodeGate = globalForGate.s2GeocodeGate;
 export const tokenLinkGeocodeGate = globalForGate.tokenLinkGeocodeGate;
 
 /**
- * Adress-Suche mit Guard (zu kurze und zu lange Anfragen unterdrückt),
- * Rate-Limit und Fehler-Degradierung (bei Geocoder-Fehler leere Liste, damit
- * die Objektsuche nutzbar bleibt). Der Geocoder ist für Tests injizierbar.
+ * Adress-Suche mit Guard (Anfragen, die kein Text, zu kurz oder zu lang sind,
+ * unterdrückt), Rate-Limit und Fehler-Degradierung (bei Geocoder-Fehler leere
+ * Liste, damit die Objektsuche nutzbar bleibt). Der Geocoder ist für Tests
+ * injizierbar.
  */
 export async function geocodeQuery(
-  query: string,
+  query: unknown,
   geocoder: Geocoder = photonGeocoder,
 ): Promise<GeoHit[]> {
+  if (typeof query !== "string") return [];
   const q = query.trim();
   if (!isWorthGeocoding(q)) return [];
   if (!geocodeGate.tryAcquire()) return [];

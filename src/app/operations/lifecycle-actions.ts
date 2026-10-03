@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { ActionResult } from "@/app/action-result";
-import { requireAdmin, requireUser } from "@/server/auth/current-user";
+import { requireAdmin } from "@/server/auth/current-user";
+import type { Db } from "@/server/db/db";
 import { getDb } from "@/server/db/pg";
 import { publishOperationChanged } from "@/server/events/operation-events";
 import { deleteOperation } from "@/server/operations/delete-operation";
@@ -11,27 +12,19 @@ import {
   closeOperation,
   reopenOperation,
 } from "@/server/operations/operation-lifecycle";
-import { revalidateOperation } from "./[id]/operation-action";
+import { ValidationError } from "@/server/validation";
+import { operationAction } from "./[id]/operation-action";
 
-// Bespoke – nicht über `operationAction`: close/reopen revalidieren zusätzlich
-// die Übersicht, delete leitet um statt zu revalidieren (siehe unten).
-function revalidateStatusChange(operationId: string): void {
-  revalidateOperation(operationId);
-  revalidatePath("/operations"); // Statuswechsel auch in der Übersicht sichtbar machen
-}
-
-export async function closeOperationAction(operationId: string): Promise<void> {
-  await requireUser();
-  await closeOperation(getDb(), operationId);
-  revalidateStatusChange(operationId);
+export async function closeOperationAction(
+  operationId: string,
+): Promise<ActionResult> {
+  return changeStatus(operationId, closeOperation);
 }
 
 export async function reopenOperationAction(
   operationId: string,
-): Promise<void> {
-  await requireUser();
-  await reopenOperation(getDb(), operationId);
-  revalidateStatusChange(operationId);
+): Promise<ActionResult> {
+  return changeStatus(operationId, reopenOperation);
 }
 
 // Erfolg leitet um. Ein laufender Einsatz bleibt stehen und meldet das; die
@@ -42,10 +35,30 @@ export async function deleteOperationAction(
   operationId: string,
 ): Promise<ActionResult> {
   await requireAdmin();
-  if (!(await deleteOperation(getDb(), operationId))) {
+  let deleted: boolean;
+  try {
+    deleted = await deleteOperation(getDb(), operationId);
+  } catch (error) {
+    if (error instanceof ValidationError) return { error: error.message };
+    throw error;
+  }
+  if (!deleted) {
     revalidatePath("/operations");
     return { error: "Nur ein abgeschlossener Einsatz lässt sich löschen." };
   }
   publishOperationChanged(operationId); // andere Clients laden neu → Zugang/Ansicht endet
   redirect("/operations");
+}
+
+// Wie jede Einsatz-Action, nur zeigt auch die Übersicht den neuen Status.
+async function changeStatus(
+  operationId: string,
+  change: (db: Db, operationId: string) => Promise<void>,
+): Promise<ActionResult> {
+  const result = await operationAction(async (db) => {
+    await change(db, operationId);
+    return operationId;
+  });
+  if (!result.error) revalidatePath("/operations");
+  return result;
 }

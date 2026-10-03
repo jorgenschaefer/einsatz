@@ -46,4 +46,34 @@ describe("createOperation", () => {
     );
     expect(await listOperations(db)).toHaveLength(0);
   });
+
+  it.each([
+    [
+      "a Bezeichnung of 201 characters",
+      { name: "x".repeat(201) },
+      "Die Bezeichnung darf höchstens 200 Zeichen lang sein.",
+    ],
+    [
+      "a Beschreibung of 2,001 characters",
+      { name: "Hochwasser", description: "x".repeat(2001) },
+      "Die Beschreibung darf höchstens 2.000 Zeichen lang sein.",
+    ],
+  ])("rejects %s and persists nothing", async (_, input, message) => {
+    const db = await freshDb();
+    await expect(createOperation(db, input)).rejects.toThrow(
+      new ValidationError(message),
+    );
+    expect(await listOperations(db)).toHaveLength(0);
+  });
+
+  it("counts the lengths after trimming", async () => {
+    const db = await freshDb();
+    const name = "x".repeat(200);
+    const description = "x".repeat(2000);
+    const op = await createOperation(db, {
+      name: ` ${name} `,
+      description: ` ${description} `,
+    });
+    expect(op).toMatchObject({ name, description });
+  });
 });

@@ -147,6 +147,25 @@ describe("deleteOperationAction", () => {
   });
 });
 
+describe.each([
+  ["closeOperationAction", closeOperationAction, "active", "closed"],
+  ["reopenOperationAction", reopenOperationAction, "closed", "active"],
+] as const)("%s", (_, changeStatus, from, to) => {
+  it("changes the status and refreshes the Einsatz and the overview", async () => {
+    await login("user");
+    const op = await operationWithUpload(from);
+
+    expect(await changeStatus(op.id)).toEqual({});
+
+    expect(await getOperation(state.db as Db, op.id)).toMatchObject({
+      status: to,
+    });
+    expect(state.revalidatedPaths).toEqual(
+      expect.arrayContaining([`/operations/${op.id}`, "/operations"]),
+    );
+  });
+});
+
 describe("closeOperationAction", () => {
   async function operationWithLinks() {
     const db = state.db as Db;

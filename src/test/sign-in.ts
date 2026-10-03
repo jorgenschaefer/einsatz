@@ -1,15 +1,15 @@
 import { randomUUID } from "node:crypto";
 import { hashPassword } from "@/server/auth/password";
 import { insertSession } from "@/server/auth/sessions";
-import { insertUser } from "@/server/auth/users";
+import { insertUser, type Role } from "@/server/auth/users";
 import type { Db } from "@/server/db/db";
 
 /** Legt einen Nutzer mit gültiger Sitzung an und liefert deren Token. */
-export async function signIn(db: Db): Promise<string> {
+export async function signIn(db: Db, role: Role = "user"): Promise<string> {
   const user = await insertUser(db, {
     username: `u-${randomUUID().slice(0, 8)}`,
     passwordHash: await hashPassword("a-very-good-password"),
-    role: "user",
+    role,
   });
   const token = randomUUID();
   await insertSession(db, {

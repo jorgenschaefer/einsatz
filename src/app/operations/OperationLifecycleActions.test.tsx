@@ -13,8 +13,8 @@ function setup(over: Partial<OperationLifecycleActionsProps> = {}) {
     name: "Hochwasser",
     status: "active",
     isAdmin: false,
-    onClose: vi.fn(),
-    onReopen: vi.fn(),
+    onClose: vi.fn(async () => ({})),
+    onReopen: vi.fn(async () => ({})),
     onDelete: vi.fn(async () => ({})),
     ...over,
   };
@@ -67,6 +67,20 @@ describe("OperationLifecycleActions", () => {
 
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(props.onClose).not.toHaveBeenCalled();
+  });
+
+  it("shows a refused Abschließen in the dialog and keeps it open", async () => {
+    setup({ onClose: async () => ({ error: "Ungültige ID." }) });
+
+    const dialog = await askToClose();
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Abschließen" }),
+    );
+
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+      "Ungültige ID.",
+    );
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
   });
 
   it("reopens a closed Einsatz from the menu", async () => {

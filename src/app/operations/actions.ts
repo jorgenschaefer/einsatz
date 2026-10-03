@@ -4,7 +4,11 @@ import { redirect } from "next/navigation";
 import { requireUser } from "@/server/auth/current-user";
 import { getDb } from "@/server/db/pg";
 import { createOperation } from "@/server/operations/create-operation";
-import { ValidationError } from "@/server/validation";
+import {
+  formText,
+  INVALID_FORM_DATA,
+  ValidationError,
+} from "@/server/validation";
 import type { OperationFormState } from "./NewOperationForm";
 
 export async function createOperationAction(
@@ -12,11 +16,11 @@ export async function createOperationAction(
   formData: FormData,
 ): Promise<OperationFormState> {
   await requireUser();
-  const name = String(formData.get("name") ?? "");
-  const description = String(formData.get("description") ?? "");
-
+  if (!(formData instanceof FormData)) return { error: INVALID_FORM_DATA };
   let operationId: string;
   try {
+    const name = formText(formData, "name", "Die Bezeichnung");
+    const description = formText(formData, "description", "Die Beschreibung");
     const operation = await createOperation(getDb(), { name, description });
     operationId = operation.id;
   } catch (error) {

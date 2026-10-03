@@ -2,6 +2,7 @@ import { NO_ROUTE } from "@/journal/entry-route";
 import type { Db, Queryable } from "@/server/db/db";
 import { appendEntry } from "@/server/journal/journal";
 import { removeAllDeviceLinks } from "@/server/mapsymbols/map-symbols";
+import { assertUuid } from "@/server/validation";
 import { deleteAllViewLinks } from "@/server/viewlinks/view-links";
 import { OPERATION_OPENED_ENTRY_TEXT } from "./create-operation";
 import { getOperation, lockOperation, setOperationStatus } from "./operations";
@@ -37,6 +38,7 @@ async function transition(
     type: "einsatz-geschlossen" | "einsatz-eröffnet";
   },
 ): Promise<void> {
+  assertUuid(id);
   await db.transaction(async (tx: Queryable) => {
     // Einsatz-Zeile sperren, damit parallele Übergänge nicht denselben
     // Meilenstein doppelt schreiben (Status prüfen erst nach der Sperre).

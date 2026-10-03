@@ -9,6 +9,25 @@ export class ValidationError extends Error {
   }
 }
 
+/** Antwort einer Formular-Action, die statt `FormData` etwas anderes bekommt. */
+export const INVALID_FORM_DATA = "Ungültige Formulardaten.";
+
+/**
+ * Der Text eines Formularfelds; leer, wenn es fehlt. Lehnt eine Datei ab, die
+ * an seiner Stelle geschickt wird; `field` wie bei {@link assertText}.
+ */
+export function formText(
+  formData: FormData,
+  name: string,
+  field: string,
+): string {
+  const value = formData.get(name) ?? "";
+  if (typeof value !== "string") {
+    throw new ValidationError(`${field} muss Text sein.`);
+  }
+  return value;
+}
+
 /**
  * Erzwingt eine UUID als Id. Ohne diese Prüfung ließe eine falsche Id
  * Postgres beim Vergleich mit einer `uuid`-Spalte werfen.

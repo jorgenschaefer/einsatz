@@ -8,6 +8,7 @@ import {
   listMapSymbols,
   resolveDeviceAccess,
 } from "@/server/mapsymbols/map-symbols";
+import { ValidationError } from "@/server/validation";
 import {
   createViewLink,
   listViewLinks,
@@ -193,5 +194,15 @@ describe("closing an operation deletes its Gerätelinks and Ansichtslinks", () =
     expect(await resolveViewAccess(db, newViewLink.token)).toEqual({
       operationId: op.id,
     });
+  });
+
+  it.each([
+    ["closing", closeOperation],
+    ["reopening", reopenOperation],
+  ])("rejects %s with an Einsatz-ID that is not a UUID", async (_, change) => {
+    const db = await freshDb();
+    await expect(change(db, "op-1")).rejects.toThrow(
+      new ValidationError("Ungültige ID."),
+    );
   });
 });

@@ -16,6 +16,7 @@ import {
   listStrengthReports,
   recordStrengthReport,
 } from "@/server/strength/strength-reports";
+import { ValidationError } from "@/server/validation";
 import { freshDb } from "@/test/db";
 import { createOperation } from "./create-operation";
 import { deleteOperation } from "./delete-operation";
@@ -149,5 +150,12 @@ describe("deleteOperation (domain)", () => {
     await deleteOperation(db, op.id);
 
     expect(await getOperation(db, op.id)).toBeNull();
+  });
+
+  it("rejects an Einsatz-ID that is not a UUID", async () => {
+    const db = await freshDb();
+    await expect(deleteOperation(db, "op-1")).rejects.toThrow(
+      new ValidationError("Ungültige ID."),
+    );
   });
 });

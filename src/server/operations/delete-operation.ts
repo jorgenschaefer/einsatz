@@ -1,5 +1,6 @@
 import type { Db } from "@/server/db/db";
 import { deleteOperationUploads } from "@/server/image-overlays/image-storage";
+import { assertUuid } from "@/server/validation";
 import { deleteOperationRow } from "./operations";
 
 /**
@@ -10,6 +11,7 @@ import { deleteOperationRow } from "./operations";
  * Action, damit kein künftiger Aufrufer die Dateien verwaisen lässt.
  */
 export async function deleteOperation(db: Db, id: string): Promise<boolean> {
+  assertUuid(id);
   if (!(await deleteOperationRow(db, id))) return false;
   await deleteOperationUploads(id);
   return true;

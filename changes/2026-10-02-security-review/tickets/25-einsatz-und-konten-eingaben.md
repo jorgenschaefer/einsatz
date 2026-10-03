@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:
 advances:  AC-22
 after:     06-einsatz-loeschen-nur-admin, 07-links-entfernen-und-beim-abschliessen-loeschen, 11-login-limit, 12-passwoerter-und-erst-admin, 13-sitzungs-token, 14-sitzungs-laufzeit, 16-token-ansichten, 23-kartenobjekte-eingaben
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -192,3 +192,50 @@ role other than admin and user.
     `loginAction` only gains a type check.
 
 ## Left standing
+- **Step 7, in the browser:** the two reviewers checked this, not me, at
+  390×844 and 1280×800. An Einsatz was created, closed, reopened and
+  deleted. Accounts were created, roles changed, a password reset and an
+  account deleted. Login, logout and the Kartensuche worked as before. A
+  201-character Bezeichnung showed "Die Bezeichnung darf höchstens 200
+  Zeichen lang sein." in the dialog and created nothing. A 201-character
+  Nutzername was refused and a 200-character one was created. The
+  "Ungültige ID." answer inside the Abschließen dialog was not triggered
+  in the app, because the page only passes real ids.
+  `OperationLifecycleActions.test.tsx` covers it.
+- **Beyond the plan, found in review:**
+  - A form field sent as a file reached the actions as the text
+    "[object File]". The second reviewer created an Einsatz with that name,
+    and the same path could set a password to it. The plan assumed `FormData`
+    fields are always strings. Einsatz anlegen, Konto and Login now read
+    their fields through `formText` in `validation.ts`, which refuses a file
+    with "<Feld> muss Text sein." The Konto fields are called "Das aktuelle
+    Passwort" and "Das neue Passwort". This fix came after the second and
+    final review round, so no reviewer has looked at it. The action tests
+    and `validation.test.ts` pin it.
+  - "Neuer Einsatz" emptied both fields after a refusal, so a refused
+    2,001-character Beschreibung was lost. The fields now keep their text.
+- **Departures from the plan:**
+  - The Einsatz-ID of Abschließen, Wieder öffnen and Löschen is checked
+    with `assertUuid` in `closeOperation`, `reopenOperation` and
+    `deleteOperation`, not in the actions. Tickets 23 and 24 put their
+    checks in the domain functions in the same way. The check also keeps a
+    malformed id away from `deleteOperationUploads`, which builds a path
+    from it.
+  - Abschließen and Wieder öffnen now go through `operationAction` and also
+    refresh `/operations`. They used to have their own copy of that code.
+    A new test in `lifecycle-actions.test.ts` pins the refresh.
+  - `signIn` in `src/test/sign-in.ts` now takes an optional role.
+- **Review nit, not fixed:** `createAccount`, `setRole`, `resetPassword` and
+  `createOperation` still declare `string` / `Role` parameters, even though
+  they now check for other types. This matches the domain functions of
+  tickets 23 and 24, where only the check helpers take `unknown`.
+  `geocodeQuery` takes `unknown` because its non-text answer is "no hits",
+  not an error.
+- **Tests that passed without a red run:** the tests that accept the longest
+  values (200 / 2,000 characters) and the Kartensuche happy path. They guard
+  against limits that are too tight. The tests that the login check comes
+  before the `FormData` check passed at first. I moved the `FormData` check
+  above the login check, they turned red, and I put it back.
+- **Seen in review, not this ticket's:** `/account` logs a hydration
+  mismatch caused by a `caret-color` style on Mantine's password field.
+

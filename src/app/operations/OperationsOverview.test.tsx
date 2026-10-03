@@ -91,7 +91,7 @@ describe("OperationsOverview", () => {
   });
 
   it("closes an Einsatz from its per-card menu", async () => {
-    const onCloseOperation = vi.fn(async () => {});
+    const onCloseOperation = vi.fn(async () => ({}));
     render(
       <OperationsOverview
         operations={[op({ id: "a" })]}
@@ -153,7 +153,7 @@ describe("OperationsOverview", () => {
   });
 
   it("routes each card menu to its own Einsatz", async () => {
-    const onReopenOperation = vi.fn(async () => {});
+    const onReopenOperation = vi.fn(async () => ({}));
     render(
       <OperationsOverview
         operations={[

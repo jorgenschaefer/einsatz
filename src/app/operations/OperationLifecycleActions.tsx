@@ -9,8 +9,8 @@ export interface OperationLifecycleActionsProps {
   name: string;
   status: "active" | "closed";
   isAdmin: boolean;
-  onClose: () => void | Promise<void>;
-  onReopen: () => void | Promise<void>;
+  onClose: () => Promise<ActionResult>;
+  onReopen: () => Promise<ActionResult>;
   onDelete: () => Promise<ActionResult>;
 }
 
@@ -59,10 +59,7 @@ export function OperationLifecycleActions({
         onClose={closeConfirm.close}
         title={`Einsatz „${name}“ abschließen`}
         confirmLabel="Abschließen"
-        onConfirm={async () => {
-          await onClose();
-          return {};
-        }}
+        onConfirm={onClose}
       >
         <Text>
           Dabei werden alle Gerätelinks und Ansichtslinks dieses Einsatzes

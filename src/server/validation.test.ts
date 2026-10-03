@@ -9,6 +9,7 @@ import {
   assertScale,
   assertText,
   assertUuid,
+  formText,
   isValidLatLng,
   trimmedText,
   ValidationError,
@@ -239,6 +240,26 @@ describe("assertHexColor", () => {
       new ValidationError(
         "Die Farbe muss # und sechs Hex-Ziffern sein, etwa #e2001a.",
       ),
+    );
+  });
+});
+
+describe("formText", () => {
+  const form = new FormData();
+  form.set("name", "Hochwasser");
+  form.set("upload", new File(["Hochwasser"], "name.txt"));
+
+  it("returns the text of a field", () => {
+    expect(formText(form, "name", "Die Bezeichnung")).toBe("Hochwasser");
+  });
+
+  it("returns empty text for a missing field", () => {
+    expect(formText(form, "missing", "Die Bezeichnung")).toBe("");
+  });
+
+  it("refuses a file", () => {
+    expect(() => formText(form, "upload", "Die Bezeichnung")).toThrow(
+      new ValidationError("Die Bezeichnung muss Text sein."),
     );
   });
 });

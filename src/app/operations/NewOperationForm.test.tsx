@@ -48,4 +48,28 @@ describe("NewOperationForm", () => {
     expect(alert).toHaveTextContent("Die Bezeichnung darf nicht leer sein.");
     expect(notificationArea()).not.toContainElement(alert);
   });
+
+  it("keeps the entered Bezeichnung and Beschreibung when the action refuses them", async () => {
+    render(
+      <NewOperationForm
+        action={async () => ({
+          error: "Die Beschreibung darf höchstens 2.000 Zeichen lang sein.",
+        })}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText(/Bezeichnung/), {
+      target: { value: "Hochwasser" },
+    });
+    fireEvent.change(screen.getByLabelText(/Beschreibung/), {
+      target: { value: "Deich Nord" },
+    });
+    await userEvent.click(
+      screen.getByRole("button", { name: "Einsatz eröffnen" }),
+    );
+
+    await screen.findByRole("alert");
+    expect(screen.getByLabelText(/Bezeichnung/)).toHaveValue("Hochwasser");
+    expect(screen.getByLabelText(/Beschreibung/)).toHaveValue("Deich Nord");
+  });
 });
