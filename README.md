@@ -56,7 +56,7 @@ Log in with the `ADMIN_USERNAME` and `ADMIN_PASSWORD` from `.env`.
 | `DATABASE_URL`     | PostgreSQL connection string.                                                               |
 | `ADMIN_USERNAME`   | Username of the first admin, created by `npm run db:seed`. Needed only while there are no users. |
 | `ADMIN_PASSWORD`   | Password of the first admin. Needed only while there are no users. See the password rules below. |
-| `MAPTILER_API_KEY` | Optional. MapTiler key for map tiles; without it the public OSM tile server is used.        |
+| `MAPTILER_API_KEY` | MapTiler key for map tiles. Required in production: without it the app refuses to start. In development the public OSM tile server is used instead. |
 | `UPLOADS_DIR`      | Optional. Where uploaded images are stored; defaults to `data/uploads` in the working directory. |
 
 Every password, the first admin's included, must be 12 characters to 72 bytes

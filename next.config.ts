@@ -16,6 +16,22 @@ const nextConfig: NextConfig = {
     // verständlicher Meldung, statt eines rohen „Body exceeded"-Fehlers.
     serverActions: { bodySizeLimit: "25mb" },
   },
+  poweredByHeader: false,
+  // Die Content-Security-Policy setzt src/proxy.ts je Seite (Nonce).
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "no-referrer" },
+          { key: "Strict-Transport-Security", value: "max-age=31536000" },
+          { key: "Permissions-Policy", value: "geolocation=(self)" },
+          { key: "X-Frame-Options", value: "DENY" },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;

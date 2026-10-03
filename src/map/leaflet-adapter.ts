@@ -33,9 +33,13 @@ export const leafletMapAdapterFactory: MapAdapterFactory = {
       '<a href="/impressum">Impressum</a> · <a href="/datenschutz">Datenschutz</a>',
     );
 
+    // Die App sendet keinen Referer (Referrer-Policy: no-referrer); der
+    // MapTiler-Key antwortet aber nur erlaubten Origins. Kacheln nennen daher
+    // den Origin, nie den Pfad – der kann ein Geräte- oder Ansichtslink sein.
     L.tileLayer(options.tileUrl, {
       attribution: options.attribution,
       maxZoom: MAX_TILE_ZOOM,
+      referrerPolicy: "strict-origin",
     }).addTo(map);
 
     // Leaflet vermisst den Container nur bei window-resize neu. Ändert sich die

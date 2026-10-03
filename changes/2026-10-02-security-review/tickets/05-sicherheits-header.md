@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:    AC-2, AC-3, AC-4, AC-35
 advances:
 after:     04-kml-icons-einbetten
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -197,3 +197,88 @@ rather than in `docker-entrypoint.sh`; `noindex` via the root layout's
 - Alles in `../drk-barmbek`: Header und Body-Grenzen im Caddy, Backup des `uploads`-Volumes, Backup auf einen anderen Rechner, das committete `database/.env`. Das wird eine eigene Änderung dort.
 
 ## Left standing
+- **AC-4 gap: Next's own trailing-slash redirect carries none of the static
+  headers.** `/login/` gets a `308 → /login` from Next before `headers()` in
+  `next.config.ts` runs, so that one response has no `nosniff`,
+  `Referrer-Policy`, HSTS, `Permissions-Policy` or `X-Frame-Options`. All other
+  responses checked with curl on `npm start` carry them. These were pages,
+  404s, route handlers, a server-action POST, `/_next/static`, `icon.svg` and
+  the manifest. The 308 has no body and points to the same origin. Not fixed:
+  the only lever in the app is `skipTrailingSlashRedirect`, which changes
+  routing for every URL. Adding the headers in Caddy (`../drk-barmbek`, out of
+  scope here) would cover it. To decide at acceptance.
+- **`npm run check` is red in the working tree, but not because of this
+  commit.** The first reviewer left two untracked scratch scripts,
+  `.claude/skills/run-einsatz/crit-ref.mjs` and `crit-review.mjs`, and Biome
+  fails on them. Deleting them needed an approval that this unattended run
+  could not get. Delete them by hand. Excluding them, `tsc`, `biome check` and
+  vitest (199 files, 2132 tests) are green.
+- **Review nit not fixed: the `run-einsatz` driver's `wait-fn` and
+  `wait-tiles` do not work against a production build.** Playwright's string
+  `waitForFunction` compiles inside the page, and the production CSP (no
+  `'unsafe-eval'`) blocks that. `eval` and `click` still work. Fix: make
+  `wait-fn` poll `page.evaluate(js)` in a loop. Do not use `bypassCSP`, which
+  would hide CSP violations. Not done because this run had no write
+  permission under `.claude/`.
+- **Review nit not fixed: the new comments in `leaflet-adapter.ts`,
+  `tiles.ts` and `next.config.ts` are German.** They match the comments
+  already in those files. The new files (`proxy.ts`, `startup-checks.ts`,
+  `instrumentation.ts`) are English.
+- **Proxy skipped for `Purpose: prefetch`.** A page request with that header
+  gets no CSP; the reviewer confirmed it with curl. This is the exclusion the
+  Next guide recommends. A cross-site attacker cannot make a victim's
+  navigation send that header, so it is left as is.
+- **AC-2 and AC-3 have no automated browser test.** Two fresh reviewers
+  checked them against `npm start` (production CSP) in Chromium, at
+  1280/1920 desktop and 320×568 to 430×932 phone sizes. No CSP violation and
+  no console error appeared in any of these:
+  - Lagekarte: tiles load, Kartenzeichen placed.
+  - KML/KMZ by file, with icons as `data:`.
+  - A 15.6 MB Bild-Overlay uploaded and moved. This also shows that server
+    actions bypass the proxy and its 10 MB cut.
+  - Kartensuche.
+  - Ansichtslink and Gerätelink QR codes.
+  - ETB entry, Stärke (a new Stelle), Nutzerverwaltung (create and delete a
+    user).
+  - Geräteansicht on a phone context with location allowed: the position was
+    stored and moved live on the operator map.
+
+  An injected inline `<script>`, `<img onerror>`, `<svg onload>`,
+  `<div onclick>` and `javascript:` link did not run, and the violations were
+  reported. Framing `/login`, a Gerätelink and an Ansichtslink from another
+  origin was refused. **Not checked in a browser:** drawing a Bereich
+  (geoman), KML by URL, and browsers other than Chromium. The dev CSP was
+  checked once by a reviewer: OSM tiles load without a key and there were no
+  violations.
+- **AC-35 start-up was checked by hand as well as by the unit test.**
+  `MAPTILER_API_KEY= next start` exits with 1 and logs the German reason. With
+  the key it serves `/login`. `npm run build` succeeds without a key, as in
+  the Docker build. Every page route is `ƒ` (dynamic), and each of the 14
+  scripts on `/login` carries the header's nonce.
+- **Departed from the plan:**
+  - **Tile requests now send the app's origin
+    (`referrerPolicy: "strict-origin"` on the Leaflet tile layer,
+    `src/map/leaflet-adapter.ts`).** Review found that the new
+    `Referrer-Policy: no-referrer` makes MapTiler refuse every tile (403
+    "Invalid key"), because the key is restricted to allowed origins. The
+    response header stays `no-referrer`, as AC-4 requires. Tiles send only
+    the origin, never the path, which can contain a Gerätelink or
+    Ansichtslink token. Pinned by `leaflet-adapter.tiles.test.ts`.
+  - **The start-up check sits in `src/startup-checks.ts`.**
+    `src/instrumentation.ts` imports it dynamically under
+    `NEXT_RUNTIME === "nodejs"`. Next also compiles instrumentation for the
+    Edge runtime. With `process.exit` in `instrumentation.ts` itself, the
+    build warned that `process.exit` is not supported there. This is the
+    pattern from Next's instrumentation guide.
+  - **The matcher tests derive their page and route-handler cases from
+    `src/app/**/page.tsx` and `route.ts`** instead of a hand-written list (a
+    review should-fix). A handler that ticket 09 adds without excluding it
+    from the matcher fails `proxy.test.ts`. I checked this by dropping
+    `geocode` from the matcher: two cases failed.
+  - **Step 1's red was an assertion against a stub `proxy.ts`**, not a
+    missing module.
+  - **No `upgrade-insecure-requests` in the CSP** (the guide has it, the plan
+    does not). HSTS covers HTTPS, and the directive would break the local
+    `npm start` checks over http.
+  - **README and `.env.example` updated:** `MAPTILER_API_KEY` is now required
+    in production.
