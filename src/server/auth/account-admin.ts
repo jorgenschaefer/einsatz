@@ -1,4 +1,4 @@
-import type { Db, Queryable } from "@/server/db/db";
+import { type Db, isUniqueViolation, type Queryable } from "@/server/db/db";
 import { assertUuid, trimmedText, ValidationError } from "@/server/validation";
 import { assertPasswordPolicy, hashPassword, verifyPassword } from "./password";
 import { type LoginRateLimiter, RATE_LIMITED_MESSAGE } from "./rate-limit";
@@ -32,7 +32,7 @@ export async function createAccount(
     return await insertUser(db, { username, passwordHash, role: input.role });
   } catch (err) {
     // Eindeutig ohne Rücksicht auf Groß-/Kleinschreibung: users_username_lower_idx.
-    if ((err as { code?: string }).code === UNIQUE_VIOLATION) {
+    if (isUniqueViolation(err)) {
       throw new ValidationError("Dieser Nutzername ist bereits vergeben.");
     }
     throw err;
@@ -40,7 +40,6 @@ export async function createAccount(
 }
 
 const MAX_USERNAME_LENGTH = 200;
-const UNIQUE_VIOLATION = "23505";
 
 export async function setRole(db: Db, id: string, role: Role): Promise<void> {
   assertUuid(id);

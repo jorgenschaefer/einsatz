@@ -12,6 +12,10 @@ export interface Queryable {
   ): Promise<{ rows: R[] }>;
 }
 
+/** Ob `err` ein Verstoß gegen einen eindeutigen Index ist (PostgreSQL 23505). */
+export const isUniqueViolation = (err: unknown): boolean =>
+  (err as { code?: string } | null)?.code === "23505";
+
 /** Ausführungskontext innerhalb einer Transaktion: parametrisierte Abfragen
  *  plus mehrteilige Skripte (für DDL in Migrationen). */
 export interface Transaction extends Queryable {

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { NO_ROUTE } from "@/journal/entry-route";
-import type { Db, Queryable } from "@/server/db/db";
+import { type Db, isUniqueViolation, type Queryable } from "@/server/db/db";
 import { appendEntry } from "@/server/journal/journal";
 import { assertUuid, ValidationError } from "@/server/validation";
 import { requireStationName } from "./strength-input";
@@ -99,14 +99,12 @@ export async function listStations(
   return rows.map(toStation);
 }
 
-const UNIQUE_VIOLATION = "23505";
-
 /** Übersetzt den Verstoß gegen den eindeutigen Namen (stations_operation_name_idx). */
 async function rejectingDuplicateName<T>(write: () => Promise<T>): Promise<T> {
   try {
     return await write();
   } catch (err) {
-    if ((err as { code?: string }).code === UNIQUE_VIOLATION) {
+    if (isUniqueViolation(err)) {
       throw new ValidationError("Eine Stelle mit diesem Namen gibt es schon.");
     }
     throw err;
