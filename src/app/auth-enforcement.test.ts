@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { NO_ROUTE } from "@/journal/entry-route";
 
 // Shared, mutable harness state. Read lazily by the mocks below, set per test.
 const state = vi.hoisted(() => ({
@@ -7,8 +6,8 @@ const state = vi.hoisted(() => ({
   token: undefined as string | undefined,
 }));
 
-// The trust/IO boundaries every action and route depends on, faked so the real
-// auth logic (requireUser/requireAdmin/resolveDeviceAccess) runs unchanged.
+// The trust/IO boundaries every route depends on, faked so the real auth logic
+// (requireUser/resolveDeviceAccess) runs unchanged.
 vi.mock("@/server/db/pg", () => ({ getDb: () => state.db }));
 vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
 vi.mock("next/headers", () => ({
@@ -32,25 +31,12 @@ import { GET as deviceEventsGET } from "@/app/device/[token]/events/route";
 import { GET as deviceGeocodeGET } from "@/app/device/[token]/geocode/route";
 import { POST as devicePositionPOST } from "@/app/device/[token]/position/route";
 import { GET as operationEventsGET } from "@/app/operations/[id]/events/route";
-import {
-  addJournalEntryAction,
-  annulEntryAction,
-  correctEntryAction,
-} from "@/app/operations/[id]/journal-actions";
 import { POST as addKmlFilePOST } from "@/app/operations/[id]/kml/route";
 import {
   GET as operationOverlayGET,
   PUT as replaceImageOverlayPUT,
 } from "@/app/operations/[id]/overlays/[overlayId]/route";
 import { POST as addImageOverlayPOST } from "@/app/operations/[id]/overlays/route";
-import {
-  annulStrengthReportAction,
-  correctStrengthReportAction,
-  createStationAction,
-  recordStrengthReportAction,
-  renameStationAction,
-  reportTotalStrengthAction,
-} from "@/app/operations/[id]/strength-actions";
 import { freshDb } from "@/test/db";
 
 const expectRedirect = (fn: () => Promise<unknown>, to: string) =>
@@ -67,58 +53,6 @@ interface Invocation {
   name: string;
   run: () => Promise<unknown>;
 }
-
-// Die requireUser-geschützten Actions, deren Login-Pflicht noch nicht der Test
-// ihres eigenen Moduls mit `expectEveryActionRequiresLogin` prüft.
-const userGuardedActions: Invocation[] = [
-  {
-    name: "addJournalEntryAction",
-    run: () => addJournalEntryAction("op-1", { text: "Lage", ...NO_ROUTE }),
-  },
-  {
-    name: "correctEntryAction",
-    run: () => correctEntryAction("e-1", { text: "Korrektur", ...NO_ROUTE }),
-  },
-  { name: "annulEntryAction", run: () => annulEntryAction("e-1") },
-  {
-    name: "createStationAction",
-    run: () => createStationAction("op-1", "UHSt 3"),
-  },
-  {
-    name: "renameStationAction",
-    run: () => renameStationAction("st-1", "UHSt 3 Nord"),
-  },
-  {
-    name: "recordStrengthReportAction",
-    run: () =>
-      recordStrengthReportAction("st-1", {
-        leaders: 0,
-        subLeaders: 1,
-        crew: 6,
-        additionalPersonnel: 2,
-        note: null,
-      }),
-  },
-  {
-    name: "correctStrengthReportAction",
-    run: () =>
-      correctStrengthReportAction("r-1", "st-1", {
-        leaders: 0,
-        subLeaders: 1,
-        crew: 6,
-        additionalPersonnel: 2,
-        note: null,
-      }),
-  },
-  {
-    name: "annulStrengthReportAction",
-    run: () => annulStrengthReportAction("r-1"),
-  },
-  {
-    name: "reportTotalStrengthAction",
-    run: () => reportTotalStrengthAction("op-1"),
-  },
-];
 
 // requireUser-geschützte Route-Handler (keine Token-Routen). Token-Routen
 // (device/*) sind unten über ihren 403-Pfad abgedeckt.
@@ -159,14 +93,6 @@ const sessionGuardedUploads: Invocation[] = [
 beforeEach(async () => {
   state.db = await freshDb();
   state.token = undefined;
-});
-
-describe("server action auth enforcement (requireUser)", () => {
-  describe.each(userGuardedActions)("$name", ({ run }) => {
-    it("redirects to /login when unauthenticated", async () => {
-      await expectRedirect(run, "/login");
-    });
-  });
 });
 
 describe("route handler auth enforcement (requireUser)", () => {

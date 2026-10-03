@@ -1,1 +1,5 @@
-{}
+{
+  "src/test/bad-calls/journal-strength.ts": [],
+  "src/test/bad-calls/map.ts": [],
+  "src/test/bad-calls/operations-accounts.ts": []
+}

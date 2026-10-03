@@ -1,7 +1,7 @@
 import type { Db } from "@/server/db/db";
-import { appendEntry, listEntries } from "@/server/journal/journal";
+import { appendEntry } from "@/server/journal/journal";
 import { insertOperation } from "@/server/operations/operations";
-import { createStation, listStations } from "@/server/strength/stations";
+import { createStation } from "@/server/strength/stations";
 import {
   listStrengthReports,
   recordStrengthReport,
@@ -54,31 +54,4 @@ export async function aJournalAndStrength(db: Db): Promise<JournalAndStrength> {
     stationId: station.id,
     reportId: report.id,
   };
-}
-
-/** ETB, Stellen und Stärkemeldungen des Einsatzes und die Zeilenzahl jeder ihrer Tabellen. */
-export async function journalAndStrength(db: Db, operationId: string) {
-  return {
-    entries: await listEntries(db, operationId),
-    stations: await listStations(db, operationId),
-    reports: await listStrengthReports(db, operationId),
-    rowCounts: await rowCounts(db),
-  };
-}
-
-async function rowCounts(db: Db): Promise<Record<string, number>> {
-  const tables = [
-    "journal_entries",
-    "journal_entry_revisions",
-    "stations",
-    "strength_reports",
-  ];
-  const counts: Record<string, number> = {};
-  for (const table of tables) {
-    const { rows } = await db.query<{ n: number }>(
-      `SELECT count(*)::int AS n FROM ${table}`,
-    );
-    counts[table] = rows[0].n;
-  }
-  return counts;
 }

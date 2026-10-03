@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Db } from "@/server/db/db";
 
@@ -17,47 +16,51 @@ vi.mock("next/headers", () => ({
     delete: () => {},
   }),
 }));
+vi.mock("next/navigation", async (original) => ({
+  ...(await original<object>()),
+  redirect: (to: string) => {
+    throw Object.assign(new Error("NEXT_REDIRECT"), { redirectTo: to });
+  },
+}));
 
+import type { ActionResult } from "@/app/action-result";
+import { listEntries } from "@/server/journal/journal";
+import { insertOperation } from "@/server/operations/operations";
+import { listStations } from "@/server/strength/stations";
+import { listStrengthReports } from "@/server/strength/strength-reports";
 import {
+  type ActAs,
+  expectBadCallsRejected,
+  expectEveryActionRequiresLogin,
+  expectForeignObjectsRejected,
+} from "@/test/action-checks";
+import {
+  type Bad,
+  type BadCall,
+  INVALID_ID,
+  NOT_A_UUID,
+  rejects,
+  text,
+  tooLong,
+} from "@/test/bad-calls/bad-call";
+import type { Fixture } from "@/test/bad-calls/fixture";
+import { freshDb } from "@/test/db";
+import {
+  aJournalAndStrength,
+  type JournalAndStrength,
+} from "@/test/journal-and-strength";
+import { liveEventsFor } from "@/test/live-events";
+import { signIn, signInAs } from "@/test/sign-in";
+import * as actions from "./strength-actions";
+
+const {
   annulStrengthReportAction,
   correctStrengthReportAction,
   createStationAction,
   recordStrengthReportAction,
   renameStationAction,
   reportTotalStrengthAction,
-} from "@/app/operations/[id]/strength-actions";
-import { hashPassword } from "@/server/auth/password";
-import { insertSession } from "@/server/auth/sessions";
-import { insertUser } from "@/server/auth/users";
-import { subscribeOperation } from "@/server/events/operation-events";
-import { listEntries } from "@/server/journal/journal";
-import { insertOperation } from "@/server/operations/operations";
-import { listStations } from "@/server/strength/stations";
-import { listStrengthReports } from "@/server/strength/strength-reports";
-import { freshDb } from "@/test/db";
-
-async function loginAs(username: string): Promise<void> {
-  const db = state.db as Db;
-  const user = await insertUser(db, {
-    username,
-    passwordHash: await hashPassword("a-very-good-password"),
-    role: "user",
-  });
-  const token = randomUUID();
-  await insertSession(db, {
-    token,
-    userId: user.id,
-    expiresAt: new Date(Date.now() + 3_600_000),
-  });
-  state.token = token;
-}
-
-async function anOperation() {
-  return insertOperation(state.db as Db, {
-    name: "Cyclassics",
-    description: null,
-  });
-}
+} = actions;
 
 const SOME_VALUES = {
   leaders: 0,
@@ -67,50 +70,93 @@ const SOME_VALUES = {
   note: null,
 };
 
-async function aStationWithAReport() {
-  const op = await anOperation();
-  await createStationAction(op.id, "UHSt 3");
-  const db = state.db as Db;
-  const [station] = await listStations(db, op.id);
-  await recordStrengthReportAction(station.id, SOME_VALUES);
-  const [report] = await listStrengthReports(db, op.id);
-  return { operationId: op.id, stationId: station.id, reportId: report.id };
-}
-
-/** How many live events the Führungsansichten of `operationId` receive while `act` runs. */
-async function liveEventsFor(
-  operationId: string,
-  act: () => Promise<unknown>,
-): Promise<number> {
-  let events = 0;
-  const unsubscribe = subscribeOperation(operationId, () => {
-    events += 1;
-  });
-  try {
-    await act();
-  } finally {
-    unsubscribe();
-  }
-  return events;
-}
+const actAs: ActAs = async (caller) => {
+  state.token =
+    caller === "anonymous" ? undefined : await signIn(state.db as Db, caller);
+};
+const db = () => state.db as Db;
 
 beforeEach(async () => {
   state.db = await freshDb();
   state.token = undefined;
 });
 
+expectEveryActionRequiresLogin(actions, { actAs });
+
+expectBadCallsRejected(
+  actions,
+  {
+    createStationAction: [
+      rejects("a non-UUID Einsatz-ID", INVALID_ID, () =>
+        createStationAction(NOT_A_UUID, "UHSt 2"),
+      ),
+      ...stationNameCalls((f, name) =>
+        createStationAction(f.operationId, name),
+      ),
+    ],
+    renameStationAction: [
+      rejects("a non-UUID Stellen-ID", INVALID_ID, () =>
+        renameStationAction(NOT_A_UUID, "UHSt 2"),
+      ),
+      ...stationNameCalls((f, name) => renameStationAction(f.stationId, name)),
+    ],
+    recordStrengthReportAction: [
+      rejects("a non-UUID Stellen-ID", INVALID_ID, () =>
+        recordStrengthReportAction(NOT_A_UUID, SOME_VALUES),
+      ),
+      ...strengthValuesCalls((f, values) =>
+        recordStrengthReportAction(f.stationId, values),
+      ),
+    ],
+    correctStrengthReportAction: [
+      rejects("a non-UUID Meldungs-ID", INVALID_ID, (f) =>
+        correctStrengthReportAction(NOT_A_UUID, f.stationId, SOME_VALUES),
+      ),
+      rejects("a non-UUID Stellen-ID", INVALID_ID, (f) =>
+        correctStrengthReportAction(f.reportId, NOT_A_UUID, SOME_VALUES),
+      ),
+      ...strengthValuesCalls((f, values) =>
+        correctStrengthReportAction(f.reportId, f.stationId, values),
+      ),
+    ],
+    annulStrengthReportAction: [
+      rejects("a non-UUID Meldungs-ID", INVALID_ID, () =>
+        annulStrengthReportAction(NOT_A_UUID),
+      ),
+    ],
+    reportTotalStrengthAction: [
+      rejects("a non-UUID Einsatz-ID", INVALID_ID, () =>
+        reportTotalStrengthAction(NOT_A_UUID),
+      ),
+    ],
+  },
+  { db, actAs },
+);
+
+expectForeignObjectsRejected(
+  actions,
+  {
+    createStationAction: "takes only the Einsatz-ID",
+    reportTotalStrengthAction: "takes only the Einsatz-ID",
+    renameStationAction: "takes no Einsatz-ID",
+    recordStrengthReportAction: "takes no Einsatz-ID",
+    correctStrengthReportAction: "takes no Einsatz-ID",
+    annulStrengthReportAction: "takes no Einsatz-ID",
+  },
+  { db, actAs },
+);
+
 describe("strength actions", () => {
   it("creates a Stelle in the name of the logged-in user", async () => {
-    await loginAs("anna");
+    state.token = await signInAs(db(), "anna");
     const op = await anOperation();
 
     expect(await createStationAction(op.id, "UHSt 3")).toEqual({});
 
-    const db = state.db as Db;
-    expect((await listStations(db, op.id)).map((s) => s.name)).toEqual([
+    expect((await listStations(db(), op.id)).map((s) => s.name)).toEqual([
       "UHSt 3",
     ]);
-    expect(await listEntries(db, op.id)).toEqual([
+    expect(await listEntries(db(), op.id)).toEqual([
       expect.objectContaining({
         text: "Stelle angelegt: UHSt 3",
         author: "anna",
@@ -119,82 +165,63 @@ describe("strength actions", () => {
   });
 
   it("reports a duplicate name as a form error", async () => {
-    await loginAs("anna");
-    const op = await anOperation();
-    await createStationAction(op.id, "UHSt 3");
+    state.token = await signInAs(db(), "anna");
+    const { operationId } = await aStation();
 
-    expect(await createStationAction(op.id, "uhst 3")).toEqual({
+    expect(await createStationAction(operationId, "uhst 3")).toEqual({
       error: "Eine Stelle mit diesem Namen gibt es schon.",
     });
   });
 
   it("renames a Stelle in the name of the logged-in user", async () => {
-    await loginAs("bernd");
-    const op = await anOperation();
-    await createStationAction(op.id, "UHSt 3");
-    const db = state.db as Db;
-    const [station] = await listStations(db, op.id);
+    state.token = await signInAs(db(), "bernd");
+    const { operationId, stationId } = await aStation();
 
-    expect(await renameStationAction(station.id, "UHSt 3 Nord")).toEqual({});
+    expect(await renameStationAction(stationId, "UHSt 3 Nord")).toEqual({});
 
-    expect((await listStations(db, op.id)).map((s) => s.name)).toEqual([
+    expect((await listStations(db(), operationId)).map((s) => s.name)).toEqual([
       "UHSt 3 Nord",
     ]);
-    expect((await listEntries(db, op.id)).at(-1)).toMatchObject({
+    expect((await listEntries(db(), operationId)).at(-1)).toMatchObject({
       text: "Stelle umbenannt: UHSt 3 → UHSt 3 Nord",
       author: "bernd",
     });
   });
 
   it("reports an empty new name as a form error", async () => {
-    await loginAs("bernd");
-    const op = await anOperation();
-    await createStationAction(op.id, "UHSt 3");
-    const [station] = await listStations(state.db as Db, op.id);
+    state.token = await signInAs(db(), "bernd");
+    const { stationId } = await aStation();
 
-    expect(await renameStationAction(station.id, " ")).toEqual({
+    expect(await renameStationAction(stationId, " ")).toEqual({
       error: "Der Name der Stelle darf nicht leer sein.",
     });
   });
 
   it("records a Stärkemeldung in the name of the logged-in user", async () => {
-    await loginAs("bernd");
-    const op = await anOperation();
-    await createStationAction(op.id, "UHSt 3");
-    const db = state.db as Db;
-    const [station] = await listStations(db, op.id);
-    const values = {
-      leaders: 0,
-      subLeaders: 1,
-      crew: 6,
-      additionalPersonnel: 2,
-      note: null,
-    };
+    state.token = await signInAs(db(), "bernd");
+    const { operationId, stationId } = await aStation();
 
-    expect(await recordStrengthReportAction(station.id, values)).toEqual({});
+    expect(await recordStrengthReportAction(stationId, SOME_VALUES)).toEqual(
+      {},
+    );
 
-    expect(await listStrengthReports(db, op.id)).toEqual([
-      expect.objectContaining(values),
+    expect(await listStrengthReports(db(), operationId)).toEqual([
+      expect.objectContaining(SOME_VALUES),
     ]);
-    expect((await listEntries(db, op.id)).at(-1)).toMatchObject({
+    expect((await listEntries(db(), operationId)).at(-1)).toMatchObject({
       text: "Stärkemeldung UHSt 3: 0/1/6//7, +2 zusätzlich, 9 Personen",
       author: "bernd",
     });
   });
 
   it("reports a negative number as a form error", async () => {
-    await loginAs("bernd");
-    const op = await anOperation();
-    await createStationAction(op.id, "UHSt 3");
-    const [station] = await listStations(state.db as Db, op.id);
+    state.token = await signInAs(db(), "bernd");
+    const { stationId } = await aStation();
 
     expect(
-      await recordStrengthReportAction(station.id, {
+      await recordStrengthReportAction(stationId, {
+        ...SOME_VALUES,
         leaders: -1,
-        subLeaders: 0,
-        crew: 0,
-        additionalPersonnel: 0,
-        note: null,
       }),
     ).toEqual({
       error: "Die Stärke muss aus ganzen Zahlen von 0 bis 9999 bestehen.",
@@ -202,22 +229,12 @@ describe("strength actions", () => {
   });
 
   it("reports the Gesamtstärke in the name of the logged-in user", async () => {
-    await loginAs("clara");
-    const op = await anOperation();
-    await createStationAction(op.id, "UHSt 3");
-    const db = state.db as Db;
-    const [station] = await listStations(db, op.id);
-    await recordStrengthReportAction(station.id, {
-      leaders: 0,
-      subLeaders: 1,
-      crew: 6,
-      additionalPersonnel: 2,
-      note: null,
-    });
+    state.token = await signInAs(db(), "clara");
+    const { operationId } = await aStationWithAReport();
 
-    expect(await reportTotalStrengthAction(op.id)).toEqual({});
+    expect(await reportTotalStrengthAction(operationId)).toEqual({});
 
-    expect((await listEntries(db, op.id)).at(-1)).toMatchObject({
+    expect((await listEntries(db(), operationId)).at(-1)).toMatchObject({
       type: "gesamtstärke-gemeldet",
       text: expect.stringMatching(
         /^Gesamtstärke gemeldet: 0\/1\/6\/\/7, \+2 zusätzlich, 9 Personen \(1 Stelle, älteste Meldung \d\d:\d\d\)$/,
@@ -227,7 +244,7 @@ describe("strength actions", () => {
   });
 
   it("reports a Gesamtstärke without any report as a form error", async () => {
-    await loginAs("clara");
+    state.token = await signInAs(db(), "clara");
     const op = await anOperation();
 
     expect(await reportTotalStrengthAction(op.id)).toEqual({
@@ -236,75 +253,51 @@ describe("strength actions", () => {
   });
 
   it("corrects a Stärkemeldung in the name of the logged-in user", async () => {
-    await loginAs("clara");
-    const op = await anOperation();
-    await createStationAction(op.id, "UHSt 3");
-    const db = state.db as Db;
-    const [station] = await listStations(db, op.id);
-    const values = {
-      leaders: 0,
-      subLeaders: 1,
-      crew: 6,
-      additionalPersonnel: 2,
-      note: null,
-    };
-    await recordStrengthReportAction(station.id, values);
-    const [report] = await listStrengthReports(db, op.id);
+    state.token = await signInAs(db(), "clara");
+    const { operationId, stationId, reportId } = await aStationWithAReport();
 
     expect(
-      await correctStrengthReportAction(report.id, station.id, {
-        ...values,
+      await correctStrengthReportAction(reportId, stationId, {
+        ...SOME_VALUES,
         crew: 5,
       }),
     ).toEqual({});
 
-    expect((await listStrengthReports(db, op.id))[0].crew).toBe(5);
-    expect((await listEntries(db, op.id)).at(-1)).toMatchObject({
+    expect((await listStrengthReports(db(), operationId))[0].crew).toBe(5);
+    expect((await listEntries(db(), operationId)).at(-1)).toMatchObject({
       text: "Stärkemeldung UHSt 3: 0/1/5//6, +2 zusätzlich, 8 Personen",
       author: "clara",
     });
   });
 
   it("annuls a Stärkemeldung", async () => {
-    await loginAs("clara");
-    const op = await anOperation();
-    await createStationAction(op.id, "UHSt 3");
-    const db = state.db as Db;
-    const [station] = await listStations(db, op.id);
-    await recordStrengthReportAction(station.id, {
-      leaders: 0,
-      subLeaders: 1,
-      crew: 6,
-      additionalPersonnel: 2,
-      note: null,
-    });
-    const [report] = await listStrengthReports(db, op.id);
+    state.token = await signInAs(db(), "clara");
+    const { operationId, reportId } = await aStationWithAReport();
 
-    expect(await annulStrengthReportAction(report.id)).toEqual({});
+    expect(await annulStrengthReportAction(reportId)).toEqual({});
 
-    expect((await listStrengthReports(db, op.id))[0].state).toBe("annulliert");
+    expect((await listStrengthReports(db(), operationId))[0].state).toBe(
+      "annulliert",
+    );
   });
 
   describe("reach every open Führungsansicht of the operation live", () => {
     it.each([
       [
         "creating a Stelle",
-        (s: { operationId: string }) =>
-          createStationAction(s.operationId, "Ziel"),
+        (s: Setting) => createStationAction(s.operationId, "Ziel"),
       ],
       [
         "renaming a Stelle",
-        (s: { stationId: string }) =>
-          renameStationAction(s.stationId, "UHSt 3 Nord"),
+        (s: Setting) => renameStationAction(s.stationId, "UHSt 3 Nord"),
       ],
       [
         "recording a Stärkemeldung",
-        (s: { stationId: string }) =>
-          recordStrengthReportAction(s.stationId, SOME_VALUES),
+        (s: Setting) => recordStrengthReportAction(s.stationId, SOME_VALUES),
       ],
       [
         "correcting a Stärkemeldung",
-        (s: { reportId: string; stationId: string }) =>
+        (s: Setting) =>
           correctStrengthReportAction(s.reportId, s.stationId, {
             ...SOME_VALUES,
             crew: 5,
@@ -312,15 +305,14 @@ describe("strength actions", () => {
       ],
       [
         "annulling a Stärkemeldung",
-        (s: { reportId: string }) => annulStrengthReportAction(s.reportId),
+        (s: Setting) => annulStrengthReportAction(s.reportId),
       ],
       [
         "reporting the Gesamtstärke",
-        (s: { operationId: string }) =>
-          reportTotalStrengthAction(s.operationId),
+        (s: Setting) => reportTotalStrengthAction(s.operationId),
       ],
     ])("%s", async (_, act) => {
-      await loginAs("dora");
+      state.token = await signInAs(db(), "dora");
       const setting = await aStationWithAReport();
 
       expect(
@@ -331,7 +323,7 @@ describe("strength actions", () => {
     });
 
     it("but not those of another operation", async () => {
-      await loginAs("dora");
+      state.token = await signInAs(db(), "dora");
       const setting = await aStationWithAReport();
       const other = await anOperation();
 
@@ -343,3 +335,122 @@ describe("strength actions", () => {
     });
   });
 });
+
+/** Beide Wege, einer Stelle einen Namen zu geben: anlegen und umbenennen. */
+const namings: [
+  string,
+  (o: JournalAndStrength, name: Bad) => Promise<ActionResult>,
+][] = [
+  ["a new Stelle", (o, name) => createStationAction(o.operationId, name)],
+  ["renaming a Stelle", (o, name) => renameStationAction(o.stationId, name)],
+];
+
+/** Beide Wege, Werte zu melden: erfassen und korrigieren. */
+const reportings: [
+  string,
+  (o: JournalAndStrength, values: Bad) => Promise<ActionResult>,
+][] = [
+  [
+    "a new Stärkemeldung",
+    (o, values) => recordStrengthReportAction(o.stationId, values),
+  ],
+  [
+    "a corrected Stärkemeldung",
+    (o, values) => correctStrengthReportAction(o.reportId, o.stationId, values),
+  ],
+];
+
+describe.each(namings)("%s with the longest name allowed", (_, call) => {
+  beforeEach(() => actAs("user"));
+
+  it("stores a name of 200 characters, trimmed of surrounding blanks", async () => {
+    const o = await aJournalAndStrength(db());
+    const name = text(200);
+
+    expect(await call(o, ` ${name} `)).toEqual({});
+
+    expect(await listStations(db(), o.operationId)).toContainEqual(
+      expect.objectContaining({ name }),
+    );
+  });
+});
+
+describe.each(reportings)("%s with the longest note allowed", (_, call) => {
+  beforeEach(() => actAs("user"));
+
+  it("stores a note of 2,000 characters, trimmed of surrounding blanks", async () => {
+    const o = await aJournalAndStrength(db());
+    const note = text(2000);
+
+    expect(await call(o, { ...SOME_VALUES, note: ` ${note}\n` })).toEqual({});
+
+    expect(await listStrengthReports(db(), o.operationId)).toContainEqual(
+      expect.objectContaining({ note }),
+    );
+  });
+});
+
+function stationNameCalls(
+  action: (f: Fixture, name: Bad) => Promise<unknown>,
+): BadCall[] {
+  return [
+    rejects("a name of null", "Der Name der Stelle muss Text sein.", (f) =>
+      action(f, null),
+    ),
+    rejects("a name as a number", "Der Name der Stelle muss Text sein.", (f) =>
+      action(f, 7),
+    ),
+    rejects("a name of 201", tooLong("Der Name der Stelle", "200"), (f) =>
+      action(f, text(201)),
+    ),
+  ];
+}
+
+function strengthValuesCalls(
+  action: (f: Fixture, values: Bad) => Promise<unknown>,
+): BadCall[] {
+  const INVALID_COUNTS =
+    "Die Stärke muss aus ganzen Zahlen von 0 bis 9999 bestehen.";
+  return [
+    rejects("values of null", INVALID_COUNTS, (f) => action(f, null)),
+    rejects("values as text", INVALID_COUNTS, (f) => action(f, "1/2/6")),
+    rejects("a count as text", INVALID_COUNTS, (f) =>
+      action(f, { ...SOME_VALUES, crew: "6" }),
+    ),
+    rejects("a count of NaN", INVALID_COUNTS, (f) =>
+      action(f, { ...SOME_VALUES, leaders: Number.NaN }),
+    ),
+    rejects("a note as a number", "Die Notiz muss Text sein.", (f) =>
+      action(f, { ...SOME_VALUES, note: 7 }),
+    ),
+    rejects("a note of 2,001", tooLong("Die Notiz", "2.000"), (f) =>
+      action(f, { ...SOME_VALUES, note: text(2001) }),
+    ),
+  ];
+}
+
+interface Setting {
+  operationId: string;
+  stationId: string;
+  reportId: string;
+}
+
+function anOperation() {
+  return insertOperation(db(), { name: "Cyclassics", description: null });
+}
+
+/** Ein Einsatz mit der Stelle „UHSt 3“, angelegt vom angemeldeten Nutzer. */
+async function aStation() {
+  const op = await anOperation();
+  await createStationAction(op.id, "UHSt 3");
+  const [station] = await listStations(db(), op.id);
+  return { operationId: op.id, stationId: station.id };
+}
+
+/** {@link aStation} mit einer Stärkemeldung über {@link SOME_VALUES}. */
+async function aStationWithAReport(): Promise<Setting> {
+  const { operationId, stationId } = await aStation();
+  await recordStrengthReportAction(stationId, SOME_VALUES);
+  const [report] = await listStrengthReports(db(), operationId);
+  return { operationId, stationId, reportId: report.id };
+}

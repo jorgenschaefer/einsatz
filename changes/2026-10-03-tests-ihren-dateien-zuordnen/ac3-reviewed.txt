@@ -10,3 +10,5 @@ src/app/operations/[id]/view-link-actions.test.ts
 src/app/operations/[id]/kml-actions.test.ts
 src/app/operations/[id]/image-overlay-actions.test.ts
 src/app/operations/[id]/geocode-actions.test.ts
+src/app/operations/[id]/journal-actions.test.ts
+src/app/operations/[id]/strength-actions.test.ts

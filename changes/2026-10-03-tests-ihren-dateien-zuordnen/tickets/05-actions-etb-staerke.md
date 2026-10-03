@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:
 advances:  AC-1, AC-2, AC-3, AC-5, AC-6, AC-8, AC-9, AC-11, AC-12
 after:     04-actions-ebenen-bilder
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -161,3 +161,75 @@ answers as before; only the module boundary moves.
 - No change to the actions' behaviour.
 
 ## Left standing
+- **Review findings not fixed.** None. The one review round found no
+  blocker and nothing that should be fixed. It found three nits, and I fixed
+  all three:
+  - The header comment of `auth-enforcement.test.ts` now speaks of routes
+    only.
+  - `strength-actions.test.ts` uses one set of valid values (`SOME_VALUES`),
+    no longer also `VALUES` from the fixture.
+  - `loginAs` and `liveEventsFor`, copied in both test files, moved to
+    `signInAs` in `src/test/sign-in.ts` (`signIn` now calls it) and to the
+    new `src/test/live-events.ts`.
+  Since only nits came back, there was no second round.
+- **Checks not run.** None skipped. `npm run check` is green (228 files,
+  2762 tests) after the last edit. `npm run test:coverage` and then
+  `compare-coverage.mjs` exit 0. The script names `src/test/action-checks.ts`,
+  `src/test/page-checks.ts` and the new `src/test/live-events.ts` as "new,
+  compared with nothing". `live-events.ts` came out of two test files, which
+  are not in the baseline, so it has no `coverage-splits.json` entry. No
+  file's coverage dropped, and no file needed a new test file.
+- **Advanced without an automated test.**
+  - AC-1, AC-2, AC-5, AC-9: I checked by listing the files. Both
+    `*.validation.test.ts` files, `server-actions.validation.test.ts` and the
+    three table files are deleted. Each module has exactly one test file:
+    `journal-actions.test.ts` has 270 lines, `strength-actions.test.ts` 456.
+    Ticket 23 adds the check.
+  - AC-3: no automated check yet. No test file imports a bad-calls table
+    any more. Each of the two test files imports only its own `@/app/`
+    module.
+  - AC-6: I proved the helpers by breaking things by hand. Each break made
+    the named test fail, and I restored all of them:
+    - `requireEntryContent(content)` replaced by `content` in
+      `addJournalEntryAction`: "rejects addJournalEntryAction with content of
+      null …" and "… content as text …" failed.
+    - The `reportTotalStrengthAction` entry dropped from the strength table:
+      "the table of bad calls › names every export of the module, and
+      nothing else" failed.
+  - AC-8: Before deleting `server-actions.validation.test.ts`, I collected
+    all test names with `vitest list --no-staticParse --json`. Each of its
+    143 bad calls is in a module test file as "bad calls › rejects <action>
+    with <what> …". 138 match by name. 5 match under another name, and I
+    checked that their calls are the same:
+    - "a non-UUID Kartenzeichen-ID" and "a non-UUID Bereich-ID" (four
+      times) are now `idCalls`' "a non-UUID object ID".
+    - "the colour red" is now `the colour "red"`.
+    The script also checked that every `→` target in the commit record
+    exists.
+  - AC-11: the commit's `Removed tests:` section is written from
+    `removed-tests.mjs`. It names all 206 removed names, and each has its `→`
+    line. For "names no action twice", the "test that failed" is a check:
+    a second `annulEntryAction` key in the journal table makes `tsc --noEmit`
+    fail (TS1117), and Biome too (`noDuplicateObjectKeys`). No vitest test
+    fails, because a duplicate key in one module's object literal cannot
+    reach run time.
+  - AC-12: no production file changed.
+- **AC-3 review list.** Both test files are added to `ac3-reviewed.txt`. I
+  rewrote each whole and held every test in it against its own module.
+- **Departures from the plan.**
+  - `strength-actions.ts` is not split. After shortening, its test file was
+    under 500 lines.
+  - `journalAndStrength` (the snapshot of four tables) and its `rowCounts`
+    are deleted from `src/test/journal-and-strength.ts`. Context says to
+    keep using the file. `aJournalAndStrength` is still used by the
+    longest-value tests, but every bad call now runs through
+    `expectBadCallsRejected`. That helper compares every table and the
+    uploads directory, so nothing used the snapshot any more.
+  - Bad calls that only one of the two old sources had are all kept:
+    - From the validation files: "content as text", "a Von / a Weg as a
+      number", "a name as a number", "values of null".
+    - From the table: "a name of null", "a count as text", "a count of NaN",
+      "an Eintrag-ID as a number".
+  - `signIn` in `src/test/sign-in.ts` now delegates to the new `signInAs`
+    (review nit). It behaves as before.
+- **Departures from a nudge.** None.
