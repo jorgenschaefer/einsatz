@@ -53,7 +53,7 @@ elsewhere, as of 2026-10-03:
 - **AC-7** The test file of every route handler checks, for every HTTP method the route exports:
   - under `src/app/view/` and `src/app/device/`: 403 without a valid token;
   - elsewhere: that login is required;
-  - for routes with an object id in the path (a segment other than `[id]` and `[token]`, today `[overlayId]`): 404 for an object id that is not a UUID;
+  - for routes with an object id in the path (a segment other than `[id]` and `[token]`, today `[overlayId]`): an object id that is not a UUID is refused and nothing changes, with the answer the method gives before this change (today 404 for `GET`, and 400 "Ungültige ID." for `PUT` on `operations/[id]/overlays/[overlayId]`);
   - for `POST` and `PUT` under `src/app/operations/`: 401 before the body is read, rejection of a request from another site, and the size limit.
 
   `npm run check` fails when one of these is left out for a method, and when the route exports a method the test file does not name.
