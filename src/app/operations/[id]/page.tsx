@@ -190,7 +190,7 @@ export default async function LageansichtPage({
       onAddJournalEntry={addJournalEntryAction.bind(null, operation.id)}
       onCorrectJournalEntry={correctEntryAction}
       onAnnulJournalEntry={annulEntryAction}
-      onSetDefault={setDefaultViewAction.bind(null, operation.id)}
+      onSetDefaultView={setDefaultViewAction.bind(null, operation.id)}
       onPlace={placeMapSymbolAction.bind(null, operation.id)}
       onMove={moveMapSymbolAction.bind(null, operation.id)}
       onUpdate={updateMapSymbolCompositionAction.bind(null, operation.id)}

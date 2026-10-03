@@ -43,7 +43,7 @@ export interface SituationWorkspaceProps
   viewLinks: ViewLinkItem[];
   onCreateViewLink: (label: string) => Promise<ActionResult>;
   onDeleteViewLink: (id: string) => Promise<ActionResult>;
-  onSetDefault: (view: MapView) => Promise<ActionResult>;
+  onSetDefaultView: (view: MapView) => Promise<ActionResult>;
   journalEntries: JournalEntryView[];
   /** Die Werte für Von und An eines neuen ETB-Eintrags und einer Korrektur. */
   correspondents: string[];
@@ -79,7 +79,7 @@ export function SituationWorkspace({
   viewLinks,
   onCreateViewLink,
   onDeleteViewLink,
-  onSetDefault,
+  onSetDefaultView,
   journalEntries,
   correspondents,
   onAddJournalEntry,
@@ -127,7 +127,7 @@ export function SituationWorkspace({
   const saveDefaultView = async (): Promise<ActionResult> => {
     const view = mapRef.current?.getView();
     if (!view) return { error: MAP_LOADING };
-    return onSetDefault(view);
+    return onSetDefaultView(view);
   };
 
   const mainViewBar = (

@@ -33,8 +33,8 @@ describe("SituationWorkspace", () => {
     });
 
     it("saves the current map view as the default after confirming, without a notification", async () => {
-      const onSetDefault = vi.fn(async () => ({}));
-      const { adapter, captured } = renderWorkspace({ onSetDefault });
+      const onSetDefaultView = vi.fn(async () => ({}));
+      const { adapter, captured } = renderWorkspace({ onSetDefaultView });
       await selectMainView("Lagekarte");
       await waitFor(() => expect(captured.options).toBeDefined());
       adapter.getView = () => ({ lat: 53.5, lng: 9.9, zoom: 14 });
@@ -47,7 +47,7 @@ describe("SituationWorkspace", () => {
         within(dialog).getByRole("button", { name: "Festlegen" }),
       );
 
-      expect(onSetDefault).toHaveBeenCalledWith({
+      expect(onSetDefaultView).toHaveBeenCalledWith({
         lat: 53.5,
         lng: 9.9,
         zoom: 14,
@@ -57,8 +57,8 @@ describe("SituationWorkspace", () => {
     });
 
     it("saves nothing on Abbrechen", async () => {
-      const onSetDefault = vi.fn(async () => ({}));
-      renderWorkspace({ onSetDefault });
+      const onSetDefaultView = vi.fn(async () => ({}));
+      renderWorkspace({ onSetDefaultView });
       await selectMainView("Lagekarte");
 
       const dialog = await askToSetDefaultView();
@@ -67,12 +67,14 @@ describe("SituationWorkspace", () => {
       );
 
       await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-      expect(onSetDefault).not.toHaveBeenCalled();
+      expect(onSetDefaultView).not.toHaveBeenCalled();
     });
 
     it("shows a failing save only in the open confirmation", async () => {
       renderWorkspace({
-        onSetDefault: vi.fn(async () => ({ error: "Ungültiger Ausschnitt." })),
+        onSetDefaultView: vi.fn(async () => ({
+          error: "Ungültiger Ausschnitt.",
+        })),
       });
       await selectMainView("Lagekarte");
 
@@ -92,8 +94,8 @@ describe("SituationWorkspace", () => {
       // noch keine Karte und damit keinen Ausschnitt.
       vi.doMock("./leaflet-adapter", () => new Promise(() => {}));
       try {
-        const onSetDefault = vi.fn(async () => ({}));
-        renderWorkspace({ onSetDefault, factory: undefined });
+        const onSetDefaultView = vi.fn(async () => ({}));
+        renderWorkspace({ onSetDefaultView, factory: undefined });
         await selectMainView("Lagekarte");
         const dialog = await askToSetDefaultView();
         await userEvent.click(within(dialog).getByText("Festlegen"));
@@ -101,7 +103,7 @@ describe("SituationWorkspace", () => {
         expect(within(dialog).getByRole("alert")).toHaveTextContent(
           "Die Karte lädt noch. Bitte erneut versuchen.",
         );
-        expect(onSetDefault).not.toHaveBeenCalled();
+        expect(onSetDefaultView).not.toHaveBeenCalled();
       } finally {
         vi.doUnmock("./leaflet-adapter");
       }
@@ -133,8 +135,8 @@ describe("SituationWorkspace", () => {
 
     it("saves the whole map's view on a phone with a sheet open and leaves the sheet open", async () => {
       stubMatchMedia(false);
-      const onSetDefault = vi.fn(async () => ({}));
-      const { adapter, captured } = renderWorkspace({ onSetDefault });
+      const onSetDefaultView = vi.fn(async () => ({}));
+      const { adapter, captured } = renderWorkspace({ onSetDefaultView });
       adapter.getView = () => ({ lat: 53.5, lng: 9.9, zoom: 14 });
       await openPanel("Ebenen");
       await waitFor(() => expect(captured.options).toBeDefined());
@@ -177,7 +179,7 @@ describe("SituationWorkspace", () => {
     expect(
       screen
         .getByRole("button", { name: "Zum Standard-Ausschnitt zurück" })
-        .closest(".map-controls__view"),
+        .closest(".map-controls"),
     ).not.toBeNull();
   });
 
