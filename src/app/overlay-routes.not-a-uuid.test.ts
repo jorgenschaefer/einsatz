@@ -3,12 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 const state = vi.hoisted(() => ({ db: undefined as unknown }));
 
 vi.mock("@/server/db/pg", () => ({ getDb: () => state.db }));
-vi.mock("@/server/auth/current-user", () => ({
-  requireUser: async () => ({ id: "u1", username: "anna", role: "user" }),
-}));
 
 import { GET as deviceOverlayGET } from "@/app/device/[token]/overlays/[overlayId]/route";
-import { GET as operationOverlayGET } from "@/app/operations/[id]/overlays/[overlayId]/route";
 import { GET as viewOverlayGET } from "@/app/view/[token]/overlays/[overlayId]/route";
 import type { Db } from "@/server/db/db";
 import {
@@ -28,16 +24,6 @@ async function anOperation() {
 }
 
 describe("overlay image routes with an overlay id that is not a UUID", () => {
-  it("answers 404 in the Lageansicht", async () => {
-    const op = await anOperation();
-
-    const res = await operationOverlayGET(request(), {
-      params: Promise.resolve({ id: op.id, overlayId: NOT_A_UUID }),
-    });
-
-    expect(res.status).toBe(404);
-  });
-
   it("answers 404 behind an Ansichtslink", async () => {
     const op = await anOperation();
     const link = await createViewLink(state.db as Db, {

@@ -1,7 +1,10 @@
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { Db } from "@/server/db/db";
 import { freshDb } from "./db";
-import { snapshotDb } from "./db-snapshot";
+import { snapshotDb, snapshotDbAndUploads } from "./db-snapshot";
 
 const addOperation = (db: Db, name: string) =>
   db.query("INSERT INTO operations (id, name) VALUES (gen_random_uuid(), $1)", [
@@ -36,5 +39,22 @@ describe("snapshotDb", () => {
     expect(Object.keys(await snapshotDb(db))).not.toContain(
       "schema_migrations",
     );
+  });
+});
+
+describe("snapshotDbAndUploads", () => {
+  it("differs when a file is added inside a directory of the uploads", async () => {
+    const db = await freshDb();
+    const uploadsDir = mkdtempSync(join(tmpdir(), "einsatz-snapshot-"));
+    try {
+      mkdirSync(join(uploadsDir, "op"));
+      const before = await snapshotDbAndUploads(db, uploadsDir);
+
+      writeFileSync(join(uploadsDir, "op", "plan.webp"), "webp");
+
+      expect(await snapshotDbAndUploads(db, uploadsDir)).not.toEqual(before);
+    } finally {
+      rmSync(uploadsDir, { recursive: true, force: true });
+    }
   });
 });

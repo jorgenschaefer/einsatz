@@ -36,34 +36,50 @@ import {
   setDefaultView,
 } from "@/server/operations/operations";
 import { freshDb } from "@/test/db";
+import { snapshotDbAndUploads } from "@/test/db-snapshot";
 import { minimalPdf } from "@/test/minimal-pdf";
+import {
+  expectRouteRequiresLogin,
+  expectUploadRules,
+  type SendAs,
+} from "@/test/route-checks";
 import { signIn } from "@/test/sign-in";
 import { multipartRequest, routeParams } from "@/test/upload-request";
+import * as route from "./route";
 import { POST } from "./route";
 
 const EMBED_FAILED = "Das Bild konnte nicht eingebunden werden.";
 
 const A_VIEW = { lat: 53.55, lng: 9.99, widthM: 4000, heightM: 3000 };
 
+const db = () => state.db as Db;
+
 /** Sendet `file` und `view` wie der Browser; ohne `view` fehlt das Feld. */
 async function postImageOverlay(
-  operationId: string,
   file: File | string,
   view?: unknown,
 ): Promise<ActionResult> {
-  const form = new FormData();
-  form.append("file", file);
-  if (view !== undefined) form.append("view", JSON.stringify(view));
-  const response = await POST(
-    await multipartRequest("POST", form),
-    routeParams({ id: operationId }),
+  const response = await send(
+    await multipartRequest("POST", imageForm(file, view)),
   );
   return response.json();
 }
 
-async function login(): Promise<void> {
-  state.token = await signIn(state.db as Db);
+const send = (request: Request, id = operationId) =>
+  POST(request, routeParams({ id }));
+
+function imageForm(file: File | string, view?: unknown): FormData {
+  const form = new FormData();
+  form.append("file", file);
+  if (view !== undefined) form.append("view", JSON.stringify(view));
+  return form;
 }
+
+const sendAs: SendAs = async (caller) => {
+  if (caller === "anonymous") state.token = undefined;
+  else if (caller === "an unknown session") state.token = "no-such-session";
+  else state.token = await signIn(db());
+};
 
 function pngFile(
   width: number,
@@ -115,10 +131,6 @@ function pngChunk(type: string, data: Buffer): Buffer {
   return Buffer.concat([length, typeAndData, crc]);
 }
 
-async function anOperation(name: string) {
-  return insertOperation(state.db as Db, { name, description: null });
-}
-
 /** Alle Dateien unter dem Upload-Verzeichnis, relativ dazu. */
 async function filesUnderUploads(): Promise<string[]> {
   const entries = await readdir(dir, { recursive: true, withFileTypes: true });
@@ -128,11 +140,15 @@ async function filesUnderUploads(): Promise<string[]> {
 }
 
 let dir: string;
+let operationId: string;
 const originalUploadsDir = process.env.UPLOADS_DIR;
 
 beforeEach(async () => {
   state.db = await freshDb();
-  state.token = undefined;
+  state.token = await signIn(db());
+  operationId = (
+    await insertOperation(db(), { name: "Lage", description: null })
+  ).id;
   state.revalidatePath.mockReset();
   state.publishOperationChanged.mockReset();
   const parent = await mkdtemp(join(tmpdir(), "einsatz-add-image-"));
@@ -148,43 +164,58 @@ afterEach(async () => {
   vi.restoreAllMocks();
 });
 
+expectRouteRequiresLogin(
+  route,
+  {
+    POST: {
+      send: async () =>
+        send(
+          await multipartRequest(
+            "POST",
+            imageForm(await pngFile(600, 300), A_VIEW),
+          ),
+          "op-1",
+        ),
+      answer: { status: 401 },
+    },
+  },
+  { sendAs },
+);
+
+expectUploadRules(
+  route,
+  {
+    POST: {
+      send,
+      tooLarge: "Die Datei ist größer als 20 MB.",
+      stored: () => snapshotDbAndUploads(db(), dir),
+    },
+  },
+  { sendAs },
+);
+
 describe("POST /operations/[id]/overlays", () => {
   it("embeds the image as a new overlay of the Einsatz", async () => {
-    await login();
-    const op = await insertOperation(state.db as Db, {
-      name: "Lage",
-      description: null,
-    });
-
-    const result = await postImageOverlay(
-      op.id,
-      await pngFile(600, 300),
-      A_VIEW,
-    );
+    const result = await postImageOverlay(await pngFile(600, 300), A_VIEW);
 
     expect(result).toEqual({});
-    expect(await listImageOverlays(state.db as Db, op.id)).toMatchObject([
+    expect(await listImageOverlays(db(), operationId)).toMatchObject([
       { name: "neu.png", widthPx: 600, heightPx: 300 },
     ]);
-    expect(state.publishOperationChanged).toHaveBeenCalledWith(op.id);
+    expect(state.publishOperationChanged).toHaveBeenCalledWith(operationId);
   });
 
   it("centers a landscape image on the uploader's view at half its width", async () => {
-    await login();
-    const op = await insertOperation(state.db as Db, {
-      name: "Lage",
-      description: null,
-    });
-    await setDefaultView(state.db as Db, op.id, { lat: 48, lng: 11, zoom: 9 });
+    await setDefaultView(db(), operationId, { lat: 48, lng: 11, zoom: 9 });
 
-    await postImageOverlay(op.id, await pngFile(600, 300), {
+    await postImageOverlay(await pngFile(600, 300), {
       lat: 53.55,
       lng: 9.99,
       widthM: 4000,
       heightM: 3000,
     });
 
-    const [overlay] = await listImageOverlays(state.db as Db, op.id);
+    const [overlay] = await listImageOverlays(db(), operationId);
     expect(overlay.placement).toMatchObject({
       centerLat: 53.55,
       centerLng: 9.99,
@@ -193,20 +224,14 @@ describe("POST /operations/[id]/overlays", () => {
   });
 
   it("sizes a portrait image to half the height of the uploader's view", async () => {
-    await login();
-    const op = await insertOperation(state.db as Db, {
-      name: "Lage",
-      description: null,
-    });
-
-    await postImageOverlay(op.id, await pngFile(300, 600), {
+    await postImageOverlay(await pngFile(300, 600), {
       lat: 53.55,
       lng: 9.99,
       widthM: 4000,
       heightM: 1000,
     });
 
-    const [overlay] = await listImageOverlays(state.db as Db, op.id);
+    const [overlay] = await listImageOverlays(db(), operationId);
     expect(overlay.placement.scaleM).toBe(250);
   });
 
@@ -221,46 +246,29 @@ describe("POST /operations/[id]/overlays", () => {
     ["a longitude beyond the date line", { ...A_VIEW, lng: -180.1 }],
     ["a width given as text", { ...A_VIEW, widthM: "4000" }],
   ])("rejects %s and creates nothing", async (_, view) => {
-    await login();
-    const op = await insertOperation(state.db as Db, {
-      name: "Lage",
-      description: null,
-    });
-
-    const result = await postImageOverlay(op.id, await pngFile(600, 300), view);
+    const result = await postImageOverlay(await pngFile(600, 300), view);
 
     expect(result).toEqual({ error: "Der Kartenausschnitt ist ungültig." });
-    expect(await listImageOverlays(state.db as Db, op.id)).toEqual([]);
+    expect(await listImageOverlays(db(), operationId)).toEqual([]);
     expect(await readdir(dir)).toEqual([]);
   });
 
   it("rejects a view that is not JSON and creates nothing", async () => {
-    await login();
-    const op = await anOperation("Lage");
     const form = new FormData();
     form.append("file", await pngFile(600, 300));
     form.append("view", "{lat: 53.55");
 
-    const response = await POST(
-      await multipartRequest("POST", form),
-      routeParams({ id: op.id }),
-    );
+    const response = await send(await multipartRequest("POST", form));
 
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({
       error: "Der Kartenausschnitt ist ungültig.",
     });
-    expect(await listImageOverlays(state.db as Db, op.id)).toEqual([]);
+    expect(await listImageOverlays(db(), operationId)).toEqual([]);
   });
 
   it("accepts a view centred on the date line", async () => {
-    await login();
-    const op = await insertOperation(state.db as Db, {
-      name: "Lage",
-      description: null,
-    });
-
-    const result = await postImageOverlay(op.id, await pngFile(600, 300), {
+    const result = await postImageOverlay(await pngFile(600, 300), {
       ...A_VIEW,
       lng: 180,
     });
@@ -269,37 +277,24 @@ describe("POST /operations/[id]/overlays", () => {
   });
 
   it("shows the embed failure message, logs the error and leaves no file behind when the database insert fails", async () => {
-    await login();
-    const op = await insertOperation(state.db as Db, {
-      name: "Lage",
-      description: null,
-    });
     const dbDown = new Error("db down");
     vi.spyOn(repo, "createImageOverlay").mockRejectedValueOnce(dbDown);
     const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
 
-    const result = await postImageOverlay(
-      op.id,
-      await pngFile(600, 300),
-      A_VIEW,
-    );
+    const result = await postImageOverlay(await pngFile(600, 300), A_VIEW);
 
     expect(result).toEqual({ error: EMBED_FAILED });
     expect(errorLog).toHaveBeenCalledWith(expect.anything(), dbDown);
-    expect(await readdir(join(dir, op.id))).toEqual([]);
+    expect(await readdir(join(dir, operationId))).toEqual([]);
     expect(state.revalidatePath).not.toHaveBeenCalled();
   });
 
   it("answers 400 for an Einsatz-ID that is not a UUID, before processing the file", async () => {
-    await login();
     const form = new FormData();
     form.append("file", await pngFile(600, 300));
     form.append("view", JSON.stringify(A_VIEW));
 
-    const response = await POST(
-      await multipartRequest("POST", form),
-      routeParams({ id: "op-1" }),
-    );
+    const response = await send(await multipartRequest("POST", form), "op-1");
 
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({ error: "Ungültige ID." });
@@ -307,107 +302,68 @@ describe("POST /operations/[id]/overlays", () => {
   });
 
   it("refuses a file name of 201 characters and creates nothing", async () => {
-    await login();
-    const op = await anOperation("Lage");
     const file = await pngFile(600, 300, `${"x".repeat(197)}.png`);
 
-    const result = await postImageOverlay(op.id, file, A_VIEW);
+    const result = await postImageOverlay(file, A_VIEW);
 
     expect(result).toEqual({
       error: "Der Dateiname darf höchstens 200 Zeichen lang sein.",
     });
-    expect(await listImageOverlays(state.db as Db, op.id)).toEqual([]);
+    expect(await listImageOverlays(db(), operationId)).toEqual([]);
     expect(await readdir(dir)).toEqual([]);
   });
 
   it("asks for a file and creates nothing when none was sent", async () => {
-    await login();
-    const op = await insertOperation(state.db as Db, {
-      name: "Lage",
-      description: null,
-    });
-
-    const result = await postImageOverlay(op.id, "keine-datei", A_VIEW);
+    const result = await postImageOverlay("keine-datei", A_VIEW);
 
     expect(result).toEqual({ error: "Keine Datei ausgewählt." });
-    expect(await listImageOverlays(state.db as Db, op.id)).toEqual([]);
+    expect(await listImageOverlays(db(), operationId)).toEqual([]);
   });
 });
 
 describe("POST /operations/[id]/overlays with a PDF", () => {
   it("converts a first page too large to render at scale 1, keeping its aspect ratio", async () => {
-    await login();
-    const op = await anOperation("Lage");
-
-    const result = await postImageOverlay(
-      op.id,
-      pdfFile(200_000, 100_000),
-      A_VIEW,
-    );
+    const result = await postImageOverlay(pdfFile(200_000, 100_000), A_VIEW);
 
     expect(result).toEqual({});
-    const [overlay] = await listImageOverlays(state.db as Db, op.id);
+    const [overlay] = await listImageOverlays(db(), operationId);
     expect(overlay.widthPx / overlay.heightPx).toBeCloseTo(2, 2);
   });
 
   it("converts an elongated first page", async () => {
-    await login();
-    const op = await anOperation("Lage");
-
-    const result = await postImageOverlay(op.id, pdfFile(400_000, 300), A_VIEW);
+    const result = await postImageOverlay(pdfFile(400_000, 300), A_VIEW);
 
     expect(result).toEqual({});
-    expect(await listImageOverlays(state.db as Db, op.id)).toHaveLength(1);
+    expect(await listImageOverlays(db(), operationId)).toHaveLength(1);
   });
 
   it("refuses a first page more than 4000 times longer than wide and stores nothing", async () => {
-    await login();
-    const op = await anOperation("Lage");
-
-    const result = await postImageOverlay(
-      op.id,
-      pdfFile(40_000_000, 1),
-      A_VIEW,
-    );
+    const result = await postImageOverlay(pdfFile(40_000_000, 1), A_VIEW);
 
     expect(result).toEqual({
       error: "Die PDF-Datei konnte nicht umgewandelt werden.",
     });
-    expect(await listImageOverlays(state.db as Db, op.id)).toEqual([]);
+    expect(await listImageOverlays(db(), operationId)).toEqual([]);
     expect(await filesUnderUploads()).toEqual([]);
   });
 });
 
 describe("POST /operations/[id]/overlays with a very large PNG", () => {
   it("refuses a PNG over 100 megapixels and stores nothing", async () => {
-    await login();
-    const op = await anOperation("Lage");
-
-    const result = await postImageOverlay(
-      op.id,
-      grayPngFile(10_001, 10_000),
-      A_VIEW,
-    );
+    const result = await postImageOverlay(grayPngFile(10_001, 10_000), A_VIEW);
 
     expect(result).toEqual({
       error: "Das Bild konnte nicht verarbeitet werden.",
     });
-    expect(await listImageOverlays(state.db as Db, op.id)).toEqual([]);
+    expect(await listImageOverlays(db(), operationId)).toEqual([]);
     expect(await filesUnderUploads()).toEqual([]);
   });
 
   it("accepts a PNG of exactly 100 megapixels", async () => {
-    await login();
-    const op = await anOperation("Lage");
-
-    const result = await postImageOverlay(
-      op.id,
-      grayPngFile(10_000, 10_000),
-      A_VIEW,
-    );
+    const result = await postImageOverlay(grayPngFile(10_000, 10_000), A_VIEW);
 
     expect(result).toEqual({});
-    expect(await listImageOverlays(state.db as Db, op.id)).toMatchObject([
+    expect(await listImageOverlays(db(), operationId)).toMatchObject([
       { widthPx: 3000, heightPx: 3000 },
     ]);
   });

@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:
 advances:  AC-1, AC-2, AC-3, AC-5, AC-7, AC-8, AC-11
 after:     05-actions-etb-staerke
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -189,3 +189,87 @@ described under Context.
 - No change to any route's answers.
 
 ## Left standing
+- **Review findings not fixed.** Round 1 found one should-fix and three
+  nits. Round 2 found two nits. I fixed all of them except one nit, which
+  both rounds raised:
+  - Not fixed (nit): the four-line session `sendAs` is copied into all four
+    route test files. It is left that way on purpose. Each file owns its
+    mocked cookie state, as the action tests do with `actAs`, and a shared
+    `sendAs` would have to take the token setter and `db` just to save four
+    lines.
+  - Fixed (should-fix): the login checks sent only IDs that exist. They now
+    send `op-1` / `ov-1`, as `auth-enforcement.test.ts` did, so they pin
+    that the login comes before the ID is looked at. I moved the 404 guard
+    of `events/route.ts`, and the overlay lookup of the `GET`, above
+    `requireUser`. Each break made "login required › refuses GET from an
+    anonymous caller" fail, and I restored both.
+  - Fixed (nits):
+    - `everything` moved from `action-checks.ts` to `src/test/db-snapshot.ts`
+      as `snapshotDbAndUploads`. It has a new test, "differs when a file is
+      added inside a directory of the uploads", which went red without
+      `recursive`. `action-checks.ts` is not in the baseline, so
+      `coverage-splits.json` has no entry for it.
+    - The `Method` type is now derived from `METHODS`.
+- **Checks not run.** None skipped. After the last edit, `npm run check` is
+  green (226 files, 2768 tests). Its one Biome warning is the same at the
+  start commit. `npm run test:coverage` and then `compare-coverage.mjs` exit
+  0. The script names only `action-checks.ts`, `live-events.ts`,
+  `page-checks.ts` and the new `route-checks.ts` as "new, compared with
+  nothing". No file's coverage dropped, and no file needed a new test file.
+- **Advanced without an automated test.**
+  - AC-1, AC-2, AC-5: I checked by listing the files. The three files are
+    deleted, and `events`, `kml`, `overlays` and `overlays/[overlayId]` each
+    have exactly one `route.test.ts`. Ticket 23 adds the check.
+  - AC-7: I proved the helpers by breaking things by hand. Each break made
+    the named test fail, and I restored all of them:
+    - The same-origin check in `handleUpload` disabled: the four "upload
+      rules › POST › signed in › answers 403 for …" tests of kml failed.
+    - The session check in `handleUpload` disabled: kml's "refuses POST
+      from an anonymous caller" and both "answers 401 to …" tests failed.
+    - The request limit raised by 9 MB: "answers 413 over the limit …"
+      failed in all three upload route test files.
+    - `requireUser` removed from the overlay `GET` and from the events
+      `GET`: "refuses GET from an anonymous caller" failed in each.
+    - A `DELETE` exported from `kml/route.ts`: "login required › names
+      every exported method, and nothing else" failed.
+    - `assertUuid(overlayId)` removed from `replaceImageOverlayImage`:
+      "refuses it on PUT and changes nothing" failed.
+    - `isUuid` removed from `getImageOverlay`: "refuses it on GET and
+      changes nothing" failed.
+    - The other-Einsatz check removed from `replaceImageOverlayImage`: "refuses
+      a file for a Bild-Overlay of another Einsatz before processing it and
+      changes nothing" failed.
+  - AC-8, AC-11: the commit's `Removed tests:` section is written from
+    `removed-tests.mjs`. It names all 45 removed names, and each has its `→`
+    line.
+- **AC-3 review list.** `src/app/operations/[id]/events/route.test.ts` is
+  added to `ac3-reviewed.txt` because this ticket created it. The other
+  three route test files are not listed. `overlays/[overlayId]/route.test.ts`
+  was rewritten, but its `PUT` tests check much of
+  `replaceImageOverlayImage`'s behaviour (placement kept, old file
+  deleted, cleanup on failure). Whether those belong in that file's own test
+  file is left to the review tickets.
+- **Departures from the plan / Context.**
+  - `expectRouteRequiresLogin` and `expectUploadRules` take a third
+    argument, `{ sendAs }`, besides `(route, calls)`. The test file owns the
+    mocked cookie, and the helpers have to send as an anonymous caller, an
+    unknown session and a signed-in user. `expectNonUuidObjectIdRefused` is
+    `(route, calls)`: it sends as the test file's signed-in caller, or with
+    the test file's valid token in ticket 07.
+  - kml's `stored` snapshot covers database rows only (`snapshotDb`): the
+    KML route writes no files. The image routes snapshot rows and uploads.
+  - `route.put.test.ts`'s "rejects the call before processing the file"
+    and `foreign-operation.test.ts`'s row are merged into one test. It
+    sends a broken PNG, expects "Bild-Overlay nicht gefunden.", and compares
+    every table and upload. If the check came after processing, or were
+    missing, the processing error would come back instead.
+  - The "20 MB uploads" image cases of `uploads.test.ts` sent small PNGs.
+    The existing success tests of both routes already held them, so they
+    were not copied.
+  - `overlays/route.test.ts` and `overlays/[overlayId]/route.test.ts` now
+    share setup: signed in, one Einsatz (and one overlay), as the nudge on
+    shortening suggests. Some old `toMatchObject` checks became `toEqual`.
+  - `overlay-routes.not-a-uuid.test.ts` lost its `requireUser` mock. Only
+    the `operations` case used it. `auth-enforcement.test.ts`'s header
+    comment no longer names `requireUser`.
+- **Departures from a nudge.** None.

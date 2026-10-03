@@ -106,15 +106,6 @@ describe("Live-Verbindungen je Nutzer", () => {
     expect(other.status).toBe(200);
     await closeAll([...open, other]);
   });
-
-  it("answers 404 for an Einsatz that does not exist", async () => {
-    await signIn("anna");
-    const res = await operationEventsGET(
-      req(),
-      params({ id: "00000000-0000-4000-8000-000000000000" }),
-    );
-    expect(res.status).toBe(404);
-  });
 });
 
 describe("Live-Verbindungen je Gerätelink", () => {

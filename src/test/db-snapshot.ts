@@ -1,3 +1,4 @@
+import { readdirSync } from "node:fs";
 import type { Db } from "@/server/db/db";
 
 /**
@@ -20,4 +21,15 @@ export async function snapshotDb(db: Db): Promise<Record<string, unknown[]>> {
     snapshot[name] = rows.map(({ row }) => row);
   }
   return snapshot;
+}
+
+/** {@link snapshotDb} and every file and directory under `uploadsDir`. */
+export async function snapshotDbAndUploads(db: Db, uploadsDir: string) {
+  return {
+    tables: await snapshotDb(db),
+    uploads: readdirSync(uploadsDir, {
+      recursive: true,
+      encoding: "utf8",
+    }).toSorted(),
+  };
 }

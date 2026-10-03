@@ -1,4 +1,4 @@
-import { mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -14,7 +14,7 @@ import {
   oneOfEach,
   oneOfEachIn,
 } from "./bad-calls/fixture";
-import { snapshotDb } from "./db-snapshot";
+import { snapshotDbAndUploads } from "./db-snapshot";
 
 /** A `"use server"` module, imported whole: `import * as actions from "./actions"`. */
 export type ActionModule = Record<string, unknown>;
@@ -135,11 +135,13 @@ export function expectBadCallsRejected(
       for (const { what, answer, call } of calls) {
         it(`rejects ${name} with ${what} and stores nothing`, async () => {
           const fixture = await oneOfEach(db(), uploadsDir());
-          const before = await everything(db(), uploadsDir());
+          const before = await snapshotDbAndUploads(db(), uploadsDir());
 
           expect(await call(fixture)).toMatchObject(answer as object);
 
-          expect(await everything(db(), uploadsDir())).toEqual(before);
+          expect(await snapshotDbAndUploads(db(), uploadsDir())).toEqual(
+            before,
+          );
         });
       }
     }
@@ -242,15 +244,4 @@ function exportedActions(module: ActionModule): [string, ServerAction][] {
   return Object.entries(module).filter(
     (entry): entry is [string, ServerAction] => typeof entry[1] === "function",
   );
-}
-
-/** Every row of every table and every file under `uploadsDir`. */
-async function everything(db: Db, uploadsDir: string) {
-  return {
-    tables: await snapshotDb(db),
-    uploads: readdirSync(uploadsDir, {
-      recursive: true,
-      encoding: "utf8",
-    }).toSorted(),
-  };
 }

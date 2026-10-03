@@ -28,17 +28,25 @@ vi.mock("next/headers", () => ({
   }),
 }));
 
+import { MAX_KML_BYTES } from "@/kml/kmz";
 import * as kmlOverlays from "@/server/kml/kml-overlays";
 import { listKmlOverlays } from "@/server/kml/kml-overlays";
 import { insertOperation } from "@/server/operations/operations";
 import { freshDb } from "@/test/db";
+import { snapshotDb } from "@/test/db-snapshot";
 import { kmlFileForm } from "@/test/kml-upload";
+import {
+  expectRouteRequiresLogin,
+  expectUploadRules,
+  type SendAs,
+} from "@/test/route-checks";
 import { signIn } from "@/test/sign-in";
 import {
   multipartRequest,
   routeParams,
   streamedRequest,
 } from "@/test/upload-request";
+import * as route from "./route";
 import { POST } from "./route";
 
 const LOAD_FAILED = "KML konnte nicht geladen werden.";
@@ -66,13 +74,43 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+const send = (request: Request, id = operationId) =>
+  POST(request, routeParams({ id }));
+
 const post = async (form: FormData) => {
-  const response = await POST(
-    await multipartRequest("POST", form),
-    routeParams({ id: operationId }),
-  );
+  const response = await send(await multipartRequest("POST", form));
   return { status: response.status, body: await response.json() };
 };
+
+const sendAs: SendAs = async (caller) => {
+  if (caller === "anonymous") state.token = undefined;
+  else if (caller === "an unknown session") state.token = "no-such-session";
+  else state.token = await signIn(db());
+};
+
+expectRouteRequiresLogin(
+  route,
+  {
+    POST: {
+      send: async () =>
+        send(await multipartRequest("POST", kmlFileForm("Karte", KML)), "op-1"),
+      answer: { status: 401 },
+    },
+  },
+  { sendAs },
+);
+
+expectUploadRules(
+  route,
+  {
+    POST: {
+      send,
+      tooLarge: "Die KML-Datei ist größer als 20 MB.",
+      stored: () => snapshotDb(db()),
+    },
+  },
+  { sendAs },
+);
 
 describe("POST /operations/[id]/kml", () => {
   it("adds a file whose content is KML, then refreshes the Einsatz", async () => {
@@ -146,15 +184,53 @@ describe("POST /operations/[id]/kml", () => {
   });
 
   it("refuses an Einsatz-ID that is not a UUID and adds nothing", async () => {
-    const response = await POST(
+    const response = await send(
       await multipartRequest("POST", kmlFileForm("Karte", KML)),
-      routeParams({ id: "op-1" }),
+      "op-1",
     );
 
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({ error: "Ungültige ID." });
     const { rows } = await db().query("SELECT id FROM kml_overlays");
     expect(rows).toEqual([]);
+  });
+
+  it("adds a file of just under 20 MB", async () => {
+    const head = "<kml><Document>";
+    const tail = "</Document></kml>";
+    const kml = `${head}${" ".repeat(MAX_KML_BYTES - head.length - tail.length)}${tail}`;
+
+    expect(await post(kmlFileForm("Abschnitte", kml))).toEqual({
+      status: 200,
+      body: {},
+    });
+
+    const [added] = await stored(operationId);
+    expect(added).toMatchObject({ name: "Abschnitte", sourceType: "file" });
+    expect(added.content).toHaveLength(MAX_KML_BYTES);
+  });
+
+  it.each([
+    ["its Host", { origin: "https://einsatz.test", host: "einsatz.test" }],
+    [
+      "the host the reverse proxy forwards",
+      {
+        origin: "https://einsatz.drk.test",
+        host: "app:3000",
+        "x-forwarded-host": "einsatz.drk.test, proxy.internal",
+      },
+    ],
+  ])("adds a file with an Origin matching %s", async (_, headers) => {
+    const response = await send(
+      await multipartRequest(
+        "POST",
+        kmlFileForm("Abschnitte", "<kml/>"),
+        headers,
+      ),
+    );
+
+    expect(response.status).toBe(200);
+    expect(await stored(operationId)).toHaveLength(1);
   });
 
   it("names the KML-Ebene „KML-Datei“ when no name is sent", async () => {
@@ -179,9 +255,8 @@ describe("POST /operations/[id]/kml", () => {
   it("answers 400 with the load failure message for a body that is no form", async () => {
     const body = new Blob(["kein Formular"]).stream();
 
-    const response = await POST(
+    const response = await send(
       streamedRequest("POST", body, { "content-type": "text/plain" }),
-      routeParams({ id: operationId }),
     );
 
     expect(response.status).toBe(400);
