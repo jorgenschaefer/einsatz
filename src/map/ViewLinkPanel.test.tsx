@@ -1,9 +1,8 @@
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ActionResult } from "@/app/action-result";
 import { buttonColor } from "@/test/button-color";
 import { clickModalOverlay } from "@/test/modal-overlay";
-import { redirectError } from "@/test/redirect-error";
 import {
   act,
   fireEvent,
@@ -14,6 +13,8 @@ import {
   within,
 } from "@/test/render";
 import { ViewLinkPanel, type ViewLinkPanelProps } from "./ViewLinkPanel";
+
+const leitstelle = { id: "1", label: "Leitstelle", token: "tok-a" };
 
 function setup(over: Partial<ViewLinkPanelProps> = {}) {
   const props: ViewLinkPanelProps = {
@@ -26,6 +27,28 @@ function setup(over: Partial<ViewLinkPanelProps> = {}) {
   return props;
 }
 
+const createButton = () =>
+  screen.getByRole("button", { name: /Ansichtslink erzeugen/i });
+
+async function createLeitstelle() {
+  fireEvent.change(screen.getByLabelText(/Bezeichnung/i), {
+    target: { value: "Leitstelle" },
+  });
+  await userEvent.click(createButton());
+}
+
+async function askToDelete(name = "Leitstelle") {
+  await userEvent.click(
+    screen.getByRole("button", { name: `${name} löschen` }),
+  );
+  return screen.findByRole("dialog", {
+    name: `Ansichtslink „${name}“ löschen`,
+  });
+}
+
+const confirmButton = (dialog: HTMLElement) =>
+  within(dialog).getByRole("button", { name: "Endgültig löschen" });
+
 describe("ViewLinkPanel", () => {
   it("shows an empty-state hint when there are no view links", () => {
     setup({ links: [] });
@@ -34,12 +57,7 @@ describe("ViewLinkPanel", () => {
 
   it("creates a named view link and clears the field", async () => {
     const props = setup();
-    fireEvent.change(screen.getByLabelText(/Bezeichnung/i), {
-      target: { value: "Leitstelle" },
-    });
-    await userEvent.click(
-      screen.getByRole("button", { name: /Ansichtslink erzeugen/i }),
-    );
+    await createLeitstelle();
     expect(props.onCreate).toHaveBeenCalledWith("Leitstelle");
     expect(screen.getByLabelText(/Bezeichnung/i)).toHaveValue("");
   });
@@ -50,29 +68,25 @@ describe("ViewLinkPanel", () => {
       () => new Promise<ActionResult>((r) => (resolve = r)),
     );
     setup({ onCreate });
-    fireEvent.change(screen.getByLabelText(/Bezeichnung/i), {
-      target: { value: "Leitstelle" },
-    });
-    const button = screen.getByRole("button", {
-      name: /Ansichtslink erzeugen/i,
-    });
-    await userEvent.click(button);
-    expect(button).toBeDisabled();
+    await createLeitstelle();
+    expect(createButton()).toBeDisabled();
     // Die Erzeugung abschließen und das folgende State-Update (Feld leeren,
     // Ladezustand beenden) abwarten, damit es innerhalb act() flusht.
     resolve({});
-    await waitFor(() => expect(button).toBeEnabled());
+    await waitFor(() => expect(createButton()).toBeEnabled());
   });
 
   describe("when creating fails", () => {
-    const createLeitstelle = async () => {
-      fireEvent.change(screen.getByLabelText(/Bezeichnung/i), {
-        target: { value: "Leitstelle" },
-      });
-      await userEvent.click(
-        screen.getByRole("button", { name: /Ansichtslink erzeugen/i }),
-      );
-    };
+    it("shows the failure as a notification titled Ansichtslinks, not atop the panel", async () => {
+      setup({ onCreate: vi.fn(async () => ({ error: "Einsatz zu." })) });
+
+      await createLeitstelle();
+
+      const notification = await screen.findByRole("alert");
+      expect(notification).toHaveTextContent("Ansichtslinks");
+      expect(notification).toHaveTextContent("Einsatz zu.");
+      expect(notificationArea()).toContainElement(notification);
+    });
 
     it.each([
       [
@@ -96,9 +110,7 @@ describe("ViewLinkPanel", () => {
 
         expect(await screen.findByRole("alert")).toHaveTextContent(message);
         expect(screen.getByLabelText(/Bezeichnung/i)).toHaveValue("Leitstelle");
-        expect(
-          screen.getByRole("button", { name: /Ansichtslink erzeugen/i }),
-        ).toBeEnabled();
+        expect(createButton()).toBeEnabled();
       },
     );
 
@@ -111,67 +123,29 @@ describe("ViewLinkPanel", () => {
       await createLeitstelle();
       await screen.findByRole("alert");
 
-      await userEvent.click(
-        screen.getByRole("button", { name: /Ansichtslink erzeugen/i }),
-      );
+      await userEvent.click(createButton());
 
       await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
       expect(screen.getByLabelText(/Bezeichnung/i)).toHaveValue("");
     });
 
     describe("the failure", () => {
-      const link = { id: "v1", label: "Leitstelle", token: "tok" };
-
-      async function setupWithFailure(over: Partial<ViewLinkPanelProps> = {}) {
-        const onCreate = vi
-          .fn<ViewLinkPanelProps["onCreate"]>()
-          .mockResolvedValueOnce({ error: "Bezeichnung zu lang." });
-        setup({ links: [link], onCreate, ...over });
+      async function setupWithFailure() {
+        setup({
+          links: [leitstelle],
+          onCreate: vi.fn(async () => ({ error: "Bezeichnung zu lang." })),
+        });
         await createLeitstelle();
         expect(await screen.findByRole("alert")).toHaveTextContent(
           "Bezeichnung zu lang.",
         );
-        return onCreate;
       }
-
-      it("goes away with its close button", async () => {
-        await setupWithFailure();
-
-        await userEvent.click(
-          screen.getByRole("button", { name: "Meldung schließen" }),
-        );
-
-        expect(screen.queryByRole("alert")).toBeNull();
-      });
-
-      it("is gone while the next creation runs and shows that one's failure", async () => {
-        let fail: (result: ActionResult) => void = () => {};
-        const onCreate = await setupWithFailure();
-        onCreate.mockReturnValueOnce(
-          new Promise((resolve) => {
-            fail = resolve;
-          }),
-        );
-
-        await userEvent.click(
-          screen.getByRole("button", { name: /Ansichtslink erzeugen/i }),
-        );
-        expect(screen.queryByRole("alert")).toBeNull();
-
-        fail({ error: "Einsatz ist geschlossen." });
-        expect(await screen.findByRole("alert")).toHaveTextContent(
-          "Einsatz ist geschlossen.",
-        );
-      });
 
       it("goes away when the delete confirmation opens", async () => {
         await setupWithFailure();
 
-        await userEvent.click(
-          screen.getByRole("button", { name: "Leitstelle löschen" }),
-        );
+        await askToDelete();
 
-        await screen.findByRole("dialog");
         expect(screen.queryByRole("alert")).toBeNull();
       });
 
@@ -184,18 +158,6 @@ describe("ViewLinkPanel", () => {
           "Bezeichnung zu lang.",
         );
       });
-    });
-
-    it("shows no failure when it redirects to the login", async () => {
-      const onCreate = vi.fn(async () => {
-        throw redirectError();
-      });
-      setup({ onCreate });
-
-      await createLeitstelle();
-
-      await waitFor(() => expect(onCreate).toHaveBeenCalled());
-      expect(screen.queryByRole("alert")).toBeNull();
     });
   });
 
@@ -210,98 +172,84 @@ describe("ViewLinkPanel", () => {
     expect(screen.getByText("Ansichtslink")).toBeInTheDocument();
   });
 
-  it("copies the view URL of a link", async () => {
-    const writeText = vi.fn().mockResolvedValue(undefined);
-    Object.defineProperty(navigator, "clipboard", {
-      configurable: true,
-      value: { writeText },
-    });
-    try {
-      setup({ links: [{ id: "1", label: "Leitstelle", token: "tok-a" }] });
-      await userEvent.click(
+  describe("copying a link", () => {
+    const writeText = vi.fn();
+    const provideClipboard = () =>
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: { writeText },
+      });
+    const copy = () =>
+      userEvent.click(
         screen.getByRole("button", { name: /Leitstelle kopieren/i }),
       );
+
+    const removeClipboard = () => {
+      writeText.mockReset();
+      delete (navigator as { clipboard?: unknown }).clipboard;
+    };
+    beforeEach(removeClipboard);
+    afterEach(removeClipboard);
+
+    it("copies the view URL of a link and confirms it with 'kopiert', like the device link panel", async () => {
+      writeText.mockResolvedValue(undefined);
+      provideClipboard();
+      setup({ links: [leitstelle] });
+
+      await copy();
+
       expect(writeText).toHaveBeenCalledWith(
         expect.stringContaining("/view/tok-a"),
       );
-    } finally {
-      delete (navigator as { clipboard?: unknown }).clipboard;
-    }
-  });
-
-  it("shows a 'kopiert' confirmation after copying, like the device link panel", async () => {
-    const writeText = vi.fn().mockResolvedValue(undefined);
-    Object.defineProperty(navigator, "clipboard", {
-      configurable: true,
-      value: { writeText },
-    });
-    try {
-      setup({ links: [{ id: "1", label: "Leitstelle", token: "tok-a" }] });
-      await userEvent.click(
-        screen.getByRole("button", { name: /Leitstelle kopieren/i }),
-      );
       expect(await screen.findByText("kopiert")).toBeInTheDocument();
-    } finally {
-      delete (navigator as { clipboard?: unknown }).clipboard;
-    }
-  });
-
-  it("does not confirm 'kopiert' and hints instead in the panel when the clipboard API is unavailable", async () => {
-    // Unsicherer Kontext / In-App-Webview: navigator.clipboard fehlt ganz.
-    delete (navigator as { clipboard?: unknown }).clipboard;
-    setup({ links: [{ id: "1", label: "Leitstelle", token: "tok-a" }] });
-    await userEvent.click(
-      screen.getByRole("button", { name: /Leitstelle kopieren/i }),
-    );
-    expect(screen.queryByText("kopiert")).toBeNull();
-    const hint = await screen.findByRole("alert");
-    expect(hint).toHaveTextContent(/Kopieren nicht möglich/);
-    expect(notificationArea()).not.toContainElement(hint);
-  });
-
-  it("does not confirm 'kopiert' when writing to the clipboard is rejected", async () => {
-    const writeText = vi.fn().mockRejectedValue(new Error("denied"));
-    Object.defineProperty(navigator, "clipboard", {
-      configurable: true,
-      value: { writeText },
     });
-    try {
-      setup({ links: [{ id: "1", label: "Leitstelle", token: "tok-a" }] });
-      await userEvent.click(
-        screen.getByRole("button", { name: /Leitstelle kopieren/i }),
-      );
+
+    it("does not confirm 'kopiert' and hints instead in the panel when the clipboard API is unavailable", async () => {
+      // Unsicherer Kontext / In-App-Webview: navigator.clipboard fehlt ganz.
+      setup({ links: [leitstelle] });
+
+      await copy();
+
+      expect(screen.queryByText("kopiert")).toBeNull();
+      const hint = await screen.findByRole("alert");
+      expect(hint).toHaveTextContent(/Kopieren nicht möglich/);
+      expect(notificationArea()).not.toContainElement(hint);
+    });
+
+    it("does not confirm 'kopiert' when writing to the clipboard is rejected", async () => {
+      writeText.mockRejectedValue(new Error("denied"));
+      provideClipboard();
+      setup({ links: [leitstelle] });
+
+      await copy();
+
       expect(writeText).toHaveBeenCalled();
       expect(screen.queryByText("kopiert")).toBeNull();
       expect(await screen.findByRole("alert")).toHaveTextContent(
         /nicht möglich/i,
       );
-    } finally {
-      delete (navigator as { clipboard?: unknown }).clipboard;
-    }
-  });
+    });
 
-  it("keeps the failure fallback visible instead of auto-hiding it", async () => {
-    // Der Fehlerhinweis zeigt die einzige Stelle mit der rohen URL zum manuellen
-    // Kopieren – anders als „kopiert" darf er nicht nach 2s verschwinden.
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    try {
-      delete (navigator as { clipboard?: unknown }).clipboard;
-      setup({ links: [{ id: "1", label: "Leitstelle", token: "tok-a" }] });
-      await userEvent.click(
-        screen.getByRole("button", { name: /Leitstelle kopieren/i }),
-      );
-      expect(await screen.findByRole("alert")).toBeInTheDocument();
-      await act(async () => {
-        await vi.advanceTimersByTimeAsync(2500);
-      });
-      expect(screen.getByRole("alert")).toBeInTheDocument();
-    } finally {
-      vi.useRealTimers();
-    }
+    it("keeps the failure fallback visible instead of auto-hiding it", async () => {
+      // Der Fehlerhinweis zeigt die einzige Stelle mit der rohen URL zum manuellen
+      // Kopieren – anders als „kopiert" darf er nicht nach 2s verschwinden.
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      try {
+        setup({ links: [leitstelle] });
+        await copy();
+        expect(await screen.findByRole("alert")).toBeInTheDocument();
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(2500);
+        });
+        expect(screen.getByRole("alert")).toBeInTheDocument();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
   });
 
   it("reveals a QR code on demand", async () => {
-    setup({ links: [{ id: "1", label: "Leitstelle", token: "tok-a" }] });
+    setup({ links: [leitstelle] });
     expect(document.querySelector("svg")).toBeNull();
     await userEvent.click(
       screen.getByRole("button", { name: /Leitstelle QR/i }),
@@ -310,20 +258,6 @@ describe("ViewLinkPanel", () => {
   });
 
   describe("deleting a link", () => {
-    const leitstelle = { id: "1", label: "Leitstelle", token: "tok-a" };
-
-    const askToDelete = async (name = "Leitstelle") => {
-      await userEvent.click(
-        screen.getByRole("button", { name: `${name} löschen` }),
-      );
-      return screen.findByRole("dialog", {
-        name: `Ansichtslink „${name}“ löschen`,
-      });
-    };
-
-    const confirmButton = (dialog: HTMLElement) =>
-      within(dialog).getByRole("button", { name: "Endgültig löschen" });
-
     it("asks in a dialog, not inline in the row, and deletes only once confirmed", async () => {
       const onDelete = vi.fn(async () => ({}));
       setup({ links: [leitstelle], onDelete });
@@ -421,6 +355,47 @@ describe("ViewLinkPanel", () => {
       ).toBeDisabled();
       expect(screen.getByRole("dialog")).toBe(dialog);
       expect(onDelete).toHaveBeenCalledTimes(1);
+    });
+
+    describe("while a creation that fails runs behind it", () => {
+      async function failCreationBehindConfirmation() {
+        let fail: (result: ActionResult) => void = () => {};
+        setup({
+          links: [leitstelle],
+          onCreate: vi.fn(
+            () => new Promise<ActionResult>((resolve) => (fail = resolve)),
+          ),
+        });
+        await createLeitstelle();
+        const dialog = await askToDelete();
+        await act(async () => fail({ error: "Einsatz zu." }));
+        return dialog;
+      }
+
+      it("shows the failure outside the dialog, closable with the dialog open", async () => {
+        const dialog = await failCreationBehindConfirmation();
+
+        const notification = await screen.findByRole("alert");
+        expect(notification).toHaveTextContent("Einsatz zu.");
+        expect(notificationArea()).toContainElement(notification);
+        await userEvent.click(
+          within(notification).getByRole("button", {
+            name: "Meldung schließen",
+          }),
+        );
+
+        await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+        expect(screen.getByRole("dialog")).toBe(dialog);
+      });
+
+      it("closes the notification once the deletion is confirmed", async () => {
+        const dialog = await failCreationBehindConfirmation();
+
+        await userEvent.click(confirmButton(dialog));
+
+        await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+        await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+      });
     });
   });
 });

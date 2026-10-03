@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { ActionResult } from "@/app/action-result";
 import { redirectError } from "@/test/redirect-error";
 import { act, Providers, renderHook, screen, waitFor } from "@/test/render";
@@ -50,6 +50,30 @@ describe("useNotifyingActionRunner", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Das hat nicht geklappt. Bitte erneut versuchen.",
     );
+  });
+
+  it("does not close the notification by itself", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const runner = renderRunner();
+      await failOnce(runner);
+
+      await act(() => vi.advanceTimersByTimeAsync(60_000));
+
+      expect(screen.getByRole("alert")).toHaveTextContent("Kaputt.");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("shows only one notification after failing twice", async () => {
+    const runner = renderRunner();
+    await failOnce(runner);
+
+    await failOnce(runner);
+
+    await waitFor(() => expect(screen.getAllByRole("alert")).toHaveLength(1));
+    expect(screen.getByRole("alert")).toHaveTextContent("Kaputt.");
   });
 
   it("closes an earlier notification as soon as the action starts", async () => {

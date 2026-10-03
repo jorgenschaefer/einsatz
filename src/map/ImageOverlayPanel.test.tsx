@@ -1,8 +1,13 @@
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { ActionResult } from "@/app/action-result";
-import { redirectError } from "@/test/redirect-error";
-import { render, screen, waitFor, within } from "@/test/render";
+import {
+  notificationArea,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@/test/render";
 import {
   type ImageOverlayItem,
   ImageOverlayPanel,
@@ -133,21 +138,6 @@ describe("ImageOverlayPanel", () => {
         expect(visibilitySwitch()).toBeChecked();
       },
     );
-
-    it.each(userActions)(
-      "shows no failure when %s redirects to the login",
-      async (_, prop, perform) => {
-        const action = vi.fn(async () => {
-          throw redirectError();
-        });
-        renderPanel({ overlays: [overlay], [prop]: action });
-
-        await perform();
-
-        await waitFor(() => expect(action).toHaveBeenCalled());
-        expect(screen.queryByRole("alert")).toBeNull();
-      },
-    );
   });
 
   it("takes no file while another action runs", async () => {
@@ -172,75 +162,33 @@ describe("ImageOverlayPanel", () => {
         new File(["x"], "big.png", { type: "image/png" }),
       );
 
-    async function renderWithMessage(over: Partial<ImageOverlayPanelProps>) {
-      const onAdd = vi
-        .fn<ImageOverlayPanelProps["onAdd"]>()
-        .mockResolvedValueOnce({ error: tooBig });
-      renderPanel({ overlays: [overlay], onAdd, ...over });
+    it("goes away with Bearbeiten", async () => {
+      renderPanel({
+        overlays: [overlay],
+        onAdd: vi.fn(async () => ({ error: tooBig })),
+      });
       await upload();
       expect(await screen.findByRole("alert")).toHaveTextContent(tooBig);
-      return onAdd;
-    }
-
-    it("goes away with its close button", async () => {
-      await renderWithMessage({});
-
-      await userEvent.click(
-        screen.getByRole("button", { name: "Meldung schließen" }),
-      );
-
-      expect(screen.queryByRole("alert")).toBeNull();
-    });
-
-    it("goes away with Bearbeiten", async () => {
-      await renderWithMessage({});
 
       await userEvent.click(screen.getByRole("button", { name: "Bearbeiten" }));
 
       expect(screen.queryByRole("alert")).toBeNull();
     });
-
-    it("is gone while the visibility is being switched", async () => {
-      await renderWithMessage({
-        onToggleVisibility: vi.fn(() => new Promise<ActionResult>(() => {})),
-      });
-
-      await userEvent.click(screen.getByRole("switch", { name: /Lageplan/ }));
-
-      expect(screen.queryByRole("alert")).toBeNull();
-    });
-
-    it("is gone while the next file is added and shows that one's failure", async () => {
-      let fail: (result: { error: string }) => void = () => {};
-      const onAdd = await renderWithMessage({});
-      onAdd.mockReturnValueOnce(
-        new Promise((resolve) => {
-          fail = resolve;
-        }),
-      );
-
-      await upload();
-      expect(screen.queryByRole("alert")).toBeNull();
-
-      fail({ error: "Die Datei ist kein PDF oder PNG." });
-      expect(await screen.findByRole("alert")).toHaveTextContent(
-        "Die Datei ist kein PDF oder PNG.",
-      );
-    });
   });
 
-  it("surfaces an add error", async () => {
-    const onAdd = vi.fn(async () => ({
-      error: "Die Datei ist größer als 20 MB.",
-    }));
-    renderPanel({ onAdd });
-    const file = new File(["x"], "big.png", { type: "image/png" });
+  it("shows a failure as a notification titled Bild-Overlays, not atop the panel", async () => {
+    renderPanel({
+      onAdd: vi.fn(async () => ({ error: "Die Datei ist größer als 20 MB." })),
+    });
+
     await userEvent.upload(
       screen.getByLabelText(/Bild-Overlay einbinden/),
-      file,
+      new File(["x"], "big.png", { type: "image/png" }),
     );
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Die Datei ist größer als 20 MB.",
-    );
+
+    const notification = await screen.findByRole("alert");
+    expect(notification).toHaveTextContent("Bild-Overlays");
+    expect(notification).toHaveTextContent("Die Datei ist größer als 20 MB.");
+    expect(notificationArea()).toContainElement(notification);
   });
 });

@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:
 advances:  AC-1, AC-2, AC-3, AC-9, AC-11, AC-12
 after:     01-coverage-ausgangswert
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -137,3 +137,88 @@ panel did; only the file boundaries move.
 - No change of behaviour in any panel.
 
 ## Left standing
+- **Review findings not fixed.** One review round, which found no blockers
+  or should-fix items and three nits, so there was no second round.
+  - Fixed (nit 1): `ImageOverlayPanel.test.tsx` still had "is gone while
+    the next file is added and shows that one's failure", which is the
+    runner's behaviour. By the same reasoning I also dropped "is gone while
+    the visibility is being switched" there, and the switch, reload and
+    add-by-URL rows of KmlPanel's "an earlier notification" table. That
+    each action runs through the runner is pinned by each panel's "shows
+    the failure when … throws" table. Taking the Kml toggle, the Kml reload,
+    the image add or the view-link create out of `run` made those tables
+    fail.
+  - Not fixed (nit 2): the two tests moved into
+    `useNotifyingActionRunner.test.tsx` ("does not close the notification
+    by itself", "shows only one notification after failing twice") check
+    what `action-notification.ts` decides (`autoClose: false`, one id per
+    source). That file has no test file. I followed Context, which says to
+    move them into the runner's test. Whether they belong in an
+    `action-notification.test.ts` is for the review tickets 26-31.
+  - Not fixed (nit 3): the reviewer asked for the German comments moved
+    within `ViewLinkPanel.test.tsx` to be translated. The project's
+    comments are German throughout, so I left them as they were.
+- **Checks not run.** None skipped. `npm run check` is green (219 files,
+  2735 tests). `npm run test:coverage` and then `compare-coverage.mjs`
+  report no coverage drop. As in ticket 10, the script names only the
+  `src/test/` helpers from tickets 02-10 as "new, compared with nothing".
+  No file needed a new test file.
+  - Unexplained: one `npm run check` run between the review and the
+    commit reported `Errors 1 error` with every test passing. Its output
+    was lost because I only kept the tail. Five further full runs (three
+    `npm test`, one `npm run check`, one coverage run) and eight runs of
+    the four changed test files were clean. It may be a flake elsewhere in
+    the suite.
+  - Unguarded before and after: I removed `notifications.hide` from
+    `showActionError` (before `show`) and the map and app tests stayed
+    green. The old panel tests did not guard it either.
+- **Advanced without an automated test.**
+  - AC-1/AC-2: I checked by listing the files. The four files are deleted,
+    and each panel has one test file.
+  - AC-9: checked with `wc -l`. `KmlPanel.test.tsx` has 483 lines,
+    `ViewLinkPanel.test.tsx` 401 and `ImageOverlayPanel.test.tsx` 194.
+  - AC-11: the commit's `Removed tests:` section is written from
+    `removed-tests.mjs`, with all 67 names. Each has a `→` line. I broke each
+    of these by hand and restored it; each time the named tests failed:
+    - Runner: `autoClose: false` changed to 4000 failed "does not close
+      the notification by itself". A unique id per `show` failed "shows
+      only one notification after failing twice". Without
+      `closeActionError` in `beginAction`, "closes an earlier notification
+      as soon as the action starts" failed. A notification on redirect
+      failed "stays busy without a notification while a redirect navigates
+      away".
+    - KmlPanel: fields not cleared on success, or no `trim`, failed "adds
+      a KML by URL and empties the fields". Clearing them on error failed
+      "keeps name and URL in the fields when adding by URL throws". Without
+      `closeError` in `remove`, "closes the notification once the removal
+      is confirmed" failed. Without it on Entfernen, "is gone once
+      Entfernen is opened" failed. Reading the file outside `run` failed
+      "is gone once the next file is still being read" and the lock row
+      for a file still being read. Another source title failed "shows a
+      failure as a notification titled KML-Ebenen …".
+    - ImageOverlayPanel: another source title failed its title test.
+      Without `closeError` on Bearbeiten, "goes away with Bearbeiten"
+      failed.
+    - ViewLinkPanel: another source title failed its title test. Without
+      `closeError` on asking or on deleting, the two matching tests
+      failed. Clearing the label on error failed both "shows … and keeps
+      the label" rows. Never showing "kopiert" failed the copy test.
+  - AC-12: no production file changed.
+- **AC-3 review list.** This ticket created no test file. I held every
+  test in `KmlPanel.test.tsx`, `ImageOverlayPanel.test.tsx` and
+  `ViewLinkPanel.test.tsx` against its panel, so those three are added to
+  `ac3-reviewed.txt`. One judgement call: the "failure that arrives
+  outside the dialog, closable with the dialog open" tests stay in Kml and
+  ViewLink. They check how the panel combines `ConfirmationModal` with its
+  notification source. `useNotifyingActionRunner.test.tsx` was only
+  edited, and nit 2 concerns it, so it is not listed.
+- **Departures from the plan.** Step 2 (splitting `KmlPanel.tsx`) and the
+  `ViewLinkRow` split in step 4 did not happen. After shortening, both
+  files are under 500 lines, so the plan's "only if still over 500" did
+  not apply. `coverage-splits.json` is unchanged. Steps 1, 3 and 4 went
+  into one commit, because no production code moved and so no separate
+  restructuring commit was needed.
+- **Departures from a nudge.** None. Test files went from 7 to 3. The
+  added assertions (the trim, the emptied fields, the file input locked in
+  every lock row) pin behaviour no panel test held before. They passed at
+  once, so their red came from breaking the code by hand, as listed above.
