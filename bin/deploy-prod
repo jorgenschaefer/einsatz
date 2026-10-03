@@ -1,6 +1,6 @@
-#!/bin/sh
+#!/usr/bin/env bash
 
-set -xe
+set -euo pipefail
 
 # Directory on the server; also the Compose project name.
 remote_dir=einsatz
@@ -12,12 +12,24 @@ compose() {
   docker compose -f docker-compose.prod.yml "$@"
 }
 
-compose build
+echo "==> Building images..."
+compose build --pull
+
+echo "==> Transferring images..."
 compose config --images \
   | xargs docker save \
   | zstd -10 -T0 \
   | dd bs=1M status=progress \
   | ssh "$host" 'zstd -d | docker load'
+
+echo "==> Copying compose file..."
 ssh "$host" mkdir -p "$remote_dir"
 scp docker-compose.prod.yml "$host:$remote_dir/"
-ssh -t "$host" "cd $remote_dir && docker compose -f docker-compose.prod.yml up -d --remove-orphans && docker image prune -f"
+
+echo "==> Starting containers..."
+ssh -t "$host" "cd $remote_dir && docker compose -f docker-compose.prod.yml up -d --remove-orphans --wait --wait-timeout 120"
+
+echo "==> Removing unused images..."
+ssh "$host" docker image prune -f
+
+echo "==> Deployment complete."
