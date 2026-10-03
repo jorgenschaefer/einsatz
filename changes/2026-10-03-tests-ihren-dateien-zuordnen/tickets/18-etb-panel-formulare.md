@@ -36,7 +36,7 @@ before; only file boundaries move.
 
 > **AC-2** No source file has more than one test file. A source file may have none.
 
-> **AC-3** Every test in `X.test.*` tests behaviour implemented in `X`. Another file of the project appears in it only as a harness around `X` (rendering `X` or providing context for it) or as a fixture or fake.
+> **AC-3** Every test in `X.test.*` tests behaviour implemented in `X`: what `X` decides, shows, calls or passes on, and how it combines the files it uses. Other project files may run in it - `X`'s real children and hooks, a harness around `X` (rendering `X` or providing context for it), fixtures and fakes - but a test whose assertions check only another file's behaviour belongs in that file's test file.
 
 > **AC-9** When the change is done, no source file and no test file is over 500 lines.
 

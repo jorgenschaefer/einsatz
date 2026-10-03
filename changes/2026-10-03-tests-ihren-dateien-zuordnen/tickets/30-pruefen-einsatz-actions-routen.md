@@ -26,7 +26,7 @@ Toward AC-12: a coupling restructured so a file can be tested on its own
 leaves the app behaving as before.
 
 ## Toward
-> **AC-3** Every test in `X.test.*` tests behaviour implemented in `X`. Another file of the project appears in it only as a harness around `X` (rendering `X` or providing context for it) or as a fixture or fake.
+> **AC-3** Every test in `X.test.*` tests behaviour implemented in `X`: what `X` decides, shows, calls or passes on, and how it combines the files it uses. Other project files may run in it - `X`'s real children and hooks, a harness around `X` (rendering `X` or providing context for it), fixtures and fakes - but a test whose assertions check only another file's behaviour belongs in that file's test file.
 
 > **AC-11** Every commit that deletes or merges tests names each removed test and, for each, either the test that now holds what it checked, or why it is gone and that breaking its behaviour by hand made another test fail.
 
@@ -63,10 +63,12 @@ leaves the app behaving as before.
   the action, route and page tests, which import server modules to set up
   an Einsatz and read it back, and `operation-action.test.ts`.
 - A test belongs to its own file when the behaviour is that file's: what
-  it passes down, when it shows or calls another file, how it combines
-  them (wiring). An import used to set up state or read it back is a
-  fixture. A test whose assertions only exercise another file's behaviour
-  belongs to that file.
+  it decides, shows, calls or passes down, and how it combines other files
+  (wiring). Other files running in the test is fine - the file's real
+  children and hooks, a harness, fixtures, fakes; the assertions decide.
+  An import used to set up state or read it back is a fixture. A test
+  whose assertions check only another file's behaviour belongs to that
+  file (AC-3).
 - A test that moves follows the same record as before (AC-11): the commit
   body has a section `Removed tests:` with one line per removed test,
   `- <old file> › <describe> › <it>` followed by either `→ <new file> ›
