@@ -30,6 +30,8 @@ behaviour changed. Each gap found is fixed here.
 ## Nudges
 > Measure the coverage baseline on the commit the change starts from and keep it in this directory. Add `@vitest/coverage-v8` as a dev dependency and a `test:coverage` script; do not add it to `npm run check`.
 
+> Write each commit's record of removed tests (AC-11) from a list of the test names that disappeared - `vitest list` before and after, which also catches `it.each` rows and renamed tests - made before committing, so a missing record is found when the commit is made, not at the end of the change. The script that makes the list sits beside the coverage comparison and also compares two commits.
+
 > Shorten a test file before splitting it: shared setup, `it.each`, helpers for repeated assertions, and removing tests that were written to introduce something and neither pin a criterion nor guard against an accidental bug.
 
 ## Context

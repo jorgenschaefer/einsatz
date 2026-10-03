@@ -1,6 +1,6 @@
 ---
 criteria:  CRITERIA.md
-closes:    AC-4, AC-5, AC-6, AC-7, AC-13
+closes:    AC-4, AC-5, AC-6, AC-7, AC-13, AC-14
 advances:
 after:     02-actions-konten, 03-actions-kartenzeichen-bereiche, 04-actions-ebenen-bilder, 05-actions-etb-staerke, 06-routes-einsatz, 07-routes-links, 08-seiten, 09-live-verbindungen, 10-sitzung-geocoding-ebenen, 11-kartenpanels, 12-situation-map-leaflet, 13-bereiche-zeichnen, 14-kartenzeichen-bild-overlays, 15-situation-map-view, 16-arbeitsplatz-main-view, 17-etb-panel-anzeige, 18-etb-panel-formulare, 19-staerke-panel, 20-kml-icons-import, 25-kml-dokumente, 21-server-module, 22-auth-konfiguration-staerke
 status:    ready
@@ -35,15 +35,7 @@ requires. The rule is written into `CLAUDE.md`.
 
 > **AC-13** The test file of every page checks what its location requires: under `src/app/view/` and `src/app/device/`, that no Einsatz data is shown without a valid token; under `src/app/admin/`, that admin rights are required; anywhere else, that login is required, or the test file declares the page public. A page under `view/`, `device/` or `admin/` cannot be declared public. `npm run check` fails when a page's test file does not check what its location requires.
 
-Beyond the criteria: each violation the check reports says what to do
-about it, so the fix follows from the message without reading `CLAUDE.md`
-or the check's code. It names the file at fault, what is missing or
-doubled, and the remedy - the test file to create or merge into, or the
-helper to call and the file in `src/test/` that defines it. For example:
-`src/app/x/actions.ts: its test file src/app/x/actions.test.ts does not
-call expectBadCallsRejected (src/test/action-checks.ts)`, or
-`src/map/Foo.bar.test.tsx: no source file Foo.bar.tsx - move its tests
-into src/map/Foo.test.tsx`.
+> **AC-14** Every violation the check of AC-4 reports, and every test file or helper call it finds missing for AC-5 to AC-7 and AC-13, names the file at fault, what is missing or doubled, and the fix: the test file to create or merge into, or the helper to call and the file that defines it.
 
 ## Nudges
 > The pairing check lives in `src/test/` next to `server-action-modules.ts`, as a source file with its own test file, and that test runs it against the repository.
@@ -99,7 +91,11 @@ into src/map/Foo.test.tsx`.
   instead of searching for the rule. Where the remedy is ambiguous (a
   topic test file whose tests may belong to several files), the message
   names the source file of the same stem and says each test goes to the
-  file whose behaviour it tests.
+  file whose behaviour it tests. Examples (AC-14):
+  `src/app/x/actions.ts: its test file src/app/x/actions.test.ts does not
+  call expectBadCallsRejected (src/test/action-checks.ts)`, or
+  `src/map/Foo.bar.test.tsx: no source file Foo.bar.tsx - move its tests
+  into src/map/Foo.test.tsx`.
 
 ## Plan
 1. The AC-4 test first, red: `src/test/test-files.test.ts` (new) with

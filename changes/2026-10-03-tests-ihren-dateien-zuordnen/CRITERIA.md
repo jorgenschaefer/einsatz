@@ -10,7 +10,9 @@ nobody adds to the list goes unchecked and no test fails.
 
 What should be true instead: the tests of a file are found next to it and
 test that file, and a security check that every entry point needs cannot be
-forgotten for a new one.
+forgotten for a new one. When the check that keeps this fails, its message
+says how to fix it: its first reader is often a coding agent that has just
+added a file and should not have to look up the rule.
 
 Instance: slicing `changes/2026-10-03-kartenpanels-auffinden`, ticket 01 had
 to say "do not add another `SituationWorkspace.*.test.tsx` file".
@@ -63,6 +65,7 @@ elsewhere, as of 2026-10-03:
 - **AC-10** For every source file, the share of covered lines and the share of covered branches, measured with `@vitest/coverage-v8`, are no lower after the change than on the commit the change starts from. A source file that was split is compared by adding up the covered and total lines and branches of its parts.
 - **AC-11** Every commit that deletes or merges tests names each removed test and, for each, either the test that now holds what it checked, or why it is gone and that breaking its behaviour by hand made another test fail.
 - **AC-12** The app's behaviour is unchanged: what users see, every HTTP response and the stored data. Changes to production code only restructure it.
+- **AC-14** Every violation the check of AC-4 reports, and every test file or helper call it finds missing for AC-5 to AC-7 and AC-13, names the file at fault, what is missing or doubled, and the fix: the test file to create or merge into, or the helper to call and the file that defines it.
 
 ## Agreed design
 Every test file belongs to exactly one source file, by name and by content;
@@ -101,6 +104,7 @@ own behaviour, rather than keeping a test that belongs elsewhere.
 - Every jsdom test file costs about 3 s of setup; watch the runtime of `npm test` as test files multiply.
 - Measure the coverage baseline on the commit the change starts from and keep it in this directory. Add `@vitest/coverage-v8` as a dev dependency and a `test:coverage` script; do not add it to `npm run check`.
 - Shorten a test file before splitting it: shared setup, `it.each`, helpers for repeated assertions, and removing tests that were written to introduce something and neither pin a criterion nor guard against an accidental bug.
+- Write each commit's record of removed tests (AC-11) from a list of the test names that disappeared - `vitest list` before and after, which also catches `it.each` rows and renamed tests - made before committing, so a missing record is found when the commit is made, not at the end of the change. The script that makes the list sits beside the coverage comparison and also compares two commits.
 - Add the rule to the "Tests" section of `CLAUDE.md`.
 
 ## Out of scope
