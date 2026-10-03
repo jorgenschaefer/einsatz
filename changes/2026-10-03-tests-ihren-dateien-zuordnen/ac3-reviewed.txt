@@ -1,1 +1,5 @@
 src/app/operations/actions.test.ts
+src/app/page.test.ts
+src/app/admin/users/page.test.ts
+src/app/operations/page.test.ts
+src/app/device/[token]/page.test.ts

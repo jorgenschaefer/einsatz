@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:
 advances:  AC-5, AC-13
 after:     01-coverage-ausgangswert
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -135,3 +135,60 @@ a public declaration for `/`, `login`, `impressum` and `datenschutz`.
 - No change to any page.
 
 ## Left standing
+- **Review findings not fixed.** None. The one review round found no
+  blocker and nothing that should be fixed. It found one nit, which I
+  fixed: the doc comment on `PageOptions` in `src/test/page-checks.ts`.
+  Since only a nit came back, there was no second round.
+- **Checks not run.** None skipped. `npm run check` is green (231 files,
+  2825 tests). After that I changed only one doc comment, and Biome passes
+  on that file. `npm run test:coverage` and then `compare-coverage.mjs` exit
+  0. The script names only `src/test/action-checks.ts` (ticket 02) and
+  `src/test/page-checks.ts` as "new, compared with nothing". The second is
+  new and not split out of a baseline file, so it has no
+  `coverage-splits.json` entry. No file's coverage dropped.
+- **Advanced without an automated test.**
+  - AC-5: I checked by listing the files. All ten `page.tsx` under
+    `src/app/` have a test file next to them. Ticket 23 adds the check to
+    `npm run check`.
+  - AC-13: the helpers are proven by breaking pages by hand. Each break
+    made the named test fail, and I restored all of them:
+    - `requireUser()` removed from `operations/page.tsx`, `account/page.tsx`
+      and `operations/[id]/page.tsx`: "sends an anonymous caller to the
+      login" failed in each. In `operations/[id]` it failed with
+      `NEXT_NOT_FOUND` rather than an expected/actual mismatch.
+    - `requireAdmin` replaced by `requireUser` in `admin/users/page.tsx`:
+      "sends a signed-in non-admin to the overview" failed.
+    - The closure page given a prop in `view/[token]/page.tsx` and
+      `device/[token]/page.tsx`: "shows only the closure page for a token
+      that is no link" failed in each.
+    - `redirect("/login")` in `src/app/page.tsx`, and an anonymous caller
+      sent to `/login` by `login/page.tsx`: "does not send an anonymous
+      caller to the login" failed in each.
+    Nothing yet refuses a public declaration under `view/`, `device/` or
+    `admin/`. That is ticket 23.
+- **AC-3 review list.** This ticket created four test files, and they are
+  added to `ac3-reviewed.txt`: `src/app/page.test.ts`,
+  `src/app/admin/users/page.test.ts`, `src/app/operations/page.test.ts` and
+  `src/app/device/[token]/page.test.ts`. The other six page tests were only
+  edited or renamed, so they are not listed.
+- **Departures from the plan.**
+  - `operations/[id]/page.test.tsx` became `page.test.ts`. It renders
+    nothing, so it now runs under node without the jsdom setup. No other
+    ticket names the old path.
+  - `view/[token]/page.test.tsx` keeps its name and its jsdom setup, even
+    though it no longer renders. Ticket 10 adds a case to it under that
+    name. Its old test "shows the neutral closure page when the token has
+    no access" mocked `resolveViewAccess`. The helper's check now holds it,
+    against the real database.
+  - The token check tries only a token that never existed. Ended links
+    (removed Gerätelink, closed Einsatz) are pinned on the resolvers in the
+    server tests, not on the pages.
+  - Two tests were added that the plan did not ask for. `login/page.test.tsx`
+    now pins "sends a signed-in user to the overview", which had no test.
+    `src/app/page.test.ts` pins the redirect target, `/operations`, because
+    the public check does not assert it.
+  - `expectPublicPage` takes `actAs` only as an option. `impressum` and
+    `datenschutz` do not look at the session, so their tests have no cookie
+    mock. A page declared public that does call `requireUser` still fails
+    there, because it throws without a request scope.
+- **Departures from a nudge.** None.

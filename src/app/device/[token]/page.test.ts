@@ -6,10 +6,10 @@ vi.mock("@/server/db/pg", () => ({ getDb: () => state.db }));
 
 import { freshDb } from "@/test/db";
 import { expectPageRequiresToken } from "@/test/page-checks";
-import ViewPage from "./page";
+import DevicePage from "./page";
 
 beforeEach(async () => {
   state.db = await freshDb();
 });
 
-expectPageRequiresToken(ViewPage);
+expectPageRequiresToken(DevicePage);

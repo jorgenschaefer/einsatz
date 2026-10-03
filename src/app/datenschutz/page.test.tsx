@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
+import { expectPublicPage } from "@/test/page-checks";
 import { render, screen } from "@/test/render";
 import DatenschutzPage from "./page";
+
+expectPublicPage(DatenschutzPage);
 
 describe("DatenschutzPage", () => {
   it("nennt den Verantwortlichen", () => {

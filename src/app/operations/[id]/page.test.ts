@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Db } from "@/server/db/db";
 
@@ -17,19 +18,16 @@ vi.mock("next/navigation", () => ({
   redirect: (to: string) => {
     throw Object.assign(new Error("NEXT_REDIRECT"), { redirectTo: to });
   },
-}));
-vi.mock("./actions", () => ({
-  changePasswordAction: async () => ({}),
-  logoutAction: async () => {},
-  logoutOtherSessionsAction: async () => ({}),
+  notFound: () => {
+    throw Object.assign(new Error("NEXT_NOT_FOUND"), { notFound: true });
+  },
 }));
 
 import type { ActAs } from "@/test/action-checks";
 import { freshDb } from "@/test/db";
 import { expectPageRequiresLogin } from "@/test/page-checks";
-import { render, screen } from "@/test/render";
 import { signIn } from "@/test/sign-in";
-import AccountPage from "./page";
+import LageansichtPage from "./page";
 
 let db: Db;
 
@@ -42,14 +40,17 @@ beforeEach(async () => {
   state.db = db;
 });
 
-expectPageRequiresLogin(AccountPage, { actAs });
+expectPageRequiresLogin(LageansichtPage, {
+  actAs,
+  props: () => ({ params: Promise.resolve({ id: randomUUID() }) }),
+});
 
-describe("account page", () => {
-  it("offers to log out everywhere else", async () => {
+describe("Lageansicht page", () => {
+  it("is not found for an id that is not a UUID", async () => {
     await actAs("user");
-    render(await AccountPage());
-    expect(
-      screen.getByRole("button", { name: "Überall abmelden" }),
-    ).toBeVisible();
+
+    await expect(
+      LageansichtPage({ params: Promise.resolve({ id: "marker-icon.png" }) }),
+    ).rejects.toMatchObject({ notFound: true });
   });
 });

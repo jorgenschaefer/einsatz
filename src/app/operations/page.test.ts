@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, vi } from "vitest";
 import type { Db } from "@/server/db/db";
 
 const state = vi.hoisted(() => ({
@@ -18,18 +18,12 @@ vi.mock("next/navigation", () => ({
     throw Object.assign(new Error("NEXT_REDIRECT"), { redirectTo: to });
   },
 }));
-vi.mock("./actions", () => ({
-  changePasswordAction: async () => ({}),
-  logoutAction: async () => {},
-  logoutOtherSessionsAction: async () => ({}),
-}));
 
 import type { ActAs } from "@/test/action-checks";
 import { freshDb } from "@/test/db";
 import { expectPageRequiresLogin } from "@/test/page-checks";
-import { render, screen } from "@/test/render";
 import { signIn } from "@/test/sign-in";
-import AccountPage from "./page";
+import OperationsPage from "./page";
 
 let db: Db;
 
@@ -42,14 +36,4 @@ beforeEach(async () => {
   state.db = db;
 });
 
-expectPageRequiresLogin(AccountPage, { actAs });
-
-describe("account page", () => {
-  it("offers to log out everywhere else", async () => {
-    await actAs("user");
-    render(await AccountPage());
-    expect(
-      screen.getByRole("button", { name: "Überall abmelden" }),
-    ).toBeVisible();
-  });
-});
+expectPageRequiresLogin(OperationsPage, { actAs });
