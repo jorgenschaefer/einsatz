@@ -53,6 +53,18 @@ describe("readCapped", () => {
     expect(budget.bytesLeft).toBe(0);
   });
 
+  it("refuses an announced Content-Length over the cap without reading", async () => {
+    const budget: FetchBudget = { addressesLeft: 1, bytesLeft: 5000 };
+    const { body } = responseOf(1001);
+    const response = new Response(body.stream, {
+      headers: { "content-length": "1001" },
+    });
+
+    await expect(readCapped(response, budget, 1000)).rejects.toThrow(TOO_LARGE);
+    expect(body.pulled()).toBe(0);
+    expect(budget.bytesLeft).toBe(5000);
+  });
+
   it("reads an empty body", async () => {
     const budget: FetchBudget = { addressesLeft: 1, bytesLeft: 0 };
 

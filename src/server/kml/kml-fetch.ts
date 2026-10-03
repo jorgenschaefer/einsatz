@@ -94,11 +94,6 @@ export function enforceKmlSizeLimit(content: string | Uint8Array): void {
   if (size > MAX_KML_BYTES) throw kmlTooLarge();
 }
 
-/** Lehnt eine bereits im Content-Length angekündigte Übergröße ab, bevor der Body gelesen wird. */
-export function enforceContentLength(header: string | null): void {
-  if (header && Number(header) > MAX_KML_BYTES) throw kmlTooLarge();
-}
-
 const isLocalhostName = (hostname: string): boolean => {
   const h = hostname.toLowerCase();
   return h === "localhost" || h.endsWith(".localhost");
@@ -204,7 +199,6 @@ export async function fetchKmlFromUrl(
     throw new ValidationError(
       `KML konnte nicht geladen werden (${response.status}).`,
     );
-  enforceContentLength(response.headers.get("content-length"));
   const bytes = await readCapped(response, budget, MAX_KML_BYTES); // ggf. komprimiert
   const kml = extractKml(bytes);
   assertKmlDocument(kml, "Die Adresse liefert keine KML-Datei.");

@@ -1,10 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/server/db/pg";
 import { publishOperationChanged } from "@/server/events/operation-events";
-import {
-  RequestBodyTooLargeError,
-  readRequestBody,
-} from "@/server/http/request-body";
+import { BodyTooLargeError, readBody } from "@/server/http/read-body";
 import { reportPosition } from "@/server/mapsymbols/map-symbols";
 import { isValidLatLng } from "@/server/validation";
 
@@ -21,9 +18,9 @@ export async function POST(
 ) {
   let bytes: Uint8Array;
   try {
-    bytes = await readRequestBody(request, MAX_BODY_BYTES);
+    bytes = await readBody(request, MAX_BODY_BYTES);
   } catch (error) {
-    if (error instanceof RequestBodyTooLargeError) {
+    if (error instanceof BodyTooLargeError) {
       return new NextResponse("Standortmeldung zu groß", { status: 413 });
     }
     // Abgebrochene Übertragung, typisch bei schlechtem Netz am Gerät.

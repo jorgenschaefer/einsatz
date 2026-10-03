@@ -1,4 +1,5 @@
 import { MAX_KML_BYTES } from "@/kml/kmz";
+import { BodyTooLargeError, readBody } from "@/server/http/read-body";
 import { ValidationError } from "@/server/validation";
 
 const MAX_ADDRESSES = 20;
@@ -19,7 +20,7 @@ export function takeAddress(budget: FetchBudget): boolean {
 }
 
 /**
- * Liest den Body Stück für Stück und bricht ab, sobald er `cap` oder die im
+ * Liest den Body wie {@link readBody} und bricht ab, sobald er `cap` oder die im
  * Budget übrigen Bytes übersteigt. Das Gelesene geht vom Budget ab, auch beim
  * Abbruch.
  */
@@ -28,26 +29,23 @@ export async function readCapped(
   budget: FetchBudget,
   cap: number,
 ): Promise<Uint8Array> {
-  if (!response.body) return new Uint8Array();
-  const limit = Math.min(cap, budget.bytesLeft);
-  const reader = response.body.getReader();
-  const chunks: Uint8Array[] = [];
   let read = 0;
   try {
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) return Buffer.concat(chunks);
-      read += value.byteLength;
-      if (read > limit) {
-        await reader.cancel();
-        throw kmlTooLarge();
-      }
-      chunks.push(value);
-    }
+    return await readBody(
+      response,
+      Math.min(cap, budget.bytesLeft),
+      (bytes) => {
+        read += bytes;
+      },
+    );
+  } catch (error) {
+    throw error instanceof BodyTooLargeError ? kmlTooLarge() : error;
   } finally {
     budget.bytesLeft = Math.max(0, budget.bytesLeft - read);
   }
 }
 
+export const KML_TOO_LARGE = "Die KML-Datei ist größer als 20 MB.";
+
 export const kmlTooLarge = (): ValidationError =>
-  new ValidationError("Die KML-Datei ist größer als 20 MB.");
+  new ValidationError(KML_TOO_LARGE);

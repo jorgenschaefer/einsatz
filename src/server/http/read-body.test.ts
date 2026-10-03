@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { RequestBodyTooLargeError, readRequestBody } from "./request-body";
+import { BodyTooLargeError, readBody } from "./read-body";
 
 const bytes = (n: number) => new Uint8Array(n).fill(0x20);
 
@@ -22,19 +22,16 @@ const requestWith = (
     duplex: "half",
   } as RequestInit);
 
-describe("readRequestBody", () => {
+describe("readBody", () => {
   it("returns a body of exactly maxBytes, across chunks", async () => {
-    const body = await readRequestBody(
-      requestWith(streamOf(bytes(6), bytes(4))),
-      10,
-    );
+    const body = await readBody(requestWith(streamOf(bytes(6), bytes(4))), 10);
     expect(body).toEqual(bytes(10));
   });
 
   it("rejects a body one byte over maxBytes", async () => {
     await expect(
-      readRequestBody(requestWith(streamOf(bytes(6), bytes(5))), 10),
-    ).rejects.toBeInstanceOf(RequestBodyTooLargeError);
+      readBody(requestWith(streamOf(bytes(6), bytes(5))), 10),
+    ).rejects.toBeInstanceOf(BodyTooLargeError);
   });
 
   it("rejects an announced Content-Length over maxBytes without reading", async () => {
@@ -51,8 +48,8 @@ describe("readRequestBody", () => {
     );
 
     await expect(
-      readRequestBody(requestWith(body, { "content-length": "11" }), 10),
-    ).rejects.toBeInstanceOf(RequestBodyTooLargeError);
+      readBody(requestWith(body, { "content-length": "11" }), 10),
+    ).rejects.toBeInstanceOf(BodyTooLargeError);
     expect(pulls).toBe(0);
   });
 
@@ -67,20 +64,41 @@ describe("readRequestBody", () => {
       },
     });
 
-    await expect(
-      readRequestBody(requestWith(endless), 10),
-    ).rejects.toBeInstanceOf(RequestBodyTooLargeError);
+    await expect(readBody(requestWith(endless), 10)).rejects.toBeInstanceOf(
+      BodyTooLargeError,
+    );
     expect(cancelled).toBe(true);
   });
 
   it("returns empty bytes for a request without a body", async () => {
-    const body = await readRequestBody(requestWith(null), 10);
+    const body = await readBody(requestWith(null), 10);
     expect(body).toEqual(new Uint8Array(0));
+  });
+
+  it("reads a response the same way, Content-Length included", async () => {
+    const response = new Response(streamOf(bytes(1)), {
+      headers: { "content-length": "11" },
+    });
+
+    await expect(readBody(response, 10)).rejects.toBeInstanceOf(
+      BodyTooLargeError,
+    );
+  });
+
+  it("reports every chunk it reads, the one past maxBytes included", async () => {
+    const read: number[] = [];
+
+    await expect(
+      readBody(requestWith(streamOf(bytes(6), bytes(5))), 10, (n) =>
+        read.push(n),
+      ),
+    ).rejects.toBeInstanceOf(BodyTooLargeError);
+    expect(read).toEqual([6, 5]);
   });
 
   it("names the limit in its error", async () => {
     await expect(
-      readRequestBody(requestWith(streamOf(bytes(11))), 10),
+      readBody(requestWith(streamOf(bytes(11))), 10),
     ).rejects.toThrow("10 bytes");
   });
 });

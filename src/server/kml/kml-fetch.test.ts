@@ -12,7 +12,6 @@ vi.mock("./pinned-fetch", () => ({
 import {
   assertFetchableKmlUrl,
   assertKmlDocument,
-  enforceContentLength,
   enforceKmlSizeLimit,
   fetchKmlFromUrl,
   MAX_NETWORK_LINK_DEPTH,
@@ -82,19 +81,6 @@ describe("enforceKmlSizeLimit", () => {
   it("rejects content over the cap", () => {
     const tooBig = "x".repeat(MAX_KML_BYTES + 1);
     expect(() => enforceKmlSizeLimit(tooBig)).toThrow(ValidationError);
-  });
-});
-
-describe("enforceContentLength", () => {
-  it("accepts a missing or within-cap Content-Length", () => {
-    expect(() => enforceContentLength(null)).not.toThrow();
-    expect(() => enforceContentLength(String(MAX_KML_BYTES))).not.toThrow();
-  });
-
-  it("rejects a declared length over the cap before the body is read", () => {
-    expect(() => enforceContentLength(String(MAX_KML_BYTES + 1))).toThrow(
-      ValidationError,
-    );
   });
 });
 

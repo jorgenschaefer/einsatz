@@ -1,11 +1,12 @@
 import { ValidationError } from "@/server/validation";
 
 export const MAX_UPLOAD_BYTES = 20 * 1024 * 1024; // 20 MB
+export const UPLOAD_TOO_LARGE = "Die Datei ist größer als 20 MB.";
 
 /** Deckelt Uploads bei 20 MB pro Datei. */
 export function enforceUploadSize(bytes: number): void {
   if (bytes > MAX_UPLOAD_BYTES) {
-    throw new ValidationError("Die Datei ist größer als 20 MB.");
+    throw new ValidationError(UPLOAD_TOO_LARGE);
   }
 }
 

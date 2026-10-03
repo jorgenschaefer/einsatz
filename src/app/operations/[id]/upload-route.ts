@@ -1,25 +1,28 @@
 import "server-only";
+import { MAX_KML_BYTES } from "@/kml/kmz";
 import { getCurrentUser } from "@/server/auth/current-user";
 import type { Db } from "@/server/db/db";
 import { getDb } from "@/server/db/pg";
+import { BodyTooLargeError, readBody } from "@/server/http/read-body";
 import {
-  RequestBodyTooLargeError,
-  readRequestBody,
-} from "@/server/http/request-body";
+  MAX_UPLOAD_BYTES,
+  UPLOAD_TOO_LARGE,
+} from "@/server/image-overlays/image-upload";
 import { ValidationError } from "@/server/validation";
 import { changeOperation } from "./operation-action";
 import { IMAGE_EMBED_FAILED } from "./upload-messages";
 
-/** 20 MB Datei plus Luft für den Multipart-Rahmen und die übrigen Felder. */
-const MAX_UPLOAD_REQUEST_BYTES = 21 * 1024 * 1024;
+/** Die größte Datei plus Luft für den Multipart-Rahmen und die übrigen Felder. */
+const MAX_UPLOAD_REQUEST_BYTES =
+  Math.max(MAX_KML_BYTES, MAX_UPLOAD_BYTES) + 1024 * 1024;
 
 /**
  * Gemeinsamer Ablauf der Upload-Routen (KML-Datei, Bild-Overlay hinzufügen und
  * ersetzen): prüft Herkunft und Sitzung, bevor ein Byte gelesen wird, zählt
- * den Upload als Nutzung der Sitzung, liest den Body höchstens bis 21 MB,
- * führt `run` wie eine Einsatz-Action aus und antwortet mit `{}` oder
- * `{ error }`. Ohne Sitzung 401 statt einer
- * Umleitung, weil `fetch` einer Umleitung samt Body folgen würde.
+ * den Upload als Nutzung der Sitzung, liest den Body höchstens bis 1 MB über
+ * der Dateigrenze, führt `run` wie eine Einsatz-Action aus und antwortet mit
+ * `{}` oder `{ error }`. Ohne Sitzung 401 statt einer Umleitung, weil `fetch`
+ * einer Umleitung samt Body folgen würde.
  */
 export async function handleUpload(
   request: Request,
@@ -37,7 +40,7 @@ export async function handleUpload(
   try {
     form = await readForm(request);
   } catch (error) {
-    if (error instanceof RequestBodyTooLargeError) {
+    if (error instanceof BodyTooLargeError) {
       return Response.json({ error: messages.tooLarge }, { status: 413 });
     }
     // Abgebrochene Übertragung oder kein lesbares Formular.
@@ -55,7 +58,7 @@ export async function handleUpload(
 
 /** Meldungen der beiden Bild-Overlay-Routen (hinzufügen und ersetzen). */
 export const IMAGE_UPLOAD_MESSAGES = {
-  tooLarge: "Die Datei ist größer als 20 MB.",
+  tooLarge: UPLOAD_TOO_LARGE,
   failed: IMAGE_EMBED_FAILED,
 };
 
@@ -95,7 +98,7 @@ function isSameOrigin(headers: Headers): boolean {
 }
 
 async function readForm(request: Request): Promise<FormData> {
-  const bytes = await readRequestBody(request, MAX_UPLOAD_REQUEST_BYTES);
+  const bytes = await readBody(request, MAX_UPLOAD_REQUEST_BYTES);
   return new Response(bytes, {
     headers: { "content-type": request.headers.get("content-type") ?? "" },
   }).formData();

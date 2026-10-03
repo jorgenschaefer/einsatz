@@ -1,3 +1,4 @@
+import { KML_TOO_LARGE } from "@/server/kml/fetch-budget";
 import { addKmlFile } from "@/server/kml/kml-import";
 import { KML_LOAD_FAILED } from "../upload-messages";
 import { handleUpload } from "../upload-route";
@@ -11,19 +12,20 @@ export async function POST(
   return handleUpload(
     request,
     {
-      tooLarge: "Die KML-Datei ist größer als 20 MB.",
+      tooLarge: KML_TOO_LARGE,
       failed: KML_LOAD_FAILED,
     },
     async (db, form) => {
       await addKmlFile(db, {
         operationId,
         name: form.get("name") ?? "",
-        content: await formText(form.get("content")),
+        content: await textOf(form.get("content")),
       });
       return operationId;
     },
   );
 }
 
-const formText = async (value: FormDataEntryValue | null): Promise<string> =>
+/** Der Text eines Felds, ob als Text oder als Datei geschickt. */
+const textOf = async (value: FormDataEntryValue | null): Promise<string> =>
   typeof value === "string" ? value : (value?.text() ?? "");
