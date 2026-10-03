@@ -5,7 +5,6 @@ import {
   AppShell,
   Badge,
   Box,
-  Button,
   Group,
   Menu,
   Modal,
@@ -19,7 +18,7 @@ import { IconWifiOff } from "@tabler/icons-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import type { ActionResult } from "@/app/action-result";
-import { BackLink } from "@/app/BackLink";
+import { ConfirmationModal } from "@/app/ConfirmationModal";
 import { HEADER_HEIGHT } from "@/map/lageansicht-sizes";
 import { useKeyboardOpen } from "@/map/useKeyboardOpen";
 import { type ViewLinkItem, ViewLinkPanel } from "@/map/ViewLinkPanel";
@@ -55,6 +54,8 @@ export function LageansichtShell({
   viewLinks,
   onCreateViewLink,
   onDeleteViewLink,
+  onSetDefaultView,
+  setDefaultViewDisabled,
   navigation = null,
   children,
 }: {
@@ -65,16 +66,42 @@ export function LageansichtShell({
   viewLinks: ViewLinkItem[];
   onCreateViewLink: (label: string) => Promise<ActionResult>;
   onDeleteViewLink: (id: string) => Promise<ActionResult>;
+  /** Macht den gerade gezeigten Kartenausschnitt zum Standard-Ausschnitt. */
+  onSetDefaultView: () => Promise<ActionResult>;
+  /** Am Handy unter ETB und Stärke: dann ist keine Karte zu sehen. */
+  setDefaultViewDisabled: boolean;
   /** Die Hauptansichten-Leiste unten am Handy. */
   navigation?: ReactNode;
   children: ReactNode;
 }) {
   const [shareOpened, share] = useDisclosure(false);
+  const [setDefaultViewOpened, setDefaultView] = useDisclosure(false);
   const keyboardOpen = useKeyboardOpen();
   const statusBadge = (
     <Badge color={status === "active" ? "green" : "gray"}>
       {status === "active" ? "aktiv" : "abgeschlossen"}
     </Badge>
+  );
+  const menu = (
+    <Menu position="bottom-end">
+      <Menu.Target>
+        <ActionIcon variant="subtle" color="gray" aria-label="Menü">
+          ⋮
+        </ActionIcon>
+      </Menu.Target>
+      <Menu.Dropdown>
+        <Menu.Item onClick={share.open}>Teilen</Menu.Item>
+        <Menu.Item
+          disabled={setDefaultViewDisabled}
+          onClick={setDefaultView.open}
+        >
+          Standard-Ausschnitt festlegen
+        </Menu.Item>
+        <Menu.Item component={Link} href="/operations">
+          Zurück zu Einsätze
+        </Menu.Item>
+      </Menu.Dropdown>
+    </Menu>
   );
 
   return (
@@ -98,16 +125,11 @@ export function LageansichtShell({
           visibleFrom="sm"
           data-testid="desktop-header"
         >
+          <Title order={4}>{operationName}</Title>
           <Group gap="sm" wrap="nowrap">
-            <BackLink href="/operations" label="Einsätze" />
-            <Title order={4}>{operationName}</Title>
-          </Group>
-          <Group gap="sm" wrap="nowrap">
-            <Button variant="light" size="sm" onClick={share.open}>
-              Teilen
-            </Button>
             {!connected && <ConnectionIndicator />}
             {statusBadge}
+            {menu}
           </Group>
         </Group>
 
@@ -146,19 +168,7 @@ export function LageansichtShell({
           </Title>
           {!connected && <ConnectionIndicator />}
           {statusBadge}
-          <Menu position="bottom-end">
-            <Menu.Target>
-              <ActionIcon variant="subtle" color="gray" aria-label="Menü">
-                ⋮
-              </ActionIcon>
-            </Menu.Target>
-            <Menu.Dropdown>
-              <Menu.Item onClick={share.open}>Teilen</Menu.Item>
-              <Menu.Item component={Link} href="/operations">
-                Zurück zu Einsätze
-              </Menu.Item>
-            </Menu.Dropdown>
-          </Menu>
+          {menu}
         </Group>
       </AppShell.Header>
       {!keyboardOpen && (
@@ -187,6 +197,19 @@ export function LageansichtShell({
           />
         </Modal>
       </Modal.Stack>
+      <ConfirmationModal
+        opened={setDefaultViewOpened}
+        onClose={setDefaultView.close}
+        title="Standard-Ausschnitt festlegen"
+        confirmLabel="Festlegen"
+        confirmColor="blue"
+        onConfirm={onSetDefaultView}
+      >
+        <Text>
+          Der aktuelle Kartenausschnitt wird zum Standard-Ausschnitt dieses
+          Einsatzes.
+        </Text>
+      </ConfirmationModal>
     </AppShell>
   );
 }

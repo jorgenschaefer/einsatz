@@ -1,7 +1,7 @@
 "use client";
 
 import { Box, Modal, Stack } from "@mantine/core";
-import { useMemo, useRef, useState } from "react";
+import { type RefObject, useMemo, useState } from "react";
 import type { ActionResult } from "@/app/action-result";
 import { useNotifyingActionRunner } from "@/app/useNotifyingActionRunner";
 import type { GeoHit } from "@/server/geocoder/geocoder";
@@ -37,7 +37,7 @@ import { useMapSearch } from "./useMapSearch";
 import { useSymbolPlacement } from "./useSymbolPlacement";
 import type { MapView, ViewExtent } from "./view";
 
-const MAP_LOADING = "Die Karte lädt noch. Bitte erneut versuchen.";
+export const MAP_LOADING = "Die Karte lädt noch. Bitte erneut versuchen.";
 
 export interface WorkspaceSymbol extends StatefulSymbol {
   deviceLinkToken: string | null;
@@ -67,7 +67,6 @@ export interface SituationMapViewProps {
   tileUrl: string;
   attribution: string;
   symbols: WorkspaceSymbol[];
-  onSetDefault: (view: MapView) => Promise<ActionResult>;
   onPlace: (
     composition: SymbolComposition,
     lat: number,
@@ -124,7 +123,6 @@ export function SituationMapView({
   tileUrl,
   attribution,
   symbols,
-  onSetDefault,
   onPlace,
   onMove,
   onUpdate,
@@ -151,6 +149,7 @@ export function SituationMapView({
   onSetImageVisibility,
   onDeleteImage,
   factory,
+  mapRef,
   isDesktop,
   mapShown,
   shownPanel,
@@ -160,6 +159,7 @@ export function SituationMapView({
   closeSheetOnPhone,
   now,
 }: SituationMapViewProps & {
+  mapRef: RefObject<SituationMapHandle | null>;
   isDesktop: boolean | null;
   mapShown: boolean;
   shownPanel: MapPanel | null;
@@ -169,7 +169,6 @@ export function SituationMapView({
   closeSheetOnPhone: () => void;
   now: number;
 }) {
-  const mapRef = useRef<SituationMapHandle>(null);
   const { run: runMapAction, closeError: closeMapError } =
     useNotifyingActionRunner(SITUATION_MAP);
   const mode = useMapMode({ onTransition: closeMapError });
@@ -215,11 +214,6 @@ export function SituationMapView({
   const startEditImage = (id: string) => {
     imageEditing.startEditImage(id);
     closeSheetOnPhone();
-  };
-  const saveDefaultView = async (): Promise<ActionResult> => {
-    const view = mapRef.current?.getView();
-    if (!view) return { error: MAP_LOADING };
-    return onSetDefault(view);
   };
   const addImage = async (file: File): Promise<ActionResult> => {
     const view = mapRef.current?.getViewExtent();
@@ -291,7 +285,6 @@ export function SituationMapView({
             </Stack>
           </Box>
           <MapControls
-            onSetDefault={saveDefaultView}
             onReturnToDefault={returnToDefaultView}
             canReturnToDefault={operationDefaultView !== null}
           />

@@ -1,7 +1,5 @@
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import type { ActionResult } from "@/app/action-result";
-import { buttonColor } from "@/test/button-color";
 import { render, screen, within } from "@/test/render";
 import { MapControls } from "./MapControls";
 
@@ -9,7 +7,6 @@ function renderControls(
   over: Partial<React.ComponentProps<typeof MapControls>> = {},
 ) {
   const props = {
-    onSetDefault: vi.fn(async (): Promise<ActionResult> => ({})),
     onReturnToDefault: vi.fn(),
     canReturnToDefault: true,
     ...over,
@@ -21,16 +18,13 @@ function renderControls(
 const column = () => screen.getByRole("group", { name: "Kartenknöpfe" });
 
 describe("MapControls", () => {
-  it("lists the map controls from top to bottom", () => {
+  it("holds only the return to the default view", () => {
     renderControls();
     expect(
       within(column())
         .getAllByRole("button")
         .map((button) => button.getAttribute("aria-label")),
-    ).toEqual([
-      "Standard-Ausschnitt festlegen",
-      "Zum Standard-Ausschnitt zurück",
-    ]);
+    ).toEqual(["Zum Standard-Ausschnitt zurück"]);
   });
 
   it("returns to the default view", async () => {
@@ -45,95 +39,6 @@ describe("MapControls", () => {
     renderControls({ canReturnToDefault: false });
     expect(
       screen.getByRole("button", { name: "Zum Standard-Ausschnitt zurück" }),
-    ).toBeDisabled();
-  });
-
-  it("saves the default view only after confirming", async () => {
-    const { onSetDefault } = renderControls();
-    await userEvent.click(
-      screen.getByRole("button", { name: "Standard-Ausschnitt festlegen" }),
-    );
-    const dialog = await screen.findByRole("dialog", {
-      name: "Standard-Ausschnitt festlegen",
-    });
-    expect(dialog).toHaveTextContent(
-      "Der aktuelle Kartenausschnitt wird zum Standard-Ausschnitt dieses Einsatzes.",
-    );
-    expect(onSetDefault).not.toHaveBeenCalled();
-    const festlegen = within(dialog).getByRole("button", { name: "Festlegen" });
-    expect(buttonColor(festlegen)).toBe("blue");
-
-    await userEvent.click(festlegen);
-
-    expect(onSetDefault).toHaveBeenCalledTimes(1);
-    await vi.waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-  });
-
-  it("does not save on Abbrechen", async () => {
-    const { onSetDefault } = renderControls();
-    await userEvent.click(
-      screen.getByRole("button", { name: "Standard-Ausschnitt festlegen" }),
-    );
-    await userEvent.click(
-      within(await screen.findByRole("dialog")).getByRole("button", {
-        name: "Abbrechen",
-      }),
-    );
-
-    await vi.waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    expect(onSetDefault).not.toHaveBeenCalled();
-  });
-
-  it("keeps the confirmation open and shows the error when saving fails", async () => {
-    renderControls({
-      onSetDefault: vi.fn(async () => ({ error: "Ungültiger Ausschnitt." })),
-    });
-    await userEvent.click(
-      screen.getByRole("button", { name: "Standard-Ausschnitt festlegen" }),
-    );
-    const dialog = await screen.findByRole("dialog");
-    await userEvent.click(
-      within(dialog).getByRole("button", { name: "Festlegen" }),
-    );
-
-    expect(within(dialog).getByRole("alert")).toHaveTextContent(
-      "Ungültiger Ausschnitt.",
-    );
-  });
-
-  it("shows a fallback when saving throws", async () => {
-    renderControls({
-      onSetDefault: vi.fn(async () => {
-        throw new Error("DB weg");
-      }),
-    });
-    await userEvent.click(
-      screen.getByRole("button", { name: "Standard-Ausschnitt festlegen" }),
-    );
-    const dialog = await screen.findByRole("dialog");
-    await userEvent.click(
-      within(dialog).getByRole("button", { name: "Festlegen" }),
-    );
-
-    expect(within(dialog).getByRole("alert")).toHaveTextContent(
-      "Das hat nicht geklappt. Bitte erneut versuchen.",
-    );
-  });
-
-  it("locks Abbrechen while saving", async () => {
-    renderControls({
-      onSetDefault: vi.fn(() => new Promise<ActionResult>(() => {})),
-    });
-    await userEvent.click(
-      screen.getByRole("button", { name: "Standard-Ausschnitt festlegen" }),
-    );
-    const dialog = await screen.findByRole("dialog");
-    await userEvent.click(
-      within(dialog).getByRole("button", { name: "Festlegen" }),
-    );
-
-    expect(
-      within(dialog).getByRole("button", { name: "Abbrechen" }),
     ).toBeDisabled();
   });
 });

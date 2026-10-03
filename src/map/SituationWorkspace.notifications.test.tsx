@@ -137,7 +137,14 @@ describe("SituationWorkspace notifications", () => {
         error: "Einsatz ist geschlossen.",
       })),
     });
-    await userEvent.click(screen.getByRole("button", { name: "Teilen" }));
+    await userEvent.click(
+      within(screen.getByTestId("desktop-header")).getByRole("button", {
+        name: "Menü",
+      }),
+    );
+    await userEvent.click(
+      await screen.findByRole("menuitem", { name: "Teilen" }),
+    );
     const dialog = await screen.findByRole("dialog", {
       name: "Ansichtslinks teilen",
     });

@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:    AC-5, AC-6, AC-7, AC-8, AC-9, AC-10, AC-11, AC-12, AC-14
 advances:
 after:     01-kartenpanel-leiste
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -156,3 +156,51 @@ Decided here: `SituationWorkspace` owns the `SituationMapHandle` ref, and
 - No success notification after Festlegen (ruled out in `CRITERIA.md`).
 
 ## Left standing
+
+- **Review findings not fixed:** none. Both review passes reported no
+  blocker, should-fix or nit.
+- **Not proven by an automated test, checked another way:**
+  - AC-6, hidden on the phone while a sheet is open: the test pins only
+    `data-panel-open` and that "Zurück" sits in `.map-controls__view`. jsdom
+    applies no CSS. In the browser at 360 px, the button has zero size while
+    the Kartenzeichen and Ebenen sheets are open.
+  - AC-14, "the whole map area, including the part under the sheet": the test
+    pins that the adapter's `getView()` is saved and the sheet stays open.
+    jsdom does no layout. In the browser at 360 px the map stays full size
+    under the sheet. The saved view equals Leaflet's `getView()`, the centre of
+    the full container, not of the part above the sheet. "Zum
+    Standard-Ausschnitt zurück" brings back the same view.
+  - AC-9, "the map view currently shown becomes the Standard-Ausschnitt": the
+    tests stop at `onSetDefault` receiving the view. In the browser at 1440,
+    768 and 360 px the stored `default_view` matched the map's view. Panning
+    away and pressing "Zurück" returned to it exactly. While offline the
+    error stayed in the open dialog and the stored value was unchanged (AC-10).
+  - AC-12: `git diff main --stat` lists none of `ViewLinkView.tsx`,
+    `DeviceView.tsx`, `ReadOnlySituationMap.tsx` or their tests. None of them
+    imports `LageansichtShell`, `MapControls`, `MapPanelSwitch`,
+    `SituationMapView` or `situation-workspace.css`, and their tests pass
+    unchanged. In the browser the Ansichtslink view at 1440 and 360 px has no
+    header and no ⋮ menu, and keeps search, zoom and "Zurück". The Gerätelink
+    view was not opened.
+- **Seen in the app, not filed as findings:**
+  - At 768 px the desktop title no longer truncates. A 60-character Einsatz
+    name fits on one line, about 75 px short of the status badge. The reviewer
+    estimates that names over about 66 characters will wrap in the 56 px
+    header. Before this change the back link and the Teilen button left less
+    room.
+  - At 360 px "Zurück" still overlaps Leaflet's zoom-in by about 2 px. This was
+    already noted in ticket 01.
+  - The `MapControls` group `Stack` still wraps an inner `.map-controls__view`
+    `Stack` that now holds a single button (ticket 01's round-2 nit). It is
+    left as it is because the plan keeps the `[data-panel-open]
+    .map-controls__view` rule unchanged.
+- **Departure from the plan, step 6:** I did not drive the app myself. The
+  fresh-context reviewers did it at 360, 768 and 1440 px, so we did not both
+  use the dev server. The first reviewer's background driver and the second
+  reviewer still ran at the same time and interfered with each other. Each
+  re-ran its checks on its own Einsatz, and both reported every checked
+  criterion passing.
+- **Addition to the plan, step 1:** the AC-11 table also covers the desktop.
+  There the entry stays usable under ETB, because the map is shown beside the
+  sidebar (`mapShown` is always true on the desktop).
+- All checks ran: `npm run check` is green (230 files, 2769 tests).

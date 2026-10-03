@@ -4,7 +4,7 @@ import "./situation-workspace.css";
 import { Box } from "@mantine/core";
 
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import type { ActionResult } from "@/app/action-result";
 import type { EntryContent } from "@/journal/entry-route";
 import { type JournalEntryView, JournalPanel } from "@/journal/JournalPanel";
@@ -14,7 +14,9 @@ import type { StrengthValues } from "@/strength/strength";
 import { LageansichtShell } from "./LageansichtShell";
 import { MainViewBar } from "./MainViewBar";
 import { closeLageansichtNotifications } from "./notification-sources";
+import type { SituationMapHandle } from "./SituationMap";
 import {
+  MAP_LOADING,
   SituationMapView,
   type SituationMapViewProps,
 } from "./SituationMapView";
@@ -27,6 +29,7 @@ import { useMainView } from "./useMainView";
 import { type LiveConnection, useOperationEvents } from "./useOperationEvents";
 import { useStalenessClock } from "./useStalenessClock";
 import type { ViewLinkItem } from "./ViewLinkPanel";
+import type { MapView } from "./view";
 
 /** Die Uploads baut die Lageansicht selbst; sie laufen über Route Handler. */
 type UploadProps = "onAddKmlFile" | "onAddImage" | "onReplaceImage";
@@ -40,6 +43,7 @@ export interface SituationWorkspaceProps
   viewLinks: ViewLinkItem[];
   onCreateViewLink: (label: string) => Promise<ActionResult>;
   onDeleteViewLink: (id: string) => Promise<ActionResult>;
+  onSetDefault: (view: MapView) => Promise<ActionResult>;
   journalEntries: JournalEntryView[];
   /** Die Werte für Von und An eines neuen ETB-Eintrags und einer Korrektur. */
   correspondents: string[];
@@ -75,6 +79,7 @@ export function SituationWorkspace({
   viewLinks,
   onCreateViewLink,
   onDeleteViewLink,
+  onSetDefault,
   journalEntries,
   correspondents,
   onAddJournalEntry,
@@ -118,6 +123,12 @@ export function SituationWorkspace({
     closeSheetOnPhone,
   } = useMainView({ journalEntries, currentUsername });
   const now = useStalenessClock();
+  const mapRef = useRef<SituationMapHandle>(null);
+  const saveDefaultView = async (): Promise<ActionResult> => {
+    const view = mapRef.current?.getView();
+    if (!view) return { error: MAP_LOADING };
+    return onSetDefault(view);
+  };
 
   const mainViewBar = (
     <MainViewBar
@@ -134,6 +145,8 @@ export function SituationWorkspace({
       viewLinks={viewLinks}
       onCreateViewLink={onCreateViewLink}
       onDeleteViewLink={onDeleteViewLink}
+      onSetDefaultView={saveDefaultView}
+      setDefaultViewDisabled={!mapShown}
       navigation={mainViewBar}
       connected={connected}
     >
@@ -153,6 +166,7 @@ export function SituationWorkspace({
           onReplaceImage={(id, file) =>
             refreshingAfter(uploadReplacementImage(operationId, id, file))
           }
+          mapRef={mapRef}
           isDesktop={isDesktop}
           mapShown={mapShown}
           shownPanel={shownPanel}

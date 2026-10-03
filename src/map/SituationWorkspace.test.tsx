@@ -23,14 +23,13 @@ import {
 } from "./SituationWorkspace.fixtures";
 
 describe("SituationWorkspace", () => {
-  it("renders the operation name and Teilen in the header", () => {
+  it("renders the operation name in the header", () => {
     renderWorkspace({ operationName: "Cyclassics 2026" });
     expect(
       within(screen.getByTestId("desktop-header")).getByRole("heading", {
         name: "Cyclassics 2026",
       }),
     ).toBeInTheDocument();
-    expect(screen.getByText(/Teilen/i)).toBeInTheDocument();
   });
 
   describe.each([

@@ -1,5 +1,6 @@
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { stubMatchMedia } from "@/test/match-media";
 import { screen, waitFor, within } from "@/test/render";
 import {
   AREA,
@@ -10,46 +11,174 @@ import {
   selectMainView,
 } from "./SituationWorkspace.fixtures";
 
-describe("SituationWorkspace", () => {
-  it("saves the current map view as the default after confirming", async () => {
-    const onSetDefault = vi.fn(async () => ({}));
-    const { captured } = renderWorkspace({ onSetDefault });
-    await selectMainView("Lagekarte");
-    await waitFor(() => expect(captured.options).toBeDefined());
-    await userEvent.click(
-      screen.getByLabelText("Standard-Ausschnitt festlegen", {
-        selector: "button",
-      }),
-    );
-    await userEvent.click(
-      within(await screen.findByRole("dialog")).getByText("Festlegen"),
-    );
-    expect(onSetDefault).toHaveBeenCalledWith({ lat: 0, lng: 0, zoom: 1 });
-  });
+/** Wählt im ⋮ Menü der Handy-Kopfzeile „Standard-Ausschnitt festlegen". */
+async function askToSetDefaultView() {
+  await userEvent.click(
+    within(screen.getByTestId("mobile-header")).getByRole("button", {
+      name: "Menü",
+    }),
+  );
+  await userEvent.click(
+    await screen.findByRole("menuitem", {
+      name: "Standard-Ausschnitt festlegen",
+    }),
+  );
+  return screen.findByRole("dialog", { name: "Standard-Ausschnitt festlegen" });
+}
 
-  it("does not save a default view before the map has loaded", async () => {
-    // Der echte Leaflet-Adapter wird dynamisch geladen; hängt das Laden, gibt es
-    // noch keine Karte und damit keinen Ausschnitt.
-    vi.doMock("./leaflet-adapter", () => new Promise(() => {}));
-    try {
+describe("SituationWorkspace", () => {
+  describe("Standard-Ausschnitt festlegen", () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    it("saves the current map view as the default after confirming, without a notification", async () => {
       const onSetDefault = vi.fn(async () => ({}));
-      renderWorkspace({ onSetDefault, factory: undefined });
+      const { adapter, captured } = renderWorkspace({ onSetDefault });
       await selectMainView("Lagekarte");
-      await userEvent.click(
-        screen.getByLabelText("Standard-Ausschnitt festlegen", {
-          selector: "button",
-        }),
+      await waitFor(() => expect(captured.options).toBeDefined());
+      adapter.getView = () => ({ lat: 53.5, lng: 9.9, zoom: 14 });
+
+      const dialog = await askToSetDefaultView();
+      expect(dialog).toHaveTextContent(
+        "Der aktuelle Kartenausschnitt wird zum Standard-Ausschnitt dieses Einsatzes.",
       );
-      const dialog = await screen.findByRole("dialog");
-      await userEvent.click(within(dialog).getByText("Festlegen"));
+      await userEvent.click(
+        within(dialog).getByRole("button", { name: "Festlegen" }),
+      );
+
+      expect(onSetDefault).toHaveBeenCalledWith({
+        lat: 53.5,
+        lng: 9.9,
+        zoom: 14,
+      });
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+      expect(screen.queryByRole("alert")).toBeNull();
+    });
+
+    it("saves nothing on Abbrechen", async () => {
+      const onSetDefault = vi.fn(async () => ({}));
+      renderWorkspace({ onSetDefault });
+      await selectMainView("Lagekarte");
+
+      const dialog = await askToSetDefaultView();
+      await userEvent.click(
+        within(dialog).getByRole("button", { name: "Abbrechen" }),
+      );
+
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+      expect(onSetDefault).not.toHaveBeenCalled();
+    });
+
+    it("shows a failing save only in the open confirmation", async () => {
+      renderWorkspace({
+        onSetDefault: vi.fn(async () => ({ error: "Ungültiger Ausschnitt." })),
+      });
+      await selectMainView("Lagekarte");
+
+      const dialog = await askToSetDefaultView();
+      await userEvent.click(
+        within(dialog).getByRole("button", { name: "Festlegen" }),
+      );
 
       expect(within(dialog).getByRole("alert")).toHaveTextContent(
-        "Die Karte lädt noch. Bitte erneut versuchen.",
+        "Ungültiger Ausschnitt.",
       );
-      expect(onSetDefault).not.toHaveBeenCalled();
-    } finally {
-      vi.doUnmock("./leaflet-adapter");
-    }
+      expect(screen.getAllByRole("alert")).toHaveLength(1);
+    });
+
+    it("does not save a default view before the map has loaded", async () => {
+      // Der echte Leaflet-Adapter wird dynamisch geladen; hängt das Laden, gibt es
+      // noch keine Karte und damit keinen Ausschnitt.
+      vi.doMock("./leaflet-adapter", () => new Promise(() => {}));
+      try {
+        const onSetDefault = vi.fn(async () => ({}));
+        renderWorkspace({ onSetDefault, factory: undefined });
+        await selectMainView("Lagekarte");
+        const dialog = await askToSetDefaultView();
+        await userEvent.click(within(dialog).getByText("Festlegen"));
+
+        expect(within(dialog).getByRole("alert")).toHaveTextContent(
+          "Die Karte lädt noch. Bitte erneut versuchen.",
+        );
+        expect(onSetDefault).not.toHaveBeenCalled();
+      } finally {
+        vi.doUnmock("./leaflet-adapter");
+      }
+    });
+
+    it.each([
+      ["disabled", "a phone", "ETB", false],
+      ["disabled", "a phone", "Stärke", false],
+      ["usable", "a phone", "Lagekarte", false],
+      ["usable", "the desktop", "ETB", true],
+    ] as const)("is %s on %s under %s", async (state, _, view, desktop) => {
+      const disabled = state === "disabled";
+      stubMatchMedia(desktop);
+      renderWorkspace();
+      await selectMainView(view);
+      const header = desktop ? "desktop-header" : "mobile-header";
+
+      await userEvent.click(
+        within(screen.getByTestId(header)).getByRole("button", {
+          name: "Menü",
+        }),
+      );
+      const entry = await screen.findByRole("menuitem", {
+        name: "Standard-Ausschnitt festlegen",
+      });
+      if (disabled) expect(entry).toBeDisabled();
+      else expect(entry).toBeEnabled();
+    });
+
+    it("saves the whole map's view on a phone with a sheet open and leaves the sheet open", async () => {
+      stubMatchMedia(false);
+      const onSetDefault = vi.fn(async () => ({}));
+      const { adapter, captured } = renderWorkspace({ onSetDefault });
+      adapter.getView = () => ({ lat: 53.5, lng: 9.9, zoom: 14 });
+      await openPanel("Ebenen");
+      await waitFor(() => expect(captured.options).toBeDefined());
+
+      const dialog = await askToSetDefaultView();
+      await userEvent.click(
+        within(dialog).getByRole("button", { name: "Festlegen" }),
+      );
+
+      expect(onSetDefault).toHaveBeenCalledWith({
+        lat: 53.5,
+        lng: 9.9,
+        zoom: 14,
+      });
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+      expect(mapPanel("Ebenen")).toBeVisible();
+    });
+  });
+
+  it("keeps only Zum Standard-Ausschnitt zurück among the Kartenknöpfe", async () => {
+    renderWorkspace();
+    await selectMainView("Lagekarte");
+    expect(
+      within(screen.getByRole("group", { name: "Kartenknöpfe" }))
+        .getAllByRole("button")
+        .map((button) => button.getAttribute("aria-label")),
+    ).toEqual(["Zum Standard-Ausschnitt zurück"]);
+    expect(
+      screen.queryByRole("button", { name: "Standard-Ausschnitt festlegen" }),
+    ).toBeNull();
+  });
+
+  // Das CSS blendet `.map-controls__view` unter `[data-panel-open]` aus.
+  it("puts Zum Standard-Ausschnitt zurück where an open sheet hides it on a phone", async () => {
+    renderWorkspace();
+    await openPanel("Ebenen");
+    expect(document.querySelector('[data-view="map"]')).toHaveAttribute(
+      "data-panel-open",
+    );
+    expect(
+      screen
+        .getByRole("button", { name: "Zum Standard-Ausschnitt zurück" })
+        .closest(".map-controls__view"),
+    ).not.toBeNull();
   });
 
   describe.each([
