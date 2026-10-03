@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:    AC-29, AC-30
 advances:
 after:     13-sitzungs-token, 09-uploads-ueber-route-handler
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -168,3 +168,43 @@ login, where only what the user does counts as use; the account page gets
   Anzeige, wann ein Link zuletzt benutzt wurde."
 
 ## Left standing
+- **Departed from the plan: one call site for the upload flag, and a
+  different name.** All three upload routes go through `handleUpload`
+  (`src/app/operations/[id]/upload-route.ts`), so the flag is set once
+  there and not in each route. The first review rated the option name
+  `use` hard to read (a getter that writes), so it is now
+  `getCurrentUser({ recordUse: true })`.
+- **Beyond the plan: `BackLink` now uses Next's `Link`.** The first review
+  found that „← Einsätze" (Konto, Nutzerverwaltung, Lageansicht) was a plain
+  `<a>`. Clicking it loaded a whole page (`Sec-Fetch-Mode: navigate`), so it
+  counted as use, which AC-29 rules out for link clicks inside the app. It is
+  now a client component (`"use client"`) that renders `next/link`.
+- **No automated test covers the `"use client"` on `BackLink`.** Without it,
+  `/account` and `/admin/users` returned 500 in the real app (the second
+  review found this) while every jsdom test stayed green. I checked it in the
+  browser instead: both pages render, and the link navigates.
+- **Review nit not fixed: `BackLink.test.tsx` relies on Next internals.** It
+  provides the Pages Router context (`next/dist/shared/lib/router-context…`)
+  because Vitest loads the Pages Router variant of `next/link`. The App Router
+  variant the build uses can't be loaded under Vitest
+  (`react-server-dom-webpack/client` is missing). The test proves the click
+  is handled on the client, but only for the variant Vitest loads.
+- **Parts of AC-29 checked only in the browser:**
+  - The real headers of each kind of request. The tests supply headers as the
+    ticket describes them.
+  - The first reviewer backdated `last_seen_at` by 10 minutes and found:
+    page load and server action write it; an in-app `<Link>` click and the
+    Live-Verbindung don't.
+  - After the fix, I backdated it and clicked „← Einsätze": `last_seen_at`
+    stayed 10 minutes old.
+- **Not changed: the footer links Impressum and Datenschutzerklärung (and
+  the links between those two pages) are plain `<a>`.** They load a whole
+  page, but those pages don't resolve the session, so they record no use.
+- **Changed beyond the plan, test mocks only:** seven test files mocked
+  `next/headers` without `headers()`. `getCurrentUser` now reads the headers,
+  so they gained `headers: async () => new Headers()`.
+- **Dev database:**
+  - Both reviewers applied migration 018 to it. Existing dev sessions got
+    `last_seen_at` = the migration time.
+  - They also used „Überall abmelden" as `admin`, so other `admin` sessions
+    in the dev DB have ended. Log in again.

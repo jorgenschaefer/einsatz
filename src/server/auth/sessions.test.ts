@@ -6,6 +6,7 @@ import {
   deleteSessionsForUser,
   findUserBySessionToken,
   insertSession,
+  recordSessionUse,
 } from "./sessions";
 import { insertUser } from "./users";
 
@@ -137,5 +138,91 @@ describe("sessions repository", () => {
     expect(await findUserBySessionToken(db, "anna1")).toBeNull();
     expect(await findUserBySessionToken(db, "anna2")).toBeNull();
     expect(await findUserBySessionToken(db, "bob1")).not.toBeNull();
+  });
+});
+
+describe("session idle timeout", () => {
+  const MINUTE = 60_000;
+  const IDLE_BOUND = 24 * 60 * MINUTE + 5 * MINUTE;
+  const start = new Date("2026-10-01T08:00:00Z");
+  const sinceStart = (ms: number) => new Date(start.getTime() + ms);
+  const in30Days = sinceStart(30 * 24 * 60 * MINUTE);
+
+  async function sessionStartedAtStart(
+    db: Awaited<ReturnType<typeof freshDb>>,
+  ) {
+    const user = await seedUser(db);
+    await insertSession(
+      db,
+      { token: "tok", userId: user.id, expiresAt: in30Days },
+      start,
+    );
+    return user;
+  }
+
+  async function lastSeenAt(db: Awaited<ReturnType<typeof freshDb>>) {
+    const { rows } = await db.query<{ last_seen_at: Date }>(
+      "SELECT last_seen_at FROM sessions",
+    );
+    return rows[0].last_seen_at;
+  }
+
+  it("resolves the token until 24 h 5 min after the last recorded use", async () => {
+    const db = await freshDb();
+    await sessionStartedAtStart(db);
+
+    expect(
+      await findUserBySessionToken(db, "tok", sinceStart(IDLE_BOUND - 1000)),
+    ).not.toBeNull();
+    expect(
+      await findUserBySessionToken(db, "tok", sinceStart(IDLE_BOUND + 1000)),
+    ).toBeNull();
+  });
+
+  it("extends the session from a recorded use", async () => {
+    const db = await freshDb();
+    await sessionStartedAtStart(db);
+
+    await recordSessionUse(db, "tok", sinceStart(10 * MINUTE));
+
+    expect(
+      await findUserBySessionToken(
+        db,
+        "tok",
+        sinceStart(10 * MINUTE + IDLE_BOUND - 1000),
+      ),
+    ).not.toBeNull();
+  });
+
+  it("writes a use at most every 5 minutes", async () => {
+    const db = await freshDb();
+    await sessionStartedAtStart(db);
+
+    await recordSessionUse(db, "tok", sinceStart(2 * MINUTE));
+    expect(await lastSeenAt(db)).toEqual(start);
+    await recordSessionUse(db, "tok", sinceStart(5 * MINUTE));
+    expect(await lastSeenAt(db)).toEqual(sinceStart(5 * MINUTE));
+    await recordSessionUse(db, "tok", sinceStart(11 * MINUTE));
+    expect(await lastSeenAt(db)).toEqual(sinceStart(11 * MINUTE));
+  });
+
+  it("purges idle sessions along with expired ones", async () => {
+    const db = await freshDb();
+    const user = await sessionStartedAtStart(db);
+    await insertSession(
+      db,
+      { token: "fresh", userId: user.id, expiresAt: in30Days },
+      sinceStart(IDLE_BOUND),
+    );
+
+    await deleteExpiredSessions(db, sinceStart(IDLE_BOUND + 1000));
+
+    const { rows } = await db.query<{ count: number }>(
+      "SELECT count(*)::int AS count FROM sessions",
+    );
+    expect(rows[0].count).toBe(1);
+    expect(
+      await findUserBySessionToken(db, "fresh", sinceStart(IDLE_BOUND + 1000)),
+    ).not.toBeNull();
   });
 });

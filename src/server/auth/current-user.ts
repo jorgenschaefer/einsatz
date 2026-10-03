@@ -1,8 +1,8 @@
 import "server-only";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getDb } from "@/server/db/pg";
-import { findUserBySessionToken } from "./sessions";
+import { findUserBySessionToken, recordSessionUse } from "./sessions";
 import type { AuthenticatedUser } from "./users";
 
 /** Setzt das Session-Cookie mit den festen Sicherheitsflags. */
@@ -43,11 +43,36 @@ function sessionCookie() {
   };
 }
 
-/** Der aktuell angemeldete Nutzer anhand des Session-Cookies, oder null. */
-export async function getCurrentUser(): Promise<AuthenticatedUser | null> {
+/**
+ * Der aktuell angemeldete Nutzer anhand des Session-Cookies, oder null. War
+ * die Anfrage eine Nutzung, verlängert sie die Sitzung; `recordUse: true` sagt
+ * das für Anfragen, denen man es an den Headern nicht ansieht (Uploads per
+ * `fetch`).
+ */
+export async function getCurrentUser(options?: {
+  recordUse?: boolean;
+}): Promise<AuthenticatedUser | null> {
   const token = await currentSessionToken();
   if (!token) return null;
-  return findUserBySessionToken(getDb(), token);
+  const db = getDb();
+  const user = await findUserBySessionToken(db, token);
+  if (user && (options?.recordUse || isUserActivity(await headers()))) {
+    await recordSessionUse(db, token);
+  }
+  return user;
+}
+
+/**
+ * Was der Nutzer selbst tut: eine Server Action, oder eine Seite, die der
+ * Browser als Dokument lädt (aufgerufen oder neu geladen). Das automatische
+ * Neuladen nach Änderungen, Link-Klicks innerhalb der App (beides RSC-Abrufe),
+ * die Live-Verbindung und Bilder zählen nicht.
+ */
+function isUserActivity(requestHeaders: Headers): boolean {
+  return (
+    requestHeaders.has("next-action") ||
+    requestHeaders.get("sec-fetch-mode") === "navigate"
+  );
 }
 
 /** Wie {@link getCurrentUser}, leitet aber unangemeldete Zugriffe auf /login um. */

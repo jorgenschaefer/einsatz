@@ -54,7 +54,7 @@ export async function createSession(
 ): Promise<{ token: string; expiresAt: Date }> {
   const token = randomBytes(32).toString("base64url");
   const expiresAt = new Date(now + SESSION_TTL_MS);
-  await insertSession(db, { token, userId, expiresAt });
+  await insertSession(db, { token, userId, expiresAt }, new Date(now));
   // Best-effort-Aufräumen abgelaufener Sessions (Purge-on-write). Ein Fehler
   // hier darf die Anmeldung nie blockieren.
   try {

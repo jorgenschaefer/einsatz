@@ -10,6 +10,7 @@ const state = vi.hoisted(() => ({
 vi.mock("@/server/db/pg", () => ({ getDb: () => state.db }));
 vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
 vi.mock("next/headers", () => ({
+  headers: async () => new Headers(),
   cookies: async () => ({
     get: () => (state.token ? { value: state.token } : undefined),
   }),

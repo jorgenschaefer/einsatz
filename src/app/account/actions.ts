@@ -2,6 +2,7 @@
 
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import type { ActionResult } from "@/app/action-result";
 import { changePassword } from "@/server/auth/account-admin";
 import {
   clearSessionCookie,
@@ -11,7 +12,10 @@ import {
 } from "@/server/auth/current-user";
 import { createSession } from "@/server/auth/login";
 import { loginRateLimiter } from "@/server/auth/rate-limit-instance";
-import { deleteSession } from "@/server/auth/sessions";
+import {
+  deleteOtherSessionsOfUser,
+  deleteSession,
+} from "@/server/auth/sessions";
 import { getDb } from "@/server/db/pg";
 import { clientIpFromForwardedFor } from "@/server/http/client-ip";
 import { ValidationError } from "@/server/validation";
@@ -49,4 +53,11 @@ export async function logoutAction(): Promise<void> {
   if (token) await deleteSession(getDb(), token);
   await clearSessionCookie();
   redirect("/login");
+}
+
+export async function logoutOtherSessionsAction(): Promise<ActionResult> {
+  const user = await requireUser();
+  const token = await currentSessionToken();
+  if (token) await deleteOtherSessionsOfUser(getDb(), user.id, token);
+  return {};
 }

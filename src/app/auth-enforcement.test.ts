@@ -34,7 +34,10 @@ vi.mock("next/navigation", () => ({
   },
 }));
 
-import { changePasswordAction } from "@/app/account/actions";
+import {
+  changePasswordAction,
+  logoutOtherSessionsAction,
+} from "@/app/account/actions";
 import {
   createAccountAction,
   deleteAccountAction,
@@ -282,6 +285,7 @@ const userGuardedActions: Invocation[] = [
     name: "changePasswordAction",
     run: () => changePasswordAction({}, new FormData()),
   },
+  { name: "logoutOtherSessionsAction", run: () => logoutOtherSessionsAction() },
 ];
 
 // requireUser-geschützte Route-Handler (keine Token-Routen). Token-Routen

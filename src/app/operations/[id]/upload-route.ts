@@ -15,9 +15,10 @@ const MAX_UPLOAD_REQUEST_BYTES = 21 * 1024 * 1024;
 
 /**
  * Gemeinsamer Ablauf der Upload-Routen (KML-Datei, Bild-Overlay hinzufügen und
- * ersetzen): prüft Herkunft und Sitzung, bevor ein Byte gelesen wird, liest
- * den Body höchstens bis 21 MB, führt `run` wie eine Einsatz-Action aus und
- * antwortet mit `{}` oder `{ error }`. Ohne Sitzung 401 statt einer
+ * ersetzen): prüft Herkunft und Sitzung, bevor ein Byte gelesen wird, zählt
+ * den Upload als Nutzung der Sitzung, liest den Body höchstens bis 21 MB,
+ * führt `run` wie eine Einsatz-Action aus und antwortet mit `{}` oder
+ * `{ error }`. Ohne Sitzung 401 statt einer
  * Umleitung, weil `fetch` einer Umleitung samt Body folgen würde.
  */
 export async function handleUpload(
@@ -28,7 +29,9 @@ export async function handleUpload(
   if (!isSameOrigin(request.headers)) {
     return new Response(null, { status: 403 });
   }
-  if (!(await getCurrentUser())) return new Response(null, { status: 401 });
+  if (!(await getCurrentUser({ recordUse: true }))) {
+    return new Response(null, { status: 401 });
+  }
 
   let form: FormData;
   try {

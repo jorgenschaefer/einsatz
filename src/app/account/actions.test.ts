@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createSession } from "@/server/auth/login";
 import { hashPassword, verifyPassword } from "@/server/auth/password";
+import { findUserBySessionToken } from "@/server/auth/sessions";
 import { findUserById, insertUser, type User } from "@/server/auth/users";
 import type { Db } from "@/server/db/db";
 import { freshDb } from "@/test/db";
@@ -33,7 +34,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 import { loginAction } from "@/app/login/actions";
-import { changePasswordAction } from "./actions";
+import { changePasswordAction, logoutOtherSessionsAction } from "./actions";
 
 const PASSWORD = "a-good-password";
 const NEW_PASSWORD = "brand-new-password";
@@ -154,4 +155,29 @@ describe("changePasswordAction password policy", () => {
       expect(await verifyPassword(PASSWORD, stored!.passwordHash)).toBe(true);
     },
   );
+});
+
+describe("logoutOtherSessionsAction", () => {
+  it("ends every other session of the user, keeping this one and other users'", async () => {
+    const own = state.token as string;
+    const phone = (await createSession(db, anna.id)).token;
+    const tablet = (await createSession(db, anna.id)).token;
+    const bob = await insertUser(db, {
+      username: "bob",
+      passwordHash: "h",
+      role: "user",
+    });
+    const bobs = (await createSession(db, bob.id)).token;
+
+    expect(await logoutOtherSessionsAction()).toEqual({});
+
+    expect(await findUserBySessionToken(db, phone)).toBeNull();
+    expect(await findUserBySessionToken(db, tablet)).toBeNull();
+    expect(await findUserBySessionToken(db, own)).toMatchObject({
+      id: anna.id,
+    });
+    expect(await findUserBySessionToken(db, bobs)).toMatchObject({
+      id: bob.id,
+    });
+  });
 });

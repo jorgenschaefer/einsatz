@@ -2,7 +2,11 @@ import { describe, expect, it, vi } from "vitest";
 import { freshDb } from "@/test/db";
 import { authenticate, createSession, SESSION_TTL_MS } from "./login";
 import { hashPassword } from "./password";
-import { findUserBySessionToken, insertSession } from "./sessions";
+import {
+  findUserBySessionToken,
+  insertSession,
+  recordSessionUse,
+} from "./sessions";
 import { insertUser } from "./users";
 
 async function seedAnna(db: Awaited<ReturnType<typeof freshDb>>) {
@@ -42,6 +46,7 @@ describe("createSession", () => {
     const { token, expiresAt } = await createSession(db, user.id, now);
 
     expect(expiresAt.getTime()).toBe(now + SESSION_TTL_MS);
+    await recordSessionUse(db, token, new Date(now + SESSION_TTL_MS - 60_000));
     const before = await findUserBySessionToken(
       db,
       token,
@@ -54,6 +59,21 @@ describe("createSession", () => {
       new Date(now + SESSION_TTL_MS + 1),
     );
     expect(after).toBeNull();
+  });
+
+  it("counts the login as the session's last use", async () => {
+    const db = await freshDb();
+    const user = await seedAnna(db);
+    const now = 1_000_000;
+    const { token } = await createSession(db, user.id, now);
+
+    const idleBound = (24 * 60 + 5) * 60_000;
+    expect(
+      await findUserBySessionToken(db, token, new Date(now + idleBound - 1000)),
+    ).toMatchObject({ id: user.id });
+    expect(
+      await findUserBySessionToken(db, token, new Date(now + idleBound + 1000)),
+    ).toBeNull();
   });
 
   it("creates distinct tokens each time", async () => {

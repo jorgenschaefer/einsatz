@@ -19,6 +19,7 @@ vi.mock("@/server/events/operation-events", () => ({
   publishOperationChanged: (id: string) => state.publishOperationChanged(id),
 }));
 vi.mock("next/headers", () => ({
+  headers: async () => new Headers(),
   cookies: async () => ({
     get: () => (state.token ? { value: state.token } : undefined),
     set: () => {},
