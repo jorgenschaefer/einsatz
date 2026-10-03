@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:
 advances:  AC-1, AC-3, AC-5, AC-6, AC-8, AC-9, AC-11
 after:     03-actions-kartenzeichen-bereiche
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -154,3 +154,82 @@ described under Context.
 - No change to the actions themselves.
 
 ## Left standing
+- **Review findings not fixed.** The one review round found no blocker and
+  nothing that should be fixed. It found two nits:
+  - Fixed: `addKmlUrlAction` and `reloadKmlAction` each had two `describe`
+    blocks. Each action now has one; the shared loading-failure tests are
+    registered inside it by `expectLoadingFailuresHandled`. The test names
+    did not change.
+  - Not fixed (nit): `image-overlay-actions.test.ts` checks "tells open
+    clients" through a mocked `publishOperationChanged`, while
+    `kml-actions.test.ts` counts events on the real bus (`subscribeOperation`).
+    The mocked style was already in the image file and its cleanup-failure
+    test also asserts `revalidatePath` through the same mock block. Switching
+    would only change style, so it stays for the review tickets.
+  Since only nits came back, there was no second round.
+- **Checks not run.** None skipped. `npm run check` is green (231 files,
+  2888 tests), after the last edit. `npm run test:coverage` and then
+  `compare-coverage.mjs` exit 0. As after tickets 02, 03 and 08, the script
+  names only `src/test/action-checks.ts` and `src/test/page-checks.ts` as
+  "new, compared with nothing". No file's coverage dropped, no file needed a
+  new test file, and no helper code moved, so `coverage-splits.json` is
+  unchanged.
+- **Advanced without an automated test.**
+  - AC-1, AC-5, AC-9: I checked by listing the files.
+    `map-actions.validation.test.ts` is deleted (it was 312 lines when this
+    ticket started, not 568 - ticket 03 had already moved most of it), and
+    each of the three modules has its test file. The largest touched file is
+    `kml-actions.test.ts` at about 340 lines. Ticket 23 adds the check.
+  - AC-3: no automated check yet. None of the three test files imports
+    another `@/app/` module.
+  - AC-6: the helpers were proven by breaking things by hand. Each break
+    made the named test fail, and I restored all of them:
+    - `assertText` on the URL removed from `addKmlUrlAction`: the bad calls
+      "a URL of null" and "a URL of 2,001" and the "before fetching it" tests
+      failed.
+    - A fetch added at the start of `reloadKmlAction`'s body: "rejects
+      reloadKmlAction with an object of another Einsatz and changes nothing"
+      failed on the `nothingElseHappened` check (this ticket is its first
+      user).
+    - `loadKmlFromUrl` called before the login in `addKmlUrlAction`: "fetches
+      nothing for an anonymous caller" failed, among others.
+    - `setKmlVisibility` / `deleteKmlOverlay` called before the login: "login
+      required › … › sends an anonymous caller to the login" failed for each.
+      This is why the old "enforces the login before mutating" tests point
+      there.
+    - The Einsatz condition dropped from `setImageOverlayVisibility`'s
+      `UPDATE`: "rejects setImageOverlayVisibilityAction with an object of
+      another Einsatz and changes nothing" failed.
+    - `geocodeAddressAction` passing `JSON.stringify(query)` on: the bad
+      calls "a query as a number" and "a query of null" failed. The Photon
+      mock always finds a hit, so the table's `[]` answer holds what the old
+      "without asking Photon" assertion checked.
+  - AC-8, AC-11: the commit's `Removed tests:` section is written from
+    `removed-tests.mjs`. It names all 55 removed names, and each has its `→`
+    line pointing to a test that exists.
+- **AC-3 review list.** All three test files are added to
+  `ac3-reviewed.txt`. I rewrote each whole and held every test in it against
+  its own module. `auth-enforcement.test.ts` and `foreign-operation.test.ts`
+  were only edited, so they are not listed.
+- **Departures from the plan.**
+  - `image-overlay-actions.test.ts` lost "lets a redirect thrown while
+    deleting through instead of reporting an error". It checks only
+    `operationAction`'s rethrow, which `operation-action.test.ts` › "lets a
+    Next navigation error such as redirect through" already pins, and it
+    could not run with the `redirect` mock the login check needs (that mock
+    makes `redirectError()` return an error `unstable_rethrow` does not
+    know).
+  - Tests the plan did not ask for: success tests against the database for
+    every KML action and for placing and hiding a Bild-Overlay (before, the
+    KML ones were mock-call assertions and the two image ones had none); the
+    trimmed URL in "adds the KML-Ebene fetched from the trimmed URL"; a "URL
+    of blanks" bad call and before-fetch case, replacing the mocked "asks for
+    a URL and creates nothing"; and a bad call 'visible as "yes"' for the
+    Bild-Overlay and "placement of null", both from
+    `map-actions.validation.test.ts`, which `bad-calls/map.ts` lacked.
+  - The revalidation assertions of the old mocked KML tests are not
+    repeated; `operation-action.test.ts` holds them, as in ticket 03.
+  - `foreign-operation.test.ts` lost its `loadKmlFromUrl` mock and
+    `fetchedUrls` assertion along with the KML rows: the one case left (the
+    overlay `PUT` route, ticket 06) cannot fetch a KML.
+- **Departures from a nudge.** None.

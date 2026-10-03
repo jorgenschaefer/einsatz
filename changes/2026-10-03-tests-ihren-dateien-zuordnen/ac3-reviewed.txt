@@ -7,3 +7,6 @@ src/app/operations/[id]/actions.test.ts
 src/app/operations/[id]/map-symbol-actions.test.ts
 src/app/operations/[id]/area-actions.test.ts
 src/app/operations/[id]/view-link-actions.test.ts
+src/app/operations/[id]/kml-actions.test.ts
+src/app/operations/[id]/image-overlay-actions.test.ts
+src/app/operations/[id]/geocode-actions.test.ts

@@ -14,6 +14,12 @@ vi.mock("next/headers", () => ({
     get: () => (state.token ? { value: state.token } : undefined),
   }),
 }));
+vi.mock("next/navigation", async (original) => ({
+  ...(await original<object>()),
+  redirect: (to: string) => {
+    throw Object.assign(new Error("NEXT_REDIRECT"), { redirectTo: to });
+  },
+}));
 vi.mock("@/server/geocoder/photon", () => ({
   photonGeocoder: {
     geocode: async (query: string) => {
@@ -24,38 +30,60 @@ vi.mock("@/server/geocoder/photon", () => ({
 }));
 
 import { geocodeGate } from "@/server/geocoder/geocode-service";
+import {
+  type ActAs,
+  expectBadCallsRejected,
+  expectEveryActionRequiresLogin,
+  expectForeignObjectsRejected,
+} from "@/test/action-checks";
+import { type Bad, noHits, text } from "@/test/bad-calls/bad-call";
 import { freshDb } from "@/test/db";
 import { signIn } from "@/test/sign-in";
-import { geocodeAddressAction } from "./geocode-actions";
+import * as actions from "./geocode-actions";
 
-// Server Actions nehmen, was der Client schickt – die Typen hier lügen absichtlich.
-// biome-ignore lint/suspicious/noExplicitAny: bewusst falsch getypte Eingaben
-type Bad = any;
+const { geocodeAddressAction } = actions;
+
+const actAs: ActAs = async (caller) => {
+  state.token =
+    caller === "anonymous" ? undefined : await signIn(state.db as Db, caller);
+};
+const db = () => state.db as Db;
 
 beforeEach(async () => {
   state.db = await freshDb();
-  state.token = await signIn(state.db as Db);
+  state.token = undefined;
   state.photonQueries = [];
   geocodeGate.reset();
 });
 
+expectEveryActionRequiresLogin(actions, { actAs });
+
+// Photon fände immer einen Treffer: keine Treffer heißt, Photon wurde nicht gefragt.
+expectBadCallsRejected(
+  actions,
+  {
+    geocodeAddressAction: [
+      noHits("a query as a number", () => geocodeAddressAction(12345 as Bad)),
+      noHits("a query of null", () => geocodeAddressAction(null as Bad)),
+      noHits("a query as an object", () => geocodeAddressAction({} as Bad)),
+      noHits("a query of 201", () => geocodeAddressAction(`Ha${text(199)}`)),
+    ],
+  },
+  { db, actAs },
+);
+
+expectForeignObjectsRejected(
+  actions,
+  { geocodeAddressAction: "takes no Einsatz-ID" },
+  { db, actAs },
+);
+
 describe("geocodeAddressAction", () => {
   it("finds the address Photon finds", async () => {
+    await actAs("user");
+
     expect(await geocodeAddressAction("Hamburg")).toEqual([
       { label: "Hamburg", lat: 53.55, lng: 9.99 },
     ]);
   });
-
-  it.each([
-    ["a number", 12345],
-    ["null", null],
-    ["an object", { query: "Hamburg" }],
-  ])(
-    "finds nothing for %s as query, without asking Photon",
-    async (_, query) => {
-      expect(await geocodeAddressAction(query as Bad)).toEqual([]);
-
-      expect(state.photonQueries).toEqual([]);
-    },
-  );
 });

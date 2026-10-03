@@ -10,7 +10,6 @@ import type { Db } from "@/server/db/db";
 const state = vi.hoisted(() => ({
   db: undefined as unknown,
   token: undefined as string | undefined,
-  fetchedUrls: [] as string[],
 }));
 vi.mock("@/server/db/pg", () => ({ getDb: () => state.db }));
 vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
@@ -22,12 +21,6 @@ vi.mock("next/headers", () => ({
     delete: () => {},
   }),
 }));
-vi.mock("@/server/kml/kml-import", () => ({
-  loadKmlFromUrl: async (url: string) => {
-    state.fetchedUrls.push(url);
-    return "<kml>neu</kml>";
-  },
-}));
 
 import { insertOperation } from "@/server/operations/operations";
 import {
@@ -38,16 +31,6 @@ import {
 import { freshDb } from "@/test/db";
 import { signIn } from "@/test/sign-in";
 import { multipartRequest, routeParams } from "@/test/upload-request";
-import {
-  deleteImageOverlayAction,
-  setImageOverlayVisibilityAction,
-  updateImageOverlayPlacementAction,
-} from "./image-overlay-actions";
-import {
-  reloadKmlAction,
-  removeKmlAction,
-  setKmlVisibilityAction,
-} from "./kml-actions";
 import { PUT as replaceImageOverlayFile } from "./overlays/[overlayId]/route";
 
 let dir: string;
@@ -56,7 +39,6 @@ const originalUploadsDir = process.env.UPLOADS_DIR;
 beforeEach(async () => {
   state.db = await freshDb();
   state.token = await signIn(state.db as Db);
-  state.fetchedUrls = [];
   const parent = await mkdtemp(join(tmpdir(), "einsatz-foreign-"));
   dir = join(parent, "uploads");
   await mkdir(dir);
@@ -77,43 +59,6 @@ describe.each<{
     objects: MapObjects,
   ) => Promise<ActionResult>;
 }>([
-  {
-    name: "hiding a KML-Ebene",
-    error: "KML-Overlay nicht gefunden.",
-    call: (op, o) => setKmlVisibilityAction(op, o.kmlId, false),
-  },
-  {
-    name: "reloading a KML-Ebene",
-    error: "KML-Overlay nicht gefunden.",
-    call: (op, o) => reloadKmlAction(op, o.kmlId),
-  },
-  {
-    name: "removing a KML-Ebene",
-    error: "KML-Overlay nicht gefunden.",
-    call: (op, o) => removeKmlAction(op, o.kmlId),
-  },
-  {
-    name: "placing a Bild-Overlay",
-    error: "Bild-Overlay nicht gefunden.",
-    call: (op, o) =>
-      updateImageOverlayPlacementAction(op, o.imageId, {
-        centerLat: 50,
-        centerLng: 8,
-        scaleM: 10,
-        rotationDeg: 0,
-        opacity: 1,
-      }),
-  },
-  {
-    name: "hiding a Bild-Overlay",
-    error: "Bild-Overlay nicht gefunden.",
-    call: (op, o) => setImageOverlayVisibilityAction(op, o.imageId, false),
-  },
-  {
-    name: "deleting a Bild-Overlay",
-    error: "Bild-Overlay nicht gefunden.",
-    call: (op, o) => deleteImageOverlayAction(op, o.imageId),
-  },
   {
     name: "replacing a Bild-Overlay's file",
     error: "Bild-Overlay nicht gefunden.",
@@ -138,7 +83,6 @@ describe.each<{
 
     expect(result).toEqual({ error });
     expect(await everythingIn(state.db as Db, a.id, dir)).toEqual(before);
-    expect(state.fetchedUrls).toEqual([]);
   });
 });
 

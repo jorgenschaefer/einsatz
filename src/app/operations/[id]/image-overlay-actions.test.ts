@@ -26,8 +26,13 @@ vi.mock("next/headers", () => ({
     delete: () => {},
   }),
 }));
+vi.mock("next/navigation", async (original) => ({
+  ...(await original<object>()),
+  redirect: (to: string) => {
+    throw Object.assign(new Error("NEXT_REDIRECT"), { redirectTo: to });
+  },
+}));
 
-import { deleteImageOverlayAction } from "@/app/operations/[id]/image-overlay-actions";
 import * as repo from "@/server/image-overlays/image-overlays";
 import {
   createImageOverlay,
@@ -36,9 +41,27 @@ import {
 import * as storage from "@/server/image-overlays/image-storage";
 import { storeOverlayImage } from "@/server/image-overlays/image-storage";
 import { insertOperation } from "@/server/operations/operations";
+import {
+  type ActAs,
+  expectBadCallsRejected,
+  expectEveryActionRequiresLogin,
+  expectForeignObjectsRejected,
+} from "@/test/action-checks";
+import { type Bad, idCalls, rejects } from "@/test/bad-calls/bad-call";
+import { PLACEMENT } from "@/test/bad-calls/fixture";
 import { freshDb } from "@/test/db";
-import { redirectError } from "@/test/redirect-error";
 import { signIn } from "@/test/sign-in";
+import * as actions from "./image-overlay-actions";
+
+const {
+  deleteImageOverlayAction,
+  setImageOverlayVisibilityAction,
+  updateImageOverlayPlacementAction,
+} = actions;
+
+const NOT_FOUND = "Bild-Overlay nicht gefunden.";
+const INVALID_PLACEMENT = "Ungültige Platzierung.";
+const INVALID_VISIBILITY = "Die Sichtbarkeit muss wahr oder falsch sein.";
 
 const A_PLACEMENT = {
   centerLat: 53.55,
@@ -48,22 +71,11 @@ const A_PLACEMENT = {
   opacity: 0.8,
 };
 
-async function login(): Promise<void> {
-  state.token = await signIn(state.db as Db);
-}
-
-async function anOverlayWithStoredFile(operationId: string) {
-  const oldPath = await storeOverlayImage(operationId, Buffer.from("alt"));
-  const overlay = await createImageOverlay(state.db as Db, {
-    operationId,
-    filePath: oldPath,
-    name: "Alt",
-    widthPx: 1000,
-    heightPx: 1000,
-    placement: A_PLACEMENT,
-  });
-  return { overlay, oldPath };
-}
+const actAs: ActAs = async (caller) => {
+  state.token =
+    caller === "anonymous" ? undefined : await signIn(state.db as Db, caller);
+};
+const db = () => state.db as Db;
 
 let dir: string;
 const originalUploadsDir = process.env.UPLOADS_DIR;
@@ -84,28 +96,140 @@ afterEach(async () => {
   vi.restoreAllMocks();
 });
 
-describe("deleteImageOverlayAction", () => {
-  it("deletes the overlay and returns {} on success", async () => {
-    await login();
-    const op = await insertOperation(state.db as Db, {
-      name: "Lage",
-      description: null,
+expectEveryActionRequiresLogin(actions, { actAs });
+
+expectBadCallsRejected(
+  actions,
+  {
+    updateImageOverlayPlacementAction: [
+      ...idCalls("imageId", (op, id) =>
+        updateImageOverlayPlacementAction(op, id, PLACEMENT),
+      ),
+      rejects("a placement of null", INVALID_PLACEMENT, (f) =>
+        updateImageOverlayPlacementAction(
+          f.operationId,
+          f.imageId,
+          null as Bad,
+        ),
+      ),
+      rejects("a placement as text", INVALID_PLACEMENT, (f) =>
+        updateImageOverlayPlacementAction(f.operationId, f.imageId, "x" as Bad),
+      ),
+      rejects(
+        "a scale as text",
+        "Die Skalierung muss größer als 0 sein.",
+        (f) =>
+          updateImageOverlayPlacementAction(f.operationId, f.imageId, {
+            ...PLACEMENT,
+            scaleM: "10" as Bad,
+          }),
+      ),
+      rejects("a centre lat as text", "Ungültige Koordinaten.", (f) =>
+        updateImageOverlayPlacementAction(f.operationId, f.imageId, {
+          ...PLACEMENT,
+          centerLat: "50" as Bad,
+        }),
+      ),
+      rejects(
+        "a rotation of null",
+        "Die Drehung muss eine endliche Zahl sein.",
+        (f) =>
+          updateImageOverlayPlacementAction(f.operationId, f.imageId, {
+            ...PLACEMENT,
+            rotationDeg: null as Bad,
+          }),
+      ),
+    ],
+    setImageOverlayVisibilityAction: [
+      ...idCalls("imageId", (op, id) =>
+        setImageOverlayVisibilityAction(op, id, false),
+      ),
+      rejects("visible of null", INVALID_VISIBILITY, (f) =>
+        setImageOverlayVisibilityAction(f.operationId, f.imageId, null as Bad),
+      ),
+      rejects('visible as "yes"', INVALID_VISIBILITY, (f) =>
+        setImageOverlayVisibilityAction(f.operationId, f.imageId, "yes" as Bad),
+      ),
+    ],
+    deleteImageOverlayAction: idCalls("imageId", deleteImageOverlayAction),
+  },
+  { db, actAs },
+);
+
+expectForeignObjectsRejected(
+  actions,
+  {
+    updateImageOverlayPlacementAction: {
+      error: NOT_FOUND,
+      call: (a, b) =>
+        updateImageOverlayPlacementAction(b, a.imageId, PLACEMENT),
+    },
+    setImageOverlayVisibilityAction: {
+      error: NOT_FOUND,
+      call: (a, b) => setImageOverlayVisibilityAction(b, a.imageId, false),
+    },
+    deleteImageOverlayAction: {
+      error: NOT_FOUND,
+      call: (a, b) => deleteImageOverlayAction(b, a.imageId),
+    },
+  },
+  { db, actAs },
+);
+
+describe("updateImageOverlayPlacementAction", () => {
+  it("stores the new placement and tells open clients", async () => {
+    await actAs("user");
+    const { op, overlay } = await anOverlayWithStoredFile();
+
+    const result = await updateImageOverlayPlacementAction(
+      op.id,
+      overlay.id,
+      PLACEMENT,
+    );
+
+    expect(result).toEqual({});
+    expect(await getImageOverlay(db(), overlay.id)).toEqual({
+      ...overlay,
+      placement: PLACEMENT,
     });
-    const { overlay } = await anOverlayWithStoredFile(op.id);
+    expect(state.publishOperationChanged).toHaveBeenCalledWith(op.id);
+  });
+});
+
+describe("setImageOverlayVisibilityAction", () => {
+  it("hides the Bild-Overlay and tells open clients", async () => {
+    await actAs("user");
+    const { op, overlay } = await anOverlayWithStoredFile();
+
+    const result = await setImageOverlayVisibilityAction(
+      op.id,
+      overlay.id,
+      false,
+    );
+
+    expect(result).toEqual({});
+    expect(await getImageOverlay(db(), overlay.id)).toEqual({
+      ...overlay,
+      visible: false,
+    });
+    expect(state.publishOperationChanged).toHaveBeenCalledWith(op.id);
+  });
+});
+
+describe("deleteImageOverlayAction", () => {
+  beforeEach(() => actAs("user"));
+
+  it("deletes the overlay and returns {} on success", async () => {
+    const { op, overlay } = await anOverlayWithStoredFile();
 
     const result = await deleteImageOverlayAction(op.id, overlay.id);
 
     expect(result).toEqual({});
-    expect(await getImageOverlay(state.db as Db, overlay.id)).toBeNull();
+    expect(await getImageOverlay(db(), overlay.id)).toBeNull();
   });
 
   it("still revalidates and reports success when only the file cleanup fails", async () => {
-    await login();
-    const op = await insertOperation(state.db as Db, {
-      name: "Lage",
-      description: null,
-    });
-    const { overlay } = await anOverlayWithStoredFile(op.id);
+    const { op, overlay } = await anOverlayWithStoredFile();
     const volumeUnavailable = new Error("volume unavailable");
     vi.spyOn(storage, "deleteOverlayFiles").mockRejectedValueOnce(
       volumeUnavailable,
@@ -118,7 +242,7 @@ describe("deleteImageOverlayAction", () => {
     await expect(deleteImageOverlayAction(op.id, overlay.id)).resolves.toEqual(
       {},
     );
-    expect(await getImageOverlay(state.db as Db, overlay.id)).toBeNull();
+    expect(await getImageOverlay(db(), overlay.id)).toBeNull();
     expect(state.revalidatePath).toHaveBeenCalledWith(`/operations/${op.id}`);
     expect(state.publishOperationChanged).toHaveBeenCalledWith(op.id);
     // Die verwaiste Datei bleibt über das Log im Volume auffindbar.
@@ -128,28 +252,8 @@ describe("deleteImageOverlayAction", () => {
     );
   });
 
-  it("lets a redirect thrown while deleting through instead of reporting an error", async () => {
-    await login();
-    const op = await insertOperation(state.db as Db, {
-      name: "Lage",
-      description: null,
-    });
-    const { overlay } = await anOverlayWithStoredFile(op.id);
-    const redirect = redirectError();
-    vi.spyOn(repo, "deleteImageOverlay").mockRejectedValueOnce(redirect);
-
-    await expect(deleteImageOverlayAction(op.id, overlay.id)).rejects.toBe(
-      redirect,
-    );
-  });
-
   it("returns a friendly {error} when the deletion itself fails", async () => {
-    await login();
-    const op = await insertOperation(state.db as Db, {
-      name: "Lage",
-      description: null,
-    });
-    const { overlay } = await anOverlayWithStoredFile(op.id);
+    const { op, overlay } = await anOverlayWithStoredFile();
     const dbDown = new Error("db down");
     vi.spyOn(repo, "deleteImageOverlay").mockRejectedValueOnce(dbDown);
     const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -159,10 +263,23 @@ describe("deleteImageOverlayAction", () => {
     });
     expect(state.revalidatePath).not.toHaveBeenCalled();
     // Prämisse: die Löschung ist wirklich gescheitert, die Zeile lebt noch.
-    expect(await getImageOverlay(state.db as Db, overlay.id)).not.toBeNull();
+    expect(await getImageOverlay(db(), overlay.id)).not.toBeNull();
     expect(errorLog).toHaveBeenCalledWith(
       "Einsatz-Action fehlgeschlagen:",
       dbDown,
     );
   });
 });
+
+async function anOverlayWithStoredFile() {
+  const op = await insertOperation(db(), { name: "Lage", description: null });
+  const overlay = await createImageOverlay(db(), {
+    operationId: op.id,
+    filePath: await storeOverlayImage(op.id, Buffer.from("alt")),
+    name: "Alt",
+    widthPx: 1000,
+    heightPx: 1000,
+    placement: A_PLACEMENT,
+  });
+  return { op, overlay };
+}

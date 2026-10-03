@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NO_ROUTE } from "@/journal/entry-route";
-import type { ImagePlacement } from "@/map/image-overlay";
 
 // Shared, mutable harness state. Read lazily by the mocks below, set per test.
 const state = vi.hoisted(() => ({
@@ -33,24 +32,12 @@ import { GET as deviceEventsGET } from "@/app/device/[token]/events/route";
 import { GET as deviceGeocodeGET } from "@/app/device/[token]/geocode/route";
 import { POST as devicePositionPOST } from "@/app/device/[token]/position/route";
 import { GET as operationEventsGET } from "@/app/operations/[id]/events/route";
-import { geocodeAddressAction } from "@/app/operations/[id]/geocode-actions";
-import {
-  deleteImageOverlayAction,
-  setImageOverlayVisibilityAction,
-  updateImageOverlayPlacementAction,
-} from "@/app/operations/[id]/image-overlay-actions";
 import {
   addJournalEntryAction,
   annulEntryAction,
   correctEntryAction,
 } from "@/app/operations/[id]/journal-actions";
 import { POST as addKmlFilePOST } from "@/app/operations/[id]/kml/route";
-import {
-  addKmlUrlAction,
-  reloadKmlAction,
-  removeKmlAction,
-  setKmlVisibilityAction,
-} from "@/app/operations/[id]/kml-actions";
 import {
   GET as operationOverlayGET,
   PUT as replaceImageOverlayPUT,
@@ -73,13 +60,6 @@ const params = <T>(value: T) => ({ params: Promise.resolve(value) });
 const req = (url = "http://localhost/") => new Request(url);
 
 // Repräsentative Argumente; der Auth-Guard wirft, bevor sie ausgewertet werden.
-const placement: ImagePlacement = {
-  centerLat: 53.55,
-  centerLng: 9.99,
-  scaleM: 1000,
-  rotationDeg: 0,
-  opacity: 1,
-};
 const upload = (method: "POST" | "PUT") =>
   new Request("http://localhost/", { method, body: new FormData() });
 
@@ -91,28 +71,6 @@ interface Invocation {
 // Die requireUser-geschützten Actions, deren Login-Pflicht noch nicht der Test
 // ihres eigenen Moduls mit `expectEveryActionRequiresLogin` prüft.
 const userGuardedActions: Invocation[] = [
-  {
-    name: "addKmlUrlAction",
-    run: () => addKmlUrlAction("op-1", "n", "https://e.example/x.kml"),
-  },
-  {
-    name: "setKmlVisibilityAction",
-    run: () => setKmlVisibilityAction("op-1", "k-1", false),
-  },
-  { name: "reloadKmlAction", run: () => reloadKmlAction("op-1", "k-1") },
-  { name: "removeKmlAction", run: () => removeKmlAction("op-1", "k-1") },
-  {
-    name: "updateImageOverlayPlacementAction",
-    run: () => updateImageOverlayPlacementAction("op-1", "i-1", placement),
-  },
-  {
-    name: "setImageOverlayVisibilityAction",
-    run: () => setImageOverlayVisibilityAction("op-1", "i-1", false),
-  },
-  {
-    name: "deleteImageOverlayAction",
-    run: () => deleteImageOverlayAction("op-1", "i-1"),
-  },
   {
     name: "addJournalEntryAction",
     run: () => addJournalEntryAction("op-1", { text: "Lage", ...NO_ROUTE }),
@@ -160,7 +118,6 @@ const userGuardedActions: Invocation[] = [
     name: "reportTotalStrengthAction",
     run: () => reportTotalStrengthAction("op-1"),
   },
-  { name: "geocodeAddressAction", run: () => geocodeAddressAction("Hamburg") },
 ];
 
 // requireUser-geschützte Route-Handler (keine Token-Routen). Token-Routen
