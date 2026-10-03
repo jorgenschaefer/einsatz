@@ -83,7 +83,9 @@ the right helpers for every server action module, route handler and page
 Test files that are too long are shortened first, and split together with
 their source file only if they are still too long. No test is lost: coverage
 per file does not drop (AC-10), and every removed test is accounted for in
-its commit (AC-11).
+its commit (AC-11). A file without a test file whose coverage would drop
+because a test moved away gets a test file of its own, holding tests of its
+own behaviour, rather than keeping a test that belongs elsewhere.
 
 ## Nudges
 - The pairing check lives in `src/test/` next to `server-action-modules.ts`, as a source file with its own test file, and that test runs it against the repository.
@@ -102,7 +104,7 @@ its commit (AC-11).
 - Add the rule to the "Tests" section of `CLAUDE.md`.
 
 ## Out of scope
-- Tests for source files that have none today, other than server action modules, route handlers and pages.
+- Tests for source files that have none today, other than server action modules, route handlers, pages, and files whose coverage would otherwise drop (AC-10).
 - Layouts (`layout.tsx`): they only wrap pages and load no Einsatz data.
 - Requiring the other-Einsatz check for new route handlers with an object id; AC-8 keeps today's check on `operations/[id]/overlays/[overlayId]`, and nothing requires it of later routes.
 - A check of file sizes in `npm run check`; 500 lines stays a guideline that review enforces.

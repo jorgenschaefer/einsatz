@@ -95,8 +95,11 @@ before; only the file boundaries move.
   run `npm run test:coverage` and
   `node changes/2026-10-03-tests-ihren-dateien-zuordnen/compare-coverage.mjs`;
   it must name no file at all - a test moved away can drop the coverage
-  of a file this ticket never opened. Fixtures and `src/test/` helpers
-  count too: code in them that no test uses any more is deleted, and
+  of a file this ticket never opened. A file it names that has no test
+  file gets one, `X.test.*` next to it, with tests of its own behaviour
+  until the comparison is clean; say which in Left standing. Fixtures and
+  `src/test/` helpers count too: code in them that no test uses any more
+  is deleted, and
   helper code moved to another file gets an entry in
   `coverage-splits.json`.
 - AC-3 review list: add a test file to `ac3-reviewed.txt` in this change's
@@ -126,7 +129,8 @@ before; only the file boundaries move.
 - Tests of `SituationMap` behaviour that sit in `SituationWorkspace.*` tests
   today move (or are dropped as duplicates) in tickets 13-16.
 - From `CRITERIA.md`'s Out of scope: tests for source files that have none
-  today - the handles file gets only the tests that already test it.
+  today, except where the coverage comparison would otherwise name the
+  file (see Context) - the handles file gets only the tests that already test it.
 - No change of map behaviour.
 
 ## Left standing

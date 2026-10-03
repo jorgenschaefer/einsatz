@@ -114,8 +114,11 @@ described under Context.
   run `npm run test:coverage` and
   `node changes/2026-10-03-tests-ihren-dateien-zuordnen/compare-coverage.mjs`;
   it must name no file at all - a test moved away can drop the coverage
-  of a file this ticket never opened. Fixtures and `src/test/` helpers
-  count too: code in them that no test uses any more is deleted, and
+  of a file this ticket never opened. A file it names that has no test
+  file gets one, `X.test.*` next to it, with tests of its own behaviour
+  until the comparison is clean; say which in Left standing. Fixtures and
+  `src/test/` helpers count too: code in them that no test uses any more
+  is deleted, and
   helper code moved to another file gets an entry in
   `coverage-splits.json`.
 - AC-3 review list: add a test file to `ac3-reviewed.txt` in this change's
