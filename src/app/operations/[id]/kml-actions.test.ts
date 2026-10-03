@@ -126,17 +126,22 @@ describe("setKmlVisibilityAction", () => {
 
     expect(result).toEqual({});
     expect(requireUser).toHaveBeenCalledTimes(1);
-    expect(setKmlVisibility).toHaveBeenCalledWith({ tag: "db" }, "k1", false);
+    expect(setKmlVisibility).toHaveBeenCalledWith(
+      { tag: "db" },
+      "op-1",
+      "k1",
+      false,
+    );
     expect(revalidatePath).toHaveBeenCalledWith("/operations/op-1");
     expect(publishOperationChanged).toHaveBeenCalledWith("op-1");
   });
 
   it("maps a business ValidationError to a form error and does not revalidate", async () => {
     setKmlVisibility.mockRejectedValueOnce(
-      new ValidationError("Das Overlay existiert nicht mehr."),
+      new ValidationError("KML-Overlay nicht gefunden."),
     );
     const result = await setKmlVisibilityAction("op-1", "k1", true);
-    expect(result).toEqual({ error: "Das Overlay existiert nicht mehr." });
+    expect(result).toEqual({ error: "KML-Overlay nicht gefunden." });
     expect(revalidatePath).not.toHaveBeenCalled();
   });
 
@@ -153,17 +158,17 @@ describe("removeKmlAction", () => {
 
     expect(result).toEqual({});
     expect(requireUser).toHaveBeenCalledTimes(1);
-    expect(deleteKmlOverlay).toHaveBeenCalledWith({ tag: "db" }, "k1");
+    expect(deleteKmlOverlay).toHaveBeenCalledWith({ tag: "db" }, "op-1", "k1");
     expect(revalidatePath).toHaveBeenCalledWith("/operations/op-1");
     expect(publishOperationChanged).toHaveBeenCalledWith("op-1");
   });
 
   it("maps a business ValidationError to a form error and does not revalidate", async () => {
     deleteKmlOverlay.mockRejectedValueOnce(
-      new ValidationError("Das Overlay existiert nicht mehr."),
+      new ValidationError("KML-Overlay nicht gefunden."),
     );
     const result = await removeKmlAction("op-1", "k1");
-    expect(result).toEqual({ error: "Das Overlay existiert nicht mehr." });
+    expect(result).toEqual({ error: "KML-Overlay nicht gefunden." });
     expect(revalidatePath).not.toHaveBeenCalled();
   });
 

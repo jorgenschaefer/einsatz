@@ -12,7 +12,6 @@ import { ValidationError } from "@/server/validation";
 import { operationAction } from "./operation-action";
 import { KML_LOAD_FAILED } from "./upload-messages";
 
-// Zur Objekt-Zugehörigkeit (flaches Trust-Modell) siehe `operationAction`.
 export async function addKmlUrlAction(
   operationId: string,
   name: string,
@@ -39,7 +38,7 @@ export async function setKmlVisibilityAction(
   visible: boolean,
 ): Promise<ActionResult> {
   return operationAction(async (db) => {
-    await setKmlVisibility(db, id, visible);
+    await setKmlVisibility(db, operationId, id, visible);
     return operationId;
   });
 }
@@ -49,7 +48,7 @@ export async function reloadKmlAction(
   id: string,
 ): Promise<ActionResult> {
   return operationAction(async (db) => {
-    await reloadKmlOverlay(db, id, loadKmlFromUrl);
+    await reloadKmlOverlay(db, operationId, id, loadKmlFromUrl);
     return operationId;
   }, KML_LOAD_FAILED);
 }
@@ -59,7 +58,7 @@ export async function removeKmlAction(
   id: string,
 ): Promise<ActionResult> {
   return operationAction(async (db) => {
-    await deleteKmlOverlay(db, id);
+    await deleteKmlOverlay(db, operationId, id);
     return operationId;
   });
 }

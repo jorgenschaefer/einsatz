@@ -6,6 +6,7 @@ import { isValidLatLng, ValidationError } from "@/server/validation";
 import {
   createImageOverlay,
   getImageOverlay,
+  IMAGE_OVERLAY_NOT_FOUND,
   replaceImageOverlayFile,
 } from "./image-overlays";
 import {
@@ -48,20 +49,23 @@ export async function addImageOverlay(
 }
 
 /**
- * Ersetzt die Datei eines Bild-Overlays; die Platzierung bleibt. Die Datei
- * landet im Einsatz des Overlays, dessen ID zurückkommt.
+ * Ersetzt die Datei eines Bild-Overlays des Einsatzes `operationId`; die
+ * Platzierung bleibt.
  */
 export async function replaceImageOverlayImage(
   db: Queryable,
-  input: { overlayId: string; file: File },
-): Promise<string> {
-  const { overlayId, file } = input;
-  const { webp, width, height } = await prepareUpload(file);
+  input: { operationId: string; overlayId: string; file: File },
+): Promise<void> {
+  const { operationId, overlayId, file } = input;
   const existing = await getImageOverlay(db, overlayId);
-  if (!existing) throw new ValidationError("Das Overlay existiert nicht mehr.");
-  const filePath = await storeOverlayImage(existing.operationId, webp);
+  if (existing?.operationId !== operationId) {
+    // Vor dem Aufbereiten abbrechen – keine Datei in einem fremden Einsatz.
+    throw new ValidationError(IMAGE_OVERLAY_NOT_FOUND);
+  }
+  const { webp, width, height } = await prepareUpload(file);
+  const filePath = await storeOverlayImage(operationId, webp);
   try {
-    await replaceImageOverlayFile(db, overlayId, {
+    await replaceImageOverlayFile(db, operationId, overlayId, {
       filePath,
       name: file.name,
       widthPx: width,
@@ -72,7 +76,6 @@ export async function replaceImageOverlayImage(
     throw err;
   }
   await deleteOverlayFiles([existing.filePath]); // alte Version entfernen
-  return existing.operationId;
 }
 
 function assertViewExtent(view: unknown): asserts view is ViewExtent {

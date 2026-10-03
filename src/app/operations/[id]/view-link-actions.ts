@@ -4,7 +4,6 @@ import type { ActionResult } from "@/app/action-result";
 import { createViewLink, deleteViewLink } from "@/server/viewlinks/view-links";
 import { operationAction } from "./operation-action";
 
-// Zur Objekt-Zugehörigkeit (flaches Trust-Modell) siehe `operationAction`.
 export async function createViewLinkAction(
   operationId: string,
   label: string,
@@ -20,7 +19,7 @@ export async function deleteViewLinkAction(
   id: string,
 ): Promise<ActionResult> {
   return operationAction(async (db) => {
-    await deleteViewLink(db, id);
+    await deleteViewLink(db, operationId, id);
     return operationId;
   });
 }

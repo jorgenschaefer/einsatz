@@ -200,27 +200,8 @@ describe("PUT /operations/[id]/overlays/[overlayId]", () => {
   });
 });
 
-describe("PUT /operations/[id]/overlays/[overlayId], where the new file lands", () => {
-  it("stores the new file under the overlay's Einsatz, not the Einsatz the call names", async () => {
-    await login();
-    const a = await anOperation("A");
-    const b = await anOperation("B");
-    const { overlay } = await anOverlayWithStoredFile(a.id);
-
-    const result = await putImageOverlayFile(
-      b.id,
-      overlay.id,
-      await pngFile(600, 300),
-    );
-
-    expect(result).toEqual({});
-    expect(await readdir(dir)).toEqual([a.id]);
-    const files = await filesUnderUploads();
-    expect(files).toHaveLength(1);
-    expect(files[0].startsWith(`${a.id}${sep}`)).toBe(true);
-  });
-
-  it("refreshes the overlay's Einsatz, not the Einsatz the call names", async () => {
+describe("PUT /operations/[id]/overlays/[overlayId] under another Einsatz", () => {
+  it("refreshes no Einsatz", async () => {
     await login();
     const a = await anOperation("A");
     const b = await anOperation("B");
@@ -236,8 +217,22 @@ describe("PUT /operations/[id]/overlays/[overlayId], where the new file lands", 
       unsubscribeB();
     }
 
-    expect(notified).toEqual(["A"]);
-    expect(state.revalidatedPaths).toEqual([`/operations/${a.id}`]);
+    expect(notified).toEqual([]);
+    expect(state.revalidatedPaths).toEqual([]);
+  });
+
+  it("rejects the call before processing the file", async () => {
+    await login();
+    const a = await anOperation("A");
+    const b = await anOperation("B");
+    const { overlay } = await anOverlayWithStoredFile(a.id);
+    const broken = new File([new Uint8Array([1, 2, 3])], "kaputt.png", {
+      type: "image/png",
+    });
+
+    const result = await putImageOverlayFile(b.id, overlay.id, broken);
+
+    expect(result).toEqual({ error: "Bild-Overlay nicht gefunden." });
   });
 
   it("creates nothing outside the uploads directory for an Einsatz-ID like ../escape", async () => {

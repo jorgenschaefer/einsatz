@@ -9,6 +9,8 @@ import {
   ValidationError,
 } from "@/server/validation";
 
+export const IMAGE_OVERLAY_NOT_FOUND = "Bild-Overlay nicht gefunden.";
+
 export interface ImageOverlay {
   id: string;
   operationId: string;
@@ -129,13 +131,15 @@ export async function getImageOverlay(
 
 export async function updateImagePlacement(
   db: Queryable,
+  operationId: string,
   id: string,
   placement: ImagePlacement,
 ): Promise<void> {
   assertPlacement(placement);
-  await db.query(
-    "UPDATE image_overlays SET center_lat = $2, center_lng = $3, scale_m = $4, rotation_deg = $5, opacity = $6 WHERE id = $1",
+  const { rows } = await db.query(
+    "UPDATE image_overlays SET center_lat = $3, center_lng = $4, scale_m = $5, rotation_deg = $6, opacity = $7 WHERE operation_id = $1 AND id = $2 RETURNING id",
     [
+      operationId,
       id,
       placement.centerLat,
       placement.centerLng,
@@ -144,6 +148,7 @@ export async function updateImagePlacement(
       placement.opacity,
     ],
   );
+  assertFound(rows);
 }
 
 /**
@@ -152,29 +157,45 @@ export async function updateImagePlacement(
  */
 export async function replaceImageOverlayFile(
   db: Queryable,
+  operationId: string,
   id: string,
   file: { filePath: string; name: string; widthPx: number; heightPx: number },
 ): Promise<void> {
-  await db.query(
-    "UPDATE image_overlays SET file_path = $2, name = $3, width_px = $4, height_px = $5 WHERE id = $1",
-    [id, file.filePath, file.name, file.widthPx, file.heightPx],
+  const { rows } = await db.query(
+    "UPDATE image_overlays SET file_path = $3, name = $4, width_px = $5, height_px = $6 WHERE operation_id = $1 AND id = $2 RETURNING id",
+    [operationId, id, file.filePath, file.name, file.widthPx, file.heightPx],
   );
+  assertFound(rows);
 }
 
 export async function setImageOverlayVisibility(
   db: Queryable,
+  operationId: string,
   id: string,
   visible: boolean,
 ): Promise<void> {
-  await db.query("UPDATE image_overlays SET visible = $2 WHERE id = $1", [
-    id,
-    visible,
-  ]);
+  const { rows } = await db.query(
+    "UPDATE image_overlays SET visible = $3 WHERE operation_id = $1 AND id = $2 RETURNING id",
+    [operationId, id, visible],
+  );
+  assertFound(rows);
 }
 
+/** Löscht ein Bild-Overlay und liefert seine Datei, die der Aufrufer aufräumt. */
 export async function deleteImageOverlay(
   db: Queryable,
+  operationId: string,
   id: string,
-): Promise<void> {
-  await db.query("DELETE FROM image_overlays WHERE id = $1", [id]);
+): Promise<{ filePath: string }> {
+  const { rows } = await db.query<{ file_path: string }>(
+    "DELETE FROM image_overlays WHERE operation_id = $1 AND id = $2 RETURNING file_path",
+    [operationId, id],
+  );
+  assertFound(rows);
+  return { filePath: rows[0].file_path };
+}
+
+/** Kein Bild-Overlay dieser ID im genannten Einsatz – nie dort gewesen oder schon gelöscht. */
+function assertFound(rows: unknown[]): void {
+  if (rows.length === 0) throw new ValidationError(IMAGE_OVERLAY_NOT_FOUND);
 }

@@ -109,7 +109,7 @@ describe("closing an operation deletes its Gerätelinks and Ansichtslinks", () =
         lat,
         lng: 2,
       });
-      await generateDeviceLink(db, symbol.id);
+      await generateDeviceLink(db, symbol.operationId, symbol.id);
     }
     return op;
   }
@@ -163,7 +163,11 @@ describe("closing an operation deletes its Gerätelinks and Ansichtslinks", () =
       lat: 1,
       lng: 2,
     });
-    const oldDeviceToken = await generateDeviceLink(db, symbol.id);
+    const oldDeviceToken = await generateDeviceLink(
+      db,
+      symbol.operationId,
+      symbol.id,
+    );
     const oldViewLink = await createViewLink(db, {
       operationId: op.id,
       label: "Leitstelle",
@@ -174,7 +178,11 @@ describe("closing an operation deletes its Gerätelinks and Ansichtslinks", () =
 
     expect(await resolveDeviceAccess(db, oldDeviceToken)).toBeNull();
     expect(await resolveViewAccess(db, oldViewLink.token)).toBeNull();
-    const newDeviceToken = await generateDeviceLink(db, symbol.id);
+    const newDeviceToken = await generateDeviceLink(
+      db,
+      symbol.operationId,
+      symbol.id,
+    );
     const newViewLink = await createViewLink(db, {
       operationId: op.id,
       label: "Leitstelle",

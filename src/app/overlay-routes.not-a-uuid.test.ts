@@ -64,7 +64,11 @@ describe("overlay image routes with an overlay id that is not a UUID", () => {
       lat: 53.55,
       lng: 9.99,
     });
-    const token = await generateDeviceLink(state.db as Db, symbol.id);
+    const token = await generateDeviceLink(
+      state.db as Db,
+      symbol.operationId,
+      symbol.id,
+    );
 
     const res = await deviceOverlayGET(request(), {
       params: Promise.resolve({ token, overlayId: NOT_A_UUID }),

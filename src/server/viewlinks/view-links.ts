@@ -1,5 +1,6 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import type { Queryable } from "@/server/db/db";
+import { ValidationError } from "@/server/validation";
 
 export interface ViewLink {
   id: string;
@@ -53,8 +54,18 @@ export async function listViewLinks(
   return rows.map(toViewLink);
 }
 
-export async function deleteViewLink(db: Queryable, id: string): Promise<void> {
-  await db.query("DELETE FROM view_links WHERE id = $1", [id]);
+export async function deleteViewLink(
+  db: Queryable,
+  operationId: string,
+  id: string,
+): Promise<void> {
+  const { rows } = await db.query(
+    "DELETE FROM view_links WHERE operation_id = $1 AND id = $2 RETURNING id",
+    [operationId, id],
+  );
+  if (rows.length === 0) {
+    throw new ValidationError("Ansichtslink nicht gefunden.");
+  }
 }
 
 /** Löscht alle Ansichtslinks eines Einsatzes (beim Abschließen). */

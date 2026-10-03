@@ -31,7 +31,7 @@ export async function moveMapSymbolAction(
   lng: number,
 ): Promise<ActionResult> {
   return operationAction(async (db) => {
-    await moveMapSymbol(db, id, lat, lng);
+    await moveMapSymbol(db, operationId, id, lat, lng);
     return operationId;
   });
 }
@@ -42,7 +42,7 @@ export async function updateMapSymbolCompositionAction(
   composition: SymbolComposition,
 ): Promise<ActionResult> {
   return operationAction(async (db) => {
-    await updateMapSymbolComposition(db, id, composition);
+    await updateMapSymbolComposition(db, operationId, id, composition);
     return operationId;
   });
 }
@@ -52,7 +52,7 @@ export async function deleteMapSymbolAction(
   id: string,
 ): Promise<ActionResult> {
   return operationAction(async (db) => {
-    await deleteMapSymbol(db, id);
+    await deleteMapSymbol(db, operationId, id);
     return operationId;
   });
 }
@@ -62,7 +62,7 @@ export async function generateDeviceLinkAction(
   id: string,
 ): Promise<ActionResult> {
   return operationAction(async (db) => {
-    await generateDeviceLink(db, id);
+    await generateDeviceLink(db, operationId, id);
     return operationId;
   });
 }
@@ -72,7 +72,7 @@ export async function removeDeviceLinkAction(
   id: string,
 ): Promise<ActionResult> {
   return operationAction(async (db) => {
-    await removeDeviceLink(db, id);
+    await removeDeviceLink(db, operationId, id);
     return operationId;
   });
 }

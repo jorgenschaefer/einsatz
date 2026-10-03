@@ -7,6 +7,7 @@ import {
   deleteOperationRow,
   insertOperation,
 } from "@/server/operations/operations";
+import { ValidationError } from "@/server/validation";
 import { freshDb } from "@/test/db";
 import {
   createViewLink,
@@ -62,7 +63,7 @@ describe("view links repository", () => {
     const a = await createViewLink(db, { operationId: op.id, label: "a" });
     const b = await createViewLink(db, { operationId: op.id, label: "b" });
 
-    await deleteViewLink(db, a.id);
+    await deleteViewLink(db, op.id, a.id);
 
     const remaining = await listViewLinks(db, op.id);
     expect(remaining.map((l) => l.id)).toEqual([b.id]);
@@ -70,6 +71,29 @@ describe("view links repository", () => {
     expect(await resolveViewAccess(db, b.token)).toEqual({
       operationId: op.id,
     });
+  });
+
+  it("refuses to delete an Ansichtslink of another Einsatz and keeps it", async () => {
+    const db = await freshDb();
+    const op = await anOperation(db);
+    const other = await anOperation(db);
+    const link = await createViewLink(db, { operationId: op.id, label: "a" });
+
+    await expect(deleteViewLink(db, other.id, link.id)).rejects.toThrow(
+      new ValidationError("Ansichtslink nicht gefunden."),
+    );
+    expect(await listViewLinks(db, op.id)).toEqual([link]);
+  });
+
+  it("reports an Ansichtslink that no longer exists", async () => {
+    const db = await freshDb();
+    const op = await anOperation(db);
+    const link = await createViewLink(db, { operationId: op.id, label: "a" });
+    await deleteViewLink(db, op.id, link.id);
+
+    await expect(deleteViewLink(db, op.id, link.id)).rejects.toThrow(
+      new ValidationError("Ansichtslink nicht gefunden."),
+    );
   });
 
   it("resolves access only while the operation is active", async () => {

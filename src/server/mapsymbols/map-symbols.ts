@@ -115,6 +115,7 @@ export async function listMapSymbols(
 
 export async function moveMapSymbol(
   db: Queryable,
+  operationId: string,
   id: string,
   lat: number,
   lng: number,
@@ -122,53 +123,65 @@ export async function moveMapSymbol(
   assertLatLng(lat, lng);
   // Manuelles Verschieben setzt die Positionsquelle zurück auf manuell;
   // eine spätere Live-Meldung überschreibt sie wieder.
-  await db.query(
-    "UPDATE map_symbols SET lat = $2, lng = $3, position_source = 'manual' WHERE id = $1",
-    [id, lat, lng],
+  const { rows } = await db.query(
+    "UPDATE map_symbols SET lat = $3, lng = $4, position_source = 'manual' WHERE operation_id = $1 AND id = $2 RETURNING id",
+    [operationId, id, lat, lng],
   );
+  assertFound(rows);
 }
 
 export async function updateMapSymbolComposition(
   db: Queryable,
+  operationId: string,
   id: string,
   composition: SymbolComposition,
 ): Promise<void> {
   assertComposition(composition);
-  await db.query("UPDATE map_symbols SET composition = $2 WHERE id = $1", [
-    id,
-    JSON.stringify(composition),
-  ]);
+  const { rows } = await db.query(
+    "UPDATE map_symbols SET composition = $3 WHERE operation_id = $1 AND id = $2 RETURNING id",
+    [operationId, id, JSON.stringify(composition)],
+  );
+  assertFound(rows);
 }
 
 export async function deleteMapSymbol(
   db: Queryable,
+  operationId: string,
   id: string,
 ): Promise<void> {
-  await db.query("DELETE FROM map_symbols WHERE id = $1", [id]);
+  const { rows } = await db.query(
+    "DELETE FROM map_symbols WHERE operation_id = $1 AND id = $2 RETURNING id",
+    [operationId, id],
+  );
+  assertFound(rows);
 }
 
 /** Erzeugt (oder ersetzt) den geheimen Gerätelink-Token eines Kartenzeichens und gibt ihn zurück. */
 export async function generateDeviceLink(
   db: Queryable,
+  operationId: string,
   id: string,
 ): Promise<string> {
   const token = randomBytes(32).toString("base64url");
-  await db.query(
-    "UPDATE map_symbols SET device_link_token = $2 WHERE id = $1",
-    [id, token],
+  const { rows } = await db.query(
+    "UPDATE map_symbols SET device_link_token = $3 WHERE operation_id = $1 AND id = $2 RETURNING id",
+    [operationId, id, token],
   );
+  assertFound(rows);
   return token;
 }
 
 /** Entfernt den Gerätelink eines Kartenzeichens; der alte Link gibt danach keinen Zugang mehr. */
 export async function removeDeviceLink(
   db: Queryable,
+  operationId: string,
   id: string,
 ): Promise<void> {
-  await db.query(
-    "UPDATE map_symbols SET device_link_token = NULL WHERE id = $1",
-    [id],
+  const { rows } = await db.query(
+    "UPDATE map_symbols SET device_link_token = NULL WHERE operation_id = $1 AND id = $2 RETURNING id",
+    [operationId, id],
   );
+  assertFound(rows);
 }
 
 /** Entfernt alle Gerätelinks eines Einsatzes (beim Abschließen). */
@@ -230,4 +243,11 @@ export async function reportPosition(
   if (rows[0]) return { operationId: rows[0].operation_id, stored: true };
   const access = await resolveDeviceAccess(db, token);
   return access && { ...access, stored: false };
+}
+
+/** Kein Kartenzeichen dieser ID im genannten Einsatz – nie dort gewesen oder schon gelöscht. */
+function assertFound(rows: unknown[]): void {
+  if (rows.length === 0) {
+    throw new ValidationError("Kartenzeichen nicht gefunden.");
+  }
 }

@@ -85,7 +85,7 @@ describe("overlayImageResponse", () => {
 
   it("answers 404 for a hidden overlay when only visible ones may be served", async () => {
     const { db, operationId, overlayId } = await anOverlay();
-    await setImageOverlayVisibility(db, overlayId, false);
+    await setImageOverlayVisibility(db, operationId, overlayId, false);
 
     const res = await overlayImageResponse(db, overlayId, operationId, {
       visibleOnly: true,
@@ -96,7 +96,7 @@ describe("overlayImageResponse", () => {
 
   it("serves a hidden overlay when visibility is not required", async () => {
     const { db, operationId, overlayId } = await anOverlay();
-    await setImageOverlayVisibility(db, overlayId, false);
+    await setImageOverlayVisibility(db, operationId, overlayId, false);
 
     const res = await overlayImageResponse(db, overlayId, operationId);
 

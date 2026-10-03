@@ -144,7 +144,7 @@ describe("map symbols repository", () => {
       lng: 9.99,
     });
     await expect(
-      updateMapSymbolComposition(db, symbol.id, {
+      updateMapSymbolComposition(db, symbol.operationId, symbol.id, {
         böse: "x",
       } as unknown as SymbolComposition),
     ).rejects.toBeInstanceOf(ValidationError);
@@ -161,10 +161,10 @@ describe("map symbols repository", () => {
       lat: 1,
       lng: 2,
     });
-    const token = await generateDeviceLink(db, symbol.id);
+    const token = await generateDeviceLink(db, symbol.operationId, symbol.id);
     await reportPosition(db, token, 53, 9, new Date()); // wird 'device'
 
-    await moveMapSymbol(db, symbol.id, 5, 6); // Führungskraft verschiebt manuell
+    await moveMapSymbol(db, symbol.operationId, symbol.id, 5, 6); // Führungskraft verschiebt manuell
     const [loaded] = await listMapSymbols(db, op.id);
     expect(loaded).toMatchObject({ lat: 5, lng: 6, positionSource: "manual" });
   });
@@ -178,9 +178,9 @@ describe("map symbols repository", () => {
       lat: 1,
       lng: 2,
     });
-    const token = await generateDeviceLink(db, symbol.id);
+    const token = await generateDeviceLink(db, symbol.operationId, symbol.id);
 
-    await moveMapSymbol(db, symbol.id, 10, 20); // Verbindung riss ab, manuell verschoben
+    await moveMapSymbol(db, symbol.operationId, symbol.id, 10, 20); // Verbindung riss ab, manuell verschoben
     const at = new Date("2026-07-03T12:00:00Z");
     expect(await reportPosition(db, token, 53.5, 9.9, at)).toEqual({
       operationId: op.id,
@@ -205,7 +205,7 @@ describe("map symbols repository", () => {
       lat: 1,
       lng: 2,
     });
-    const token = await generateDeviceLink(db, symbol.id);
+    const token = await generateDeviceLink(db, symbol.operationId, symbol.id);
     const at = new Date("2026-07-03T12:00:00Z");
 
     const results = await Promise.all([
@@ -226,8 +226,8 @@ describe("map symbols repository", () => {
       lat: 1,
       lng: 2,
     });
-    const token = await generateDeviceLink(db, symbol.id);
-    await generateDeviceLink(db, symbol.id); // Token neu generiert → alter ungültig
+    const token = await generateDeviceLink(db, symbol.operationId, symbol.id);
+    await generateDeviceLink(db, symbol.operationId, symbol.id); // Token neu generiert → alter ungültig
 
     expect(await reportPosition(db, token, 50, 8, new Date())).toBeNull();
     expect(
@@ -246,7 +246,7 @@ describe("map symbols repository", () => {
     });
 
     await closeOperation(db, op.id);
-    const token = await generateDeviceLink(db, symbol.id);
+    const token = await generateDeviceLink(db, symbol.operationId, symbol.id);
     expect(await reportPosition(db, token, 50, 8, new Date())).toBeNull();
 
     await reopenOperation(db, op.id);
@@ -265,7 +265,7 @@ describe("map symbols repository", () => {
       lat: 1,
       lng: 2,
     });
-    const token = await generateDeviceLink(db, symbol.id);
+    const token = await generateDeviceLink(db, symbol.operationId, symbol.id);
 
     await closeOperation(db, op.id);
     await reopenOperation(db, op.id);
@@ -282,7 +282,7 @@ describe("map symbols repository", () => {
       lat: 1,
       lng: 2,
     });
-    const token = await generateDeviceLink(db, symbol.id);
+    const token = await generateDeviceLink(db, symbol.operationId, symbol.id);
 
     expect(await resolveDeviceAccess(db, token)).toEqual({
       operationId: op.id,
@@ -293,7 +293,7 @@ describe("map symbols repository", () => {
     expect(await resolveDeviceAccess(db, token)).toBeNull(); // abgeschlossen → kein Zugang
 
     await reopenOperation(db, op.id);
-    await generateDeviceLink(db, symbol.id); // Token neu generiert
+    await generateDeviceLink(db, symbol.operationId, symbol.id); // Token neu generiert
     expect(await resolveDeviceAccess(db, token)).toBeNull(); // alter Link ungültig
   });
 
@@ -306,13 +306,13 @@ describe("map symbols repository", () => {
       lat: 1,
       lng: 2,
     });
-    const token = await generateDeviceLink(db, symbol.id);
+    const token = await generateDeviceLink(db, symbol.operationId, symbol.id);
 
-    await removeDeviceLink(db, symbol.id);
+    await removeDeviceLink(db, symbol.operationId, symbol.id);
 
     expect((await listMapSymbols(db, op.id))[0].deviceLinkToken).toBeNull();
     expect(await resolveDeviceAccess(db, token)).toBeNull();
-    const fresh = await generateDeviceLink(db, symbol.id);
+    const fresh = await generateDeviceLink(db, symbol.operationId, symbol.id);
     expect(await resolveDeviceAccess(db, fresh)).toEqual({
       operationId: op.id,
     });
@@ -328,9 +328,13 @@ describe("map symbols repository", () => {
       lng: 2,
     });
 
-    const token = await generateDeviceLink(db, symbol.id);
+    const token = await generateDeviceLink(db, symbol.operationId, symbol.id);
     expect(token).toBeTruthy();
-    const regenerated = await generateDeviceLink(db, symbol.id);
+    const regenerated = await generateDeviceLink(
+      db,
+      symbol.operationId,
+      symbol.id,
+    );
     expect(regenerated).not.toBe(token);
   });
 
@@ -356,7 +360,7 @@ describe("map symbols repository", () => {
       lat: 1,
       lng: 2,
     });
-    await moveMapSymbol(db, s.id, 10, 20);
+    await moveMapSymbol(db, s.operationId, s.id, 10, 20);
 
     const [loaded] = await listMapSymbols(db, op.id);
     expect(loaded).toMatchObject({ lat: 10, lng: 20 });
@@ -376,7 +380,7 @@ describe("map symbols repository", () => {
       organisation: "feuerwehr",
       text: "FW 1",
     };
-    await updateMapSymbolComposition(db, s.id, next);
+    await updateMapSymbolComposition(db, s.operationId, s.id, next);
 
     const [loaded] = await listMapSymbols(db, op.id);
     expect(loaded.composition).toEqual(next);
@@ -392,7 +396,7 @@ describe("map symbols repository", () => {
       lat: 1,
       lng: 2,
     });
-    await deleteMapSymbol(db, s.id);
+    await deleteMapSymbol(db, s.operationId, s.id);
     expect(await listMapSymbols(db, op.id)).toHaveLength(0);
   });
 
@@ -420,7 +424,7 @@ describe("map symbols repository", () => {
       lng: 9.99,
     });
     await expect(
-      moveMapSymbol(db, s.id, Number.NaN, 9.99),
+      moveMapSymbol(db, s.operationId, s.id, Number.NaN, 9.99),
     ).rejects.toBeInstanceOf(ValidationError);
   });
 });

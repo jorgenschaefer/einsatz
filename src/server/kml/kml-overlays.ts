@@ -79,44 +79,42 @@ export async function listKmlOverlays(
   return rows.map(toOverlay);
 }
 
-async function getKmlOverlay(
-  db: Queryable,
-  id: string,
-): Promise<KmlOverlay | null> {
-  const { rows } = await db.query<KmlRow>(
-    `SELECT ${COLUMNS} FROM kml_overlays WHERE id = $1`,
-    [id],
-  );
-  return rows[0] ? toOverlay(rows[0]) : null;
-}
-
 export async function setKmlVisibility(
   db: Queryable,
+  operationId: string,
   id: string,
   visible: boolean,
 ): Promise<void> {
-  await db.query("UPDATE kml_overlays SET visible = $2 WHERE id = $1", [
-    id,
-    visible,
-  ]);
+  const { rows } = await db.query(
+    "UPDATE kml_overlays SET visible = $3 WHERE operation_id = $1 AND id = $2 RETURNING id",
+    [operationId, id, visible],
+  );
+  assertFound(rows);
 }
 
 export async function updateKmlContent(
   db: Queryable,
+  operationId: string,
   id: string,
   content: string,
 ): Promise<void> {
-  await db.query("UPDATE kml_overlays SET content = $2 WHERE id = $1", [
-    id,
-    content,
-  ]);
+  const { rows } = await db.query(
+    "UPDATE kml_overlays SET content = $3 WHERE operation_id = $1 AND id = $2 RETURNING id",
+    [operationId, id, content],
+  );
+  assertFound(rows);
 }
 
 export async function deleteKmlOverlay(
   db: Queryable,
+  operationId: string,
   id: string,
 ): Promise<void> {
-  await db.query("DELETE FROM kml_overlays WHERE id = $1", [id]);
+  const { rows } = await db.query(
+    "DELETE FROM kml_overlays WHERE operation_id = $1 AND id = $2 RETURNING id",
+    [operationId, id],
+  );
+  assertFound(rows);
 }
 
 /**
@@ -126,13 +124,33 @@ export async function deleteKmlOverlay(
  */
 export async function reloadKmlOverlay(
   db: Queryable,
+  operationId: string,
   id: string,
   fetcher: (url: string) => Promise<string>,
 ): Promise<void> {
-  const overlay = await getKmlOverlay(db, id);
-  if (!overlay) throw new ValidationError("KML-Overlay nicht gefunden.");
+  const overlay = await getKmlOverlay(db, operationId, id);
+  if (!overlay) throw new ValidationError(NOT_FOUND);
   if (overlay.sourceType !== "url" || !overlay.sourceUrl) {
     throw new ValidationError("Nur URL-Quellen können neu geladen werden.");
   }
-  await updateKmlContent(db, id, await fetcher(overlay.sourceUrl));
+  await updateKmlContent(db, operationId, id, await fetcher(overlay.sourceUrl));
+}
+
+async function getKmlOverlay(
+  db: Queryable,
+  operationId: string,
+  id: string,
+): Promise<KmlOverlay | null> {
+  const { rows } = await db.query<KmlRow>(
+    `SELECT ${COLUMNS} FROM kml_overlays WHERE operation_id = $1 AND id = $2`,
+    [operationId, id],
+  );
+  return rows[0] ? toOverlay(rows[0]) : null;
+}
+
+const NOT_FOUND = "KML-Overlay nicht gefunden.";
+
+/** Keine KML-Ebene dieser ID im genannten Einsatz – nie dort gewesen oder schon gelöscht. */
+function assertFound(rows: unknown[]): void {
+  if (rows.length === 0) throw new ValidationError(NOT_FOUND);
 }

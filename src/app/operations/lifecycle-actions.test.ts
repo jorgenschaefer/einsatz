@@ -157,7 +157,11 @@ describe("closeOperationAction", () => {
       lat: 53.55,
       lng: 10,
     });
-    const deviceToken = await generateDeviceLink(db, symbol.id);
+    const deviceToken = await generateDeviceLink(
+      db,
+      symbol.operationId,
+      symbol.id,
+    );
     const viewLink = await createViewLink(db, {
       operationId: op.id,
       label: "Leitstelle",

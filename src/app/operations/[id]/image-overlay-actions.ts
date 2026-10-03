@@ -4,7 +4,6 @@ import type { ActionResult } from "@/app/action-result";
 import type { ImagePlacement } from "@/map/image-overlay";
 import {
   deleteImageOverlay,
-  getImageOverlay,
   setImageOverlayVisibility,
   updateImagePlacement,
 } from "@/server/image-overlays/image-overlays";
@@ -13,14 +12,13 @@ import { operationAction } from "./operation-action";
 
 const DELETE_FAILED = "Das Bild-Overlay konnte nicht gelöscht werden.";
 
-// Zur Objekt-Zugehörigkeit (flaches Trust-Modell) siehe `operationAction`.
 export async function updateImageOverlayPlacementAction(
   operationId: string,
   id: string,
   placement: ImagePlacement,
 ): Promise<ActionResult> {
   return operationAction(async (db) => {
-    await updateImagePlacement(db, id, placement);
+    await updateImagePlacement(db, operationId, id, placement);
     return operationId;
   });
 }
@@ -31,7 +29,7 @@ export async function setImageOverlayVisibilityAction(
   visible: boolean,
 ): Promise<ActionResult> {
   return operationAction(async (db) => {
-    await setImageOverlayVisibility(db, id, visible);
+    await setImageOverlayVisibility(db, operationId, id, visible);
     return operationId;
   });
 }
@@ -45,9 +43,8 @@ export async function deleteImageOverlayAction(
   id: string,
 ): Promise<ActionResult> {
   return operationAction(async (db) => {
-    const overlay = await getImageOverlay(db, id);
-    await deleteImageOverlay(db, id);
-    if (overlay) await cleanUpOverlayFile(overlay.filePath);
+    const { filePath } = await deleteImageOverlay(db, operationId, id);
+    await cleanUpOverlayFile(filePath);
     return operationId;
   }, DELETE_FAILED);
 }

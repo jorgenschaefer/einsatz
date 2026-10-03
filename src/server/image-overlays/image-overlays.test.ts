@@ -97,13 +97,13 @@ describe("image overlays repository", () => {
       rotationDeg: 90,
       opacity: 0.5,
     };
-    await updateImagePlacement(db, overlay.id, moved);
-    await setImageOverlayVisibility(db, overlay.id, false);
+    await updateImagePlacement(db, op.id, overlay.id, moved);
+    await setImageOverlayVisibility(db, op.id, overlay.id, false);
     const [loaded] = await listImageOverlays(db, op.id);
     expect(loaded).toMatchObject({ visible: false, placement: moved });
     expect(await listImageOverlays(db, other.id)).toHaveLength(0);
 
-    await deleteImageOverlay(db, overlay.id);
+    await deleteImageOverlay(db, op.id, overlay.id);
     expect(await listImageOverlays(db, op.id)).toHaveLength(0);
   });
 
@@ -118,9 +118,9 @@ describe("image overlays repository", () => {
       heightPx: 1000,
       placement: A_PLACEMENT,
     });
-    await setImageOverlayVisibility(db, overlay.id, false);
+    await setImageOverlayVisibility(db, op.id, overlay.id, false);
 
-    await replaceImageOverlayFile(db, overlay.id, {
+    await replaceImageOverlayFile(db, op.id, overlay.id, {
       filePath: "op/x/neu.webp",
       name: "Neu",
       widthPx: 3000,
@@ -205,19 +205,25 @@ describe("image overlays repository", () => {
     });
 
     await expect(
-      updateImagePlacement(db, overlay.id, {
+      updateImagePlacement(db, op.id, overlay.id, {
         ...A_PLACEMENT,
         centerLat: Number.NaN,
       }),
     ).rejects.toBeInstanceOf(ValidationError);
     await expect(
-      updateImagePlacement(db, overlay.id, { ...A_PLACEMENT, scaleM: 0 }),
+      updateImagePlacement(db, op.id, overlay.id, {
+        ...A_PLACEMENT,
+        scaleM: 0,
+      }),
     ).rejects.toBeInstanceOf(ValidationError);
     await expect(
-      updateImagePlacement(db, overlay.id, { ...A_PLACEMENT, opacity: 1.5 }),
+      updateImagePlacement(db, op.id, overlay.id, {
+        ...A_PLACEMENT,
+        opacity: 1.5,
+      }),
     ).rejects.toBeInstanceOf(ValidationError);
     await expect(
-      updateImagePlacement(db, overlay.id, {
+      updateImagePlacement(db, op.id, overlay.id, {
         ...A_PLACEMENT,
         rotationDeg: Number.NaN,
       }),
@@ -241,7 +247,7 @@ describe("image overlays repository", () => {
     });
     expect(overlay.placement.rotationDeg).toBe(720);
 
-    await updateImagePlacement(db, overlay.id, {
+    await updateImagePlacement(db, op.id, overlay.id, {
       ...A_PLACEMENT,
       rotationDeg: -30,
     });

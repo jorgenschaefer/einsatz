@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AreaGeometry } from "@/map/area";
+import type { Db } from "@/server/db/db";
 import { insertOperation } from "@/server/operations/operations";
 import { ValidationError } from "@/server/validation";
 import { freshDb } from "@/test/db";
@@ -83,12 +84,12 @@ describe("areas repository", () => {
       label: "alt",
     });
 
-    await updateAreaStyle(db, area.id, {
+    await updateAreaStyle(db, op.id, area.id, {
       color: "#00ff00",
       opacity: 0.8,
       label: "neu",
     });
-    await updateAreaGeometry(db, area.id, circle);
+    await updateAreaGeometry(db, op.id, area.id, circle);
     const [loaded] = await listAreas(db, op.id);
     expect(loaded).toMatchObject({
       color: "#00ff00",
@@ -97,7 +98,7 @@ describe("areas repository", () => {
     });
     expect(loaded.geometry).toEqual(circle);
 
-    await deleteArea(db, area.id);
+    await deleteArea(db, op.id, area.id);
     expect(await listAreas(db, op.id)).toHaveLength(0);
   });
 
@@ -154,11 +155,61 @@ describe("areas repository", () => {
       label: "",
     });
     await expect(
-      updateAreaStyle(db, area.id, {
+      updateAreaStyle(db, op.id, area.id, {
         color: "#e2001a",
         opacity: 2,
         label: "",
       }),
     ).rejects.toBeInstanceOf(ValidationError);
+  });
+});
+
+describe.each<{
+  name: string;
+  change: (db: Db, operationId: string, id: string) => Promise<void>;
+}>([
+  {
+    name: "updateAreaStyle",
+    change: (db, op, id) =>
+      updateAreaStyle(db, op, id, { color: "#00ff00", opacity: 1, label: "" }),
+  },
+  {
+    name: "updateAreaGeometry",
+    change: (db, op, id) => updateAreaGeometry(db, op, id, circle),
+  },
+  { name: "deleteArea", change: (db, op, id) => deleteArea(db, op, id) },
+])("$name", ({ change }) => {
+  async function anAreaIn(db: Db) {
+    const op = await anOperation(db);
+    const area = await createArea(db, {
+      operationId: op.id,
+      geometry: polygon,
+      color: "#e2001a",
+      opacity: 0.4,
+      label: "Zone",
+    });
+    return { operationId: op.id, areaId: area.id };
+  }
+
+  it("refuses a Bereich of another Einsatz and leaves it unchanged", async () => {
+    const db = await freshDb();
+    const { operationId, areaId } = await anAreaIn(db);
+    const other = await anOperation(db);
+    const before = await listAreas(db, operationId);
+
+    await expect(change(db, other.id, areaId)).rejects.toThrow(
+      new ValidationError("Bereich nicht gefunden."),
+    );
+    expect(await listAreas(db, operationId)).toEqual(before);
+  });
+
+  it("reports a Bereich that no longer exists", async () => {
+    const db = await freshDb();
+    const { operationId, areaId } = await anAreaIn(db);
+    await deleteArea(db, operationId, areaId);
+
+    await expect(change(db, operationId, areaId)).rejects.toThrow(
+      new ValidationError("Bereich nicht gefunden."),
+    );
   });
 });

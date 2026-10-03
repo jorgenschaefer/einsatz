@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:    AC-23
 advances:
 after:     07-links-entfernen-und-beim-abschliessen-loeschen, 09-uploads-ueber-route-handler
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -174,3 +174,41 @@ reshaped repository signature.
     closed.
 
 ## Left standing
+- **Departures from the plan.**
+  - Step 5: the Einsatz check for replacing a Bild-Overlay file sits in
+    `replaceImageOverlayImage` (`image-overlay-uploads.ts`), which the route
+    handler calls, and not in the handler itself. It runs before the upload is
+    prepared or stored. `getImageOverlay` stays an id-only lookup, followed by
+    a comparison like the one in `overlay-response.ts`. The `UPDATE` after it
+    also carries `operation_id`.
+  - Step 5: `deleteImageOverlay` now returns the deleted row's `filePath`
+    (`RETURNING file_path`). `deleteImageOverlayAction` no longer reads the
+    overlay first. It cleans up only the file of a delete that matched.
+  - Step 1: "unchanged" is checked by comparing all `list…` results of
+    Einsatz A, plus every file under the upload directory, before and after
+    each call. The plan named each property one by one.
+- **Tests replaced, not added.** `route.put.test.ts` pinned the old
+  behaviour: a file replaced under another Einsatz's address landed in the
+  overlay's own Einsatz and refreshed it. AC-23 reverses that. The first of
+  those tests is gone, because `foreign-operation.test.ts` now covers it. The
+  second now asserts that no Einsatz is refreshed.
+- **One test was never red.** The repository test "reloading a KML-Ebene of
+  another Einsatz does not fetch its address" passed on its first run. Before
+  the signature changed, the shifted arguments made the lookup miss. It holds
+  the behaviour now, but no run showed it failing for the right reason.
+- **Browser check (step 8)** was done by the reviewer with `run-einsatz` at
+  1280×800 and 390×844, checking the database after each step. All of these
+  still work for objects of the open Einsatz: moving, editing and deleting a
+  Kartenzeichen; generating and removing a Gerätelink; editing and deleting a
+  Bereich; hiding, reloading (URL) and removing a KML-Ebene; hiding, scaling,
+  replacing the file of and deleting a Bild-Overlay; deleting an
+  Ansichtslink. AC-23 itself is proven by `foreign-operation.test.ts`.
+- **Not fixed: a stale delete dialog.** Deleting a Bereich that someone else
+  already deleted shows "Bereich nicht gefunden." in the confirm dialog, as
+  agreed. But the dialog stays open and the Bereich stays on the map until
+  the next live update. This is only reachable when that live update has not
+  arrived yet. Whether a "nicht gefunden" result should close the dialog or
+  refresh the map is a UI decision this ticket does not settle.
+- **Seen in passing, unrelated:** the reviewer saw that changing a
+  Bild-Overlay's opacity slider by keyboard did not save. This ticket does not
+  touch that path.

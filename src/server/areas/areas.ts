@@ -1,7 +1,12 @@
 import { randomUUID } from "node:crypto";
 import type { AreaGeometry, AreaStyle } from "@/map/area";
 import type { Queryable } from "@/server/db/db";
-import { assertLatLng, assertOpacity, assertRadius } from "@/server/validation";
+import {
+  assertLatLng,
+  assertOpacity,
+  assertRadius,
+  ValidationError,
+} from "@/server/validation";
 
 /** Prüft die Stützpunkte bzw. Mittelpunkt+Radius einer Bereichsgeometrie. */
 function assertAreaGeometry(geometry: AreaGeometry): void {
@@ -79,28 +84,45 @@ export async function listAreas(
 
 export async function updateAreaStyle(
   db: Queryable,
+  operationId: string,
   id: string,
   style: AreaStyle,
 ): Promise<void> {
   assertOpacity(style.opacity);
-  await db.query(
-    "UPDATE areas SET color = $2, opacity = $3, label = $4 WHERE id = $1",
-    [id, style.color, style.opacity, style.label],
+  const { rows } = await db.query(
+    "UPDATE areas SET color = $3, opacity = $4, label = $5 WHERE operation_id = $1 AND id = $2 RETURNING id",
+    [operationId, id, style.color, style.opacity, style.label],
   );
+  assertFound(rows);
 }
 
 export async function updateAreaGeometry(
   db: Queryable,
+  operationId: string,
   id: string,
   geometry: AreaGeometry,
 ): Promise<void> {
   assertAreaGeometry(geometry);
-  await db.query("UPDATE areas SET geometry = $2 WHERE id = $1", [
-    id,
-    JSON.stringify(geometry),
-  ]);
+  const { rows } = await db.query(
+    "UPDATE areas SET geometry = $3 WHERE operation_id = $1 AND id = $2 RETURNING id",
+    [operationId, id, JSON.stringify(geometry)],
+  );
+  assertFound(rows);
 }
 
-export async function deleteArea(db: Queryable, id: string): Promise<void> {
-  await db.query("DELETE FROM areas WHERE id = $1", [id]);
+export async function deleteArea(
+  db: Queryable,
+  operationId: string,
+  id: string,
+): Promise<void> {
+  const { rows } = await db.query(
+    "DELETE FROM areas WHERE operation_id = $1 AND id = $2 RETURNING id",
+    [operationId, id],
+  );
+  assertFound(rows);
+}
+
+/** Kein Bereich dieser ID im genannten Einsatz – nie dort gewesen oder schon gelöscht. */
+function assertFound(rows: unknown[]): void {
+  if (rows.length === 0) throw new ValidationError("Bereich nicht gefunden.");
 }

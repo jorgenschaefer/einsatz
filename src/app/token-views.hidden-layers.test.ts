@@ -210,10 +210,15 @@ async function aLageWithHiddenLayers() {
     });
   const visibleKml = await kml("Offen", "<kml><name>Offen</name></kml>");
   const hiddenKml = await kml("Verdeckt", HIDDEN_KML_CONTENT);
-  await setKmlVisibility(db, hiddenKml.id, false);
+  await setKmlVisibility(db, hiddenKml.operationId, hiddenKml.id, false);
   const visibleImage = await anImageOverlay(op.id, "offen.webp");
   const hiddenImage = await anImageOverlay(op.id, "verdeckt.webp");
-  await setImageOverlayVisibility(db, hiddenImage.id, false);
+  await setImageOverlayVisibility(
+    db,
+    hiddenImage.operationId,
+    hiddenImage.id,
+    false,
+  );
   const viewLink = await createViewLink(db, {
     operationId: op.id,
     label: "Leitstelle",
@@ -231,7 +236,7 @@ async function aLageWithHiddenLayers() {
   return {
     operationId: op.id,
     viewToken: viewLink.token,
-    deviceToken: await generateDeviceLink(db, symbol.id),
+    deviceToken: await generateDeviceLink(db, symbol.operationId, symbol.id),
     visibleKml: visibleKml.id,
     hiddenKml: hiddenKml.id,
     visibleImage: visibleImage.id,

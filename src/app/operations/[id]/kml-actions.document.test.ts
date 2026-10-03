@@ -20,6 +20,7 @@ vi.mock("@/server/kml/kml-overlays", () => ({
   createKmlOverlay: (...args: unknown[]) => createKmlOverlay(...args),
   reloadKmlOverlay: (
     _db: unknown,
+    _operationId: string,
     _id: string,
     fetcher: (url: string) => Promise<string>,
   ) => fetcher("http://93.184.216.34/x.kml"),

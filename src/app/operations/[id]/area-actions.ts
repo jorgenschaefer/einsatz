@@ -38,7 +38,7 @@ export async function updateAreaStyleAction(
   style: AreaStyle,
 ): Promise<ActionResult> {
   return operationAction(async (db) => {
-    await updateAreaStyle(db, id, style);
+    await updateAreaStyle(db, operationId, id, style);
     return operationId;
   });
 }
@@ -49,7 +49,7 @@ export async function updateAreaGeometryAction(
   geometry: AreaGeometry,
 ): Promise<ActionResult> {
   return operationAction(async (db) => {
-    await updateAreaGeometry(db, id, geometry);
+    await updateAreaGeometry(db, operationId, id, geometry);
     return operationId;
   });
 }
@@ -59,7 +59,7 @@ export async function deleteAreaAction(
   id: string,
 ): Promise<ActionResult> {
   return operationAction(async (db) => {
-    await deleteArea(db, id);
+    await deleteArea(db, operationId, id);
     return operationId;
   });
 }

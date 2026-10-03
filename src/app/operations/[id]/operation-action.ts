@@ -28,15 +28,6 @@ export function revalidateOperation(operationId: string): void {
  * protokolliert und als diese Meldung zurückgegeben (Next-Navigationsfehler
  * wie `redirect` fliegen trotzdem weiter). `run` liefert die `operationId`,
  * die anschließend revalidiert wird.
- *
- * Zugehörigkeit (flaches Trust-Modell): Die Kind-Objekt-Actions (Kartenzeichen,
- * Bereiche, Overlays, Ansichtslinks) und das Ersetzen einer Bild-Overlay-Datei
- * (`PUT …/overlays/[overlayId]`) mutieren über die vom Client gelieferte
- * Objekt-`id`, ohne zu prüfen, dass das Objekt zu `operationId` gehört
- * (`operationId` dient dort nur Revalidate/Live-Event). Das ist bewusst
- * unkritisch, solange jeder angemeldete Nutzer jeden Einsatz bearbeiten darf;
- * für eine künftige Per-Einsatz-Autorisierung wäre dort vor der Mutation die
- * Zugehörigkeit zu prüfen.
  */
 export async function operationAction(
   run: (db: Db, user: AuthenticatedUser) => Promise<string>,

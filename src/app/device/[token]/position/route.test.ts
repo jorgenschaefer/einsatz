@@ -47,7 +47,7 @@ async function aDeviceLink() {
     lat: 1,
     lng: 2,
   });
-  const token = await generateDeviceLink(db, symbol.id);
+  const token = await generateDeviceLink(db, symbol.operationId, symbol.id);
   return { db, op, token };
 }
 
@@ -69,7 +69,7 @@ describe("device position route", () => {
       lat: 1,
       lng: 2,
     });
-    const token = await generateDeviceLink(db, symbol.id);
+    const token = await generateDeviceLink(db, symbol.operationId, symbol.id);
 
     const res = await post(token, { lat: 53.55, lng: 9.99 });
 

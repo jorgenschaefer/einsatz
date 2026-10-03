@@ -18,16 +18,18 @@ export async function GET(
   return overlayImageResponse(getDb(), overlayId, id);
 }
 
-/**
- * Ersetzt die Datei eines Bild-Overlays: `file`. Die Datei landet im Einsatz
- * des Overlays, nicht in dem, den die Adresse nennt.
- */
+/** Ersetzt die Datei eines Bild-Overlays des Einsatzes `id`: `file`. */
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string; overlayId: string }> },
 ) {
-  const { overlayId } = await params;
-  return handleUpload(request, IMAGE_UPLOAD_MESSAGES, (db, form) =>
-    replaceImageOverlayImage(db, { overlayId, file: formFile(form) }),
-  );
+  const { id, overlayId } = await params;
+  return handleUpload(request, IMAGE_UPLOAD_MESSAGES, async (db, form) => {
+    await replaceImageOverlayImage(db, {
+      operationId: id,
+      overlayId,
+      file: formFile(form),
+    });
+    return id;
+  });
 }

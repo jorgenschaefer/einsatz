@@ -166,7 +166,7 @@ describe("a Live-Verbindung ends within 30 seconds", () => {
     const other = await createViewLink(db, { operationId, label: "Presse" });
     const stream = await openAnsicht(link.token);
     const otherStream = await openAnsicht(other.token);
-    await deleteViewLink(db, link.id);
+    await deleteViewLink(db, operationId, link.id);
     await elapse(WITHIN);
     expect(stream.ended()).toBe(true);
     expect(otherStream.ended()).toBe(false);
@@ -175,9 +175,9 @@ describe("a Live-Verbindung ends within 30 seconds", () => {
   it("after its Gerätelink was removed", async () => {
     const symbolId = await newMapSymbol();
     const stream = await openGeraeteansicht(
-      await generateDeviceLink(db, symbolId),
+      await generateDeviceLink(db, operationId, symbolId),
     );
-    await removeDeviceLink(db, symbolId);
+    await removeDeviceLink(db, operationId, symbolId);
     await elapse(WITHIN);
     expect(stream.ended()).toBe(true);
   });
@@ -185,10 +185,10 @@ describe("a Live-Verbindung ends within 30 seconds", () => {
   it("after its Gerätelink was regenerated, but not the new link's", async () => {
     const symbolId = await newMapSymbol();
     const stream = await openGeraeteansicht(
-      await generateDeviceLink(db, symbolId),
+      await generateDeviceLink(db, operationId, symbolId),
     );
     const newStream = await openGeraeteansicht(
-      await generateDeviceLink(db, symbolId),
+      await generateDeviceLink(db, operationId, symbolId),
     );
     await elapse(WITHIN);
     expect(stream.ended()).toBe(true);
@@ -197,7 +197,7 @@ describe("a Live-Verbindung ends within 30 seconds", () => {
 
   it("after its Einsatz was closed – for links, not for the Lageansicht or another Einsatz", async () => {
     const device = await openGeraeteansicht(
-      await generateDeviceLink(db, await newMapSymbol()),
+      await generateDeviceLink(db, operationId, await newMapSymbol()),
     );
     const view = await openAnsicht(
       (await createViewLink(db, { operationId, label: "Stab" })).token,
@@ -205,7 +205,11 @@ describe("a Live-Verbindung ends within 30 seconds", () => {
     const lageansicht = await openLageansicht();
     const otherOperation = await newOperation();
     const otherDevice = await openGeraeteansicht(
-      await generateDeviceLink(db, await newMapSymbol(otherOperation)),
+      await generateDeviceLink(
+        db,
+        otherOperation,
+        await newMapSymbol(otherOperation),
+      ),
     );
 
     await closeOperation(db, operationId);

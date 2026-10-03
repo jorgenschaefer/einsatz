@@ -60,7 +60,7 @@ async function deviceLink(): Promise<string> {
     lat: 53.55,
     lng: 9.99,
   });
-  return generateDeviceLink(db, symbol.id);
+  return generateDeviceLink(db, symbol.operationId, symbol.id);
 }
 
 async function viewLink(): Promise<string> {

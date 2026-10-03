@@ -25,6 +25,7 @@ vi.mock("@/server/kml/kml-overlays", () => ({
   createKmlOverlay: (...args: unknown[]) => createKmlOverlay(...args),
   reloadKmlOverlay: async (
     _db: unknown,
+    _operationId: string,
     _id: string,
     fetcher: (url: string) => Promise<string>,
   ) => createKmlOverlay("db", { content: await fetcher(MAIN_URL) }),

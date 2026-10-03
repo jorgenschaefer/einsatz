@@ -59,7 +59,7 @@ async function aSymbolWithDeviceLink() {
     lat: 53.55,
     lng: 10,
   });
-  const token = await generateDeviceLink(db, symbol.id);
+  const token = await generateDeviceLink(db, symbol.operationId, symbol.id);
   return { op, symbol, token };
 }
 
