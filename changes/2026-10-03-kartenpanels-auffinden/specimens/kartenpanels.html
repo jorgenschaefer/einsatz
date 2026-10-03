@@ -1,0 +1,191 @@
+<title>Kartenpanels finden</title>
+<style>
+/* Layout: three alternatives stacked; each shows a desktop frame and a phone frame side by side, clickable. */
+:root {
+  --bg: #f3f5f7;
+  --fg: #1d2530;
+  --muted: #66707c;
+  --surface: #ffffff;
+  --border: #d5dbe2;
+  --accent: #1c7ed6;
+  --accent-soft: #e3effb;
+  --map: #e6eedf;
+  --road: #ffffff;
+  --water: #c9ddef;
+  --font-body: "IBM Plex Sans", system-ui, sans-serif;
+  --font-head: "IBM Plex Sans Condensed", "IBM Plex Sans", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #14181d; --fg: #e3e8ee; --muted: #9aa4b0; --surface: #1e242b; --border: #343d47;
+    --accent: #4dabf7; --accent-soft: #1f3347; --map: #2a3328; --road: #47524a; --water: #263a4d;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #14181d; --fg: #e3e8ee; --muted: #9aa4b0; --surface: #1e242b; --border: #343d47;
+  --accent: #4dabf7; --accent-soft: #1f3347; --map: #2a3328; --road: #47524a; --water: #263a4d;
+  color-scheme: dark;
+}
+body { background: var(--bg); color: var(--fg); font-family: var(--font-body); }
+.wrap { max-width: 1100px; margin: 0 auto; padding-block: 32px 64px; padding-inline: 16px; display: grid; gap: 48px; }
+h1, h2 { font-family: var(--font-head); text-wrap: balance; margin: 0; }
+h1 { font-size: 1.8rem; }
+h2 { font-size: 1.3rem; }
+p { margin: 0; line-height: 1.5; max-width: 70ch; }
+.intro { display: grid; gap: 8px; }
+.alt { display: grid; gap: 14px; }
+.alt header { display: grid; gap: 6px; }
+.meta { display: flex; flex-wrap: wrap; gap: 8px; font-size: 12px; }
+.chip { border: 1px solid var(--border); border-radius: 999px; padding: 2px 10px; color: var(--muted); }
+.frames { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
+.label { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 6px; }
+
+/* desktop frame */
+.desk { flex: 1 1 560px; min-width: 0; max-width: 720px; }
+.desk .screen { display: grid; grid-template-columns: 1fr 230px; grid-template-rows: 30px 1fr 44px; height: 340px; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; background: var(--surface); }
+.hdr { grid-column: 1 / -1; border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 10px; font-size: 12px; font-weight: 600; gap: 8px; }
+.hdr .sp { flex: 1; }
+.badge { background: #2f9e44; color: #fff; border-radius: 4px; padding: 1px 6px; font-size: 10px; }
+.map { position: relative; background:
+  linear-gradient(115deg, transparent 46%, var(--road) 46% 49%, transparent 49%),
+  linear-gradient(20deg, transparent 60%, var(--road) 60% 62%, transparent 62%),
+  radial-gradient(ellipse at 78% 20%, var(--water) 0 18%, transparent 19%),
+  var(--map); }
+.desk .map { grid-row: 2 / -1; border-right: 1px solid var(--border); }
+.search { position: absolute; top: 8px; left: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; font-size: 10px; color: var(--muted); padding: 4px 8px; width: 45%; }
+.corner { position: absolute; right: 8px; bottom: 22px; display: grid; gap: 4px; }
+.corner span { width: 22px; height: 22px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; display: grid; place-items: center; font-size: 12px; }
+.side { grid-column: 2; grid-row: 2; display: flex; flex-direction: column; min-height: 0; }
+.panel-title { font-weight: 600; font-size: 12px; padding: 8px 10px 4px; }
+.panel-body { padding: 4px 10px; font-size: 11px; color: var(--muted); display: grid; gap: 6px; }
+.row { border: 1px solid var(--border); border-radius: 4px; padding: 4px 6px; color: var(--fg); }
+.bar { display: flex; border-top: 1px solid var(--border); background: var(--surface); }
+.desk .bar { grid-column: 2; grid-row: 3; }
+.bar button { flex: 1; border: 0; background: none; font: inherit; font-size: 10px; color: var(--muted); display: grid; place-items: center; gap: 1px; cursor: pointer; padding: 4px 0; }
+.bar button .ic { font-size: 14px; }
+.bar button[aria-current="page"] { color: var(--accent); }
+.tabs { display: flex; gap: 2px; margin: 8px 10px 0; background: var(--bg); border-radius: 6px; padding: 2px; }
+.tabs button { flex: 1; border: 0; background: none; font: inherit; font-size: 10px; padding: 4px 2px; border-radius: 4px; color: var(--muted); cursor: pointer; }
+.tabs button[aria-pressed="true"] { background: var(--surface); color: var(--fg); box-shadow: 0 1px 2px rgba(0,0,0,.15); }
+.subbar { display: flex; gap: 4px; padding: 4px 6px; border-top: 1px solid var(--border); background: var(--accent-soft); }
+.subbar button { flex: 1; border: 0; background: none; font: inherit; font-size: 10px; padding: 4px 0; border-radius: 4px; color: var(--fg); cursor: pointer; }
+.subbar button[aria-pressed="true"] { background: var(--surface); color: var(--accent); font-weight: 600; }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* phone frame */
+.phone { flex: 0 0 220px; }
+.phone .screen { width: 220px; height: 420px; border: 1px solid var(--border); border-radius: 18px; overflow: hidden; display: flex; flex-direction: column; background: var(--surface); }
+.phone .hdr { flex: 0 0 30px; }
+.phone .map { flex: 1; }
+.sheet { position: absolute; inset: 48% 0 0 0; background: var(--surface); border-top: 1px solid var(--border); box-shadow: 0 -2px 8px rgba(0,0,0,.12); display: flex; flex-direction: column; }
+.sheet .x { position: absolute; right: 8px; top: 6px; font-size: 12px; color: var(--muted); cursor: pointer; border: 0; background: none; }
+.peek { position: absolute; left: 0; right: 0; bottom: 0; }
+.phone .bar { flex: 0 0 44px; }
+.note { font-size: 12px; color: var(--muted); line-height: 1.45; max-width: 70ch; }
+.note b { color: var(--fg); font-weight: 600; }
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600&family=IBM+Plex+Sans+Condensed:wght@600&display=swap">
+
+<div class="wrap">
+  <div class="intro">
+    <h1>Where Kartenzeichen, Bereiche and Ebenen live</h1>
+    <p>The agreed way to reach the map panels. The map corner keeps only zoom and "Zum Standard-Ausschnitt zurück"; Teilen, Standard-Ausschnitt festlegen and Zurück zu Einsätze move to one ⋮ menu in the header (not shown here). The frames are clickable.</p>
+  </div>
+  <div id="alts"></div>
+</div>
+
+<script>
+const PANELS = [["symbols","Kartenzeichen","📍"],["areas","Bereiche","⬠"],["layers","Ebenen","☰"]];
+const BODY = {
+  symbols: '<div class="row">🚒 HLF 1 – Wache Nord</div><div class="row">⛑ RTW 2</div><div class="row">⚑ EL Ost</div>',
+  areas: '<div class="row">Absperrbereich A</div><div class="row">Bereitstellungsraum</div>',
+  layers: '<div class="row">KML: Hochwasserlinie</div><div class="row">+ KML-Link hinzufügen</div><div class="row">Bild-Overlays</div>',
+};
+const VIEWS = [["map","Lagekarte","🗺"],["etb","ETB","📓"],["strength","Stärke","👥"]];
+
+const ALTS = [
+  {
+    id: "C", title: "Agreed: a second row under Lagekarte",
+    text: "When Lagekarte is active, a row with Kartenzeichen | Bereiche | Ebenen appears directly above the bar, both on the desktop sidebar and above the phone bar.",
+    meta: ["Effort: M", "Complexity: two-level navigation; the row takes height from map and sidebar"],
+    note: "Desktop: one panel is always shown and marked. Phone: tapping an entry opens its sheet; tapping it again or closing the sheet leaves no entry marked.",
+  },
+];
+
+const state = {};
+for (const a of ALTS) state[a.id] = { view: "map", panel: "symbols", sheet: false };
+
+function bar(alt, s) {
+  const items = alt.id === "B"
+    ? [...PANELS.map(([k,l,i]) => ["map:"+k,l,i]), ...VIEWS.slice(1)]
+    : VIEWS;
+  return '<div class="bar">' + items.map(([k,l,i]) => {
+    const cur = alt.id === "B" ? (k.startsWith("map:") ? s.view==="map" && s.panel===k.slice(4) : s.view===k) : s.view===k;
+    return `<button data-alt="${alt.id}" data-view="${k}" ${cur?'aria-current="page"':''}><span class="ic">${i}</span>${l}</button>`;
+  }).join("") + '</div>';
+}
+const tabs = (alt, s, cls="tabs", frame="desk") => `<div class="${cls}">` + PANELS.map(([k,l]) => {
+  const on = frame === "phone" ? s.sheet && s.panel===k : s.panel===k;
+  return `<button data-alt="${alt.id}" data-frame="${frame}" data-panel="${k}" aria-pressed="${on}">${l}</button>`;
+}).join("") + '</div>';
+const label = k => PANELS.find(p => p[0]===k)[1];
+const corner = '<div class="corner"><span>⌂</span><span>+</span><span>−</span></div>';
+const hdr = '<div class="hdr">Hochwasser Elbe<span class="sp"></span><span class="badge">aktiv</span></div>';
+
+function sideContent(alt, s) {
+  if (s.view === "etb") return '<div class="panel-title">ETB</div><div class="panel-body"><div class="row">14:02 Lage unverändert</div></div>';
+  if (s.view === "strength") return '<div class="panel-title">Stärke</div><div class="panel-body"><div class="row">Wache Nord 1/2/9</div></div>';
+  return (alt.id === "A" ? tabs(alt, s) : "") +
+    `<div class="panel-title">${label(s.panel)}</div><div class="panel-body">${BODY[s.panel]}</div>`;
+}
+
+function desk(alt, s) {
+  const sub = alt.id === "C" && s.view === "map" ? tabs(alt, s, "subbar") : "";
+  return `<div class="desk"><div class="label">Desktop</div><div class="screen">${hdr}
+    <div class="map"><div class="search">Ort suchen …</div>${corner}</div>
+    <div class="side"><div style="flex:1;overflow:hidden">${sideContent(alt, s)}</div>${sub}</div>
+    ${bar(alt, s)}</div></div>`;
+}
+
+function phone(alt, s) {
+  let inner = '<div class="search" style="width:70%">Ort suchen …</div>' + corner;
+  let below = "";
+  if (s.view !== "map") {
+    inner = `<div style="position:absolute;inset:0;background:var(--surface)">${sideContent(alt, s)}</div>`;
+  } else if (s.sheet) {
+    inner += `<div class="sheet"><button class="x" data-alt="${alt.id}" data-close="1" aria-label="Schließen">✕</button>` +
+      (alt.id === "A" ? tabs(alt, s) : "") +
+      `<div class="panel-title">${label(s.panel)}</div><div class="panel-body">${BODY[s.panel]}</div></div>`;
+  } else if (alt.id === "A") {
+    inner += `<div class="peek">${tabs(alt, s, "subbar")}</div>`;
+  }
+  if (alt.id === "C" && s.view === "map") below = tabs(alt, s, "subbar", "phone");
+  return `<div class="phone"><div class="label">Phone</div><div class="screen">${hdr}
+    <div class="map">${inner}</div>${below}${bar(alt, s)}</div></div>`;
+}
+
+function render() {
+  document.getElementById("alts").innerHTML = ALTS.map(a => `
+    <section class="alt"><header><h2>${a.title}</h2><p>${a.text}</p>
+      <div class="meta">${a.meta.map(m=>`<span class="chip">${m}</span>`).join("")}</div></header>
+      <div class="frames">${desk(a, state[a.id])}${phone(a, state[a.id])}</div>
+      <p class="note">${a.note}</p></section>`).join("");
+}
+document.addEventListener("click", e => {
+  const b = e.target.closest("button[data-alt]"); if (!b) return;
+  const s = state[b.dataset.alt];
+  if (b.dataset.close) s.sheet = false;
+  if (b.dataset.panel) {
+    const again = b.dataset.frame === "phone" && s.sheet && s.panel === b.dataset.panel;
+    s.panel = b.dataset.panel; s.view = "map"; s.sheet = !again;
+  }
+  if (b.dataset.view) {
+    const v = b.dataset.view;
+    if (v.startsWith("map:")) { s.view = "map"; s.panel = v.slice(4); s.sheet = true; }
+    else { s.view = v; }
+  }
+  render();
+});
+render();
+</script>
