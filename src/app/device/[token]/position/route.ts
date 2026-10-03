@@ -1,8 +1,15 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/server/db/pg";
 import { publishOperationChanged } from "@/server/events/operation-events";
+import {
+  RequestBodyTooLargeError,
+  readRequestBody,
+} from "@/server/http/request-body";
 import { reportPosition } from "@/server/mapsymbols/map-symbols";
 import { isValidLatLng } from "@/server/validation";
+
+/** `{"lat":…,"lng":…}` braucht keine 100 Bytes; mehr nimmt die Route nicht an. */
+const MAX_BODY_BYTES = 1024;
 
 /**
  * Standortmeldung eines Geräts über seinen Gerätelink. Ohne Login; nur gültig,
@@ -12,10 +19,19 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ token: string }> },
 ) {
-  const { token } = await params;
+  let bytes: Uint8Array;
+  try {
+    bytes = await readRequestBody(request, MAX_BODY_BYTES);
+  } catch (error) {
+    if (error instanceof RequestBodyTooLargeError) {
+      return new NextResponse("Standortmeldung zu groß", { status: 413 });
+    }
+    // Abgebrochene Übertragung, typisch bei schlechtem Netz am Gerät.
+    return new NextResponse("Ungültige Daten", { status: 400 });
+  }
   let body: unknown;
   try {
-    body = await request.json();
+    body = JSON.parse(new TextDecoder().decode(bytes));
   } catch {
     return new NextResponse("Ungültige Daten", { status: 400 });
   }
@@ -23,6 +39,7 @@ export async function POST(
   if (!isValidLatLng(lat, lng)) {
     return new NextResponse("Ungültige Daten", { status: 400 });
   }
+  const { token } = await params;
   // isValidLatLng hat lat/lng als endliche Zahlen in Grenzen bestätigt.
   const access = await reportPosition(
     getDb(),

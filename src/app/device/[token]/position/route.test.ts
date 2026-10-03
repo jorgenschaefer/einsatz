@@ -83,6 +83,129 @@ describe("device position route", () => {
     expect(publishOperationChanged).not.toHaveBeenCalled();
   });
 
+  describe("body size", () => {
+    const streamOf = (text: string) =>
+      new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode(text));
+          controller.close();
+        },
+      });
+
+    const postStream = (
+      token: string,
+      body: ReadableStream<Uint8Array>,
+      headers?: HeadersInit,
+    ) =>
+      POST(
+        new Request("http://localhost/", {
+          method: "POST",
+          body,
+          headers,
+          duplex: "half",
+        } as RequestInit),
+        params(token),
+      );
+
+    const padded = (json: string, length: number) =>
+      json + " ".repeat(length - json.length);
+
+    it("rejects a 1,025-byte body sent as a stream without Content-Length, storing and publishing nothing", async () => {
+      const { db, op, token } = await aDeviceLink();
+
+      const res = await postStream(
+        token,
+        streamOf(padded('{"lat":50,"lng":8}', 1025)),
+      );
+
+      expect(res.status).toBe(413);
+      const [symbol] = await listMapSymbols(db, op.id);
+      expect(symbol).toMatchObject({ lat: 1, lng: 2, reportedAt: null });
+      expect(publishOperationChanged).not.toHaveBeenCalled();
+    });
+
+    it("stops reading an endless stream shortly after 1 KB", async () => {
+      const { token } = await aDeviceLink();
+      const chunk = new TextEncoder().encode(" ".repeat(100));
+      let pulls = 0;
+      const endless = new ReadableStream<Uint8Array>({
+        pull(controller) {
+          pulls++;
+          controller.enqueue(chunk);
+        },
+      });
+
+      const res = await postStream(token, endless);
+
+      expect(res.status).toBe(413);
+      expect(pulls * chunk.length).toBeLessThanOrEqual(1024 + 2 * chunk.length);
+    });
+
+    it("accepts a body of exactly 1,024 bytes", async () => {
+      const { db, op, token } = await aDeviceLink();
+
+      const res = await postStream(
+        token,
+        streamOf(padded('{"lat":50,"lng":8}', 1024)),
+      );
+
+      expect(res.status).toBe(204);
+      const [symbol] = await listMapSymbols(db, op.id);
+      expect(symbol).toMatchObject({ lat: 50, lng: 8 });
+    });
+
+    it("rejects an announced Content-Length over 1,024 without reading the body", async () => {
+      const { token } = await aDeviceLink();
+      let pulls = 0;
+      const body = new ReadableStream<Uint8Array>(
+        {
+          pull(controller) {
+            pulls++;
+            controller.enqueue(new TextEncoder().encode('{"lat":50,"lng":8}'));
+            controller.close();
+          },
+        },
+        { highWaterMark: 0 },
+      );
+
+      const res = await postStream(token, body, { "content-length": "1025" });
+
+      expect(res.status).toBe(413);
+      expect(pulls).toBe(0);
+    });
+
+    it("rejects an oversize body before checking the token", async () => {
+      const res = await postStream(
+        "never-issued",
+        streamOf(padded('{"lat":50,"lng":8}', 1025)),
+      );
+
+      expect(res.status).toBe(413);
+    });
+
+    it("answers 400 when the body breaks off while being read", async () => {
+      const { token } = await aDeviceLink();
+      const broken = new ReadableStream<Uint8Array>({
+        pull(controller) {
+          controller.error(new Error("connection reset"));
+        },
+      });
+
+      const res = await postStream(token, broken);
+
+      expect(res.status).toBe(400);
+      expect(publishOperationChanged).not.toHaveBeenCalled();
+    });
+
+    it("still answers 400 for a body that is not JSON", async () => {
+      const { token } = await aDeviceLink();
+
+      const res = await postStream(token, streamOf("not json"));
+
+      expect(res.status).toBe(400);
+    });
+  });
+
   describe("throttling", () => {
     it("answers 204 but neither stores nor publishes a report less than 5 s after the last stored one", async () => {
       const { db, op, token } = await aDeviceLink();

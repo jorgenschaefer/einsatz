@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:
 advances:  AC-14
 after:
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -97,3 +97,19 @@ changes what happens after `reportPosition`. Keep both sets of tests.
   The app sets its limits itself.
 
 ## Left standing
+- **Real-HTTP behaviour is checked by hand, not by a test.** The route tests
+  build `Request` objects directly. The reviewer ran `npm run dev` and sent
+  real requests with curl: 2,000 bytes with `Content-Length`, 2,000 bytes
+  chunked, and an endless chunked stream all answered 413, and the endless
+  stream's connection closed at once. They also confirmed that `src/proxy.ts`
+  leaves `device/*/position` out of its matcher, so nothing buffers the body
+  before the route reads it.
+- **Departed from the plan in one place.** A body that breaks off while it is
+  being read (for example, a phone losing its connection) answers 400
+  "Ungültige Daten". The plan only described 413 and 400 for bad JSON. Before
+  this change, `request.json()` answered 400 here; rethrowing would have
+  logged a 500 for every report a phone broke off. A route test covers this.
+- **Test streams use `highWaterMark: 0`.** The "Content-Length over the limit
+  is rejected without reading" tests only work this way. A default
+  `ReadableStream` pulls once when it is constructed, before the reader
+  touches it.
