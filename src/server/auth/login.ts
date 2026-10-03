@@ -7,7 +7,7 @@ import type { User } from "./users";
 import { findUserByUsername } from "./users";
 
 /** Langlebige Anmeldung: „angemeldet bleiben" ~30 Tage. */
-export const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 /** Prüft Anmeldedaten. Liefert den Nutzer oder null (Aufrufer meldet generisch). */
 export async function authenticate(

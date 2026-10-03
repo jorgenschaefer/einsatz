@@ -241,6 +241,20 @@ describe("setKmlVisibilityAction", () => {
       { ...kml, visible: false },
     ]);
   });
+
+  it("shows a hidden KML-Ebene again and tells open clients", async () => {
+    await actAs("user");
+    const { op, kml } = await aKmlLayer();
+    await setKmlVisibilityAction(op.id, kml.id, false);
+
+    const { result, told } = await watching(op.id, () =>
+      setKmlVisibilityAction(op.id, kml.id, true),
+    );
+
+    expect(result).toEqual({});
+    expect(told).toBe(1);
+    expect(await listKmlOverlays(db(), op.id)).toEqual([kml]);
+  });
 });
 
 describe("removeKmlAction", () => {

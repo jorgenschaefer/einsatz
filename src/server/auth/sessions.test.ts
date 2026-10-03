@@ -194,6 +194,23 @@ describe("session idle timeout", () => {
     ).not.toBeNull();
   });
 
+  it("never ends a session before 24 h after a use that was not written down", async () => {
+    const db = await freshDb();
+    await sessionStartedAtStart(db);
+    await recordSessionUse(db, "tok", sinceStart(10 * MINUTE));
+    const unwritten = 10 * MINUTE + 5 * MINUTE - 1000;
+    await recordSessionUse(db, "tok", sinceStart(unwritten));
+    expect(await lastSeenAt(db)).toEqual(sinceStart(10 * MINUTE));
+
+    expect(
+      await findUserBySessionToken(
+        db,
+        "tok",
+        sinceStart(unwritten + 24 * 60 * MINUTE - 1000),
+      ),
+    ).not.toBeNull();
+  });
+
   it("writes a use at most every 5 minutes", async () => {
     const db = await freshDb();
     await sessionStartedAtStart(db);

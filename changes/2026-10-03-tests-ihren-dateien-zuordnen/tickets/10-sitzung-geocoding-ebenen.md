@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:
 advances:  AC-1, AC-3, AC-11
 after:     07-routes-links, 08-seiten
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -152,3 +152,92 @@ described under Context.
 - No change to session, geocoding or visibility behaviour.
 
 ## Left standing
+- **Review findings not fixed.** Two review rounds.
+  - Round 1 found one should-fix and four nits. Round 2 found one blocker
+    and one nit. I fixed all of them except one nit from round 1.
+  - Fixed (round 2 blocker): the two deleted "… is shown again" cases were
+    the only tests that ever set a layer visible again. They now sit in
+    `kml-actions.test.ts` and `image-overlay-actions.test.ts` as "shows a
+    hidden … again and tells open clients". When the action passed `false`
+    instead of `visible`, both failed.
+  - Fixed (round 1 should-fix): without the old geocode file, nothing
+    checked that the view geocode route passes `q` on. Its test now echoes
+    the query. The test was renamed, so it appears in `Removed tests:`.
+    Passing `""` made it fail.
+  - Not fixed (round 1 nit): seven older test files still set `UPLOADS_DIR`
+    by hand instead of using the new `src/test/uploads-dir.ts`. This ticket
+    does not otherwise touch them, and the review tickets 26-31 read those
+    files.
+- **Checks not run.** None skipped. `npm run check` is green (223 files,
+  2772 tests), with no Biome warning. `npm run test:coverage` and then
+  `compare-coverage.mjs` exit 0 with no coverage drop.
+  - The script names only `src/test/` helpers as "new, compared with
+    nothing": the four from tickets 02-09 and this ticket's
+    `uploads-dir.ts`.
+  - `uploads-dir.ts` holds `useUploadsDir`, moved out of
+    `src/test/action-checks.ts`. That file is not in the baseline, so
+    `coverage-splits.json` gets no entry, as in ticket 06.
+  - No file needed a new test file because of coverage.
+- **Advanced without an automated test.**
+  - AC-1: I checked by listing the files. All three files are deleted.
+  - AC-11: the commit's `Removed tests:` section is written from
+    `removed-tests.mjs`. It names all 26 removed tests, and each has its `→`
+    line. Where a line says "gone", I broke the behaviour by hand and the
+    named test failed. Every other break below also failed its tests, and I
+    restored each one:
+    - `isUserActivity`, or `recordUse` ignored in `getCurrentUser`: the
+      three "counts … as use" tests failed.
+    - Every request counted as use: the four "serves … without counting
+      it" tests failed.
+    - `recordUse: true` dropped in `handleUpload`: "counts an upload as use
+      of the session" failed.
+    - The 5 min margin dropped from `idleCutoff`: three `sessions.test.ts`
+      idle tests failed, including the new one.
+    - `SESSION_TTL_MS` at 31 days: `login.test.ts` "… valid for ~30 days"
+      failed.
+    - The token gate at 1 s, or applied after the shared one: the three
+      token-gate tests in `geocode-service.test.ts` failed.
+    - `<= 200` changed to `< 200`: "… counts a character outside the BMP
+      once" (200 characters) failed.
+    - The `visible` filter dropped in `loadReadOnlySituationMap`, for both
+      layer kinds or for KML only: "leaves hidden KML-Ebenen and
+      Bild-Overlays out" failed.
+    - `/view` or `/device` changed in the pages: both page tests failed.
+    - `visibleOnly: false` in both token overlay routes: both "serves a
+      visible overlay's image, and answers 404 once it is hidden" failed.
+    - `publishOperationChanged` dropped from `revalidateOperation`: the
+      "… and tells open clients" tests of `kml-actions.test.ts` and
+      `image-overlay-actions.test.ts` failed.
+    - The 401 in `handleUpload` dropped: kml route "answers 401 to an
+      unknown session …" failed.
+    - `requireUser` dropped from `createOperationAction`: "sends an
+      anonymous caller to the login" failed.
+- **AC-3 review list.** This ticket created `src/server/auth/current-user.test.ts`
+  and `src/app/operations/[id]/upload-route.test.ts`, and both are added to
+  `ac3-reviewed.txt`. Every test in them drives `getCurrentUser` or
+  `handleUpload`. All other test files were only edited, so they are not
+  listed.
+- **Departures from the plan / Context.**
+  - Step 1: `current-user.test.ts` holds only which requests count as use.
+    The idle end (24 h 5 min) and the absolute end (30 days) are decided in
+    `sessions.ts` and `login.ts`, and their tests already held them. By
+    AC-3 they stay there and are not repeated through `getCurrentUser`. The
+    one case `sessions.test.ts` lacked, a use that was not written down, is
+    new there.
+  - Step 3: `login.test.ts` computed the 30 days from `SESSION_TTL_MS`, so
+    it pinned no number. It now uses a literal 30 days and checks the end
+    exactly at 30 days. `SESSION_TTL_MS` is no longer exported, since no
+    other file uses it.
+  - Step 6: Context names `overlay-response.ts` for the hidden image's 404.
+    But that the token routes serve only visible overlays is the routes'
+    own decision (`visibleOnly: true`), and no route test held it. Both
+    token overlay route tests got a case: a visible image is served, and
+    404 once it is hidden. They need an uploads directory, so
+    `useUploadsDir` moved from `action-checks.ts` to `src/test/uploads-dir.ts`.
+  - The "shown again" cases went to the two action test files (see the
+    blocker above). These files are not in the plan.
+  - The geocoding "over 200 characters" cases (three entry points) and
+    "exactly 200" were already held by `geocode-service.test.ts`. That
+    both routes pass `q` on is held by their route tests, so only the
+    "two thirds" simulation moved.
+- **Departures from a nudge.** None.

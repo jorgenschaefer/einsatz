@@ -108,6 +108,31 @@ describe("geocodeQueryForTokenLink", () => {
     expect(geocoder.geocode).toHaveBeenCalledTimes(1);
   });
 
+  it("leaves logged-in users at least two thirds while token links search all the time", async () => {
+    const calledAt: number[] = [];
+    const geocoder: Geocoder = {
+      geocode: async () => {
+        calledAt.push(Date.now());
+        return [{ label: "Hamburg", lat: 53.55, lng: 9.99 }];
+      },
+    };
+    const tokenHitsAt: number[] = [];
+    const loggedInHitsAt: number[] = [];
+
+    for (let ms = 0; ms < 6000; ms += 500) {
+      vi.setSystemTime(T0 + ms);
+      if ((await geocodeQueryForTokenLink("Hamburg", geocoder)).length > 0)
+        tokenHitsAt.push(ms);
+      if (ms % 1000 !== 0) continue;
+      if ((await geocodeQuery("Hamburg", geocoder)).length > 0)
+        loggedInHitsAt.push(ms);
+    }
+
+    expect(gaps(calledAt).every((gap) => gap >= 1000)).toBe(true);
+    expect(gaps(tokenHitsAt).every((gap) => gap >= 3000)).toBe(true);
+    expect(loggedInHitsAt.length).toBeGreaterThanOrEqual(4);
+  });
+
   it("uses up neither limit for a query over 200 characters or a too-short one", async () => {
     const geocoder = hamburg();
     expect(await geocodeQueryForTokenLink("a".repeat(201), geocoder)).toEqual(
@@ -119,3 +144,7 @@ describe("geocodeQueryForTokenLink", () => {
     expect(await geocodeQueryForTokenLink("Hamburg", geocoder)).toHaveLength(1);
   });
 });
+
+function gaps(times: number[]): number[] {
+  return times.slice(1).map((t, i) => t - times[i]);
+}

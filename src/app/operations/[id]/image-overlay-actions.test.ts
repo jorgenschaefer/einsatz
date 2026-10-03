@@ -214,6 +214,23 @@ describe("setImageOverlayVisibilityAction", () => {
     });
     expect(state.publishOperationChanged).toHaveBeenCalledWith(op.id);
   });
+
+  it("shows a hidden Bild-Overlay again and tells open clients", async () => {
+    await actAs("user");
+    const { op, overlay } = await anOverlayWithStoredFile();
+    await setImageOverlayVisibilityAction(op.id, overlay.id, false);
+    state.publishOperationChanged.mockClear();
+
+    const result = await setImageOverlayVisibilityAction(
+      op.id,
+      overlay.id,
+      true,
+    );
+
+    expect(result).toEqual({});
+    expect(await getImageOverlay(db(), overlay.id)).toEqual(overlay);
+    expect(state.publishOperationChanged).toHaveBeenCalledWith(op.id);
+  });
 });
 
 describe("deleteImageOverlayAction", () => {

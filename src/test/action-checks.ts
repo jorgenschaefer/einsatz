@@ -1,7 +1,4 @@
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import * as adminUsersActions from "@/app/admin/users/actions";
 import { deleteOperationAction } from "@/app/operations/lifecycle-actions";
 import type { Role } from "@/server/auth/users";
@@ -15,6 +12,7 @@ import {
   oneOfEachIn,
 } from "./bad-calls/fixture";
 import { snapshotDbAndUploads } from "./db-snapshot";
+import { useUploadsDir } from "./uploads-dir";
 
 /** A `"use server"` module, imported whole: `import * as actions from "./actions"`. */
 export type ActionModule = Record<string, unknown>;
@@ -213,29 +211,6 @@ export function expectForeignObjectsRejected(
       });
     }
   });
-}
-
-/**
- * Registers hooks that point `UPLOADS_DIR` at a fresh directory for each test
- * and remove it afterwards; returns the current directory.
- */
-function useUploadsDir(): () => string {
-  let uploadsDir: string;
-  let originalUploadsDir: string | undefined;
-
-  beforeEach(() => {
-    uploadsDir = mkdtempSync(join(tmpdir(), "einsatz-action-checks-"));
-    originalUploadsDir = process.env.UPLOADS_DIR;
-    process.env.UPLOADS_DIR = uploadsDir;
-  });
-
-  afterEach(() => {
-    rmSync(uploadsDir, { recursive: true, force: true });
-    if (originalUploadsDir === undefined) delete process.env.UPLOADS_DIR;
-    else process.env.UPLOADS_DIR = originalUploadsDir;
-  });
-
-  return () => uploadsDir;
 }
 
 type ServerAction = () => Promise<unknown>;

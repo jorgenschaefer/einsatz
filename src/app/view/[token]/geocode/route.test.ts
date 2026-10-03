@@ -27,18 +27,18 @@ beforeEach(async () => {
 expectRouteRequiresToken(route, { GET: { send: (token) => call(token) } });
 
 describe("view geocode route", () => {
-  it("returns geocoder hits when the token has access", async () => {
+  it("returns the geocoder hits for the query when the token has access", async () => {
     const db = state.db as Db;
     const op = await insertOperation(db, { name: "Lage", description: null });
     const link = await createViewLink(db, {
       operationId: op.id,
       label: "Leitstelle",
     });
-    vi.mocked(geocodeQueryForTokenLink).mockResolvedValue([
-      { label: "Rathaus", lat: 53.5, lng: 9.9 },
+    vi.mocked(geocodeQueryForTokenLink).mockImplementation(async (q) => [
+      { label: q, lat: 53.5, lng: 9.9 },
     ]);
 
-    const res = await call(link.token);
+    const res = await call(link.token, "Rathaus");
 
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual([

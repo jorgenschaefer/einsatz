@@ -19,3 +19,5 @@ src/app/view/[token]/events/route.test.ts
 src/app/view/[token]/geocode/route.test.ts
 src/app/view/[token]/overlays/[overlayId]/route.test.ts
 src/app/device/[token]/overlays/[overlayId]/route.test.ts
+src/server/auth/current-user.test.ts
+src/app/operations/[id]/upload-route.test.ts

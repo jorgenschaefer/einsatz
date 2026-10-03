@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { freshDb } from "@/test/db";
-import { authenticate, createSession, SESSION_TTL_MS } from "./login";
+import { authenticate, createSession } from "./login";
 import { hashPassword } from "./password";
 import {
   findUserBySessionToken,
@@ -43,20 +43,21 @@ describe("createSession", () => {
     const db = await freshDb();
     const user = await seedAnna(db);
     const now = 1_000_000;
+    const thirtyDays = 30 * 24 * 60 * 60_000;
     const { token, expiresAt } = await createSession(db, user.id, now);
 
-    expect(expiresAt.getTime()).toBe(now + SESSION_TTL_MS);
-    await recordSessionUse(db, token, new Date(now + SESSION_TTL_MS - 60_000));
+    expect(expiresAt.getTime()).toBe(now + thirtyDays);
+    await recordSessionUse(db, token, new Date(now + thirtyDays - 60_000));
     const before = await findUserBySessionToken(
       db,
       token,
-      new Date(now + SESSION_TTL_MS - 1),
+      new Date(now + thirtyDays - 1),
     );
     expect(before).toMatchObject({ id: user.id });
     const after = await findUserBySessionToken(
       db,
       token,
-      new Date(now + SESSION_TTL_MS + 1),
+      new Date(now + thirtyDays),
     );
     expect(after).toBeNull();
   });
