@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:    
 advances:  AC-3, AC-11, AC-12
 after:     23-pruefungen, 26-pruefen-karte-arbeitsplatz
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -133,3 +133,60 @@ leaves the app behaving as before.
   code does.
 
 ## Left standing
+- **Selection (Plan 1).**
+  `node changes/2026-10-03-tests-ihren-dateien-zuordnen/select-tests.mjs 'src/journal/**/*.test.*' 'src/strength/**/*.test.*' 'src/kml/**/*.test.*' 'src/test/**/*.test.*' 'src/*.test.*' '*.test.*'`
+  selects eight files: `src/instrumentation.test.ts`,
+  `src/journal/EntryRouteFields.test.tsx`,
+  `src/journal/entry-route-storage.test.ts`, `src/kml/kmz.test.ts`,
+  `src/test/db-snapshot.test.ts`, `src/test/db.test.ts`,
+  `src/test/fast-bcrypt.test.ts` and `src/test/test-files.test.ts`.
+  `src/strength/` adds nothing: its test files are all in
+  `ac3-reviewed.txt` or reach no other file.
+- **Verdict per file (Plan 2).**
+  - `instrumentation.test.ts`: not all its own. `src/startup-checks.ts`
+    had no test file. Its decision (exit with 1 and log why when
+    `mapTileConfig` throws, else nothing) was tested only here. So both
+    production tests moved to the new `src/startup-checks.test.ts`, which
+    is now listed in `ac3-reviewed.txt`. The development-fallback test
+    was dropped: that rule is `mapTileConfig`'s, and `tiles.test.ts`
+    pins it. In their place, `register` keeps "runs the start-up checks
+    in Node.js" and its existing Edge test.
+  - `EntryRouteFields.test.tsx`: not all its own. "offers the values
+    alphabetically as chips" checked only how `orderCorrespondents`
+    sorts umlauts and case. It moved to `entry-route.test.ts` as "sorts
+    umlauts with their base letter", which no test there pinned before.
+    The chips keep their sorting wiring in "puts the values used last
+    first, the others alphabetically".
+  - All its own: `entry-route-storage.test.ts`, `kmz.test.ts`,
+    `db-snapshot.test.ts`, `db.test.ts`, `fast-bcrypt.test.ts` and
+    `test-files.test.ts`. Judgement calls:
+    - `entry-route-storage`: the lower-case and trim tests check that the
+      storage applies `correspondentKey` and `trimRouteValue`. That is
+      its own wiring.
+    - `kmz`: `ValidationError` is only the error type it throws.
+    - `db-snapshot`: `freshDb` is a fixture.
+    - `fast-bcrypt`: `hashPassword` and `verifyPassword` are only how
+      the mock's cost of 4 is observed.
+    - `test-files` › "finds the directive behind comments, and leaves
+      other modules alone" overlaps `server-action-modules.test.ts` in
+      two cases. It stays because it also pins `checkTestFiles`'s own
+      filters: outside `src/app/`, non-code files, and test files.
+- **`src/journal/entry-type.ts`** still has no test file. Its tests in
+  `JournalEntry.test.tsx` and `JournalPanel.test.tsx` are judged and
+  stay. `journal-history.test.ts` is ticket 29's, which is not done.
+  Its tests that reach `entry-type` check `correctEntry`'s and
+  `annulEntry`'s own refusals. So nothing could move into a new file.
+- **Coverage comparison.** It names no file with a drop and exits 0. It
+  prints the same twelve informational "new, compared with nothing"
+  notes as tickets 26, 27 and 32. This ticket touched none of those
+  files.
+- **AC-12.** No production code changed and nothing was restructured.
+- **Review.** One round, with no blockers. Both should-fix items were
+  about the record (the by-hand proof in the commit and this section).
+  Nit taken: each move target names its describe. The other nit was a
+  note on how the rename of the instrumentation test is recorded; the
+  commit records it as the old test moved and the wiring test as new.
+- **Checks.** `npm run check` is green: 195 files, 2677 tests.
+  `test:coverage` and `compare-coverage.mjs` ran after the last code
+  edit. No checks were skipped.
+- **Departures.** None from the plan or the nudges.

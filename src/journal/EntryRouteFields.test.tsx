@@ -191,21 +191,6 @@ const suggestions = () =>
 const CORRESPONDENTS = ["UHSt 1", "UHSt 2", "EAL"];
 
 describe("EntryRouteChips", () => {
-  it("offers the values alphabetically as chips", () => {
-    render(
-      <ChipsHarness
-        options={["UHSt 2", "EAL", "Ärztlicher Leiter", "bürgermeister"]}
-      />,
-    );
-
-    expect(chipNames()).toEqual([
-      "Ärztlicher Leiter",
-      "bürgermeister",
-      "EAL",
-      "UHSt 2",
-    ]);
-  });
-
   it("shows the chosen value as the only chosen chip", () => {
     render(<ChipsHarness initial="EAL" options={["EAL", "UHSt 2"]} />);
 

@@ -74,6 +74,15 @@ describe("orderCorrespondents", () => {
   it("sorts the others alphabetically regardless of case", () => {
     expect(orderCorrespondents(["b", "C", "a"], {})).toEqual(["a", "b", "C"]);
   });
+
+  it("sorts umlauts with their base letter", () => {
+    expect(
+      orderCorrespondents(
+        ["UHSt 2", "EAL", "Ärztlicher Leiter", "bürgermeister"],
+        {},
+      ),
+    ).toEqual(["Ärztlicher Leiter", "bürgermeister", "EAL", "UHSt 2"]);
+  });
 });
 
 describe("sameCorrespondent", () => {
