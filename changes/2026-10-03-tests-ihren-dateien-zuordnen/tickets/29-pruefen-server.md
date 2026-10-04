@@ -105,14 +105,24 @@ leaves the app behaving as before.
   leaving them in place.
 - A file without a test file whose behaviour is tested only through other
   files' tests gets its own `X.test.*`, and those tests move into it -
-  also when the file lies in another ticket's area. A test file created
-  this way goes into `ac3-reviewed.txt` in the same commit. The rule above
-  still holds: more than a handful of tests to move out of one test file
-  is a missed slice. Files without a test file known so far
-  (re-plan after ticket 26's halt), in this area: `src/server/http/ip-address.ts` (31; through
+  also when the file lies in another ticket's area. Two exceptions:
+  - Tests in a file listed in `ac3-reviewed.txt` stay where they are: the
+    ticket that listed it judged them as that file's own wiring, and no
+    test file is read twice.
+  - A test file in another ticket's area is created only when that ticket
+    is `done`. Otherwise halt naming the file and the tests, so two
+    tickets never edit the same area at once.
+  A test file created this way goes into `ac3-reviewed.txt` in the same
+  commit. The rule above still holds: more than a handful of tests to move
+  out of one test file is a missed slice. Files without a test file known
+  so far (re-plan after ticket 26's halt), in this area: `src/server/http/ip-address.ts` (31; through
   `rate-limit` and `kml/public-address`). `image-overlay-uploads.ts` is
   handled by ticket 33; `rate-limit-instance.ts`, `db/db.ts` and
-  `db/pg.ts` need none.
+  `db/pg.ts` need none. From ticket 28's area,
+  `src/journal/entry-type.ts` is reached through
+  `journal-history.test.ts`: `journal-history.ts` refusing a correction
+  or an annulment is its own behaviour; a test that checks only which
+  entry types qualify belongs to `entry-type`.
 
 ## Plan
 1. Run `select-tests.mjs` from this change's directory with patterns for

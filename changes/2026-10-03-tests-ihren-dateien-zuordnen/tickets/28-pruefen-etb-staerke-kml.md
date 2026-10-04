@@ -96,12 +96,23 @@ leaves the app behaving as before.
   leaving them in place.
 - A file without a test file whose behaviour is tested only through other
   files' tests gets its own `X.test.*`, and those tests move into it -
-  also when the file lies in another ticket's area. A test file created
-  this way goes into `ac3-reviewed.txt` in the same commit. The rule above
-  still holds: more than a handful of tests to move out of one test file
-  is a missed slice. Files without a test file known so far
-  (re-plan after ticket 26's halt), in this area: `src/strength/StrengthFigures.tsx` (11;
-  through `StrengthCards` and `StrengthHistories`).
+  also when the file lies in another ticket's area. Two exceptions:
+  - Tests in a file listed in `ac3-reviewed.txt` stay where they are: the
+    ticket that listed it judged them as that file's own wiring, and no
+    test file is read twice.
+  - A test file in another ticket's area is created only when that ticket
+    is `done`. Otherwise halt naming the file and the tests, so two
+    tickets never edit the same area at once.
+  A test file created this way goes into `ac3-reviewed.txt` in the same
+  commit. The rule above still holds: more than a handful of tests to move
+  out of one test file is a missed slice. Files without a test file known
+  so far (re-plan after ticket 26's halt), in this area: `src/journal/entry-type.ts` (28;
+  `isAutomaticEntry`, `canCorrectEntry`, `canAnnulEntry`). Its tests in
+  `JournalEntry.test.tsx` and `JournalPanel.test.tsx` are judged; it is
+  also reached through `src/server/journal/journal-history.test.ts`,
+  which ticket 29 reads. `src/strength/StrengthFigures.tsx` is reached
+  only through judged test files (`StrengthCards`, `StrengthHistories`)
+  and stays without.
 
 ## Plan
 1. Run `select-tests.mjs` from this change's directory with patterns for

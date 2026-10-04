@@ -97,15 +97,24 @@ leaves the app behaving as before.
   leaving them in place.
 - A file without a test file whose behaviour is tested only through other
   files' tests gets its own `X.test.*`, and those tests move into it -
-  also when the file lies in another ticket's area. A test file created
-  this way goes into `ac3-reviewed.txt` in the same commit. The rule above
-  still holds: more than a handful of tests to move out of one test file
-  is a missed slice. Files without a test file known so far
-  (re-plan after ticket 26's halt), in this area: `notification-sources.ts` (46,
-  `closeLageansichtNotifications`; reached through the map panels and
-  `SituationMapView`), `tooltip-text.ts` (11; through
-  `leaflet-areas` and `leaflet-markers`). `composition.ts` holds only
-  constants. `ReadOnlySituationMap.tsx` is handled by ticket 32.
+  also when the file lies in another ticket's area. Two exceptions:
+  - Tests in a file listed in `ac3-reviewed.txt` stay where they are: the
+    ticket that listed it judged them as that file's own wiring, and no
+    test file is read twice.
+  - A test file in another ticket's area is created only when that ticket
+    is `done`. Otherwise halt naming the file and the tests, so two
+    tickets never edit the same area at once.
+  A test file created this way goes into `ac3-reviewed.txt` in the same
+  commit. The rule above still holds: more than a handful of tests to move
+  out of one test file is a missed slice. Files without a test file known
+  so far (re-plan after ticket 26's halt), in this area: none that needs one.
+  `ReadOnlySituationMap.tsx` is handled by ticket 32.
+  `notification-sources.ts` is reached only through judged test files
+  (`closeLageansichtNotifications` is called only by
+  `SituationWorkspace`; the constants by the map panels), and
+  `tooltip-text.ts` only through `leaflet-areas` and `leaflet-markers`,
+  both judged; both stay without. `composition.ts` and
+  `wrapping-switch-label.ts` hold only constants.
 
 ## Plan
 1. Run `select-tests.mjs` from this change's directory with patterns for
