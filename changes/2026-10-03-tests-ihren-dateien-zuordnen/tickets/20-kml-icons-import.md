@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:
 advances:  AC-1, AC-2, AC-3, AC-9, AC-11, AC-12
 after:     01-coverage-ausgangswert
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -151,3 +151,85 @@ only file boundaries move.
 - No change to the KML modules.
 
 ## Left standing
+- **Review findings not fixed.** None. The one review round found no
+  blocker and nothing that should be fixed, only three nits, and I fixed
+  all three:
+  - I renamed the "exactly 20 MB" test after what it pins: the size is
+    checked before icons are embedded.
+  - I moved the fresh-budget tests into the `loadKmlFromUrl` and
+    `resolveKmlFile` blocks. Before, a `describe.each` repeated both
+    block names.
+  - Both budget blocks in `kml-fetch.test.ts` now count requests with one
+    shared helper.
+  Since only nits came back, there was no second round.
+- **Checks not run.** None skipped. After the last edit:
+  - `npm run check` is green: 203 files, 2676 tests.
+  - `npm run test:coverage` and then `compare-coverage.mjs` exit 0, with
+    no coverage drop. As after earlier tickets, the script names only
+    helper and fixture files from tickets 02-19 as "new, compared with
+    nothing". No file needed a new test file, and no helper code moved, so
+    `coverage-splits.json` is unchanged.
+  - No helper lost its last user: `src/test/kml-upload.ts` and
+    `src/test/scripted-fetch.ts` are both still used.
+- **Advanced without an automated test.**
+  - AC-1, AC-2, AC-9: I checked by listing the files. The three files are
+    gone. The test files this ticket writes to have 403
+    (`kml-fetch.test.ts`), 204 (`kml-icons.test.ts`) and 193
+    (`kml-import.test.ts`) lines.
+  - AC-3, AC-11: I broke the code by hand to prove the moved tests, and
+    restored each break:
+    - Without the 256 KB cap: "… when it is larger than 256 KB" failed.
+    - Without the `MAX_KML_BYTES` argument to `replaceIconStyleHrefs`:
+      "adds at most 20 MB to the KML …" failed.
+    - Without `takeAddress` in `fetchIconDataUri`: "fetches icons only
+      while the budget has addresses left" failed.
+    - With the address taken before the address check: "takes no address
+      for an icon whose address is not allowed" failed.
+    - With a fresh budget passed to `readCapped`: "keeps the address of an
+      icon larger than the bytes left" failed.
+    - Without the body cancel: both "is not read further …" failed.
+    - With a fresh budget for the icons in `loadKmlFromUrl`: "fetches
+      icons from the addresses the KML left in its budget" failed.
+    - The same in `resolveKmlFile`: "keeps the address of an icon that no
+      longer fits …" failed.
+    - With one budget shared across loads: both "gives every load a fresh
+      budget of 20 addresses" failed.
+    - With the size checked after embedding: "checks the size before
+      embedding icons …" failed.
+    - With `addKmlFile` storing the raw file: "stores the file with its
+      icons embedded …" failed.
+    - Without the address check in `fetchKmlFromUrl`: five of the new
+      budget tests in `kml-fetch.test.ts` failed.
+    - Without the public-address check in `pinned-fetch.ts`: "refuses a
+      name that resolves to a loopback address without connecting" failed.
+    - With the name looked up again after the check: "connects to the
+      checked address, not to a later answer for the same name" failed.
+      These last two prove the two dropped `.icon-address` tests are
+      duplicates.
+  - AC-12: no production file changed, so `git diff` shows only test
+    files.
+- **AC-3 review list.** I created `kml-icons.test.ts` and
+  `kml-import.test.ts` and added both to `ac3-reviewed.txt`. I only
+  edited `kml-fetch.test.ts`, so it is not listed.
+- **Departures from the plan.**
+  - Nothing new went into `kmz.test.ts`. Its existing test, "replaces no
+    further href once the result would grow by more than maxGrowth",
+    already pins the growth limit, boundary included. So the old 20 MB
+    test now lives only in `kml-icons`, as the capped-growth test the plan
+    keeps there.
+  - Nothing went into `fetch-budget.test.ts`. Its `readCapped` and
+    `takeAddress` tests already pin the caps there. The action-level
+    budget cases show the budget at work in `fetchKmlFromUrl` and
+    `resolveKmlNetworkLinks`, so they went to `kml-fetch.test.ts`, which
+    stays under 500 lines. `kml-fetch.ts` is not split.
+  - Small changes made while moving tests:
+    - The oversized icon is now 256 KB + 1 byte, not 300 KB, so it sits
+      right on the limit.
+    - The literal loopback address is `127.0.0.1:8080`, not a real server
+      port, because nothing is ever requested from it.
+    - `addKmlFile` is tested against the test database. Before, it ran
+      with a mocked `createKmlOverlay`.
+    - Tests that build a 20 MB KML compare counts, not strings. A failed
+      `toContain` on a 20 MB string made vitest hang while it printed the
+      diff.
+- **Departures from a nudge.** None.

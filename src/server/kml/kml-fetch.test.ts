@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MAX_KML_BYTES } from "@/kml/kmz";
 import { ValidationError } from "@/server/validation";
 import {
@@ -30,6 +30,20 @@ const doc = (marker: string) =>
   `<kml><Document><Placemark>${marker}</Placemark></Document></kml>`;
 const networkLink = (href: string) =>
   `<NetworkLink><Link><href>${href}</href></Link></NetworkLink>`;
+
+const MB = 1024 * 1024;
+const CHUNK = 64 * 1024;
+const MAIN_URL = "http://93.184.216.34/karte.kml";
+const linkUrl = (i: number) => `http://93.184.216.34/link-${i}.kml`;
+const kmlWithLinks = (count: number, url: (i: number) => string = linkUrl) =>
+  `<kml><Document>${Array.from({ length: count }, (_, i) =>
+    networkLink(url(i + 1)),
+  ).join("")}</Document></kml>`;
+const linkNumber = (url: string) => url.match(/link-(\d+)/)?.[1];
+const placemarks = (content: string): string[] =>
+  [...content.matchAll(/<Placemark>(.*?)<\/Placemark>/g)].map((m) => m[1]);
+const markers = (from: number, to: number) =>
+  Array.from({ length: to - from + 1 }, (_, i) => `L${from + i}`);
 
 describe("assertKmlDocument", () => {
   const NOT_KML = "Kein KML.";
@@ -113,6 +127,7 @@ describe("assertFetchableKmlUrl", () => {
       "http://localhost/x.kml",
       "http://127.0.0.1/x.kml",
       "http://10.1.2.3/x.kml",
+      "http://100.64.0.1/x.kml",
       "http://172.16.0.1/x.kml",
       "http://192.168.1.1/x.kml",
       "http://169.254.169.254/latest/meta-data/",
@@ -218,6 +233,126 @@ describe("fetchKmlFromUrl (redirect handling)", () => {
     ).rejects.toThrow("(404)");
     expect(redirectBody.cancelled()).toBe(true);
     expect(failedBody.cancelled()).toBe(true);
+  });
+});
+
+const requested: string[] = [];
+const serveCounted = (handler: (url: string) => FetchStub) =>
+  serve((url) => {
+    requested.push(url);
+    return handler(url);
+  });
+const linkedDoc = (url: string): FetchStub => ({
+  body: doc(`L${linkNumber(url)}`),
+});
+
+beforeEach(() => {
+  requested.length = 0;
+});
+
+describe("fetchKmlFromUrl (budget)", () => {
+  it("says a body without end or Content-Length is larger than 20 MB and stops reading it", async () => {
+    const endless = generatedBody({ start: "<kml>", chunkBytes: CHUNK });
+    serve(() => ({ body: endless.stream }));
+
+    await expect(
+      fetchKmlFromUrl(MAIN_URL, createFetchBudget()),
+    ).rejects.toThrow("Die KML-Datei ist größer als 20 MB.");
+    expect(endless.pulled()).toBeLessThanOrEqual(MAX_KML_BYTES + CHUNK);
+  });
+
+  it("fetches the URL and 19 of its 25 NetworkLinks within 20 addresses", async () => {
+    serveCounted((url) =>
+      url === MAIN_URL ? { body: kmlWithLinks(25) } : linkedDoc(url),
+    );
+
+    const content = await fetchKmlFromUrl(MAIN_URL, createFetchBudget());
+
+    expect(requested).toHaveLength(20);
+    expect(placemarks(content)).toEqual(markers(1, 19));
+  });
+});
+
+describe("resolveKmlNetworkLinks (budget)", () => {
+  it("fetches 20 of 25 NetworkLinks", async () => {
+    serveCounted(linkedDoc);
+
+    const content = await resolveKmlNetworkLinks(
+      kmlWithLinks(25),
+      createFetchBudget(),
+    );
+
+    expect(requested).toHaveLength(20);
+    expect(placemarks(content)).toEqual(markers(1, 20));
+  });
+
+  it("shares the 20 addresses with nested NetworkLinks", async () => {
+    const nested = kmlWithLinks(25, (i) => linkUrl(100 + i));
+    serveCounted((url) =>
+      url === linkUrl(1) ? { body: nested } : linkedDoc(url),
+    );
+
+    const content = await resolveKmlNetworkLinks(
+      kmlWithLinks(1),
+      createFetchBudget(),
+    );
+
+    expect(requested).toHaveLength(20);
+    expect(placemarks(content)).toEqual(markers(101, 119));
+  });
+
+  it("counts a NetworkLink reached through 3 redirects as one address", async () => {
+    serveCounted((url) => {
+      const hop = Number(url.match(/hop-(\d)/)?.[1]);
+      if (url === linkUrl(1)) return { status: 302, location: "/hop-1" };
+      if (hop === 1 || hop === 2)
+        return { status: 302, location: `/hop-${hop + 1}` };
+      if (hop === 3) return { body: doc("L1") };
+      return linkedDoc(url);
+    });
+
+    const content = await resolveKmlNetworkLinks(
+      kmlWithLinks(21),
+      createFetchBudget(),
+    );
+
+    expect(requested).toHaveLength(23);
+    expect(placemarks(content)).toEqual(markers(1, 20));
+  });
+
+  it("skips the NetworkLink that would exceed 20 MB together", async () => {
+    const bodies = [1, 2, 3].map((i) =>
+      generatedBody({ start: doc(`L${i}`), totalBytes: 8 * MB }),
+    );
+    serveCounted((url) => ({
+      body: bodies[Number(linkNumber(url)) - 1].stream,
+    }));
+
+    const content = await resolveKmlNetworkLinks(
+      kmlWithLinks(3),
+      createFetchBudget(),
+    );
+
+    expect(placemarks(content)).toEqual(["L1", "L2"]);
+    const read = bodies.reduce((sum, body) => sum + body.pulled(), 0);
+    expect(read).toBeLessThanOrEqual(MAX_KML_BYTES + CHUNK);
+  });
+
+  it("requests no further NetworkLink once 20 MB are read", async () => {
+    serveCounted((url) => ({
+      body: generatedBody({
+        start: doc(`L${linkNumber(url)}`),
+        totalBytes: MAX_KML_BYTES / 2,
+      }).stream,
+    }));
+
+    const content = await resolveKmlNetworkLinks(
+      kmlWithLinks(3),
+      createFetchBudget(),
+    );
+
+    expect(requested).toEqual([linkUrl(1), linkUrl(2)]);
+    expect(placemarks(content)).toEqual(["L1", "L2"]);
   });
 });
 

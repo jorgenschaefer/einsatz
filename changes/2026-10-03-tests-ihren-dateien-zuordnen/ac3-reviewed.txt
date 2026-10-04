@@ -53,3 +53,5 @@ src/strength/ReportForms.test.tsx
 src/strength/NameForm.test.tsx
 src/strength/run-action.test.ts
 src/strength/StrengthPanel.test.tsx
+src/server/kml/kml-icons.test.ts
+src/server/kml/kml-import.test.ts
