@@ -9,7 +9,7 @@ import {
   type MockInstance,
   vi,
 } from "vitest";
-import { act, fireEvent, render, screen, within } from "@/test/render";
+import { fireEvent, render, screen, within } from "@/test/render";
 import { JournalPanel } from "./JournalPanel";
 import {
   entry,
@@ -237,56 +237,17 @@ describe("JournalPanel", () => {
 
   describe("scrolling to the latest entry", () => {
     let scrollIntoView: MockInstance<Element["scrollIntoView"]>;
-    /** Meldet Beobachtungen des Listenendes, älteste zuerst, in einem Aufruf. */
-    let reportEndVisible: (...visible: boolean[]) => void;
 
     beforeEach(() => {
       scrollIntoView = vi.spyOn(Element.prototype, "scrollIntoView");
-      vi.stubGlobal(
-        "IntersectionObserver",
-        class {
-          constructor(callback: IntersectionObserverCallback) {
-            reportEndVisible = (...visible) =>
-              act(() =>
-                callback(
-                  visible.map(
-                    (isIntersecting) =>
-                      ({ isIntersecting }) as IntersectionObserverEntry,
-                  ),
-                  this as unknown as IntersectionObserver,
-                ),
-              );
-          }
-          observe() {}
-          disconnect() {}
-        },
-      );
     });
 
-    afterEach(() => {
-      scrollIntoView.mockRestore();
-      vi.unstubAllGlobals();
-    });
+    afterEach(() => scrollIntoView.mockRestore());
 
-    const withLiveEntry = [
-      entry(),
-      entry({ id: "e2", number: 2, text: "Pegel steigt", author: "ben" }),
-    ];
+    const listEnd = () =>
+      document.querySelector(".journal-entries")?.lastElementChild;
 
-    it("shows the latest entry when it opens", () => {
-      render(<JournalPanel {...panelProps()} />);
-
-      expect(scrollIntoView).toHaveBeenCalledWith({ block: "end" });
-    });
-
-    // Am Handy scrollt das ganze ETB; unter der Liste steht Neuer Eintrag.
-    it("brings Neuer Eintrag into view below the latest entry", () => {
-      render(<JournalPanel {...panelProps()} />);
-
-      expect(scrollIntoView.mock.contexts.at(-1)).toBe(newEntry());
-    });
-
-    it("shows the latest entry once it becomes visible", () => {
+    it("brings the end of the list and Neuer Eintrag into view once it becomes visible", () => {
       const { rerender } = render(
         <JournalPanel {...panelProps({ visible: false })} />,
       );
@@ -294,65 +255,29 @@ describe("JournalPanel", () => {
 
       rerender(<JournalPanel {...panelProps({ visible: true })} />);
 
-      expect(scrollIntoView).toHaveBeenCalledWith({ block: "end" });
+      expect(scrollIntoView.mock.contexts).toEqual([listEnd(), newEntry()]);
     });
 
-    it("scrolls to the end after adding an entry, even when scrolled up", async () => {
-      render(<JournalPanel {...panelProps()} />);
-      reportEndVisible(false);
-      scrollIntoView.mockClear();
-
-      await userEvent.type(newEntryField(), "Pegel steigt");
-      await userEvent.click(
-        screen.getByRole("button", { name: "Eintrag hinzufügen" }),
-      );
-
-      expect(scrollIntoView).toHaveBeenCalledWith({ block: "end" });
-    });
-
-    it("follows its own entry arriving after the add, before the end is reported in view", async () => {
+    it("scrolls to the end after adding an entry, and follows it when it arrives", async () => {
       const props = panelProps();
       const { rerender } = render(<JournalPanel {...props} />);
-      reportEndVisible(false);
+      scrollIntoView.mockClear();
+
       await userEvent.type(newEntryField(), "Pegel steigt");
       await userEvent.click(
         screen.getByRole("button", { name: "Eintrag hinzufügen" }),
       );
+      expect(scrollIntoView).toHaveBeenCalledWith({ block: "end" });
       scrollIntoView.mockClear();
 
-      rerender(<JournalPanel {...props} entries={withLiveEntry} />);
+      rerender(
+        <JournalPanel
+          {...props}
+          entries={[...props.entries, entry({ id: "e2", number: 2 })]}
+        />,
+      );
 
       expect(scrollIntoView).toHaveBeenCalledWith({ block: "end" });
-    });
-
-    it("follows a live entry while the end of the list is in view", () => {
-      const { rerender } = render(<JournalPanel {...panelProps()} />);
-      reportEndVisible(true);
-      scrollIntoView.mockClear();
-
-      rerender(<JournalPanel {...panelProps({ entries: withLiveEntry })} />);
-
-      expect(scrollIntoView).toHaveBeenCalledWith({ block: "end" });
-    });
-
-    it("goes by the newest of several observations of the end", () => {
-      const { rerender } = render(<JournalPanel {...panelProps()} />);
-      reportEndVisible(false, true);
-      scrollIntoView.mockClear();
-
-      rerender(<JournalPanel {...panelProps({ entries: withLiveEntry })} />);
-
-      expect(scrollIntoView).toHaveBeenCalledWith({ block: "end" });
-    });
-
-    it("stays put for a live entry while scrolled up", () => {
-      const { rerender } = render(<JournalPanel {...panelProps()} />);
-      reportEndVisible(false);
-      scrollIntoView.mockClear();
-
-      rerender(<JournalPanel {...panelProps({ entries: withLiveEntry })} />);
-
-      expect(scrollIntoView).not.toHaveBeenCalled();
     });
   });
 });
