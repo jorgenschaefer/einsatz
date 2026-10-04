@@ -45,3 +45,5 @@ src/journal/useScrollToEnd.test.tsx
 src/journal/JournalEntry.test.tsx
 src/journal/EntryRouteHeader.test.tsx
 src/journal/useEntryRouteMemory.test.ts
+src/journal/EntryForm.test.tsx
+src/journal/JournalPanel.test.tsx

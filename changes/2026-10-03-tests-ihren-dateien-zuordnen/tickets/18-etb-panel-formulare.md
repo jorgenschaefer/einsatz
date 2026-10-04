@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:
 advances:  AC-1, AC-2, AC-3, AC-9, AC-11, AC-12
 after:     17-etb-panel-anzeige
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -140,3 +140,83 @@ before; only file boundaries move.
 - No change of behaviour.
 
 ## Left standing
+- **Review findings not fixed.** There were two review rounds.
+  - Round 1 had one should-fix, which I fixed: no test noticed
+    `JournalPanel` failing to empty Neuer Eintrag after a successful
+    add. Round 2 had two should-fix items, which I fixed: a free-text
+    Weg that arrives after mounting must stay a text field once emptied,
+    and a correction's An chip must come first in its row. Each new
+    assertion failed under the reviewer's break before passing.
+  - **Nit from round 1, not taken (I disagree).** The reviewer wanted
+    `EntryForm.test.tsx` › "submits the suggestion marked in the field
+    for another Von" removed as a duplicate of `EntryRouteChips`. It is
+    the only test that fails when `EntryForm` stops merging the value a
+    field hands to `submit` (`...chosen`). I broke that merge by hand,
+    and only this test failed. The typed-value cases cannot show it,
+    because typing already sets the value.
+  - **Older gaps that round 2 found and that I left.** These breaks
+    pass both the old suite and the new one, so they were untested
+    before this ticket. Pinning them is new test work, not a move:
+    - **Passing `presetChannel` to the correction form as well.** This
+      one has user impact: the remembered Weg would overwrite a
+      corrected entry's Weg. It is worth a test in
+      `JournalPanel.test.tsx`, which is at 499 lines, so the next test
+      there needs a line saved first.
+    - `compact` on the correction.
+    - `preventDefault` on Strg+Enter in `EntryForm` and in
+      `EntryRouteChips`.
+- **Checks not run.** None skipped:
+  - After the last edit, `npm run check` is green: 204 files, 2673
+    tests.
+  - `npm run test:coverage` and then `compare-coverage.mjs` exit 0. The
+    only files it names as new come from earlier tickets. The first try
+    named `EntryRouteFields.tsx`, where one branch was no longer
+    covered (an emptied free-text Weg handed on as no Weg). I fixed the
+    test so a user clears the field.
+  - No new file needed a test file for coverage, and nothing went into
+    `coverage-splits.json`.
+  - The running app was not checked. No production code changed, and
+    both reviewers judged it unnecessary.
+- **Advanced without an automated test.**
+  - AC-1/AC-2: checked with `ls src/journal`. The six topic files are
+    deleted. `JournalPanel.tsx`, `EntryForm.tsx` and
+    `EntryRouteFields.tsx` each have one test file.
+  - AC-3: for each of `EntryForm.tsx`, `EntryRouteFields.tsx` and
+    `JournalPanel.tsx`, I broke every decision by hand, one at a time.
+    Each break made a test in that file's own test file fail.
+    `EntryForm.test.tsx` was created here and `JournalPanel.test.tsx`
+    was rebuilt here. Every test in both was held against its own file
+    that way, so both are added to `ac3-reviewed.txt`.
+    `EntryRouteFields.test.tsx` was only extended, so it is not listed.
+  - AC-9: checked with `wc -l`. The files are `JournalPanel.test.tsx`
+    499, `EntryForm.test.tsx` 443 and `EntryRouteFields.test.tsx` 404.
+    `EntryRouteFields.tsx` was not split.
+  - AC-11: the commit's `Removed tests:` section has every name
+    `removed-tests.mjs` lists, 90 in all. Three are gone, each with its
+    hand-break:
+    - "adds without the Von that was tapped again"
+    - "leaves the error behind when correcting another entry". It was
+      green under each of the two breaks of what it covered, so it
+      pinned nothing on its own.
+    - "drops the error once the correction is saved"
+  - AC-12: no production file changed (`git diff` touches only tests).
+- **Departures from the plan and Context.**
+  - **Strg+Enter with a marked suggestion is tested in both files.**
+    Context put it only in `EntryForm.test.tsx`. Picking the marked
+    suggestion is `EntryRouteChips`' own decision, so it is also tested
+    there, while `EntryForm` keeps the merge test.
+  - **Assertions dropped while moving.** Context said "from `remembered`
+    'keeps a Weg chosen before the remembered one arrives'". It also
+    checked the chip order after `operationId` changed in place.
+    `useEntryRouteMemory.test.ts` › "keeps each Gesamteinsatz apart"
+    holds that. The live-entry test no longer checks the Von/An/Weg
+    line, which `JournalEntry.test.tsx` holds.
+  - **New small tests of existing behaviour.** These were added while
+    moving, inside the files this ticket owns:
+    - trimming the text, and only spaces counting as no text
+    - "offers no Abbrechen without onCancel"
+    - the preset Weg arriving later
+    - "shows nothing without one" for the error
+- **Departures from a nudge.** None. There are five fewer jsdom test
+  files. `npm test` took 41-58 s, against 41-43 s before, on a box also
+  running coverage and reviews.
