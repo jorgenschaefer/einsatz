@@ -79,11 +79,20 @@ leaves the app behaving as before.
     `DeviceView.test.tsx` were moved or dropped by ticket 32; read what
     is left of both files as for any other.
   - `useClipboardCopy.ts` (43, no test) gets `useClipboardCopy.test.ts`
-    here, from the two `DeviceLinkPanel.test.tsx` tests of its behaviour:
-    "resets the copy button label back to 'kopieren' after a delay" and
-    "does not confirm 'kopiert' and hints instead in the panel when the
-    clipboard API is unavailable". Keep in `DeviceLinkPanel.test.tsx` only
-    what the panel does with the hook's state.
+    here (`renderHook`), holding the hook's whole behaviour: `copied`
+    after a write, back to `idle` after 2 s, `failed` without the
+    Clipboard API, `failed` when the write is rejected, and `failed`
+    staying until the next attempt. Two of these move from
+    `DeviceLinkPanel.test.tsx`: "resets the copy button label back to
+    'kopieren' after a delay" and "does not confirm 'kopiert' and hints
+    instead in the panel when the clipboard API is unavailable"; keep in
+    `DeviceLinkPanel.test.tsx` only what the panel does with the hook's
+    state. The rejection and the lasting `failed` are pinned today only
+    in `ViewLinkPanel.test.tsx` ("does not confirm 'kopiert' when writing
+    to the clipboard is rejected", "keeps the failure fallback visible
+    instead of auto-hiding it"). That file is judged (ticket 11), so its
+    tests stay. The hook test checks the same on the hook, so the tests
+    of `useClipboardCopy` are found next to it.
   - `MapModeBands.tsx` and `MapPanelSheet.tsx` have no test file; their
     behaviour is tested in `SituationMapView.test.tsx` (the band tests,
     "closes with Schließen on a phone, and offers none on the desktop"),
