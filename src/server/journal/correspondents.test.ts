@@ -3,12 +3,9 @@ import { type EntryRoute, NO_ROUTE } from "@/journal/entry-route";
 import { insertOperation } from "@/server/operations/operations";
 import { createStation, renameStation } from "@/server/strength/stations";
 import { freshDb } from "@/test/db";
-import {
-  annulEntry,
-  appendEntry,
-  correctEntry,
-  listCorrespondents,
-} from "./journal";
+import { listCorrespondents } from "./correspondents";
+import { appendEntry } from "./journal";
+import { annulEntry, correctEntry } from "./journal-history";
 
 type TestDb = Awaited<ReturnType<typeof freshDb>>;
 

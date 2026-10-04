@@ -23,5 +23,10 @@
     "src/strength/StrengthPanel.tsx",
     "src/strength/NameForm.tsx",
     "src/strength/run-action.ts"
+  ],
+  "src/server/journal/journal.ts": [
+    "src/server/journal/journal.ts",
+    "src/server/journal/correspondents.ts",
+    "src/server/journal/journal-history.ts"
   ]
 }

@@ -4,7 +4,8 @@ import { createOperation } from "@/server/operations/create-operation";
 import { insertOperation } from "@/server/operations/operations";
 import { ValidationError } from "@/server/validation";
 import { freshDb } from "@/test/db";
-import { annulEntry, appendEntry, correctEntry, listEntries } from "./journal";
+import { appendEntry, listEntries } from "./journal";
+import { annulEntry, correctEntry } from "./journal-history";
 
 async function manualEntry(db: Awaited<ReturnType<typeof freshDb>>) {
   const op = await insertOperation(db, {

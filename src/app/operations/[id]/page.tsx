@@ -14,11 +14,8 @@ import { getDb } from "@/server/db/pg";
 import { GEOCODER_ATTRIBUTION } from "@/server/geocoder/photon";
 import { listImageOverlays } from "@/server/image-overlays/image-overlays";
 import { overlayCacheToken } from "@/server/image-overlays/image-storage";
-import {
-  type JournalEntry,
-  listCorrespondents,
-  listEntries,
-} from "@/server/journal/journal";
+import { listCorrespondents } from "@/server/journal/correspondents";
+import { type JournalEntry, listEntries } from "@/server/journal/journal";
 import { listKmlOverlays } from "@/server/kml/kml-overlays";
 import { listMapSymbols } from "@/server/mapsymbols/map-symbols";
 import { getOperation } from "@/server/operations/operations";

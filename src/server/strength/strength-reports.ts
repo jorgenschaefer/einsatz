@@ -1,12 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { NO_ROUTE } from "@/journal/entry-route";
 import type { Db, Queryable } from "@/server/db/db";
+import { appendEntry, type JournalEntryState } from "@/server/journal/journal";
 import {
-  appendEntry,
-  type JournalEntryState,
   markEntryAnnulled,
   reviseEntry,
-} from "@/server/journal/journal";
+} from "@/server/journal/journal-history";
 import { lockOperation } from "@/server/operations/operations";
 import { assertUuid, ValidationError } from "@/server/validation";
 import {

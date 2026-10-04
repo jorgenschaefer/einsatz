@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { annulEntry, listEntries } from "@/server/journal/journal";
+import { listEntries } from "@/server/journal/journal";
+import { annulEntry } from "@/server/journal/journal-history";
 import { closeOperation } from "@/server/operations/operation-lifecycle";
 import { insertOperation } from "@/server/operations/operations";
 import { ValidationError } from "@/server/validation";

@@ -2,12 +2,8 @@
 
 import type { ActionResult } from "@/app/action-result";
 import type { EntryContent } from "@/journal/entry-route";
-import {
-  annulEntry,
-  appendEntry,
-  correctEntry,
-  requireEntryContent,
-} from "@/server/journal/journal";
+import { appendEntry, requireEntryContent } from "@/server/journal/journal";
+import { annulEntry, correctEntry } from "@/server/journal/journal-history";
 import { operationAction } from "./operation-action";
 
 export async function addJournalEntryAction(
