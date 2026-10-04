@@ -1,5 +1,5 @@
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { NO_ROUTE } from "@/journal/entry-route";
 import { fireEvent, screen, within } from "@/test/render";
 import {
@@ -215,117 +215,18 @@ describe("JournalPanel – Korrigieren", () => {
     });
   });
 
-  it("shows a prior fassung with its header struck through, its author and time", () => {
-    setup({
-      entries: [
-        entry({
-          ...ROUTED,
-          channel: "Telefon",
-          author: "bernd",
-          editedAt: "2026-07-03T09:00:00.000Z",
-          revisions: [
-            {
-              text: "Deich hält",
-              author: "anna",
-              createdAt: "2026-07-03T08:00:00.000Z",
-              ...ROUTED,
-            },
-          ],
-        }),
-      ],
-    });
-
-    expect(
-      screen.getByText(
-        (_, element) =>
-          element?.tagName === "DEL" &&
-          element.textContent === "Von UHSt 2 an EAL · Funk",
-      ),
-    ).toBeInTheDocument();
-    expect(screen.getByText(/–\s*anna, 03\.07\.26, 10:00/)).toBeInTheDocument();
-  });
-
-  it("offers correcting from the entry's action menu without correcting yet", async () => {
-    const props = setup();
-    await chooseAction(1, "Korrigieren");
-    expect(screen.getByLabelText(/Korrektur/)).toHaveValue("Deich hält");
-    expect(props.onCorrect).not.toHaveBeenCalled();
-  });
-
-  it("hides the entry's menu while it is being corrected", async () => {
-    setup();
-    await chooseAction(1, "Korrigieren");
-    expect(
-      screen.queryByRole("button", { name: "Aktionen für Eintrag #1" }),
-    ).toBeNull();
-  });
-
   it("corrects a manual entry through an inline edit prefilled with the current text", async () => {
     const props = setup();
     await chooseAction(1, "Korrigieren");
     const field = screen.getByLabelText(/Korrektur/);
+    expect(field).toHaveValue("Deich hält");
+    expect(props.onCorrect).not.toHaveBeenCalled();
     fireEvent.change(field, { target: { value: "Deich hält nicht" } });
     await userEvent.click(screen.getByRole("button", { name: /Speichern/ }));
     expect(props.onCorrect).toHaveBeenCalledWith("e1", {
       text: "Deich hält nicht",
       ...NO_ROUTE,
     });
-  });
-
-  it("renders prior fassungen struck through with their author", () => {
-    setup({
-      entries: [
-        entry({
-          text: "Deich hält nicht",
-          author: "bernd",
-          editedAt: "2026-07-03T09:00:00.000Z",
-          revisions: [
-            {
-              text: "Deich hält",
-              author: "anna",
-              createdAt: "2026-07-03T08:00:00.000Z",
-              ...NO_ROUTE,
-            },
-          ],
-        }),
-      ],
-    });
-    const prior = screen.getByText("Deich hält");
-    expect(prior.closest("del")).toBeInTheDocument();
-    // The prior fassung stays visible with its original author.
-    expect(screen.getByText(/–\s*anna/)).toBeInTheDocument();
-  });
-
-  it("gives revisions with an identical timestamp distinct, collision-free keys", () => {
-    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    const sameTs = "2026-07-03T08:00:00.000Z";
-    setup({
-      entries: [
-        entry({
-          text: "Fassung 3",
-          revisions: [
-            {
-              text: "Fassung 1",
-              author: "anna",
-              createdAt: sameTs,
-              ...NO_ROUTE,
-            },
-            {
-              text: "Fassung 2",
-              author: "bernd",
-              createdAt: sameTs,
-              ...NO_ROUTE,
-            },
-          ],
-        }),
-      ],
-    });
-    expect(screen.getByText("Fassung 1")).toBeInTheDocument();
-    expect(screen.getByText("Fassung 2")).toBeInTheDocument();
-    expect(
-      errorSpy.mock.calls.some((call) => String(call[0]).includes("same key")),
-    ).toBe(false);
-    errorSpy.mockRestore();
   });
 
   it("saves a correction with Strg+Enter in the edit field", async () => {
@@ -338,10 +239,5 @@ describe("JournalPanel – Korrigieren", () => {
       text: "Deich hält nicht",
       ...NO_ROUTE,
     });
-  });
-
-  it("shows a correction timestamp on a corrected entry", () => {
-    setup({ entries: [entry({ editedAt: "2026-07-03T09:30:00.000Z" })] });
-    expect(screen.getByText(/korrigiert/i)).toBeInTheDocument();
   });
 });

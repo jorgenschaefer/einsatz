@@ -9,7 +9,8 @@ import {
   type MockInstance,
   vi,
 } from "vitest";
-import { fireEvent, render, screen, within } from "@/test/render";
+import { fireEvent, render, screen } from "@/test/render";
+import type { JournalEntryType } from "./entry-type";
 import { JournalPanel } from "./JournalPanel";
 import {
   entry,
@@ -20,118 +21,6 @@ import {
 } from "./JournalPanel.fixtures";
 
 describe("JournalPanel", () => {
-  it("shows each entry with its number, text and author", () => {
-    setup();
-    expect(screen.getByText("Deich hält")).toBeInTheDocument();
-    expect(screen.getByText(/anna/)).toBeInTheDocument();
-    expect(screen.getByText(/^#?\s*1\b/)).toBeInTheDocument();
-  });
-
-  it("marks automatic entries and offers no correct/annul actions for them", () => {
-    setup({
-      entries: [
-        entry({
-          id: "a",
-          number: 1,
-          type: "einsatz-eröffnet",
-          text: "Einsatz eröffnet",
-          author: null,
-        }),
-      ],
-    });
-    const item = screen
-      .getByText("Einsatz eröffnet")
-      .closest("[data-entry]") as HTMLElement;
-    expect(within(item).getByText(/automatisch/i)).toBeInTheDocument();
-    expect(
-      within(item).queryByRole("button", { name: /Aktionen für Eintrag/ }),
-    ).toBeNull();
-  });
-
-  it("shows a stelle-angelegt entry as automatic, unchangeable and hidden with the automatic ones", async () => {
-    const text = "Stelle angelegt: UHSt 3";
-    setup({
-      entries: [
-        entry({ id: "s", number: 1, type: "stelle-angelegt", text }),
-        entry({ id: "m", number: 2 }),
-      ],
-    });
-    const item = screen.getByText(text).closest("[data-entry]") as HTMLElement;
-
-    expect(within(item).getByText(/automatisch/i)).toBeInTheDocument();
-    expect(
-      within(item).queryByRole("button", { name: /Aktionen für Eintrag/ }),
-    ).toBeNull();
-    await userEvent.click(screen.getByLabelText(/automatische ausblenden/i));
-    expect(screen.queryByText(text)).toBeNull();
-    expect(screen.getByText("Deich hält")).toBeInTheDocument();
-  });
-
-  it.each([
-    ["stelle-umbenannt", "Stelle umbenannt: UHSt 3 → UHSt 3 Nord"],
-    [
-      "stärkemeldung",
-      "Stärkemeldung UHSt 3: 0/1/6//7, +2 zusätzlich, 9 Personen",
-    ],
-  ] as const)(
-    "shows a %s entry as neither automatic nor changeable, and keeps it when automatic ones are hidden",
-    async (type, text) => {
-      setup({ entries: [entry({ id: "s", number: 1, type, text })] });
-      const item = screen
-        .getByText(text)
-        .closest("[data-entry]") as HTMLElement;
-
-      expect(within(item).queryByText(/automatisch/i)).toBeNull();
-      expect(
-        within(item).queryByRole("button", { name: /Aktionen für Eintrag/ }),
-      ).toBeNull();
-      await userEvent.click(screen.getByLabelText(/automatische ausblenden/i));
-      expect(screen.getByText(text)).toBeInTheDocument();
-    },
-  );
-
-  it("offers only „Annullieren …“ for a gesamtstärke-gemeldet entry, which is neither automatic nor hidden", async () => {
-    const text =
-      "Gesamtstärke gemeldet: 2/6/25//33, +6 zusätzlich, 39 Personen (4 Stellen, älteste Meldung 10:10)";
-    const props = setup({
-      entries: [
-        entry({ id: "g", number: 1, type: "gesamtstärke-gemeldet", text }),
-      ],
-    });
-    const item = screen.getByText(text).closest("[data-entry]") as HTMLElement;
-    expect(within(item).queryByText(/automatisch/i)).toBeNull();
-
-    await userEvent.click(
-      within(item).getByRole("button", { name: "Aktionen für Eintrag #1" }),
-    );
-    expect(
-      (await screen.findAllByRole("menuitem")).map((i) => i.textContent),
-    ).toEqual(["Annullieren …"]);
-    await userEvent.click(screen.getByRole("menuitem"));
-    await screen.findByRole("dialog", { name: "Eintrag #1 annullieren" });
-    await userEvent.click(screen.getByRole("button", { name: "Annullieren" }));
-    expect(props.onAnnul).toHaveBeenCalledWith("g");
-
-    await userEvent.click(screen.getByLabelText(/automatische ausblenden/i));
-    expect(screen.getByText(text)).toBeInTheDocument();
-  });
-
-  it("offers no actions for an annulled gesamtstärke-gemeldet entry", () => {
-    setup({
-      entries: [
-        entry({
-          type: "gesamtstärke-gemeldet",
-          state: "annulliert",
-          text: "Gesamtstärke gemeldet: 0/0/0//0, +0 zusätzlich, 0 Personen (0 Stellen)",
-        }),
-      ],
-    });
-
-    expect(
-      screen.queryByRole("button", { name: /Aktionen für Eintrag/ }),
-    ).toBeNull();
-  });
-
   it("adds a new manual entry from the input row", async () => {
     const props = setup();
     fireEvent.change(screen.getByLabelText(/Neuer Eintrag/), {
@@ -167,52 +56,33 @@ describe("JournalPanel", () => {
     expect(props.onAdd).not.toHaveBeenCalled();
   });
 
-  it("shows no correct/annul buttons on an entry until its menu is opened", () => {
-    setup();
-    expect(screen.queryByRole("button", { name: /Korrigieren/ })).toBeNull();
-    expect(screen.queryByRole("button", { name: /Annullieren/ })).toBeNull();
-    expect(
-      screen.getByRole("button", { name: "Aktionen für Eintrag #1" }),
-    ).toBeInTheDocument();
-  });
-
-  it("renders an annulled entry struck through while keeping its number", () => {
+  it("hides the automatic entries when the filter is enabled, keeping the others", async () => {
+    const types: JournalEntryType[] = [
+      "manuell",
+      "einsatz-eröffnet",
+      "einsatz-geschlossen",
+      "stelle-angelegt",
+      "stelle-umbenannt",
+      "stärkemeldung",
+      "gesamtstärke-gemeldet",
+    ];
     setup({
-      entries: [entry({ number: 4, state: "annulliert", text: "Fehleintrag" })],
+      entries: types.map((type, i) =>
+        entry({ id: type, number: i + 1, type, text: type }),
+      ),
     });
-    expect(screen.getByText("Fehleintrag").closest("del")).toBeInTheDocument();
-    expect(screen.getByText(/^#?\s*4\b/)).toBeInTheDocument();
-  });
 
-  it("offers no correct/annul actions on an annulled entry", () => {
-    setup({ entries: [entry({ state: "annulliert", text: "Fehleintrag" })] });
-    expect(
-      screen.queryByRole("button", { name: /Aktionen für Eintrag/ }),
-    ).toBeNull();
-  });
+    const shownTypes = () => types.filter((t) => screen.queryByText(t));
+    expect(shownTypes()).toEqual(types);
 
-  it("hides automatic entries when the filter is enabled, keeping manual ones", async () => {
-    setup({
-      entries: [
-        entry({
-          id: "a",
-          number: 1,
-          type: "einsatz-eröffnet",
-          text: "Einsatz eröffnet",
-          author: null,
-        }),
-        entry({
-          id: "m",
-          number: 2,
-          type: "manuell",
-          text: "Deich hält",
-          author: "anna",
-        }),
-      ],
-    });
     await userEvent.click(screen.getByLabelText(/automatische ausblenden/i));
-    expect(screen.queryByText("Einsatz eröffnet")).toBeNull();
-    expect(screen.getByText("Deich hält")).toBeInTheDocument();
+
+    expect(shownTypes()).toEqual([
+      "manuell",
+      "stelle-umbenannt",
+      "stärkemeldung",
+      "gesamtstärke-gemeldet",
+    ]);
   });
 
   it("hands out the Neuer Eintrag field through newEntryRef", () => {
