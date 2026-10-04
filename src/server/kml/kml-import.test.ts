@@ -190,4 +190,42 @@ describe("addKmlFile", () => {
       },
     ]);
   });
+
+  it.each([
+    ["JSON", "{}"],
+    ["HTML", "<html/>"],
+  ])(
+    "refuses %s as no KML or KMZ file and adds nothing",
+    async (_, content) => {
+      const db = await freshDb();
+      const operation = await insertOperation(db, {
+        name: "Hochwasser",
+        description: null,
+      });
+
+      await expect(
+        addKmlFile(db, { operationId: operation.id, name: "Karte", content }),
+      ).rejects.toThrow("Die Datei ist keine KML- oder KMZ-Datei.");
+
+      expect(await listKmlOverlays(db, operation.id)).toEqual([]);
+    },
+  );
+
+  it("refuses a file name of 201 characters and adds nothing", async () => {
+    const db = await freshDb();
+    const operation = await insertOperation(db, {
+      name: "Hochwasser",
+      description: null,
+    });
+
+    await expect(
+      addKmlFile(db, {
+        operationId: operation.id,
+        name: "x".repeat(201),
+        content: kmlWith(),
+      }),
+    ).rejects.toThrow("Der Dateiname darf höchstens 200 Zeichen lang sein.");
+
+    expect(await listKmlOverlays(db, operation.id)).toEqual([]);
+  });
 });

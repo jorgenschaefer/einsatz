@@ -15,8 +15,10 @@ vi.mock("next/headers", () => ({
   }),
 }));
 
+import { MAX_KML_BYTES } from "@/kml/kmz";
 import { findUserBySessionToken, insertSession } from "@/server/auth/sessions";
 import { insertUser } from "@/server/auth/users";
+import { MAX_UPLOAD_BYTES } from "@/server/image-overlays/image-upload";
 import { freshDb } from "@/test/db";
 import { multipartRequest } from "@/test/upload-request";
 import { formJson, handleUpload } from "./upload-route";
@@ -63,6 +65,47 @@ describe("handleUpload", () => {
         new Date(LOGIN + 25 * HOUR),
       ),
     ).not.toBeNull();
+  });
+
+  it.each([
+    ["KML file", MAX_KML_BYTES],
+    ["Bild-Overlay file", MAX_UPLOAD_BYTES],
+  ])("reads a form carrying a %s of the largest size", async (_, bytes) => {
+    const form = new FormData();
+    form.append("file", new Blob([new Uint8Array(bytes)]), "gross");
+    let received: number | undefined;
+
+    const response = await handleUpload(
+      await multipartRequest("POST", form),
+      { tooLarge: "zu groß", failed: "fehlgeschlagen" },
+      async (_db, sent) => {
+        received = (sent.get("file") as File).size;
+        return "op-1";
+      },
+    );
+
+    expect(response.status).toBe(200);
+    expect(received).toBe(bytes);
+  });
+
+  it.each([
+    ["its Host", { origin: "https://einsatz.test", host: "einsatz.test" }],
+    [
+      "the host the reverse proxy forwards",
+      {
+        origin: "https://einsatz.drk.test",
+        host: "app:3000",
+        "x-forwarded-host": "einsatz.drk.test, proxy.internal",
+      },
+    ],
+  ])("accepts an upload with an Origin matching %s", async (_, headers) => {
+    const response = await handleUpload(
+      await multipartRequest("POST", new FormData(), headers),
+      { tooLarge: "zu groß", failed: "fehlgeschlagen" },
+      async () => "op-1",
+    );
+
+    expect(response.status).toBe(200);
   });
 });
 

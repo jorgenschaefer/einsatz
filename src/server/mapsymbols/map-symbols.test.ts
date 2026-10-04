@@ -432,6 +432,8 @@ describe("removeAllDeviceLinks", () => {
     await removeAllDeviceLinks(db, op.id);
 
     expect((await listMapSymbols(db, op.id))[0]).toMatchObject({
+      lat: 53.6,
+      lng: 10.1,
       deviceLinkToken: null,
       positionSource: "manual",
     });

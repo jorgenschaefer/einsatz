@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Db } from "@/server/db/db";
-import { type FetchStub, scriptedFetch } from "@/test/scripted-fetch";
 
 // IO-/Trust-Grenzen faken, damit die echte Routen-Logik unverändert läuft.
 const state = vi.hoisted(() => ({
@@ -8,10 +7,6 @@ const state = vi.hoisted(() => ({
   token: undefined as string | undefined,
   revalidatedPaths: [] as string[],
   published: [] as string[],
-}));
-const pinnedFetch = vi.fn();
-vi.mock("@/server/kml/pinned-fetch", () => ({
-  pinnedFetch: (...args: unknown[]) => pinnedFetch(...args),
 }));
 vi.mock("@/server/db/pg", () => ({ getDb: () => state.db }));
 vi.mock("next/cache", () => ({
@@ -28,7 +23,6 @@ vi.mock("next/headers", () => ({
   }),
 }));
 
-import { MAX_KML_BYTES } from "@/kml/kmz";
 import * as kmlOverlays from "@/server/kml/kml-overlays";
 import { listKmlOverlays } from "@/server/kml/kml-overlays";
 import { insertOperation } from "@/server/operations/operations";
@@ -50,8 +44,6 @@ import { POST } from "./route";
 
 const LOAD_FAILED = "KML konnte nicht geladen werden.";
 const KML = '<kml xmlns="http://www.opengis.net/kml/2.2"><Document/></kml>';
-const networkLinkTo = (href: string) =>
-  `<NetworkLink><Link><href>${href}</href></Link></NetworkLink>`;
 
 const kmlFileForm = (name: string, content: string): FormData => {
   const form = new FormData();
@@ -70,7 +62,6 @@ beforeEach(async () => {
   state.token = await signIn(db());
   state.revalidatedPaths = [];
   state.published = [];
-  pinnedFetch.mockReset();
   operationId = (
     await insertOperation(db(), { name: "Lage", description: null })
   ).id;
@@ -132,51 +123,6 @@ describe("POST /operations/[id]/kml", () => {
     expect(state.published).toEqual([operationId]);
   });
 
-  it.each([
-    ["JSON", "{}"],
-    ["HTML", "<html/>"],
-  ])(
-    "refuses %s as no KML or KMZ file and adds nothing",
-    async (_, content) => {
-      expect(await post(kmlFileForm("Abschnitte", content))).toEqual({
-        status: 400,
-        body: { error: "Die Datei ist keine KML- oder KMZ-Datei." },
-      });
-
-      expect(await stored(operationId)).toEqual([]);
-      expect(state.revalidatedPaths).toEqual([]);
-    },
-  );
-
-  it("skips a NetworkLink outside the public address space like a dead link", async () => {
-    const requested: string[] = [];
-    const publicTarget =
-      "<kml><Document><Placemark>B</Placemark></Document></kml>";
-    pinnedFetch.mockImplementation(
-      scriptedFetch((url): FetchStub => {
-        requested.push(url);
-        return { body: publicTarget };
-      }),
-    );
-    const linked = `<kml><Document>${networkLinkTo(
-      "http://100.64.0.1/a.kml",
-    )}${networkLinkTo("http://93.184.216.34/b.kml")}</Document></kml>`;
-
-    expect((await post(kmlFileForm("Meine Karte", linked))).status).toBe(200);
-
-    expect((await stored(operationId))[0].content).toBe(publicTarget);
-    expect(requested).toEqual(["http://93.184.216.34/b.kml"]);
-  });
-
-  it("refuses a file name of 201 characters and adds nothing", async () => {
-    expect(await post(kmlFileForm("x".repeat(201), KML))).toEqual({
-      status: 400,
-      body: { error: "Der Dateiname darf höchstens 200 Zeichen lang sein." },
-    });
-
-    expect(await stored(operationId)).toEqual([]);
-  });
-
   it("refuses a name sent as a file and adds nothing", async () => {
     const form = new FormData();
     form.append("name", new Blob(["Karte"]), "name.txt");
@@ -199,44 +145,6 @@ describe("POST /operations/[id]/kml", () => {
     expect(await response.json()).toEqual({ error: "Ungültige ID." });
     const { rows } = await db().query("SELECT id FROM kml_overlays");
     expect(rows).toEqual([]);
-  });
-
-  it("adds a file of just under 20 MB", async () => {
-    const head = "<kml><Document>";
-    const tail = "</Document></kml>";
-    const kml = `${head}${" ".repeat(MAX_KML_BYTES - head.length - tail.length)}${tail}`;
-
-    expect(await post(kmlFileForm("Abschnitte", kml))).toEqual({
-      status: 200,
-      body: {},
-    });
-
-    const [added] = await stored(operationId);
-    expect(added).toMatchObject({ name: "Abschnitte", sourceType: "file" });
-    expect(added.content).toHaveLength(MAX_KML_BYTES);
-  });
-
-  it.each([
-    ["its Host", { origin: "https://einsatz.test", host: "einsatz.test" }],
-    [
-      "the host the reverse proxy forwards",
-      {
-        origin: "https://einsatz.drk.test",
-        host: "app:3000",
-        "x-forwarded-host": "einsatz.drk.test, proxy.internal",
-      },
-    ],
-  ])("adds a file with an Origin matching %s", async (_, headers) => {
-    const response = await send(
-      await multipartRequest(
-        "POST",
-        kmlFileForm("Abschnitte", "<kml/>"),
-        headers,
-      ),
-    );
-
-    expect(response.status).toBe(200);
-    expect(await stored(operationId)).toHaveLength(1);
   });
 
   it("names the KML-Ebene „KML-Datei“ when no name is sent", async () => {

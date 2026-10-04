@@ -1,7 +1,5 @@
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import type { ActionResult } from "@/app/action-result";
-import { clickModalOverlay } from "@/test/modal-overlay";
 import { render, screen, waitFor, within } from "@/test/render";
 import {
   OperationLifecycleActions,
@@ -153,66 +151,7 @@ describe("OperationLifecycleActions", () => {
     return dialog;
   }
 
-  describe("while deleting", () => {
-    const hanging = () => new Promise<ActionResult>(() => {});
-
-    it("shows the confirm button loading and locks cancelling", async () => {
-      setup({ ...deletable, onDelete: vi.fn(hanging) });
-
-      const dialog = await confirmDelete();
-
-      expect(
-        within(dialog).getByRole("button", { name: "Endgültig löschen" }),
-      ).toHaveAttribute("data-loading", "true");
-      expect(
-        within(dialog).getByRole("button", { name: "Abbrechen" }),
-      ).toBeDisabled();
-    });
-
-    it("does not close on Escape or a click beside the dialog", async () => {
-      setup({ ...deletable, onDelete: vi.fn(hanging) });
-      await confirmDelete();
-
-      await userEvent.keyboard("{Escape}");
-      await clickModalOverlay();
-
-      expect(
-        screen.getByRole("dialog", { name: "Einsatz „Hochwasser“ löschen" }),
-      ).toBeInTheDocument();
-    });
-
-    it("does not delete again on a second tap", async () => {
-      const onDelete = vi.fn(hanging);
-      setup({ ...deletable, onDelete });
-
-      const dialog = await confirmDelete();
-      await userEvent.click(
-        within(dialog).getByRole("button", { name: "Endgültig löschen" }),
-        { pointerEventsCheck: 0 },
-      );
-
-      expect(onDelete).toHaveBeenCalledTimes(1);
-    });
-  });
-
   describe("when deleting fails", () => {
-    it("shows an unexpected failure in the open dialog and allows confirming again", async () => {
-      const onDelete = vi.fn(async () => {
-        throw new Error("DB weg");
-      });
-      setup({ ...deletable, onDelete });
-
-      const dialog = await confirmDelete();
-
-      expect(within(dialog).getByRole("alert")).toHaveTextContent(
-        "Das hat nicht geklappt. Bitte erneut versuchen.",
-      );
-      await userEvent.click(
-        within(dialog).getByRole("button", { name: "Endgültig löschen" }),
-      );
-      expect(onDelete).toHaveBeenCalledTimes(2);
-    });
-
     it("keeps the refusal in view when the Einsatz turns out to be active again", async () => {
       const refusal = "Nur ein abgeschlossener Einsatz lässt sich löschen.";
       const props = {
@@ -231,19 +170,6 @@ describe("OperationLifecycleActions", () => {
 
       expect(within(dialog).getByRole("alert")).toHaveTextContent(refusal);
       expect(dialog).toBeInTheDocument();
-    });
-
-    it("shows a returned error in the open dialog", async () => {
-      setup({
-        ...deletable,
-        onDelete: vi.fn(async () => ({ error: "Nicht erlaubt." })),
-      });
-
-      const dialog = await confirmDelete();
-
-      expect(within(dialog).getByRole("alert")).toHaveTextContent(
-        "Nicht erlaubt.",
-      );
     });
   });
 });

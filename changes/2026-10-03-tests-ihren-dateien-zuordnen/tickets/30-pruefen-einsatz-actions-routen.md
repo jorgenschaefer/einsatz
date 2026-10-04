@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:    
 advances:  AC-3, AC-11, AC-12
 after:     23-pruefungen, 26-pruefen-karte-arbeitsplatz, 33-image-overlay-uploads
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -128,3 +128,71 @@ leaves the app behaving as before.
   code does.
 
 ## Left standing
+- **Selection (Plan 1).**
+  `node changes/2026-10-03-tests-ihren-dateien-zuordnen/select-tests.mjs 'src/app/operations/**/*.test.*'`
+  selected 8 files: `OperationLifecycleActions.test.tsx`,
+  `OperationsOverview.test.tsx`, `lifecycle-actions.test.ts`,
+  `[id]/kml/route.test.ts`, `[id]/operation-action.test.ts`,
+  `[id]/overlays/route.test.ts`, `[id]/overlays/[overlayId]/route.test.ts`
+  and `[id]/page.test.ts` (under `src/app/operations/`).
+- **Verdict per file (Plan 2).** Five are "all their own":
+  `OperationsOverview`, `operation-action`, `overlays/route`,
+  `overlays/[overlayId]/route` and `page`. Three were not:
+  - `OperationLifecycleActions.test.tsx`: five tests were dropped because
+    they duplicate `ConfirmationModal.test.tsx`. They are the three "while
+    deleting" tests, "shows an unexpected failure …" and "shows a returned
+    error in the open dialog". "keeps the refusal in view when the Einsatz
+    turns out to be active again" stays: it depends on this component
+    keeping the delete dialog mounted. "shows a refused Abschließen …" also
+    stays. It pins that `onClose`'s result reaches the dialog
+    (`onConfirm={onClose}`), and the second review showed nothing else
+    pins that.
+  - `lifecycle-actions.test.ts`: two tests were dropped as duplicates.
+    "ends every Gerätelink and Ansichtslink for good, also after reopening"
+    is held by `operation-lifecycle.test.ts`. "places Kartenzeichen whose
+    device had reported by hand again" is held by `map-symbols.test.ts ›
+    removeAllDeviceLinks`. The only check of its own, a single live
+    notification, moved into the status-change test, which now covers
+    reopening too and was renamed to say so.
+  - `kml/route.test.ts`: seven tests left.
+    - JSON/HTML refused and the 201-character file name went to
+      `kml-import.test.ts › addKmlFile`.
+    - The two same-origin rows and the 20 MB file went to
+      `upload-route.test.ts › handleUpload`. The 20 MB test now checks
+      that `handleUpload` reads a form with a KML file and with a
+      Bild-Overlay file of the largest size.
+    - The NetworkLink test was dropped as a duplicate of `kml-fetch.test.ts`.
+- **More than a handful?** Seven tests left `kml/route.test.ts` and five
+  left `OperationLifecycleActions.test.tsx`. I did not halt. No slice was
+  missing: every test went to a test file that already existed and
+  already tested that file's behaviour (`addKmlFile`, `handleUpload`,
+  `ConfirmationModal`), or was dropped as a duplicate there.
+- **Judgement call: bad input stays with the route.** The routes and the
+  page keep their tests of how they answer bad input they pass on: a
+  non-UUID Einsatz-ID in the path, a name sent as a file, no file, a form
+  without content, and a missing name becoming „KML-Datei“. Each one
+  depends on what the route takes from the request and how it passes it
+  on, and action tests pin the same kind of answer
+  (`expectBadCallsRejected`). Rules that hold whatever the route passes
+  (the KML content check, the length of the file name) moved. Ticket 33
+  moved the overlay route's 201-character test the same way.
+- **Edits outside this area.** These are tests moved into files of done
+  tickets' areas: `kml-import.test.ts`, `upload-route.test.ts` (listed),
+  and `map-symbols.test.ts`. In `map-symbols.test.ts › removeAllDeviceLinks
+  › makes Kartenzeichen … manually placed again`, the assertion now also
+  checks that the last reported position stays. The dropped lifecycle
+  test had pinned that, and the second review found nothing else did. No
+  new test file was created, so `ac3-reviewed.txt` is unchanged.
+- **AC-11.** No automated test proves this. The commit message carries
+  the record. For each dropped test, I broke its behaviour by hand,
+  checked that the named test failed, and restored the code.
+- **AC-12.** No production code changed, and nothing was restructured.
+- **Coverage comparison.** It names no file with a drop and exits 0. It
+  still prints the twelve "new, compared with nothing" notes that earlier
+  tickets left behind.
+- **Review.** Two rounds, and every finding was fixed. Round 1 had one
+  should-fix and one nit. Round 2 had two should-fix and one nit.
+- **Checks.** `npm run check` is green: 197 files, 2688 tests. I ran
+  `test:coverage`, `compare-coverage.mjs` and `removed-tests.mjs` after
+  the last edit. No checks were skipped.
+- **Departures.** None from the plan or the nudges.

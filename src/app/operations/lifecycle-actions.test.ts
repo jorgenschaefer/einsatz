@@ -31,21 +31,9 @@ vi.mock("next/navigation", () => ({
 import { subscribeOperation } from "@/server/events/operation-events";
 import { storeOverlayImage } from "@/server/image-overlays/image-storage";
 import { listEntries } from "@/server/journal/journal";
-import {
-  createMapSymbol,
-  generateDeviceLink,
-  listMapSymbols,
-  reportPosition,
-  resolveDeviceAccess,
-} from "@/server/mapsymbols/map-symbols";
 import { createOperation } from "@/server/operations/create-operation";
 import { closeOperation } from "@/server/operations/operation-lifecycle";
 import { getOperation } from "@/server/operations/operations";
-import {
-  createViewLink,
-  listViewLinks,
-  resolveViewAccess,
-} from "@/server/viewlinks/view-links";
 import {
   type ActAs,
   expectBadCallsRejected,
@@ -175,11 +163,17 @@ describe.each([
   ["closeOperationAction", closeOperationAction, "active", "closed"],
   ["reopenOperationAction", reopenOperationAction, "closed", "active"],
 ] as const)("%s", (_, changeStatus, from, to) => {
-  it("changes the status and refreshes the Einsatz and the overview", async () => {
+  it("changes the status, refreshes the Einsatz and the overview, and notifies the Einsatz's clients", async () => {
     await actAs("user");
     const op = await operationWithUpload(from);
+    const listener = vi.fn();
+    const unsubscribe = subscribeOperation(op.id, listener);
 
-    expect(await changeStatus(op.id)).toEqual({});
+    try {
+      expect(await changeStatus(op.id)).toEqual({});
+    } finally {
+      unsubscribe();
+    }
 
     expect(await getOperation(state.db as Db, op.id)).toMatchObject({
       status: to,
@@ -187,74 +181,6 @@ describe.each([
     expect(state.revalidatedPaths).toEqual(
       expect.arrayContaining([`/operations/${op.id}`, "/operations"]),
     );
-  });
-});
-
-describe("closeOperationAction", () => {
-  async function operationWithLinks() {
-    const db = state.db as Db;
-    const op = await createOperation(db, { name: "Hochwasser" });
-    const symbol = await createMapSymbol(db, {
-      operationId: op.id,
-      composition: { grundzeichen: "kraftfahrzeug-landgebunden" },
-      lat: 53.55,
-      lng: 10,
-    });
-    const deviceToken = await generateDeviceLink(
-      db,
-      symbol.operationId,
-      symbol.id,
-    );
-    const viewLink = await createViewLink(db, {
-      operationId: op.id,
-      label: "Leitstelle",
-    });
-    return { op, deviceToken, viewToken: viewLink.token };
-  }
-
-  async function expectLinksClosed(deviceToken: string, viewToken: string) {
-    const db = state.db as Db;
-    expect(await resolveDeviceAccess(db, deviceToken)).toBeNull();
-    expect(await resolveViewAccess(db, viewToken)).toBeNull();
-  }
-
-  it("ends every Gerätelink and Ansichtslink for good, also after reopening", async () => {
-    await actAs("user");
-    const { op, deviceToken, viewToken } = await operationWithLinks();
-    const listener = vi.fn();
-    const unsubscribe = subscribeOperation(op.id, listener);
-
-    try {
-      await closeOperationAction(op.id);
-    } finally {
-      unsubscribe();
-    }
-
     expect(listener).toHaveBeenCalledTimes(1);
-    await expectLinksClosed(deviceToken, viewToken);
-
-    await reopenOperationAction(op.id);
-
-    await expectLinksClosed(deviceToken, viewToken);
-    const db = state.db as Db;
-    const [symbol] = await listMapSymbols(db, op.id);
-    expect(symbol.deviceLinkToken).toBeNull();
-    expect(await listViewLinks(db, op.id)).toEqual([]);
-  });
-
-  it("places Kartenzeichen whose device had reported by hand again", async () => {
-    await actAs("user");
-    const { op, deviceToken } = await operationWithLinks();
-    const db = state.db as Db;
-    await reportPosition(db, deviceToken, 53.6, 10.1);
-
-    await closeOperationAction(op.id);
-
-    const [symbol] = await listMapSymbols(db, op.id);
-    expect(symbol).toMatchObject({
-      lat: 53.6,
-      lng: 10.1,
-      positionSource: "manual",
-    });
   });
 });
