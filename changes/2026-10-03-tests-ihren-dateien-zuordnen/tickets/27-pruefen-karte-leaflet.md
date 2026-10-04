@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:    
 advances:  AC-3, AC-11, AC-12
 after:     26-pruefen-karte-arbeitsplatz, 32-read-only-situation-map
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -135,3 +135,58 @@ leaves the app behaving as before.
   code does.
 
 ## Left standing
+- **Selection (Plan 1).**
+  `node changes/2026-10-03-tests-ihren-dateien-zuordnen/select-tests.mjs 'src/map/SituationMap.test.tsx' 'src/map/ReadOnlySituationMap.test.tsx' 'src/map/*.test.ts' --exclude 'src/map/use*.test.ts'`
+  selects six files: `kml-layer`, `lageansicht-sizes`, `placed-symbols`,
+  `quick-select`, `search-hit-pin` and `uploads` (`.test.ts`).
+  `SituationMap.test.tsx`, `ReadOnlySituationMap.test.tsx` and the
+  `leaflet-*` test files are listed in `ac3-reviewed.txt`, so the script
+  skips them.
+- **Verdict per file (Plan 2).** All six are "all its own". No test
+  moved or was dropped. So no commit carries a `Removed tests:` section
+  (AC-11), and `removed-tests.mjs` lists nothing. Judgement calls:
+  - `kml-layer.test.ts` is selected only because
+    `leaflet-map.fixtures.ts` imports `leaflet-adapter`. The tests use only
+    `mountPlainLeafletMap`, a bare Leaflet map.
+  - `lageansicht-sizes.test.ts` reads `situation-workspace.css` only as
+    the reference value its own `SIDEBAR_WIDTH` has to match.
+  - `placed-symbols.test.ts`: the stale case pins its own 0.4 opacity and
+    how it combines `isStale`. The threshold only sets up the state.
+  - `quick-select.test.ts` › "has unique ids and every item renders to a
+    data URI" calls `renderSymbolDataUrl`, but it pins the palette's
+    own data. I tried an invalid composition, and
+    `renderSymbolDataUrl` throws ("Item not found"). So a bad palette
+    entry fails this test.
+  - `search-hit-pin.test.ts` drives `createSearchHitPin` through the real
+    adapter. Every assertion checks the pin. The tooltip-pane assertions
+    on markers and Bereiche only make sure the z-index comparison holds.
+    It stays on the adapter for two reasons. Two tests need `setMarker`
+    and `setArea`. And `leaflet-adapter.test.ts` has no Suchtreffer test,
+    so these tests are what pin the adapter's `setSearchHit` and
+    `clearSearchHit` wiring.
+  - `uploads.test.ts`: `upload-messages` only supplies the fallback
+    strings. The choice of fallback and the 401 handling are
+    `uploads.ts`'s.
+- **Ticket 12's open nit, taken.** `search-hit-pin.test.ts` now mounts
+  its map with `mountLeafletMap` and no longer builds the adapter by hand.
+  The map is the same: same size, view, tile URL and attribution. A
+  probe test showed the cleanup still runs when the fixture is called in
+  `beforeEach`. No test was renamed or removed.
+- **No test file still (Context).** None was needed. As the ticket says,
+  `notification-sources.ts` and `tooltip-text.ts` are reached only
+  through judged test files, and `composition.ts` and
+  `wrapping-switch-label.ts` hold only constants.
+- **Coverage comparison.** It names no file with a drop and exits 0. It
+  prints the same twelve informational "new, compared with nothing" notes
+  as tickets 26 and 32. This ticket touched none of those files.
+- **AC-12.** No production code changed and nothing was restructured, so
+  there was nothing to check by hand.
+- **`ac3-reviewed.txt`** is unchanged. Following ticket 26, only test
+  files that a ticket creates or rewrites go on that list, and the six
+  files here were only read.
+- **Review.** One round: no blockers, no nits. The one should-fix was
+  this section.
+- **Checks.** `npm run check` is green: 194 files, 2677 tests. I ran
+  `test:coverage` and `compare-coverage.mjs` after the last code edit.
+  No checks were skipped.
+- **Departures.** None from the plan or the nudges.

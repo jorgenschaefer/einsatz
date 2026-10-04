@@ -1,6 +1,6 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import type { MapAdapter } from "./adapter";
-import { leafletMapAdapterFactory } from "./leaflet-adapter";
+import { mountLeafletMap } from "./leaflet-map.fixtures";
 
 /** Leaflet's tooltip pane (Bezeichnungen, labels of Bereiche), from leaflet.css. */
 const TOOLTIP_PANE_Z_INDEX = 650;
@@ -12,20 +12,7 @@ let container: HTMLDivElement;
 let adapter: MapAdapter;
 
 beforeEach(() => {
-  container = document.createElement("div");
-  Object.defineProperty(container, "clientWidth", { value: 800 });
-  Object.defineProperty(container, "clientHeight", { value: 600 });
-  document.body.appendChild(container);
-  adapter = leafletMapAdapterFactory.create(container, {
-    initialView: { lat: 53.55, lng: 9.99, zoom: 13 },
-    tileUrl: "https://tiles.example/{z}/{x}/{y}.png",
-    attribution: "©",
-  });
-});
-
-afterEach(() => {
-  adapter.destroy();
-  container.remove();
+  ({ adapter, container } = mountLeafletMap());
 });
 
 const pins = () => container.querySelectorAll<HTMLElement>(".search-hit");
