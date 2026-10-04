@@ -5,5 +5,9 @@
   "src/map/SituationWorkspace.fixtures.tsx": [
     "src/map/SituationWorkspace.fixtures.tsx",
     "src/map/map-objects.fixtures.ts"
+  ],
+  "src/map/SituationMapView.tsx": [
+    "src/map/SituationMapView.tsx",
+    "src/map/useEndModeWhenHidden.ts"
   ]
 }

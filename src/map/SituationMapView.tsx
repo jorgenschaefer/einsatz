@@ -30,6 +30,7 @@ import {
 import { SymbolDetailModal } from "./SymbolDetailModal";
 import { SymbolsPanel } from "./SymbolsPanel";
 import { useAreaFlows } from "./useAreaFlows";
+import { useEndModeWhenHidden } from "./useEndModeWhenHidden";
 import { useImageOverlayEditing } from "./useImageOverlayEditing";
 import { useMapFocus } from "./useMapFocus";
 import { useMapMode } from "./useMapMode";
@@ -371,17 +372,4 @@ export function SituationMapView({
       />
     </>
   );
-}
-
-/**
- * Verschwindet die Karte (Wechsel am Handy, Fenster schmaler als 48 em),
- * endet jeder Karten-Modus, sonst platziert ein späterer Tap auf die wieder
- * gezeigte Karte unerwartet ein Zeichen.
- */
-function useEndModeWhenHidden(mapShown: boolean, endMode: () => void) {
-  const [mapWasShown, setMapWasShown] = useState(mapShown);
-  if (mapShown !== mapWasShown) {
-    setMapWasShown(mapShown);
-    if (!mapShown) endMode();
-  }
 }

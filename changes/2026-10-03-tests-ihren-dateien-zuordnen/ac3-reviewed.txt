@@ -35,3 +35,4 @@ src/map/useAreaFlows.test.ts
 src/map/useSymbolPlacement.test.ts
 src/map/useImageOverlayEditing.test.ts
 src/map/LayersPanel.test.tsx
+src/map/useEndModeWhenHidden.test.ts
