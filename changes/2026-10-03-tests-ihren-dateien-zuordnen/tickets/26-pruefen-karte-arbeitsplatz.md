@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:    
 advances:  AC-3, AC-11, AC-12
 after:     16-arbeitsplatz-main-view, 23-pruefungen
-status:    ready
-attempts:  0
+status:    halted
+attempts:  1
 ---
 
 ## Build
@@ -123,3 +123,84 @@ leaves the app behaving as before.
   code does.
 
 ## Left standing
+
+## Halt
+**Kind: blocked.** Under Context, more than a handful of tests to move out
+of one test file means a slice was missed, and the ticket must halt. That
+is the case for two files here. They have the same cause:
+`ReadOnlySituationMap.tsx` has no test file. Everything it decides is
+tested through `ViewLinkView.test.tsx` and `DeviceView.test.tsx`, twice
+over. It decides the symbols on the map, the staleness clock, search, the
+address marker, the live stream with its refresh and connection-lost
+badge, and whether the Zurück-zum-Standard-Ausschnitt button is enabled.
+`ViewLinkView.tsx` is 26 lines. Its own behaviour is the `/view` base
+path, the tap handler and the `useMapFocus` wiring. The ticket assumed
+every file in the area already had a test file to take its tests.
+`ReadOnlySituationMap` does not, and its file belongs to ticket 27 (Not
+here).
+
+Tests in `src/map/ViewLinkView.test.tsx` whose assertions check only
+`ReadOnlySituationMap` (or the zoom rule `SituationMap` owns):
+- ViewLinkView › renders the operation symbols read-only
+- ViewLinkView › centers on a tapped symbol at zoom $expected from zoom $current (2 rows; the zoom rule is `SituationMap`'s)
+- ViewLinkView › marks a chosen address on the map
+- ViewLinkView › searches placed objects and jumps to a chosen Kartenzeichen
+- ViewLinkView › grays a device symbol that goes stale while the view stays open
+- ViewLinkView › shows a connection-lost hint when the live stream is disconnected
+- ViewLinkView › reloads the full state when a live event arrives
+- ViewLinkView › disables the return-to-default button when no default view is set
+
+Its own tests: "omits location, wipe-lock and locate controls", "centers on
+a tapped symbol instead of opening a map app", "listens to the live stream
+of its token route", "searches addresses through its token route" and
+"returns the map to the operation's default view".
+
+Tests in `src/map/DeviceView.test.tsx` of the same behaviour. Each one
+duplicates one of the tests above:
+- DeviceView › renders the operation symbols read-only, without editing controls
+- DeviceView › grays a device symbol that goes stale while the device view stays open
+- DeviceView › searches placed objects and jumps to a chosen Kartenzeichen
+- DeviceView › marks a chosen address on the map
+- DeviceView › searches addresses through the injected geocoder and jumps to a hit
+- DeviceView › shows a connection-lost hint when the live stream is disconnected
+- DeviceView › reloads the full state when a live event arrives
+- DeviceView › disables the return-to-default button when no default view is set
+- DeviceView › centers on the own position at zoom $expected from zoom $current (2 rows; the zoom rule is `SituationMap`'s, and "centers the map on the device's own position" holds the jump)
+
+What a re-plan needs to decide: a slice that gives `ReadOnlySituationMap`
+its own `ReadOnlySituationMap.test.tsx`, built from the tests above and
+added to `ac3-reviewed.txt`. It should come before this ticket and before
+ticket 27, and it settles which ticket owns that file.
+
+Found on the way, for the retry. Neither needs a halt by itself:
+- `useClipboardCopy.ts` has no test file. Its 2-second reset and its
+  "failed" state are tested only through `DeviceLinkPanel.test.tsx`
+  ("resets the copy button label back to 'kopieren' after a delay", "does
+  not confirm 'kopiert' and hints instead in the panel when the clipboard
+  API is unavailable"). That is two tests, so they can move to a new
+  `useClipboardCopy.test.ts` inside this ticket.
+- `MapModeBands.tsx` and `MapPanelSheet.tsx` have no test file either.
+  Nothing selects them, so the retry has to check where their tests live.
+- I read only these selected files: `ViewLinkView.test.tsx`,
+  `DeviceView.test.tsx`, plus the test names of `LageansichtShell`,
+  `SymbolDetailModal`, `AreaEditorModal` and `DeviceLinkPanel`. I gave no
+  verdict for the others.
+
+Plan step 1 is built but not committed. It is in the working tree as
+`changes/2026-10-03-tests-ihren-dateien-zuordnen/select-tests.mjs`, with
+`select-tests.test.mjs` (`node --test`, 22 hand-made cases, all green). The
+cases cover each case the plan names: a fixture that imports another
+module, a run-time `readFileSync`, `new URL(...)` and `?raw`, a fixture
+that imports nothing else, and a file listed in `ac3-reviewed.txt`. For
+this area,
+`node changes/2026-10-03-tests-ihren-dateien-zuordnen/select-tests.mjs 'src/map/*.test.tsx' 'src/map/use*.test.ts' --exclude src/map/SituationMap.test.tsx src/map/ReadOnlySituationMap.test.tsx`
+selects 26 files: AdvancedSymbolForm, AreaEditor, AreaEditorModal,
+AreasPanel, DeviceClosed, DeviceLinkPanel, DeviceView, ImageOverlayEditor,
+LageansichtShell, MainViewBar, MapControls, MapPanelSwitch, ModeBand,
+PanelRow, QuickSelectToolbar, SearchBar, SymbolDetailModal, SymbolsPanel,
+ViewLinkView, WipeLock, useDeviceLocation, useIsDesktop, useKeyboardOpen,
+useMapSearch, useOperationEvents and useStalenessClock. Almost every
+component test is selected because `src/test/render.tsx` imports
+`@/app/theme` and `@/app/ActionNotifications`, and the rule counts that.
+`npm run check` was not run, because no file it checks has changed.
+
