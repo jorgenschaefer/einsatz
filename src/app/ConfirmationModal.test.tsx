@@ -1,4 +1,5 @@
-import { Button, Modal } from "@mantine/core";
+import { Button, MantineProvider, Modal } from "@mantine/core";
+import { render as rtlRender } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -178,6 +179,62 @@ describe("ConfirmationModal", () => {
       });
 
       expect(onConfirm).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("closed by its opener", () => {
+    function Opener({ onConfirm }: { onConfirm: () => Promise<ActionResult> }) {
+      const [asking, setAsking] = useState(true);
+      return (
+        <>
+          <Button onClick={() => setAsking(true)}>Öffnen</Button>
+          <ConfirmationModal
+            opened={asking}
+            onClose={() => setAsking(false)}
+            title="Eintrag #3 annullieren"
+            confirmLabel="Annullieren"
+            onConfirm={onConfirm}
+          >
+            Das lässt sich nicht rückgängig machen.
+          </ConfirmationModal>
+        </>
+      );
+    }
+
+    it("ignores a second click while it fades out after succeeding", async () => {
+      const onConfirm = vi.fn(async () => ({}));
+      // Without env="test", so the modal keeps its exit transition and stays
+      // clickable while it fades out.
+      rtlRender(
+        <MantineProvider>
+          <Opener onConfirm={onConfirm} />
+        </MantineProvider>,
+      );
+      const confirm = await screen.findByRole("button", {
+        name: "Annullieren",
+      });
+
+      await userEvent.click(confirm);
+      await userEvent.click(confirm);
+
+      expect(onConfirm).toHaveBeenCalledTimes(1);
+    });
+
+    it("opens again without the error it showed before", async () => {
+      render(
+        <Opener
+          onConfirm={vi.fn(async () => ({ error: "Schon annulliert." }))}
+        />,
+      );
+      await userEvent.click(button(screen.getByRole("dialog"), "Annullieren"));
+      await screen.findByRole("alert");
+      await userEvent.click(button(screen.getByRole("dialog"), "Abbrechen"));
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+
+      await userEvent.click(screen.getByRole("button", { name: "Öffnen" }));
+
+      const dialog = await screen.findByRole("dialog");
+      expect(within(dialog).queryByRole("alert")).toBeNull();
     });
   });
 

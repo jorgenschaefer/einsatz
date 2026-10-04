@@ -42,41 +42,6 @@ const lineAbove = (text: string) =>
   screen.getByText(text).previousElementSibling?.textContent;
 
 describe("JournalPanel – Von, An und Weg", () => {
-  it.each([
-    ["UHSt 2", "EAL", "Funk", "Von UHSt 2 an EAL · Funk"],
-    [null, "EAL", "Telefon", "An EAL · Telefon"],
-    ["UHSt 2", null, null, "Von UHSt 2"],
-    [null, null, "Funk", "Funk"],
-  ])(
-    "shows Von %s, An %s, Weg %s as a header above the text",
-    (sender, recipient, channel, header) => {
-      setup({ entries: [entry({ sender, recipient, channel })] });
-
-      expect(lineAbove("Deich hält")).toBe(header);
-    },
-  );
-
-  it("shows no header on an entry without Von, An and Weg", () => {
-    setup({ entries: [entry({ number: 7 })] });
-
-    expect(lineAbove("Deich hält")).toContain("#7");
-  });
-
-  it("shows no header on an automatic entry", () => {
-    setup({
-      entries: [
-        entry({
-          number: 1,
-          type: "einsatz-eröffnet",
-          text: "Einsatz eröffnet",
-          author: null,
-        }),
-      ],
-    });
-
-    expect(lineAbove("Einsatz eröffnet")).toContain("#1");
-  });
-
   it("presets the Weg of a new entry to Funk", () => {
     setup();
 

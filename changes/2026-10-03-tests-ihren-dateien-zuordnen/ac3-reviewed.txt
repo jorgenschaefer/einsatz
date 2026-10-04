@@ -41,3 +41,7 @@ src/map/useMapFocus.test.ts
 src/map/useMainView.test.ts
 src/map/useUploads.test.ts
 src/map/SituationWorkspace.test.tsx
+src/journal/useScrollToEnd.test.tsx
+src/journal/JournalEntry.test.tsx
+src/journal/EntryRouteHeader.test.tsx
+src/journal/useEntryRouteMemory.test.ts

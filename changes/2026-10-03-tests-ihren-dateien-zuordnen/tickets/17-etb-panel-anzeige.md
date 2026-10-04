@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:
 advances:  AC-3, AC-9, AC-11, AC-12
 after:     01-coverage-ausgangswert
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -146,3 +146,99 @@ Toward AC-12: the ETB behaves as before; only file boundaries move.
 - No change of behaviour.
 
 ## Left standing
+- **Review findings not fixed.** None. There were two review rounds.
+  - Round 1 found one coverage gap: after the remembered-order tests
+    moved, no test noticed `EntryForm` ordering An by Von's memory. I
+    fixed it: "does not count a correction as a use" now also checks
+    An after the reload.
+  - Round 2 found no blockers and no should-fix items, and one nit. I
+    took the nit: "closes the confirmation after a successful
+    annulment" is gone, see the commit record.
+
+  The first round's app check also saw two things that were already
+  like this at the start commit, not caused by this change. I did not
+  touch them:
+  - On an annulled entry, number, time and author are not struck
+    through; only the Von/An/Weg header and the text are.
+  - The Korrektur field gets no focus when it opens.
+- **Left behind by the review's app run.** Nothing. The reviewer
+  deleted both Einsätze it created. The dev server on :3000 was
+  already running and is still running.
+- **Checks not run.** None skipped:
+  - After the last edit, `npm run check` is green: 209 files, 2690
+    tests.
+  - `npm run test:coverage` and then `compare-coverage.mjs` exit 0.
+    The only files it names as new come from earlier tickets.
+    `useScrollToEnd.ts` and `JournalEntry.tsx` are listed in
+    `coverage-splits.json` as parts of `JournalPanel.tsx`. No file
+    needed a new test file for coverage.
+  - The two split commits (1301cbc, 290f73d) were checked on their
+    own with tsc, biome and the tests in `src/journal` (and in 290f73d
+    the `src/map` files that import `JournalEntryView`), not with the
+    full suite.
+  - The full suite and the coverage comparison also ran before the
+    commit that tests `useScrollToEnd` and the one that tests
+    `JournalEntry`.
+- **Advanced without an automated test.**
+  - AC-3: four test files now drive their file directly:
+    `useScrollToEnd.test.tsx`, `JournalEntry.test.tsx`,
+    `EntryRouteHeader.test.tsx` and `useEntryRouteMemory.test.ts`.
+    This ticket created all four, so they are added to
+    `ac3-reviewed.txt`. For each source file, I broke every decision
+    by hand, one at a time, and each break made a test in its own file
+    fail. The test files I only edited are not listed:
+    `JournalPanel.test.tsx`, `.annul`, `.correct`, `.remembered`,
+    `.route` and `ConfirmationModal.test.tsx`.
+  - AC-9: checked with `wc -l`. The files are `useScrollToEnd.ts` 59,
+    `useScrollToEnd.test.tsx` 140, `JournalEntry.tsx` 142,
+    `JournalEntry.test.tsx` 188, `EntryRouteHeader.test.tsx` 47,
+    `useEntryRouteMemory.test.ts` 91 and `JournalPanel.tsx` 196.
+    `ConfirmationModal.test.tsx` grew to 439.
+  - AC-11: each commit that moves tests has a `Removed tests:` section
+    built from `removed-tests.mjs`. For every test marked "gone", I
+    broke its behaviour by hand and saw the named test fail.
+  - AC-12: the two production splits move code without changing what
+    it does. The one rewritten condition is the card's menu, now
+    hidden while a `correction` is passed instead of when `editingId`
+    equals the entry. The panel passes the form exactly then. The
+    first reviewer drove the ETB at 375 px and 1920 px. Adding,
+    scrolling to the end, correcting twice, annulling, cancelling,
+    the menus of automatic and corrected entries, and the filter all
+    behaved as before.
+- **Departures from the plan and Context.**
+  - **The hook test is `useScrollToEnd.test.tsx`, not `.test.ts`.** The
+    hook observes elements from its first effect, so the test renders
+    a small harness with the two refs, and that needs JSX. The
+    `src/journal/use*.test.ts` pattern was still added, for
+    `useEntryRouteMemory.test.ts`.
+  - **`JournalEntryView` moved to `JournalEntry.tsx`.** Its importers
+    now import it from there. The card takes the open correction form
+    as a `correction` prop.
+  - **Two annul tests moved instead of being dropped.** Context said to
+    drop the ConfirmationModal cases that `ConfirmationModal.test.tsx`
+    already pins. Two of them were not pinned there: the second click
+    while the dialog fades out, and reopening without the old error.
+    Both moved to `ConfirmationModal.test.tsx` as tests of the modal.
+  - **Kept as JournalPanel's.** Context put these with
+    `ConfirmationModal` or the hook. Breaking the panel by hand showed
+    each is the only test of something the panel itself hands on:
+    - "shows the reason in the still open confirmation when annulling
+      is rejected", the only test that the panel passes `onAnnul`'s
+      result on to the modal.
+    - "keeps its own order in each Gesamteinsatz", the only test,
+      after ticket 18's moves, that the panel hands its `operationId`
+      to `useEntryRouteMemory`.
+    - The `presetChannel` tests ("presets the Weg %s of the last new
+      entry after reloading").
+  - **Small additions while moving.**
+    - `JournalEntry`'s type table also has `einsatz-geschlossen`.
+    - The filter test now runs over every entry type, and also checks
+      that nothing is hidden before the filter is switched on.
+    - The test "corrects a manual entry through an inline edit"
+      gained the prefill check from the test that moved to
+      `JournalEntry`.
+    - "does not count a correction as a use" gained the An check from
+      round 1.
+- **Departures from a nudge.** None. On balance there are four more
+  jsdom test files. `npm test` took 43-57 s, against 41-43 s before,
+  with the box also running the review's app check.

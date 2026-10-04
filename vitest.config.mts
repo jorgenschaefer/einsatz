@@ -6,6 +6,7 @@ import { defineConfig } from "vitest/config";
 const browserTestsInTs = [
   "src/map/use*.test.ts",
   "src/app/use*.test.ts",
+  "src/journal/use*.test.ts",
   "src/map/leaflet-*.test.ts",
   "src/map/search-hit-pin.test.ts",
   "src/map/kml-layer.test.ts",
