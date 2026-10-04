@@ -2,6 +2,11 @@ import { strToU8, zipSync } from "fflate";
 import { describe, expect, it } from "vitest";
 import { ValidationError } from "@/server/validation";
 import {
+  expectAtMostTwiceOrdinary,
+  PATHOLOGICAL_PIECES,
+  UNCLOSED_DOCUMENTS,
+} from "@/test/kml-timing";
+import {
   bytesToDataUri,
   extractKml,
   iconStyleHrefs,
@@ -278,6 +283,13 @@ describe("mergeKmlDocuments", () => {
     expect(mergeKmlDocuments([doc])).toBe(doc);
   });
 
+  it("merges KML containing 10,000 unclosed <Document> at most twice as slowly as ordinary KML", async () => {
+    await expectAtMostTwiceOrdinary(
+      (kml) => () => mergeKmlDocuments([kml, kml]),
+      UNCLOSED_DOCUMENTS,
+    );
+  });
+
   it("combines the bodies of several documents into one", () => {
     const merged = mergeKmlDocuments([
       "<kml><Document><Placemark>A</Placemark></Document></kml>",
@@ -390,4 +402,26 @@ describe("replaceIconStyleHrefs", () => {
         iconStyle("https://a.test/pin.png"),
     );
   });
+});
+
+describe.each(PATHOLOGICAL_PIECES)("KML containing %s", (_name, piece) => {
+  const icons = new Map([["https://a.test/pin.png", "data:image/png,"]]);
+
+  it.each<[string, (kml: string) => () => unknown]>([
+    ["networkLinkHrefs", (kml) => () => networkLinkHrefs(kml)],
+    ["iconStyleHrefs", (kml) => () => iconStyleHrefs(kml)],
+    ["replaceIconStyleHrefs", (kml) => () => replaceIconStyleHrefs(kml, icons)],
+    [
+      "extractKml from a KMZ",
+      (kml) => {
+        const kmz = zipSync({ "doc.kml": strToU8(kml) });
+        return () => extractKml(kmz);
+      },
+    ],
+  ])(
+    "is read by %s at most twice as slowly as ordinary KML",
+    async (_function, prepare) => {
+      await expectAtMostTwiceOrdinary(prepare, piece);
+    },
+  );
 });

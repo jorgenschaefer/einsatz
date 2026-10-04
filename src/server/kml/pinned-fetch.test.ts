@@ -16,6 +16,7 @@ vi.mock("node:dns/promises", () => ({
   lookup: (...args: unknown[]) => dnsLookup(...args),
 }));
 
+import { ValidationError } from "@/server/validation";
 import { checkedLookup, pinnedFetch } from "./pinned-fetch";
 
 const NOT_ALLOWED = "Diese Adresse ist nicht erlaubt.";
@@ -76,7 +77,26 @@ describe("pinnedFetch", () => {
 
     await expect(
       pinnedFetch(new URL(`http://intern.example.test:${port}/x.kml`), init()),
-    ).rejects.toThrow(NOT_ALLOWED);
+    ).rejects.toStrictEqual(new ValidationError(NOT_ALLOWED));
+    expect(received).toEqual([]);
+  });
+
+  it("refuses an https name that resolves to a loopback address", async () => {
+    dnsLookup.mockResolvedValue(answers("127.0.0.1"));
+
+    await expect(
+      pinnedFetch(new URL(`https://intern.example.test:${port}/x.kml`), init()),
+    ).rejects.toStrictEqual(new ValidationError(NOT_ALLOWED));
+  });
+
+  it("says a name that does not resolve could not be resolved, without connecting", async () => {
+    dnsLookup.mockRejectedValue(new Error("ENOTFOUND unknown.example.test"));
+
+    await expect(
+      pinnedFetch(new URL(`http://unknown.example.test:${port}/x.kml`), init()),
+    ).rejects.toStrictEqual(
+      new ValidationError("Die Adresse konnte nicht aufgelöst werden."),
+    );
     expect(received).toEqual([]);
   });
 

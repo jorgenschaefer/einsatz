@@ -1,6 +1,12 @@
+import { strToU8, zipSync } from "fflate";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MAX_KML_BYTES } from "@/kml/kmz";
 import { ValidationError } from "@/server/validation";
+import {
+  expectAtMostTwiceOrdinary,
+  PATHOLOGICAL_PIECES,
+  UNCLOSED_DOCUMENTS,
+} from "@/test/kml-timing";
 import {
   type FetchStub,
   generatedBody,
@@ -26,6 +32,22 @@ import {
 const serve = (handler: (url: string) => FetchStub) =>
   pinnedFetch.mockReset().mockImplementation(scriptedFetch(handler));
 
+const requested: string[] = [];
+const serveCounted = (handler: (url: string) => FetchStub) =>
+  serve((url) => {
+    requested.push(url);
+    return handler(url);
+  });
+
+beforeEach(() => {
+  requested.length = 0;
+});
+
+const NOT_KML_URL = "Die Adresse liefert keine KML-Datei.";
+const NOT_ALLOWED = "Diese Adresse ist nicht erlaubt.";
+const HTML =
+  "<!doctype html><html><head><title>Anmelden</title></head><body></body></html>";
+
 const doc = (marker: string) =>
   `<kml><Document><Placemark>${marker}</Placemark></Document></kml>`;
 const networkLink = (href: string) =>
@@ -44,6 +66,9 @@ const placemarks = (content: string): string[] =>
   [...content.matchAll(/<Placemark>(.*?)<\/Placemark>/g)].map((m) => m[1]);
 const markers = (from: number, to: number) =>
   Array.from({ length: to - from + 1 }, (_, i) => `L${from + i}`);
+const linkedDoc = (url: string): FetchStub => ({
+  body: doc(`L${linkNumber(url)}`),
+});
 
 describe("assertKmlDocument", () => {
   const NOT_KML = "Kein KML.";
@@ -194,6 +219,38 @@ describe("normalizeKmlSourceUrl", () => {
   });
 });
 
+describe("fetchKmlFromUrl", () => {
+  it("says the address delivers no KML file when it serves HTML", async () => {
+    serve(() => ({ body: HTML }));
+
+    await expect(
+      fetchKmlFromUrl(MAIN_URL, createFetchBudget()),
+    ).rejects.toThrow(new ValidationError(NOT_KML_URL));
+  });
+
+  it("returns KML with a declaration, a comment and whitespace before the root unchanged", async () => {
+    const body = `<?xml version="1.0" encoding="UTF-8"?>\n<!-- Export -->\n  ${doc("A")}`;
+    serve(() => ({ body }));
+
+    expect(await fetchKmlFromUrl(MAIN_URL, createFetchBudget())).toBe(body);
+  });
+
+  it("returns the KML inside a KMZ", async () => {
+    serve(() => ({ body: zipSync({ "doc.kml": strToU8(doc("A")) }) }));
+
+    expect(await fetchKmlFromUrl(MAIN_URL, createFetchBudget())).toBe(doc("A"));
+  });
+
+  it("requests nothing from an address that is not public and says it is not allowed", async () => {
+    serveCounted(() => ({ body: doc("A") }));
+
+    await expect(
+      fetchKmlFromUrl("http://100.64.0.1/x.kml", createFetchBudget()),
+    ).rejects.toThrow(new ValidationError(NOT_ALLOWED));
+    expect(requested).toEqual([]);
+  });
+});
+
 describe("fetchKmlFromUrl (redirect handling)", () => {
   it("re-checks each hop and blocks a redirect to an internal address", async () => {
     serve(() => ({
@@ -202,7 +259,7 @@ describe("fetchKmlFromUrl (redirect handling)", () => {
     }));
     await expect(
       fetchKmlFromUrl("http://93.184.216.34/start.kml", createFetchBudget()),
-    ).rejects.toThrow("Diese Adresse ist nicht erlaubt.");
+    ).rejects.toThrow(NOT_ALLOWED);
   });
 
   it("gives up after too many redirects", async () => {
@@ -234,20 +291,6 @@ describe("fetchKmlFromUrl (redirect handling)", () => {
     expect(redirectBody.cancelled()).toBe(true);
     expect(failedBody.cancelled()).toBe(true);
   });
-});
-
-const requested: string[] = [];
-const serveCounted = (handler: (url: string) => FetchStub) =>
-  serve((url) => {
-    requested.push(url);
-    return handler(url);
-  });
-const linkedDoc = (url: string): FetchStub => ({
-  body: doc(`L${linkNumber(url)}`),
-});
-
-beforeEach(() => {
-  requested.length = 0;
 });
 
 describe("fetchKmlFromUrl (budget)", () => {
@@ -379,6 +422,26 @@ describe("resolveKmlNetworkLinks", () => {
     expect(out).not.toContain("<Placemark>A</Placemark>");
   });
 
+  it("skips a NetworkLink that delivers no KML like a dead link", async () => {
+    serve((url) => ({ body: url.includes("/a.kml") ? HTML : doc("B") }));
+
+    expect(await resolveKmlNetworkLinks(twoLinks, createFetchBudget())).toBe(
+      doc("B"),
+    );
+  });
+
+  it("skips a NetworkLink to an address that is not public without requesting it", async () => {
+    const kml = `<kml><Document>${networkLink(
+      "http://100.64.0.1/a.kml",
+    )}${networkLink("http://93.184.216.34/b.kml")}</Document></kml>`;
+    serveCounted(() => ({ body: doc("B") }));
+
+    expect(await resolveKmlNetworkLinks(kml, createFetchBudget())).toBe(
+      doc("B"),
+    );
+    expect(requested).toEqual(["http://93.184.216.34/b.kml"]);
+  });
+
   it("keeps the original KML when every NetworkLink is dead", async () => {
     serve(() => ({ status: 500 }));
     expect(await resolveKmlNetworkLinks(twoLinks, createFetchBudget())).toBe(
@@ -399,5 +462,27 @@ describe("resolveKmlNetworkLinks", () => {
     );
     expect(out).toBe(twoLinks);
     expect(calls).toBe(0);
+  });
+});
+
+describe("fetchKmlFromUrl (timing)", () => {
+  const fetching = (bodyOf: (url: string) => string) => () => {
+    serve((url) => ({ body: bodyOf(url) }));
+    return fetchKmlFromUrl(MAIN_URL, createFetchBudget());
+  };
+
+  it.each(PATHOLOGICAL_PIECES)(
+    "fetches KML containing %s at most twice as slowly as ordinary KML",
+    async (_name, piece) => {
+      await expectAtMostTwiceOrdinary((kml) => fetching(() => kml), piece);
+    },
+  );
+
+  it("merges NetworkLink targets containing 10,000 unclosed <Document> at most twice as slowly as ordinary ones", async () => {
+    const twoLinks = kmlWithLinks(2);
+    await expectAtMostTwiceOrdinary(
+      (target) => fetching((url) => (url === MAIN_URL ? twoLinks : target)),
+      UNCLOSED_DOCUMENTS,
+    );
   });
 });

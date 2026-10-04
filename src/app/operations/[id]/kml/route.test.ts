@@ -34,7 +34,6 @@ import { listKmlOverlays } from "@/server/kml/kml-overlays";
 import { insertOperation } from "@/server/operations/operations";
 import { freshDb } from "@/test/db";
 import { snapshotDb } from "@/test/db-snapshot";
-import { kmlFileForm } from "@/test/kml-upload";
 import {
   expectRouteRequiresLogin,
   expectUploadRules,
@@ -53,6 +52,13 @@ const LOAD_FAILED = "KML konnte nicht geladen werden.";
 const KML = '<kml xmlns="http://www.opengis.net/kml/2.2"><Document/></kml>';
 const networkLinkTo = (href: string) =>
   `<NetworkLink><Link><href>${href}</href></Link></NetworkLink>`;
+
+const kmlFileForm = (name: string, content: string): FormData => {
+  const form = new FormData();
+  form.append("name", name);
+  form.append("content", new Blob([content]), "karte.kml");
+  return form;
+};
 
 const db = () => state.db as Db;
 const stored = (operationId: string) => listKmlOverlays(db(), operationId);

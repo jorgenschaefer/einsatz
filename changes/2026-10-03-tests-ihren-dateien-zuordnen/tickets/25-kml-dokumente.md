@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:
 advances:  AC-1, AC-2, AC-3, AC-9, AC-11, AC-12
 after:     04-actions-ebenen-bilder, 20-kml-icons-import
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -121,3 +121,86 @@ before; only file boundaries move.
 - No change to KML behaviour.
 
 ## Left standing
+- **Review findings not fixed.** None. There were two review rounds:
+  - **Round 1:** no blocker, two should-fix, three nits. All five are
+    fixed:
+    - I dropped a `checkedLookup` table that repeated what
+      `public-address.test.ts` already pins.
+    - I dropped an action test for the name falling back to the URL. That
+      fallback belongs to `kml-overlays`, and its test already covers it.
+    - I cut the five-literal "requests nothing" table down to one URL.
+    - I wrote the comments in `src/test/kml-timing.ts` in one language.
+    - I moved the merge timing test into the `mergeKmlDocuments` block.
+  - **Round 2:** one should-fix and one nit, both fixed:
+    - The `pinnedFetch` refusals now assert a `ValidationError`, not just a
+      message. This holds what the old `.address` tests proved through the
+      action: the message reaches the user.
+    - An unresolvable name is now tested through `pinnedFetch`.
+    - `kmlFileForm` moved into its only user, `kml/route.test.ts`.
+- **Checks not run.** None skipped. After the last edit:
+  - `npm run check` is green: 191 files, 2661 tests.
+  - `npm run test:coverage` and then `compare-coverage.mjs` exit 0, with
+    no coverage drop. The script names helper and fixture files as "new,
+    compared with nothing", as after earlier tickets, and now also
+    `src/test/kml-timing.ts`. That file is new code taken from a test
+    file; it was not split out of a baseline source file.
+  - Moving the tests first dropped two files, and I fixed both:
+    - `pinned-fetch.ts` lost its `https:` branch, so `pinned-fetch.test.ts`
+      gained "refuses an https name that resolves to a loopback address".
+    - `src/test/kml-upload.ts` was left with an unused `postKmlFile`. That
+      file is now deleted and has a `[]` entry in `coverage-splits.json`.
+- **Advanced without an automated test.**
+  - AC-1, AC-2, AC-9: I checked by listing the files. Only
+    `kml-actions.test.ts` is left next to `kml-actions.ts`. The two largest
+    files are `kml-fetch.test.ts` (488 lines) and `kmz.test.ts` (427). No
+    file was split.
+  - AC-3, AC-11: I broke the code by hand to prove each moved test, and
+    restored each break:
+    - Leading comments rejected in `hasKmlRoot`.
+    - The KML check in `fetchKmlFromUrl` removed.
+    - `extractKml` skipped.
+    - The URL checks in `fetchKmlFromUrl` and `fetchFollowingRedirects`
+      removed.
+    - `elementRanges` searching with a backtracking regex: the scanner
+      timing tests in `kmz.test.ts` and the NetworkLink case in
+      `kml-fetch.test.ts` failed.
+    - `outermostElementBody` searching with a greedy regex: both merge
+      timing tests failed.
+    - `checkedLookup` accepting every address.
+    - `pinnedFetch` without `checkedLookup` for https.
+    - `pinnedFetch` rejecting with a plain `Error`.
+    - The multicast, 192.0.2.0/24 and 2001:db8::/32 ranges removed from
+      `public-address.ts`.
+    - NAT64 treated as global.
+    - The name check, and the fallback to the address, removed from
+      `createKmlOverlay`.
+    - `reloadKmlAction` not using `loadKmlFromUrl`.
+
+    Each break made the test named in the commit's `Removed tests:` record
+    fail.
+  - AC-12: no production file changed.
+- **AC-3 review list.** Nothing is added to `ac3-reviewed.txt`. This
+  ticket created no test file and only edited `kmz.test.ts`,
+  `kml-fetch.test.ts`, `pinned-fetch.test.ts` and `kml/route.test.ts`.
+- **Departures from the plan.**
+  - The timing harness is now a shared helper, `src/test/kml-timing.ts`,
+    because `kmz.test.ts` and `kml-fetch.test.ts` both use it.
+  - The action-level timing cases became two kinds of test:
+    - each scanner timed directly in `kmz.test.ts`;
+    - the plain-KML URL path timed through `fetchKmlFromUrl`.
+
+    I dropped a `fetchKmlFromUrl` timing test for KMZ. It only added
+    `extractKml`, which `kmz.test.ts` already times directly. The upload
+    and reload paths have no timing test of their own, because they only
+    combine the timed functions.
+  - `hasKmlRoot` gained no timing test. The pieces in the old file come
+    after the root, so `hasKmlRoot` never scanned them. Input that is slow
+    for it is still covered by the existing `assertKmlDocument` "rejects
+    … without stalling" tests.
+  - All of `.name` was already covered elsewhere: the action's bad calls,
+    `kml-overlays.test.ts`, and the trimmed `sourceUrl` in
+    `kml-actions.test.ts`. So `kml-actions.test.ts` ends this ticket
+    unchanged.
+  - Four of the five IP literals in `.document` are dropped. Their ranges
+    are in `public-address.test.ts`'s tables.
+- **Departures from a nudge.** None.
