@@ -55,3 +55,7 @@ src/strength/run-action.test.ts
 src/strength/StrengthPanel.test.tsx
 src/server/kml/kml-icons.test.ts
 src/server/kml/kml-import.test.ts
+src/server/strength/strength-input.test.ts
+src/server/strength/strength-reports.test.ts
+src/server/image-overlays/image-storage.test.ts
+src/server/mapsymbols/map-symbols.test.ts

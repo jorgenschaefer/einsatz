@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { Db } from "@/server/db/db";
 import { closeOperation } from "@/server/operations/operation-lifecycle";
 import {
   deleteOperationRow,
@@ -272,3 +273,79 @@ describe("image overlays repository", () => {
     expect(await listImageOverlays(db, op.id)).toHaveLength(0);
   });
 });
+
+const NOT_FOUND = new ValidationError("Bild-Overlay nicht gefunden.");
+
+describe.each<{
+  name: string;
+  change: (db: Db, operationId: string, id: string) => Promise<unknown>;
+}>([
+  {
+    name: "updateImagePlacement",
+    change: (db, op, id) =>
+      updateImagePlacement(db, op, id, {
+        centerLat: 50,
+        centerLng: 8,
+        scaleM: 10,
+        rotationDeg: 0,
+        opacity: 1,
+      }),
+  },
+  {
+    name: "setImageOverlayVisibility",
+    change: (db, op, id) => setImageOverlayVisibility(db, op, id, false),
+  },
+  {
+    name: "replaceImageOverlayFile",
+    change: (db, op, id) =>
+      replaceImageOverlayFile(db, op, id, {
+        filePath: "op/x/neu.webp",
+        name: "Neu",
+        widthPx: 30,
+        heightPx: 15,
+      }),
+  },
+  { name: "deleteImageOverlay", change: deleteImageOverlay },
+])("$name", ({ change }) => {
+  it("refuses a Bild-Overlay of another Einsatz and leaves it unchanged", async () => {
+    const db = await freshDb();
+    const { operationId, overlayId } = await anOverlayIn(db);
+    const other = await anOperation(db);
+    const before = await listImageOverlays(db, operationId);
+
+    await expect(change(db, other.id, overlayId)).rejects.toThrow(NOT_FOUND);
+    expect(await listImageOverlays(db, operationId)).toEqual(before);
+  });
+
+  it("reports a Bild-Overlay that no longer exists", async () => {
+    const db = await freshDb();
+    const { operationId, overlayId } = await anOverlayIn(db);
+    await deleteImageOverlay(db, operationId, overlayId);
+
+    await expect(change(db, operationId, overlayId)).rejects.toThrow(NOT_FOUND);
+  });
+});
+
+describe("deleteImageOverlay", () => {
+  it("returns the file of the deleted Bild-Overlay", async () => {
+    const db = await freshDb();
+    const { operationId, overlayId } = await anOverlayIn(db);
+
+    expect(await deleteImageOverlay(db, operationId, overlayId)).toEqual({
+      filePath: "op/x/alt.webp",
+    });
+  });
+});
+
+async function anOverlayIn(db: Db) {
+  const op = await anOperation(db);
+  const overlay = await createImageOverlay(db, {
+    operationId: op.id,
+    filePath: "op/x/alt.webp",
+    name: "Alt",
+    widthPx: 1000,
+    heightPx: 1000,
+    placement: A_PLACEMENT,
+  });
+  return { operationId: op.id, overlayId: overlay.id };
+}

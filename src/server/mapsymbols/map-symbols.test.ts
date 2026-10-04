@@ -3,6 +3,7 @@ import {
   MAX_COMPOSITION_FIELD_LENGTH,
   type SymbolComposition,
 } from "@/map/composition";
+import type { Db } from "@/server/db/db";
 import {
   closeOperation,
   reopenOperation,
@@ -28,8 +29,20 @@ const composition: SymbolComposition = {
   organisation: "hilfsorganisation",
 };
 
-async function anOperation(db: Awaited<ReturnType<typeof freshDb>>) {
+async function anOperation(db: Db) {
   return insertOperation(db, { name: "Hochwasser", description: null });
+}
+
+/** Ein Einsatz mit einem Kartenzeichen bei 1/2. */
+async function aSymbolIn(db: Db) {
+  const op = await anOperation(db);
+  const symbol = await createMapSymbol(db, {
+    operationId: op.id,
+    composition,
+    lat: 1,
+    lng: 2,
+  });
+  return { op, symbol };
 }
 
 describe("map symbols repository", () => {
@@ -51,13 +64,7 @@ describe("map symbols repository", () => {
 
   it("creates a symbol with a manual position source and no device link", async () => {
     const db = await freshDb();
-    const op = await anOperation(db);
-    await createMapSymbol(db, {
-      operationId: op.id,
-      composition,
-      lat: 1,
-      lng: 2,
-    });
+    const { op } = await aSymbolIn(db);
     const [loaded] = await listMapSymbols(db, op.id);
     expect(loaded).toMatchObject({
       positionSource: "manual",
@@ -136,13 +143,7 @@ describe("map symbols repository", () => {
 
   it("updateMapSymbolComposition rejects a malformed composition and keeps the old value", async () => {
     const db = await freshDb();
-    const op = await anOperation(db);
-    const symbol = await createMapSymbol(db, {
-      operationId: op.id,
-      composition,
-      lat: 53.55,
-      lng: 9.99,
-    });
+    const { op, symbol } = await aSymbolIn(db);
     await expect(
       updateMapSymbolComposition(db, symbol.operationId, symbol.id, {
         böse: "x",
@@ -154,13 +155,7 @@ describe("map symbols repository", () => {
 
   it("resets the position source to manual when the symbol is moved by hand", async () => {
     const db = await freshDb();
-    const op = await anOperation(db);
-    const symbol = await createMapSymbol(db, {
-      operationId: op.id,
-      composition,
-      lat: 1,
-      lng: 2,
-    });
+    const { op, symbol } = await aSymbolIn(db);
     const token = await generateDeviceLink(db, symbol.operationId, symbol.id);
     await reportPosition(db, token, 53, 9, new Date()); // wird 'device'
 
@@ -171,13 +166,7 @@ describe("map symbols repository", () => {
 
   it("reports a live position that overrides the manual one, even after a manual move", async () => {
     const db = await freshDb();
-    const op = await anOperation(db);
-    const symbol = await createMapSymbol(db, {
-      operationId: op.id,
-      composition,
-      lat: 1,
-      lng: 2,
-    });
+    const { op, symbol } = await aSymbolIn(db);
     const token = await generateDeviceLink(db, symbol.operationId, symbol.id);
 
     await moveMapSymbol(db, symbol.operationId, symbol.id, 10, 20); // Verbindung riss ab, manuell verschoben
@@ -198,13 +187,7 @@ describe("map symbols repository", () => {
 
   it("stores only one of two concurrent reports at the same moment", async () => {
     const db = await freshDb();
-    const op = await anOperation(db);
-    const symbol = await createMapSymbol(db, {
-      operationId: op.id,
-      composition,
-      lat: 1,
-      lng: 2,
-    });
+    const { op, symbol } = await aSymbolIn(db);
     const token = await generateDeviceLink(db, symbol.operationId, symbol.id);
     const at = new Date("2026-07-03T12:00:00Z");
 
@@ -219,13 +202,7 @@ describe("map symbols repository", () => {
 
   it("denies a position report for an unknown or regenerated token", async () => {
     const db = await freshDb();
-    const op = await anOperation(db);
-    const symbol = await createMapSymbol(db, {
-      operationId: op.id,
-      composition,
-      lat: 1,
-      lng: 2,
-    });
+    const { symbol } = await aSymbolIn(db);
     const token = await generateDeviceLink(db, symbol.operationId, symbol.id);
     await generateDeviceLink(db, symbol.operationId, symbol.id); // Token neu generiert → alter ungültig
 
@@ -237,13 +214,7 @@ describe("map symbols repository", () => {
 
   it("denies reports for a closed operation and accepts again once reopened", async () => {
     const db = await freshDb();
-    const op = await anOperation(db);
-    const symbol = await createMapSymbol(db, {
-      operationId: op.id,
-      composition,
-      lat: 1,
-      lng: 2,
-    });
+    const { op, symbol } = await aSymbolIn(db);
 
     await closeOperation(db, op.id);
     const token = await generateDeviceLink(db, symbol.operationId, symbol.id);
@@ -258,13 +229,7 @@ describe("map symbols repository", () => {
 
   it("denies reports over a link from before closing, also after reopening", async () => {
     const db = await freshDb();
-    const op = await anOperation(db);
-    const symbol = await createMapSymbol(db, {
-      operationId: op.id,
-      composition,
-      lat: 1,
-      lng: 2,
-    });
+    const { op, symbol } = await aSymbolIn(db);
     const token = await generateDeviceLink(db, symbol.operationId, symbol.id);
 
     await closeOperation(db, op.id);
@@ -275,13 +240,7 @@ describe("map symbols repository", () => {
 
   it("resolves device access to the symbol and operation only while the operation is active", async () => {
     const db = await freshDb();
-    const op = await anOperation(db);
-    const symbol = await createMapSymbol(db, {
-      operationId: op.id,
-      composition,
-      lat: 1,
-      lng: 2,
-    });
+    const { op, symbol } = await aSymbolIn(db);
     const token = await generateDeviceLink(db, symbol.operationId, symbol.id);
 
     expect(await resolveDeviceAccess(db, token)).toEqual({
@@ -299,13 +258,7 @@ describe("map symbols repository", () => {
 
   it("removes a device link so the old link has no access and a new one can be generated", async () => {
     const db = await freshDb();
-    const op = await anOperation(db);
-    const symbol = await createMapSymbol(db, {
-      operationId: op.id,
-      composition,
-      lat: 1,
-      lng: 2,
-    });
+    const { op, symbol } = await aSymbolIn(db);
     const token = await generateDeviceLink(db, symbol.operationId, symbol.id);
 
     await reportPosition(db, token, 53.6, 10.1);
@@ -327,13 +280,7 @@ describe("map symbols repository", () => {
 
   it("generates a device link and regenerating yields a different token", async () => {
     const db = await freshDb();
-    const op = await anOperation(db);
-    const symbol = await createMapSymbol(db, {
-      operationId: op.id,
-      composition,
-      lat: 1,
-      lng: 2,
-    });
+    const { symbol } = await aSymbolIn(db);
 
     const token = await generateDeviceLink(db, symbol.operationId, symbol.id);
     expect(token).toBeTruthy();
@@ -347,27 +294,15 @@ describe("map symbols repository", () => {
 
   it("scopes symbols to their operation", async () => {
     const db = await freshDb();
-    const a = await anOperation(db);
+    await aSymbolIn(db);
     const b = await anOperation(db);
-    await createMapSymbol(db, {
-      operationId: a.id,
-      composition,
-      lat: 1,
-      lng: 2,
-    });
     expect(await listMapSymbols(db, b.id)).toHaveLength(0);
   });
 
   it("moves a symbol to a new position, keeping only the latest", async () => {
     const db = await freshDb();
-    const op = await anOperation(db);
-    const s = await createMapSymbol(db, {
-      operationId: op.id,
-      composition,
-      lat: 1,
-      lng: 2,
-    });
-    await moveMapSymbol(db, s.operationId, s.id, 10, 20);
+    const { op, symbol } = await aSymbolIn(db);
+    await moveMapSymbol(db, symbol.operationId, symbol.id, 10, 20);
 
     const [loaded] = await listMapSymbols(db, op.id);
     expect(loaded).toMatchObject({ lat: 10, lng: 20 });
@@ -375,19 +310,13 @@ describe("map symbols repository", () => {
 
   it("updates the composition, leaving the position unchanged", async () => {
     const db = await freshDb();
-    const op = await anOperation(db);
-    const s = await createMapSymbol(db, {
-      operationId: op.id,
-      composition,
-      lat: 1,
-      lng: 2,
-    });
+    const { op, symbol } = await aSymbolIn(db);
     const next: SymbolComposition = {
       grundzeichen: "ortsfeste-stelle",
       organisation: "feuerwehr",
       text: "FW 1",
     };
-    await updateMapSymbolComposition(db, s.operationId, s.id, next);
+    await updateMapSymbolComposition(db, symbol.operationId, symbol.id, next);
 
     const [loaded] = await listMapSymbols(db, op.id);
     expect(loaded.composition).toEqual(next);
@@ -396,14 +325,8 @@ describe("map symbols repository", () => {
 
   it("deletes a symbol", async () => {
     const db = await freshDb();
-    const op = await anOperation(db);
-    const s = await createMapSymbol(db, {
-      operationId: op.id,
-      composition,
-      lat: 1,
-      lng: 2,
-    });
-    await deleteMapSymbol(db, s.operationId, s.id);
+    const { op, symbol } = await aSymbolIn(db);
+    await deleteMapSymbol(db, symbol.operationId, symbol.id);
     expect(await listMapSymbols(db, op.id)).toHaveLength(0);
   });
 
@@ -423,15 +346,77 @@ describe("map symbols repository", () => {
 
   it("rejects moving a symbol to invalid coordinates", async () => {
     const db = await freshDb();
-    const op = await anOperation(db);
-    const s = await createMapSymbol(db, {
-      operationId: op.id,
-      composition,
-      lat: 53.55,
-      lng: 9.99,
-    });
+    const { symbol } = await aSymbolIn(db);
     await expect(
-      moveMapSymbol(db, s.operationId, s.id, Number.NaN, 9.99),
+      moveMapSymbol(db, symbol.operationId, symbol.id, Number.NaN, 9.99),
     ).rejects.toBeInstanceOf(ValidationError);
+  });
+});
+
+const changes: {
+  name: string;
+  change: (db: Db, operationId: string, id: string) => Promise<unknown>;
+}[] = [
+  {
+    name: "moveMapSymbol",
+    change: (db, op, id) => moveMapSymbol(db, op, id, 50, 8),
+  },
+  {
+    name: "updateMapSymbolComposition",
+    change: (db, op, id) =>
+      updateMapSymbolComposition(db, op, id, { text: "neu" }),
+  },
+  {
+    name: "deleteMapSymbol",
+    change: (db, op, id) => deleteMapSymbol(db, op, id),
+  },
+  {
+    name: "generateDeviceLink",
+    change: (db, op, id) => generateDeviceLink(db, op, id),
+  },
+  {
+    name: "removeDeviceLink",
+    change: (db, op, id) => removeDeviceLink(db, op, id),
+  },
+];
+
+/** Ein Kartenzeichen mit Gerätelink, damit jede Änderung etwas ändert. */
+async function aLinkedSymbolIn(db: Db) {
+  const { op, symbol } = await aSymbolIn(db);
+  await generateDeviceLink(db, op.id, symbol.id);
+  return { operationId: op.id, symbolId: symbol.id };
+}
+
+describe.each(changes)("$name", ({ change }) => {
+  it("changes a Kartenzeichen of the named Einsatz", async () => {
+    const db = await freshDb();
+    const { operationId, symbolId } = await aLinkedSymbolIn(db);
+    const before = await listMapSymbols(db, operationId);
+
+    await change(db, operationId, symbolId);
+
+    expect(await listMapSymbols(db, operationId)).not.toEqual(before);
+  });
+
+  it("refuses a Kartenzeichen of another Einsatz and leaves it unchanged", async () => {
+    const db = await freshDb();
+    const { operationId, symbolId } = await aLinkedSymbolIn(db);
+    const other = await anOperation(db);
+    const before = await listMapSymbols(db, operationId);
+
+    await expect(change(db, other.id, symbolId)).rejects.toThrow(
+      new ValidationError("Kartenzeichen nicht gefunden."),
+    );
+    expect(await listMapSymbols(db, operationId)).toEqual(before);
+  });
+
+  it("reports a Kartenzeichen that no longer exists", async () => {
+    const db = await freshDb();
+    const { operationId, symbolId } = await aLinkedSymbolIn(db);
+    await deleteMapSymbol(db, operationId, symbolId);
+
+    await expect(change(db, operationId, symbolId)).rejects.toThrow(
+      new ValidationError("Kartenzeichen nicht gefunden."),
+    );
   });
 });

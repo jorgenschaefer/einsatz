@@ -19,20 +19,6 @@ import {
 
 type TestDb = Awaited<ReturnType<typeof freshDb>>;
 
-const valuesOf = ({
-  leaders,
-  subLeaders,
-  crew,
-  additionalPersonnel,
-  note,
-}: StrengthValues): StrengthValues => ({
-  leaders,
-  subLeaders,
-  crew,
-  additionalPersonnel,
-  note,
-});
-
 async function aStation(db: TestDb, name = "UHSt 3") {
   const op = await insertOperation(db, {
     name: "Cyclassics",
@@ -68,6 +54,17 @@ function record(
     }),
   );
 }
+
+async function aReport(db: TestDb) {
+  const { op, station } = await aStation(db);
+  await record(db, station.id);
+  const [report] = await listStrengthReports(db, op.id);
+  return { op, station, report };
+}
+
+const INVALID_COUNTS = new ValidationError(
+  "Die Stärke muss aus ganzen Zahlen von 0 bis 9999 bestehen.",
+);
 
 describe("recordStrengthReport", () => {
   it("stores the report with the time, state and number of its ETB entry", async () => {
@@ -105,79 +102,25 @@ describe("recordStrengthReport", () => {
     );
   });
 
-  it("trims the note and stores an empty one as none", async () => {
+  it("stores the note as checked, trimmed", async () => {
     const db = await freshDb();
     const { op, station } = await aStation(db);
 
     await record(db, station.id, values({ note: " Streife 2 " }));
-    await record(db, station.id, values({ note: "   " }));
 
-    expect((await listStrengthReports(db, op.id)).map((r) => r.note)).toEqual([
-      "Streife 2",
-      null,
-    ]);
-    expect((await listEntries(db, op.id)).at(-1)?.text).toBe(
-      "Stärkemeldung UHSt 3: 0/1/6//7, +2 zusätzlich, 9 Personen",
-    );
+    expect((await listStrengthReports(db, op.id))[0].note).toBe("Streife 2");
   });
 
-  it("accepts all zeros", async () => {
-    const db = await freshDb();
-    const { op, station } = await aStation(db);
-    const zero = values({
-      leaders: 0,
-      subLeaders: 0,
-      crew: 0,
-      additionalPersonnel: 0,
-      note: null,
-    });
-
-    await record(db, station.id, zero);
-
-    expect(await listStrengthReports(db, op.id)).toEqual([
-      expect.objectContaining(zero),
-    ]);
-  });
-
-  it("accepts 9999", async () => {
-    const db = await freshDb();
-    const { op, station } = await aStation(db);
-
-    await record(db, station.id, values({ additionalPersonnel: 9999 }));
-
-    expect(await listStrengthReports(db, op.id)).toEqual([
-      expect.objectContaining({ additionalPersonnel: 9999 }),
-    ]);
-  });
-
-  it.each([
-    ["a negative number", { crew: -1 }],
-    ["a fraction", { leaders: 1.5 }],
-    ["not a number", { subLeaders: Number.NaN }],
-    ["a string", { additionalPersonnel: "3" as unknown as number }],
-    ["more than 9999", { crew: 10000 }],
-  ])("rejects %s without writing anything", async (_, over) => {
+  it("rejects bad values without writing anything", async () => {
     const db = await freshDb();
     const { op, station } = await aStation(db);
     const entriesBefore = await listEntries(db, op.id);
 
-    await expect(record(db, station.id, values(over))).rejects.toThrow(
-      new ValidationError(
-        "Die Stärke muss aus ganzen Zahlen von 0 bis 9999 bestehen.",
-      ),
+    await expect(record(db, station.id, values({ crew: -1 }))).rejects.toThrow(
+      INVALID_COUNTS,
     );
     expect(await listStrengthReports(db, op.id)).toEqual([]);
     expect(await listEntries(db, op.id)).toEqual(entriesBefore);
-  });
-
-  it("rejects a note that is not text without writing anything", async () => {
-    const db = await freshDb();
-    const { op, station } = await aStation(db);
-
-    await expect(
-      record(db, station.id, values({ note: 42 as unknown as string })),
-    ).rejects.toThrow(new ValidationError("Die Notiz muss Text sein."));
-    expect(await listStrengthReports(db, op.id)).toEqual([]);
   });
 
   it("rejects an unknown Stelle", async () => {
@@ -213,29 +156,9 @@ describe("recordStrengthReport", () => {
   it("names the Stelle as renamed by a rename it had to wait for", async () => {
     const db = await freshDb();
     const { op, station } = await aStation(db);
-    let renamed = () => {};
-    const renameHolds = new Promise<void>((r) => {
-      renamed = r;
-    });
-    let release = () => {};
-    const released = new Promise<void>((r) => {
-      release = r;
-    });
-    const rename = db.transaction(async (tx) => {
-      await lockOperation(tx, op.id);
-      await tx.query("UPDATE stations SET name = 'UHSt 3 Nord' WHERE id = $1", [
-        station.id,
-      ]);
-      renamed();
-      await released;
-    });
-    await renameHolds;
-
-    const recording = record(db, station.id, values({ note: null }));
-    // Die Meldung soll auf die Sperre des Einsatzes warten, bevor diese frei wird.
-    await new Promise((r) => setTimeout(r, 300));
-    release();
-    await Promise.all([rename, recording]);
+    await whileRenamingUnderLock(db, op.id, station.id, () =>
+      record(db, station.id, values({ note: null })),
+    );
 
     expect((await listEntries(db, op.id)).at(-1)?.text).toBe(
       "Stärkemeldung UHSt 3 Nord: 0/1/6//7, +2 zusätzlich, 9 Personen",
@@ -262,13 +185,6 @@ describe("recordStrengthReport", () => {
 });
 
 describe("correctStrengthReport", () => {
-  async function aReport(db: TestDb) {
-    const { op, station } = await aStation(db);
-    await record(db, station.id);
-    const [report] = await listStrengthReports(db, op.id);
-    return { op, station, report };
-  }
-
   function correct(
     db: TestDb,
     reportId: string,
@@ -381,37 +297,25 @@ describe("correctStrengthReport", () => {
     expect(await listEntries(db, op.id)).toEqual(entriesBefore);
   });
 
-  it.each([
-    ["a negative number", { crew: -1 }],
-    ["more than 9999", { crew: 10000 }],
-  ])("rejects %s without writing anything", async (_, over) => {
+  it("rejects bad values without writing anything", async () => {
     const db = await freshDb();
     const { op, station, report } = await aReport(db);
     const entriesBefore = await listEntries(db, op.id);
 
     await expect(
-      correct(db, report.id, station.id, values(over)),
-    ).rejects.toThrow(
-      new ValidationError(
-        "Die Stärke muss aus ganzen Zahlen von 0 bis 9999 bestehen.",
-      ),
-    );
+      correct(db, report.id, station.id, values({ crew: 10000 })),
+    ).rejects.toThrow(INVALID_COUNTS);
     expect(await listStrengthReports(db, op.id)).toEqual([report]);
     expect(await listEntries(db, op.id)).toEqual(entriesBefore);
   });
 
-  it("trims the note and stores an empty one as none", async () => {
+  it("stores the note as checked, trimmed", async () => {
     const db = await freshDb();
-    const { op, station, report } = await aReport(db);
+    const { station, op, report } = await aReport(db);
 
     await correct(db, report.id, station.id, values({ note: "  Streife 3 " }));
-    expect((await listStrengthReports(db, op.id))[0].note).toBe("Streife 3");
 
-    await correct(db, report.id, station.id, values({ note: "   " }));
-    expect((await listStrengthReports(db, op.id))[0].note).toBeNull();
-    expect((await listEntries(db, op.id)).at(-1)?.text).toBe(
-      "Stärkemeldung UHSt 3: 0/1/6//7, +2 zusätzlich, 9 Personen",
-    );
+    expect((await listStrengthReports(db, op.id))[0].note).toBe("Streife 3");
   });
 
   it("still corrects once the Gesamteinsatz is closed", async () => {
@@ -462,37 +366,15 @@ describe("correctStrengthReport", () => {
         ? "Stärkemeldung UHSt 3: 0/1/5//6, +2 zusätzlich, 8 Personen"
         : "Stärkemeldung UHSt 3: 0/1/4//5, +2 zusätzlich, 7 Personen",
     ]);
-    expect(entry?.text).toBe(
-      formatStrengthReportText("UHSt 3", valuesOf(corrected)),
-    );
+    expect(entry?.text).toBe(formatStrengthReportText("UHSt 3", corrected));
   });
 
   it("names the Stelle as renamed by a rename it had to wait for", async () => {
     const db = await freshDb();
     const { op, station, report } = await aReport(db);
-    let renamed = () => {};
-    const renameHolds = new Promise<void>((r) => {
-      renamed = r;
-    });
-    let release = () => {};
-    const released = new Promise<void>((r) => {
-      release = r;
-    });
-    const rename = db.transaction(async (tx) => {
-      await lockOperation(tx, op.id);
-      await tx.query("UPDATE stations SET name = 'UHSt 3 Nord' WHERE id = $1", [
-        station.id,
-      ]);
-      renamed();
-      await released;
-    });
-    await renameHolds;
-
-    const correcting = correct(db, report.id, station.id);
-    // Die Korrektur soll auf die Sperre des Einsatzes warten, bevor diese frei wird.
-    await new Promise((r) => setTimeout(r, 300));
-    release();
-    await Promise.all([rename, correcting]);
+    await whileRenamingUnderLock(db, op.id, station.id, () =>
+      correct(db, report.id, station.id),
+    );
 
     expect(
       (await listEntries(db, op.id)).find((e) => e.number === report.number)
@@ -502,13 +384,6 @@ describe("correctStrengthReport", () => {
 });
 
 describe("annulStrengthReport", () => {
-  async function aReport(db: TestDb) {
-    const { op, station } = await aStation(db);
-    await record(db, station.id);
-    const [report] = await listStrengthReports(db, op.id);
-    return { op, station, report };
-  }
-
   it("annuls the report and keeps its ETB entry with number and text", async () => {
     const db = await freshDb();
     const { op, report } = await aReport(db);
@@ -577,3 +452,37 @@ describe("listStrengthReports", () => {
     expect(await listStrengthReports(db, second.op.id)).toEqual([]);
   });
 });
+
+/**
+ * Benennt die Stelle in „UHSt 3 Nord“ um, während der Einsatz gesperrt ist,
+ * und startet `write` in dieser Zeit: `write` muss auf die Sperre warten.
+ */
+async function whileRenamingUnderLock(
+  db: TestDb,
+  operationId: string,
+  stationId: string,
+  write: () => Promise<unknown>,
+) {
+  let renamed = () => {};
+  const renameHolds = new Promise<void>((r) => {
+    renamed = r;
+  });
+  let release = () => {};
+  const released = new Promise<void>((r) => {
+    release = r;
+  });
+  const rename = db.transaction(async (tx) => {
+    await lockOperation(tx, operationId);
+    await tx.query("UPDATE stations SET name = 'UHSt 3 Nord' WHERE id = $1", [
+      stationId,
+    ]);
+    renamed();
+    await released;
+  });
+  await renameHolds;
+
+  const writing = write();
+  await new Promise((r) => setTimeout(r, 300));
+  release();
+  await Promise.all([rename, writing]);
+}

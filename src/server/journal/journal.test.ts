@@ -4,7 +4,7 @@ import { NO_ROUTE } from "@/journal/entry-route";
 import { insertOperation } from "@/server/operations/operations";
 import { ValidationError } from "@/server/validation";
 import { freshDb } from "@/test/db";
-import { appendEntry, listEntries } from "./journal";
+import { appendEntry, listEntries, requireEntryContent } from "./journal";
 
 async function anOperation(db: Awaited<ReturnType<typeof freshDb>>) {
   return insertOperation(db, { name: "Hochwasser", description: null });
@@ -194,5 +194,38 @@ describe("journal", () => {
     expect(await listEntries(db, op.id)).toEqual([
       expect.objectContaining({ sender: null, recipient: null, channel: null }),
     ]);
+  });
+});
+
+describe("requireEntryContent", () => {
+  it("returns the content trimmed, a blank or missing Von, An and Weg as absent", () => {
+    expect(
+      requireEntryContent({ text: " Deich hält ", sender: " ", recipient: "" }),
+    ).toEqual({
+      text: "Deich hält",
+      sender: null,
+      recipient: null,
+      channel: null,
+    });
+  });
+
+  it("rejects a text that is blank once trimmed", () => {
+    expect(() => requireEntryContent({ text: " \n", sender: null })).toThrow(
+      new ValidationError("Der Text darf nicht leer sein."),
+    );
+  });
+
+  it("rejects an array as content", () => {
+    expect(() => requireEntryContent(["Deich hält"])).toThrow(
+      new ValidationError("Ungültiger ETB-Eintrag."),
+    );
+  });
+
+  it("counts the length of Von after trimming", () => {
+    const value = "x".repeat(200);
+
+    expect(
+      requireEntryContent({ text: "Deich hält", sender: `  ${value}  ` }),
+    ).toMatchObject({ sender: value });
   });
 });

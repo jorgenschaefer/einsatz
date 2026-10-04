@@ -5,10 +5,14 @@ import { pdfToPng } from "pdf-to-png-converter";
 import sharp from "sharp";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ValidationError } from "@/server/validation";
+import { minimalPdf } from "@/test/minimal-pdf";
 
-// Der PDF→PNG-Renderer ist die dünne IO-Grenze; er wird für die PNG-Pfade
-// nicht aufgerufen und hier nur gemockt, um den schweren Import zu vermeiden.
-vi.mock("pdf-to-png-converter", () => ({ pdfToPng: vi.fn() }));
+// Der echte PDF→PNG-Renderer, damit die Kantenlängen real sind; nur ein Test
+// ersetzt ihn, um einen unerwarteten Fehler des Renderers zu erzeugen.
+vi.mock("pdf-to-png-converter", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("pdf-to-png-converter")>();
+  return { pdfToPng: vi.fn(actual.pdfToPng) };
+});
 
 import {
   deleteOperationUploads,
@@ -64,6 +68,49 @@ describe("prepareOverlayImage", () => {
 });
 
 describe("renderPdfFirstPageToPng", () => {
+  afterEach(() => {
+    vi.mocked(pdfToPng).mockReset();
+  });
+
+  it.each([
+    ["A4", 595.28, 841.89],
+    ["a non-round page", 2000.9, 1000.3],
+    ["a huge non-round page", 200_000.7, 100_000.3],
+    ["an elongated page", 400_000, 300],
+    ["a page of exactly 4000:1", 4000, 1],
+    ["a larger page of exactly 4000:1", 8000, 2],
+  ])(
+    "renders %s with its longer edge at 4000 px or less",
+    async (_, widthPt, heightPt) => {
+      const png = await renderPdfFirstPageToPng(minimalPdf(widthPt, heightPt));
+
+      const { width = 0, height = 0 } = await sharp(png).metadata();
+      expect(Math.max(width, height)).toBeLessThanOrEqual(4000);
+      expect(Math.min(width, height)).toBeGreaterThanOrEqual(1);
+    },
+  );
+
+  it("renders at no more than scale 3, even just below 4000/3 pt", async () => {
+    const png = await renderPdfFirstPageToPng(minimalPdf(1333, 500));
+
+    expect(await sharp(png).metadata()).toMatchObject({
+      width: 3999,
+      height: 1500,
+    });
+  });
+
+  it.each([
+    ["a page under 1 pt", 0.5, 0.5],
+    ["a page just over 4000:1", 4001, 1],
+    ["a page far over 4000:1", 40_000_000, 1],
+  ])("refuses %s as not convertible", async (_, widthPt, heightPt) => {
+    await expect(
+      renderPdfFirstPageToPng(minimalPdf(widthPt, heightPt)),
+    ).rejects.toThrow(
+      new ValidationError("Die PDF-Datei konnte nicht umgewandelt werden."),
+    );
+  });
+
   it("lets an unexpected renderer failure through, so it gets logged", async () => {
     const canvasBroken = new Error("canvas broken");
     vi.mocked(pdfToPng).mockImplementation(async (_, options) => {

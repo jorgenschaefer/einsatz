@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:
 advances:  AC-1, AC-2, AC-3, AC-9, AC-11, AC-12
 after:     01-coverage-ausgangswert
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -144,3 +144,65 @@ splits only move functions between files.
 - No change of behaviour.
 
 ## Left standing
+- **Review findings not fixed.** Two rounds. The first round's
+  should-fix (no test sent a bad `additionalPersonnel` once the moved
+  cases folded into `strength-input.test.ts`) and its nit (`journal.ts`
+  exported six row internals) are fixed. The second round found only
+  nits, and I left both:
+  - nit: `loadEntry(tx, entryId, true)` in `journal-history.ts` does not
+    say at the call that `true` locks the row. Renaming or splitting
+    `loadEntry` changes production code beyond the move this ticket is;
+    the doc comments of `reviseEntry` and `markEntryAnnulled` say that
+    they lock it.
+  - nit: in `map-symbols.test.ts`, `aLinkedSymbolIn` returns
+    `{ operationId, symbolId }` while `aSymbolIn` returns
+    `{ op, symbol }`. The ownership cases kept the shape they had in
+    their own file, so the moved tests read as before.
+- **Checks.** `npm run check` green (199 files, 2677 tests).
+  `npm run test:coverage` plus `compare-coverage.mjs` exit 0 and name no
+  file except the nine "new, compared with nothing" files earlier tickets
+  created (`src/map/*.fixtures.*`, `src/test/action-checks.ts` and the
+  like), none of them touched here. No file needed a new test file. The
+  split of `journal.ts` has its entry in `coverage-splits.json`. No
+  `src/test/` helper or fixture changed.
+- **Advanced without an automated test.**
+  - AC-11: the commit body's `Removed tests:` section lists every name
+    `removed-tests.mjs` reported. For the moved range and note checks I
+    broke `requireStrengthValues` by hand (`<` instead of `<=` 9999, `>`
+    instead of `>=` 0, no integer check, `additionalPersonnel` left out of
+    the checked counts, blank note kept, a non-text note taken as none);
+    each made a test in `strength-input.test.ts` fail. Storing
+    `input.values` instead of the checked values in `recordStrengthReport`
+    or `correctStrengthReport` made "stores the note as checked, trimmed"
+    fail; skipping `requireStrengthValues` there made "rejects bad values
+    without writing anything" fail.
+  - The PDF cases run the real renderer: with `viewportScale` doubled by
+    hand in `renderPdfFirstPageToPng`, all seven rendering cases in
+    `image-storage.test.ts` failed; restored. The file also passes with
+    `--sequence.shuffle`, so the failure case's mock does not leak.
+  - AC-12: the only production changes are the moves out of `journal.ts`
+    (code moved verbatim, `loadEntry` now exported from `journal.ts`) and
+    the callers' imports. The reviewer compared the moved functions with
+    the removed code.
+- **AC-3 review list.** This ticket created no test file. I held every
+  test in `strength-input.test.ts`, `strength-reports.test.ts`,
+  `image-storage.test.ts` and `map-symbols.test.ts` against its own file
+  and added those four to `ac3-reviewed.txt`. `journal.test.ts`,
+  `image-overlays.test.ts`, `correspondents.test.ts` and
+  `journal-history.test.ts` were only edited (merged in, imports) and are
+  not listed.
+- **Departures from the plan.**
+  - Step 2: the merged and shortened `map-symbols.test.ts` is 422 lines,
+    so `map-symbols.ts` is not split and there is no `device-links.ts`.
+  - Step 1: `journal-history.ts` needed the row mapping, so `journal.ts`
+    exports `loadEntry` (moved there from the history code) rather than
+    its row types and column lists.
+  - Step 5: `strength-reports.test.ts` keeps, per function, one "stores
+    the note as checked, trimmed" test besides the one bad-values case.
+    Without it nothing pins that the two functions store the checked
+    values rather than the raw input (broken by hand, see above). To stay
+    under 500 lines (488) the file also shares `aReport` and a helper for
+    the two "rename it had to wait for" tests, and drops `valuesOf`.
+  - Test moves were committed after the split, in one commit with the
+    ticket, rather than one commit per step.
+- **Departures from a nudge.** None.

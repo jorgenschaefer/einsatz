@@ -38,8 +38,28 @@ describe("requireStrengthValues", () => {
     expect(() => requireStrengthValues([1, 2, 9, 0])).toThrow(INVALID_COUNTS);
   });
 
-  it("rejects a count given as text", () => {
-    expect(() => requireStrengthValues({ ...VALUES, crew: "9" })).toThrow(
+  it.each([
+    [
+      "all zeros",
+      { leaders: 0, subLeaders: 0, crew: 0, additionalPersonnel: 0 },
+    ],
+    ["9999", { additionalPersonnel: 9999 }],
+  ])("accepts %s", (_, over) => {
+    expect(requireStrengthValues({ ...VALUES, ...over })).toEqual({
+      ...VALUES,
+      ...over,
+    });
+  });
+
+  it.each([
+    ["a negative number", { crew: -1 }],
+    ["a fraction", { leaders: 1.5 }],
+    ["not a number", { subLeaders: Number.NaN }],
+    ["a count given as text", { crew: "9" }],
+    ["additional personnel given as text", { additionalPersonnel: "3" }],
+    ["more than 9999", { crew: 10000 }],
+  ])("rejects %s", (_, over) => {
+    expect(() => requireStrengthValues({ ...VALUES, ...over })).toThrow(
       INVALID_COUNTS,
     );
   });
@@ -50,6 +70,18 @@ describe("requireStrengthValues", () => {
     expect(() => requireStrengthValues(withoutNote)).toThrow(
       new ValidationError("Die Notiz muss Text sein."),
     );
+  });
+
+  it("rejects a note that is not text", () => {
+    expect(() => requireStrengthValues({ ...VALUES, note: 42 })).toThrow(
+      new ValidationError("Die Notiz muss Text sein."),
+    );
+  });
+
+  it("trims the note", () => {
+    expect(
+      requireStrengthValues({ ...VALUES, note: " Streife 2 " }),
+    ).toMatchObject({ note: "Streife 2" });
   });
 
   it("stores a note of only blanks as none", () => {
