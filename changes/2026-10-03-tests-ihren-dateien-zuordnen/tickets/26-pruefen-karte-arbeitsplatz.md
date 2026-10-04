@@ -117,6 +117,14 @@ leaves the app behaving as before.
 - More than a handful of tests to move out of one test file means a slice
   was missed: halt the ticket naming the file and the tests, rather than
   leaving them in place.
+- A file without a test file whose behaviour is tested only through other
+  files' tests gets its own `X.test.*`, and those tests move into it -
+  also when the file lies in another ticket's area. A test file created
+  this way goes into `ac3-reviewed.txt` in the same commit. The rule above
+  still holds: more than a handful of tests to move out of one test file
+  is a missed slice. Files without a test file known so far
+  (re-plan after ticket 26's halt), in this area: `useClipboardCopy.ts`, `MapModeBands.tsx`,
+  `MapPanelSheet.tsx` - see "Known from the first attempt".
 
 ## Plan
 1. Run the selection script (built by the first attempt) for `src/map/` -

@@ -59,6 +59,8 @@ leaves the app behaving as before.
   belongs to one ticket, so no test file is read twice.
 - The selection is `select-tests.mjs` in this change's directory, built by
   ticket 26; use it as it is, so all review tickets select by one rule.
+  It treats `src/test/render.tsx` as a harness: what that file imports
+  (the app's providers) is no reason to select a test.
 - In `src/app/operations/`, for orientation:
   the action, route and page tests, which import server modules to set up
   an Einsatz and read it back, and `operation-action.test.ts`.
@@ -91,6 +93,15 @@ leaves the app behaving as before.
 - More than a handful of tests to move out of one test file means a slice
   was missed: halt the ticket naming the file and the tests, rather than
   leaving them in place.
+- A file without a test file whose behaviour is tested only through other
+  files' tests gets its own `X.test.*`, and those tests move into it -
+  also when the file lies in another ticket's area. A test file created
+  this way goes into `ac3-reviewed.txt` in the same commit. The rule above
+  still holds: more than a handful of tests to move out of one test file
+  is a missed slice. Files without a test file known so far
+  (re-plan after ticket 26's halt), in this area: none with behaviour of its own
+  (`upload-messages.ts` holds only constants). The Bild-Overlay route
+  tests of `image-overlay-uploads.ts` were moved by ticket 33.
 
 ## Plan
 1. Run `select-tests.mjs` from this change's directory with patterns for
