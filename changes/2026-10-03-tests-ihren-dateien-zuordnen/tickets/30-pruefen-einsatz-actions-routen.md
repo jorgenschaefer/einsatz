@@ -2,7 +2,7 @@
 criteria:  CRITERIA.md
 closes:    
 advances:  AC-3, AC-11, AC-12
-after:     23-pruefungen, 26-pruefen-karte-arbeitsplatz
+after:     23-pruefungen, 26-pruefen-karte-arbeitsplatz, 33-image-overlay-uploads
 status:    ready
 attempts:  0
 ---
