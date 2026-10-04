@@ -61,9 +61,13 @@ Toward AC-12: production code is unchanged, or only restructured.
   `defaultImagePlacement(view, width / height)` with the uploader's view,
   deleting the new file when the database step fails, deleting the old
   file after a replace. A test calls it with `freshDb()` and an uploads
-  directory as the route tests set one up today (`UPLOADS_DIR`,
-  `useUploadsDir` from `src/test/uploads-dir.ts`, `snapshotDbAndUploads` from
-  `src/test/db-snapshot.ts`); the PNG and PDF builders the route tests use
+  directory set up by hand, as both route tests do in `beforeEach`:
+  `mkdtemp(join(tmpdir(), …))` as a parent, `uploads` inside it as
+  `UPLOADS_DIR`, and the parent removed in `afterEach`.
+  `useUploadsDir` from `src/test/uploads-dir.ts` does not fit, because it
+  creates the directory straight in `tmpdir()`, and the "../escape" test
+  checks `readdir(dirname(dir))`, the parent. `snapshotDbAndUploads`
+  comes from `src/test/db-snapshot.ts`. The PNG and PDF builders the route tests use
   move along with the tests that need them, into a fixture if both test
   files need them.
 - What moves, from `src/app/operations/[id]/overlays/route.test.ts`:
@@ -77,8 +81,10 @@ Toward AC-12: production code is unchanged, or only restructured.
   - "shows the embed failure message, logs the error and leaves no file
     behind when the database insert fails": the leftover file →
     `image-overlay-uploads.test.ts`; the message and the log are
-    `handleUpload`'s and `changeOperation`'s. Keep that half in the route
-    test only if no other test pins it.
+    `handleUpload`'s and `changeOperation`'s. Only this test and its `PUT`
+    counterpart pin that the server answers with that message and logs
+    the error (`src/map/uploads.test.ts` has the text only as the
+    client's fallback), so that half stays in the route test.
   - "refuses a file name of 201 characters and creates nothing" →
     `image-overlay-uploads.test.ts`.
   - "refuses a PNG over 100 megapixels and stores nothing", "accepts a PNG
@@ -91,7 +97,8 @@ Toward AC-12: production code is unchanged, or only restructured.
   → `image-overlay-uploads.test.ts`: "keeps the placement, updates
   file+dimensions, and deletes the old file", "leaves the overlay untouched
   when the file cannot be processed", "does not orphan the new file when
-  the database update fails" (the log as above), "refuses a file name of
+  the database update fails" (the leftover file; the message and the log
+  stay in the route test, as above), "refuses a file name of
   201 characters and changes nothing", "creates nothing outside the uploads
   directory for an Einsatz-ID like ../escape".
 - What goes as duplicates (break the behaviour by hand, see the test that
@@ -99,12 +106,18 @@ Toward AC-12: production code is unchanged, or only restructured.
   - "sizes a portrait image to half the height of the uploader's view":
     `src/map/image-overlay.test.ts` "makes a portrait image half as high as
     the view when its height limits it".
-  - "POST … with a PDF" › "converts a first page too large to render at
-    scale 1, keeping its aspect ratio", "converts an elongated first page",
-    "refuses a first page more than 4000 times longer than wide and stores
-    nothing": rows of `image-storage.test.ts` "renders %s with its longer
-    edge at 4000 px or less" and "refuses %s as not convertible". The
-    "stores nothing" part is held by the new test above.
+  - "POST … with a PDF" › "converts an elongated first page", "refuses a
+    first page more than 4000 times longer than wide and stores nothing":
+    rows of `image-storage.test.ts` "renders %s with its longer edge at
+    4000 px or less" ("an elongated page") and "refuses %s as not
+    convertible" ("a page far over 4000:1"). The "stores nothing" part is
+    held by the new test above.
+- What moves to `image-storage.test.ts`, under `renderPdfFirstPageToPng`:
+  "POST … with a PDF" › "converts a first page too large to render at
+  scale 1, keeping its aspect ratio". The row "a huge non-round page"
+  checks only the longer edge, not the aspect ratio, so the aspect check
+  is not pinned there yet: write it as a test of
+  `renderPdfFirstPageToPng`.
 - What stays, because it is the routes': "embeds the image as a new
   overlay of the Einsatz" (the wiring, and `publishOperationChanged`),
   "rejects a view that is not JSON and creates nothing" (`formJson`),
@@ -136,8 +149,10 @@ Toward AC-12: production code is unchanged, or only restructured.
   renamed test went.
 - AC-3 review list: add `src/server/image-overlays/image-overlay-uploads.test.ts`
   to `ac3-reviewed.txt` in this change's directory, in the same commit;
-  this ticket created it. The two route test files and
-  `image-storage.test.ts` are not listed: tickets 29 and 30 read them.
+  this ticket created it. The two route test files are not listed:
+  ticket 30 reads them. `image-storage.test.ts` is already listed (ticket
+  21), so no later ticket reads it again: hold every test this ticket
+  adds to it against `image-storage.ts` here.
 
 ## Plan
 1. `image-overlay-uploads.test.ts` (new) with the tests moved from the
