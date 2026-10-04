@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:    AC-4, AC-5, AC-6, AC-7, AC-13, AC-14
 advances:
 after:     02-actions-konten, 03-actions-kartenzeichen-bereiche, 04-actions-ebenen-bilder, 05-actions-etb-staerke, 06-routes-einsatz, 07-routes-links, 08-seiten, 09-live-verbindungen, 10-sitzung-geocoding-ebenen, 11-kartenpanels, 12-situation-map-leaflet, 13-bereiche-zeichnen, 14-kartenzeichen-bild-overlays, 15-situation-map-view, 16-arbeitsplatz-main-view, 17-etb-panel-anzeige, 18-etb-panel-formulare, 19-staerke-panel, 20-kml-icons-import, 25-kml-dokumente, 21-server-module, 22-auth-konfiguration-staerke
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -130,3 +130,35 @@ requires. The rule is written into `CLAUDE.md`.
   coverage thresholds in `npm run check`.
 
 ## Left standing
+- **Review findings not fixed.** None. The one review round found no
+  blocker and nothing that should be fixed. It found three nits, and I fixed
+  all three test-first: the merge hint for a test file at the repository
+  root, `expectUploadRules` required for `export function POST` and for
+  re-exported `POST`/`PUT`, and tests for the two filters that keep test
+  files and non-TS files from counting as server action modules. It also
+  pointed out an invented compound in the `CLAUDE.md` text, which I
+  reworded. Since only nits came back, there was no second round, so these
+  fixes were not reviewed again.
+- **Checks not run.** None skipped. `npm run check` is green after the last
+  edit (192 files, 2686 tests). `npm run test:coverage` and then
+  `compare-coverage.mjs` exit 0. The script names `src/test/test-files.ts`
+  as "new, compared with nothing", next to the helpers earlier tickets
+  added.
+- **Departures from the plan.**
+  - `checkTestFiles(files, read)` takes a reader as well as the file list.
+    It needs the content to find `"use server"` modules, a route's methods
+    and the helpers a test file calls.
+  - The pairing rule also covers the `.test.mjs` files under `changes/`.
+    AC-4 speaks of every test file tracked by git, and both have their
+    source beside them.
+  - Step 3's check by hand: a new file is not in `git ls-files` until it is
+    added, so I added the copies with `git add -N`. A copy of
+    `kml-layer.test.ts` as `kml-layer.styles.test.ts`, a copy of
+    `db.test.ts` as `db.test.tsx`, and `expectPublicPage` in place of
+    `expectPageRequiresAdmin` in `admin/users/page.test.ts` each failed the
+    repository test, and each message named the remedy. I removed all
+    three afterwards.
+- **Departure from Context.** Context says to reuse `serverActionModules(dir)`.
+  The check works on the `git ls-files` list, not on a directory walk, so I
+  kept its directive detection as `isServerActionModule(source)` and dropped
+  the walk. Nothing else called it, so keeping it would have left dead code.

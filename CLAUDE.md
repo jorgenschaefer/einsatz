@@ -34,6 +34,16 @@ Weitere Kommandos:
   brauchen den Container nicht.
 - Vorgehen: TDD (red/green/refactor); jede Verhaltensänderung ist durch einen
   Test gepinnt, der zuerst fehlschlägt.
+- Eine Testdatei je Quelldatei, nach ihr benannt und neben ihr
+  (`Foo.tsx` → `Foo.test.tsx`); keine weiteren Testdateien wie
+  `Foo.bar.test.tsx`. Ein Test testet die Datei, zu der er gehört, und liegt
+  in deren Testdatei.
+- Server-Action-Module (`"use server"`), Route-Handler (`route.ts`) und Seiten
+  (`page.tsx`) unter `src/app/` rufen in ihrer Testdatei die gemeinsamen
+  Prüfungen auf, die ihre Art verlangt: `src/test/action-checks.ts`,
+  `src/test/route-checks.ts`, `src/test/page-checks.ts`.
+- `npm run check` erzwingt beides (`src/test/test-files.test.ts`); jede
+  Meldung nennt die Datei und die Abhilfe.
 
 ## Linting & Formatierung
 
