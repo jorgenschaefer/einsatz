@@ -28,7 +28,6 @@ vi.mock("next/navigation", async (original) => ({
   },
 }));
 
-import { subscribeOperation } from "@/server/events/operation-events";
 import * as repo from "@/server/image-overlays/image-overlays";
 import {
   createImageOverlay,
@@ -41,6 +40,7 @@ import { storeOverlayImage } from "@/server/image-overlays/image-storage";
 import { insertOperation } from "@/server/operations/operations";
 import { freshDb } from "@/test/db";
 import { snapshotDbAndUploads } from "@/test/db-snapshot";
+import { liveEventsFor } from "@/test/live-events";
 import {
   expectNonUuidObjectIdRefused,
   expectRouteRequiresLogin,
@@ -160,20 +160,13 @@ describe("GET /operations/[id]/overlays/[overlayId]", () => {
 
 describe("PUT /operations/[id]/overlays/[overlayId]", () => {
   it("replaces the file and refreshes the Einsatz", async () => {
-    const notified: string[] = [];
-    const unsubscribe = subscribeOperation(operationId, () =>
-      notified.push("A"),
+    const { result: response, events } = await liveEventsFor(operationId, () =>
+      putPng(),
     );
 
-    try {
-      const response = await putPng();
-      expect(response.status).toBe(200);
-      expect(await response.json()).toEqual({});
-    } finally {
-      unsubscribe();
-    }
-
-    expect(notified).toEqual(["A"]);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({});
+    expect(events).toBe(1);
     expect(await getImageOverlay(db(), overlay.id)).toMatchObject({
       name: "neu.png",
     });
@@ -226,20 +219,13 @@ describe("PUT /operations/[id]/overlays/[overlayId] under another Einsatz", () =
 
   it("refreshes no Einsatz", async () => {
     const other = await anOperation("B");
-    const notified: string[] = [];
-    const unsubscribeA = subscribeOperation(operationId, () =>
-      notified.push("A"),
+    const { result: eventsOfB, events: eventsOfA } = await liveEventsFor(
+      operationId,
+      async () =>
+        (await liveEventsFor(other.id, () => putPng({ id: other.id }))).events,
     );
-    const unsubscribeB = subscribeOperation(other.id, () => notified.push("B"));
 
-    try {
-      await putPng({ id: other.id });
-    } finally {
-      unsubscribeA();
-      unsubscribeB();
-    }
-
-    expect(notified).toEqual([]);
+    expect([eventsOfA, eventsOfB]).toEqual([0, 0]);
     expect(state.revalidatedPaths).toEqual([]);
     expect(await listImageOverlays(db(), operationId)).toEqual([overlay]);
   });

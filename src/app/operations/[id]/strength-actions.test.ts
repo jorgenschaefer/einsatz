@@ -319,7 +319,7 @@ describe("strength actions", () => {
         await liveEventsFor(setting.operationId, async () =>
           expect(await act(setting)).toEqual({}),
         ),
-      ).toBe(1);
+      ).toMatchObject({ events: 1 });
     });
 
     it("but not those of another operation", async () => {
@@ -331,7 +331,7 @@ describe("strength actions", () => {
         await liveEventsFor(other.id, () =>
           recordStrengthReportAction(setting.stationId, SOME_VALUES),
         ),
-      ).toBe(0);
+      ).toMatchObject({ events: 0 });
     });
   });
 });

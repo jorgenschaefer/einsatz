@@ -22,7 +22,6 @@ vi.mock("next/navigation", () => ({
   },
 }));
 
-import { subscribeOperation } from "@/server/events/operation-events";
 import {
   createMapSymbol,
   generateDeviceLink,
@@ -47,6 +46,7 @@ import {
   tooLong,
 } from "@/test/bad-calls/bad-call";
 import { freshDb } from "@/test/db";
+import { liveEventsFor } from "@/test/live-events";
 import { signIn } from "@/test/sign-in";
 import * as actions from "./map-symbol-actions";
 
@@ -184,18 +184,12 @@ describe("removeDeviceLinkAction", () => {
 
   it("ends the device's access and tells open clients, keeping the Kartenzeichen", async () => {
     const { op, symbol, token } = await aSymbolWithDeviceLink();
-    const listener = vi.fn();
-    const unsubscribe = subscribeOperation(op.id, listener);
-
-    let result: unknown;
-    try {
-      result = await removeDeviceLinkAction(op.id, symbol.id);
-    } finally {
-      unsubscribe();
-    }
+    const { result, events } = await liveEventsFor(op.id, () =>
+      removeDeviceLinkAction(op.id, symbol.id),
+    );
 
     expect(result).toEqual({});
-    expect(listener).toHaveBeenCalledTimes(1);
+    expect(events).toBe(1);
     expect(await resolveDeviceAccess(db(), token)).toBeNull();
     const [after] = await listMapSymbols(db(), op.id);
     expect(after).toEqual({ ...symbol, deviceLinkToken: null });

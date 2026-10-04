@@ -22,7 +22,6 @@ vi.mock("next/navigation", () => ({
   },
 }));
 
-import { subscribeOperation } from "@/server/events/operation-events";
 import { getOperation, insertOperation } from "@/server/operations/operations";
 import {
   type ActAs,
@@ -37,6 +36,7 @@ import {
   rejects,
 } from "@/test/bad-calls/bad-call";
 import { freshDb } from "@/test/db";
+import { liveEventsFor } from "@/test/live-events";
 import { signIn } from "@/test/sign-in";
 import * as actions from "./actions";
 
@@ -103,18 +103,12 @@ describe("setDefaultViewAction", () => {
     await actAs("user");
     const op = await insertOperation(db(), { name: "Lage", description: null });
     const view = { lat: 53.55, lng: 9.99, zoom: 12 };
-    const listener = vi.fn();
-    const unsubscribe = subscribeOperation(op.id, listener);
-
-    let result: unknown;
-    try {
-      result = await setDefaultViewAction(op.id, view);
-    } finally {
-      unsubscribe();
-    }
+    const { result, events } = await liveEventsFor(op.id, () =>
+      setDefaultViewAction(op.id, view),
+    );
 
     expect(result).toEqual({});
-    expect(listener).toHaveBeenCalledTimes(1);
+    expect(events).toBe(1);
     expect((await getOperation(db(), op.id))?.defaultView).toEqual(view);
   });
 });

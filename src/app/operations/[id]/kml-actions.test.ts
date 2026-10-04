@@ -32,7 +32,6 @@ vi.mock("@/server/kml/kml-import", () => ({
   },
 }));
 
-import { subscribeOperation } from "@/server/events/operation-events";
 import { createKmlOverlay, listKmlOverlays } from "@/server/kml/kml-overlays";
 import { insertOperation } from "@/server/operations/operations";
 import { ValidationError } from "@/server/validation";
@@ -52,6 +51,7 @@ import {
   tooLong,
 } from "@/test/bad-calls/bad-call";
 import { freshDb } from "@/test/db";
+import { liveEventsFor } from "@/test/live-events";
 import { signIn } from "@/test/sign-in";
 import * as actions from "./kml-actions";
 
@@ -156,12 +156,12 @@ describe("addKmlUrlAction", () => {
   it("adds the KML-Ebene fetched from the trimmed URL and tells open clients", async () => {
     const op = await anOperation();
 
-    const { result, told } = await watching(op.id, () =>
+    const { result, events } = await liveEventsFor(op.id, () =>
       addKmlUrlAction(op.id, "Pegel", `  ${URL} `),
     );
 
     expect(result).toEqual({});
-    expect(told).toBe(1);
+    expect(events).toBe(1);
     expect(state.fetchedUrls).toEqual([URL]);
     expect(await listKmlOverlays(db(), op.id)).toMatchObject([
       {
@@ -211,12 +211,12 @@ describe("reloadKmlAction", () => {
   it("replaces the KML-Ebene's content with the one fetched again and tells open clients", async () => {
     const { op, kml } = await aKmlLayer();
 
-    const { result, told } = await watching(op.id, () =>
+    const { result, events } = await liveEventsFor(op.id, () =>
       reloadKmlAction(op.id, kml.id),
     );
 
     expect(result).toEqual({});
-    expect(told).toBe(1);
+    expect(events).toBe(1);
     expect(state.fetchedUrls).toEqual([URL]);
     expect(await listKmlOverlays(db(), op.id)).toEqual([
       { ...kml, content: "<kml>neu</kml>" },
@@ -231,12 +231,12 @@ describe("setKmlVisibilityAction", () => {
     await actAs("user");
     const { op, kml } = await aKmlLayer();
 
-    const { result, told } = await watching(op.id, () =>
+    const { result, events } = await liveEventsFor(op.id, () =>
       setKmlVisibilityAction(op.id, kml.id, false),
     );
 
     expect(result).toEqual({});
-    expect(told).toBe(1);
+    expect(events).toBe(1);
     expect(await listKmlOverlays(db(), op.id)).toEqual([
       { ...kml, visible: false },
     ]);
@@ -247,12 +247,12 @@ describe("setKmlVisibilityAction", () => {
     const { op, kml } = await aKmlLayer();
     await setKmlVisibilityAction(op.id, kml.id, false);
 
-    const { result, told } = await watching(op.id, () =>
+    const { result, events } = await liveEventsFor(op.id, () =>
       setKmlVisibilityAction(op.id, kml.id, true),
     );
 
     expect(result).toEqual({});
-    expect(told).toBe(1);
+    expect(events).toBe(1);
     expect(await listKmlOverlays(db(), op.id)).toEqual([kml]);
   });
 });
@@ -262,12 +262,12 @@ describe("removeKmlAction", () => {
     await actAs("user");
     const { op, kml } = await aKmlLayer();
 
-    const { result, told } = await watching(op.id, () =>
+    const { result, events } = await liveEventsFor(op.id, () =>
       removeKmlAction(op.id, kml.id),
     );
 
     expect(result).toEqual({});
-    expect(told).toBe(1);
+    expect(events).toBe(1);
     expect(await listKmlOverlays(db(), op.id)).toEqual([]);
   });
 });
@@ -284,10 +284,12 @@ function expectLoadingFailuresHandled(
     const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
     state.fetchError = new ValidationError("Die KML-Datei ist zu groß.");
 
-    const { result, told } = await watching(op.id, () => call(op.id, kml.id));
+    const { result, events } = await liveEventsFor(op.id, () =>
+      call(op.id, kml.id),
+    );
 
     expect(result).toEqual({ error: "Die KML-Datei ist zu groß." });
-    expect(told).toBe(0);
+    expect(events).toBe(0);
     expect(errorLog).not.toHaveBeenCalled();
     expect(await listKmlOverlays(db(), op.id)).toEqual([kml]);
   });
@@ -298,10 +300,12 @@ function expectLoadingFailuresHandled(
     const networkDown = new Error("ECONNRESET");
     state.fetchError = networkDown;
 
-    const { result, told } = await watching(op.id, () => call(op.id, kml.id));
+    const { result, events } = await liveEventsFor(op.id, () =>
+      call(op.id, kml.id),
+    );
 
     expect(result).toEqual({ error: LOAD_FAILED });
-    expect(told).toBe(0);
+    expect(events).toBe(0);
     expect(errorLog).toHaveBeenCalledWith(expect.anything(), networkDown);
     expect(await listKmlOverlays(db(), op.id)).toEqual([kml]);
   });
@@ -332,20 +336,4 @@ async function aKmlLayer() {
     content: "<kml>alt</kml>",
   });
   return { op, kml };
-}
-
-/** Runs `run` and counts how often open clients of the Einsatz were told of a change. */
-async function watching<T>(
-  operationId: string,
-  run: () => Promise<T>,
-): Promise<{ result: T; told: number }> {
-  let told = 0;
-  const unsubscribe = subscribeOperation(operationId, () => {
-    told += 1;
-  });
-  try {
-    return { result: await run(), told };
-  } finally {
-    unsubscribe();
-  }
 }

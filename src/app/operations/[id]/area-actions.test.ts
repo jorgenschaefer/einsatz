@@ -24,7 +24,6 @@ vi.mock("next/navigation", () => ({
 
 import type { AreaGeometry } from "@/map/area";
 import { createArea, listAreas } from "@/server/areas/areas";
-import { subscribeOperation } from "@/server/events/operation-events";
 import { insertOperation } from "@/server/operations/operations";
 import {
   type ActAs,
@@ -42,6 +41,7 @@ import {
   tooLong,
 } from "@/test/bad-calls/bad-call";
 import { freshDb } from "@/test/db";
+import { liveEventsFor } from "@/test/live-events";
 import { STYLE } from "@/test/operation-fixture";
 import { signIn } from "@/test/sign-in";
 import * as actions from "./area-actions";
@@ -235,15 +235,9 @@ describe("createAreaAction", () => {
   it("returns the id of the new Bereich, drawn in the default style, and tells open clients", async () => {
     await actAs("user");
     const op = await anOperation();
-    const listener = vi.fn();
-    const unsubscribe = subscribeOperation(op.id, listener);
-
-    let result: unknown;
-    try {
-      result = await createAreaAction(op.id, CIRCLE);
-    } finally {
-      unsubscribe();
-    }
+    const { result, events } = await liveEventsFor(op.id, () =>
+      createAreaAction(op.id, CIRCLE),
+    );
 
     const [area] = await listAreas(db(), op.id);
     expect(result).toEqual({ id: area.id });
@@ -253,7 +247,7 @@ describe("createAreaAction", () => {
       opacity: 0.4,
       label: "",
     });
-    expect(listener).toHaveBeenCalledTimes(1);
+    expect(events).toBe(1);
   });
   it("returns no id when the Bereich is refused", async () => {
     await actAs("user");

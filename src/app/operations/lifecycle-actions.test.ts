@@ -27,7 +27,6 @@ vi.mock("next/navigation", () => ({
   },
 }));
 
-import { subscribeOperation } from "@/server/events/operation-events";
 import { storeOverlayImage } from "@/server/image-overlays/image-storage";
 import { listEntries } from "@/server/journal/journal";
 import { createOperation } from "@/server/operations/create-operation";
@@ -45,6 +44,7 @@ import {
   rejects,
 } from "@/test/bad-calls/bad-call";
 import { freshDb } from "@/test/db";
+import { liveEventsFor } from "@/test/live-events";
 import { signIn } from "@/test/sign-in";
 import { uploadsDirPerTest } from "@/test/uploads-dir";
 import * as actions from "./lifecycle-actions";
@@ -157,14 +157,11 @@ describe.each([
   it("changes the status, refreshes the Einsatz and the overview, and notifies the Einsatz's clients", async () => {
     await actAs("user");
     const op = await operationWithUpload(from);
-    const listener = vi.fn();
-    const unsubscribe = subscribeOperation(op.id, listener);
+    const { result, events } = await liveEventsFor(op.id, () =>
+      changeStatus(op.id),
+    );
 
-    try {
-      expect(await changeStatus(op.id)).toEqual({});
-    } finally {
-      unsubscribe();
-    }
+    expect(result).toEqual({});
 
     expect(await getOperation(state.db as Db, op.id)).toMatchObject({
       status: to,
@@ -172,6 +169,6 @@ describe.each([
     expect(state.revalidatedPaths).toEqual(
       expect.arrayContaining([`/operations/${op.id}`, "/operations"]),
     );
-    expect(listener).toHaveBeenCalledTimes(1);
+    expect(events).toBe(1);
   });
 });

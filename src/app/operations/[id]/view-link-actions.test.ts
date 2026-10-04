@@ -22,7 +22,6 @@ vi.mock("next/navigation", () => ({
   },
 }));
 
-import { subscribeOperation } from "@/server/events/operation-events";
 import { insertOperation } from "@/server/operations/operations";
 import { createViewLink, listViewLinks } from "@/server/viewlinks/view-links";
 import {
@@ -41,6 +40,7 @@ import {
   tooLong,
 } from "@/test/bad-calls/bad-call";
 import { freshDb } from "@/test/db";
+import { liveEventsFor } from "@/test/live-events";
 import { signIn } from "@/test/sign-in";
 import * as actions from "./view-link-actions";
 
@@ -96,28 +96,18 @@ async function anOperation() {
   return insertOperation(db(), { name: "Lage", description: null });
 }
 
-async function tellingOpenClients(operationId: string, run: () => unknown) {
-  const listener = vi.fn();
-  const unsubscribe = subscribeOperation(operationId, listener);
-  try {
-    return { result: await run(), notified: listener.mock.calls.length };
-  } finally {
-    unsubscribe();
-  }
-}
-
 describe("createViewLinkAction", () => {
   beforeEach(() => actAs("user"));
 
   it("creates a named view link and tells open clients", async () => {
     const op = await anOperation();
 
-    const { result, notified } = await tellingOpenClients(op.id, () =>
+    const { result, events } = await liveEventsFor(op.id, () =>
       createViewLinkAction(op.id, "Leitstelle"),
     );
 
     expect(result).toEqual({});
-    expect(notified).toBe(1);
+    expect(events).toBe(1);
     const [link] = await listViewLinks(db(), op.id);
     expect(link).toMatchObject({ label: "Leitstelle" });
   });
@@ -143,12 +133,12 @@ describe("deleteViewLinkAction", () => {
       label: "Leitstelle",
     });
 
-    const { result, notified } = await tellingOpenClients(op.id, () =>
+    const { result, events } = await liveEventsFor(op.id, () =>
       deleteViewLinkAction(op.id, link.id),
     );
 
     expect(result).toEqual({});
-    expect(notified).toBe(1);
+    expect(events).toBe(1);
     expect(await listViewLinks(db(), op.id)).toEqual([]);
   });
 });

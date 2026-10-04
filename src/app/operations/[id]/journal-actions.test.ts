@@ -113,7 +113,7 @@ describe("journal actions", () => {
     state.token = await signInAs(db(), "anna");
     const op = await anOperation();
 
-    const events = await liveEventsFor(op.id, async () => {
+    const { events } = await liveEventsFor(op.id, async () => {
       expect(
         await addJournalEntryAction(op.id, {
           text: "Deich hält",
@@ -148,7 +148,7 @@ describe("journal actions", () => {
     });
     const [entry] = await listEntries(db(), op.id);
 
-    const events = await liveEventsFor(op.id, async () => {
+    const { events } = await liveEventsFor(op.id, async () => {
       expect(
         await correctEntryAction(entry.id, {
           text: "Deich hält",
