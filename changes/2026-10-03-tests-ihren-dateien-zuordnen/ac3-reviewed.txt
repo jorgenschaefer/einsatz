@@ -32,3 +32,6 @@ src/map/leaflet-markers.test.ts
 src/map/leaflet-image-overlays.test.ts
 src/map/SituationMap.test.tsx
 src/map/useAreaFlows.test.ts
+src/map/useSymbolPlacement.test.ts
+src/map/useImageOverlayEditing.test.ts
+src/map/LayersPanel.test.tsx

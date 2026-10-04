@@ -1,11 +1,7 @@
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { ActionResult } from "@/app/action-result";
-import { redirectError } from "@/test/redirect-error";
 import { act, screen, waitFor, within } from "@/test/render";
-import type { ImagePlacement } from "./image-overlay";
 import { anImageOverlay } from "./map-objects.fixtures";
-import type { SituationWorkspaceProps } from "./SituationWorkspace";
 import {
   mapPanel,
   modeBand,
@@ -73,20 +69,6 @@ describe("SituationWorkspace", () => {
     expect(onSetKmlVisibility).toHaveBeenCalledWith("k1", false);
   });
 
-  it("splits the Ebenen panel into KML-Datei, KML-URL and Bild-Overlays sections in order", async () => {
-    renderWorkspace();
-    await openPanel("Ebenen");
-    const file = screen.getByRole("region", { name: "KML-Datei" });
-    const url = screen.getByRole("region", { name: "KML-URL" });
-    const image = screen.getByRole("region", { name: "Bild-Overlays" });
-    expect(
-      file.compareDocumentPosition(url) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-    expect(
-      url.compareDocumentPosition(image) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-  });
-
   it("renders each visible image overlay on the map", async () => {
     const { adapter } = renderWorkspace({ imageOverlays: [anImageOverlay] });
     await waitFor(() =>
@@ -112,19 +94,7 @@ describe("SituationWorkspace", () => {
     expect(onSetImageVisibility).toHaveBeenCalledWith("i1", false);
   });
 
-  it("edits an image overlay: shows handles on the map and the inline controls", async () => {
-    const { adapter } = renderWorkspace({ imageOverlays: [anImageOverlay] });
-    await openImageEditor();
-    await waitFor(() =>
-      expect(adapter.startImageOverlayEdit).toHaveBeenCalledWith(
-        "i1",
-        expect.any(Function),
-      ),
-    );
-    expect(within(mapPanel("Ebenen")).getByText("Fertig")).toBeInTheDocument();
-  });
-
-  it("saves the placement from a map gesture without leaving edit mode", async () => {
+  it("saves the placement from a map gesture", async () => {
     const onUpdateImagePlacement = vi.fn(async () => ({}));
     const { adapter } = renderWorkspace({
       imageOverlays: [anImageOverlay],
@@ -140,38 +110,41 @@ describe("SituationWorkspace", () => {
     const moved = { ...anImageOverlay.placement, scaleM: 800, rotationDeg: 42 };
     await act(async () => onChange(moved));
     expect(onUpdateImagePlacement).toHaveBeenCalledWith("i1", moved);
-    // Bearbeiten bleibt aktiv.
-    expect(within(mapPanel("Ebenen")).getByText("Fertig")).toBeInTheDocument();
   });
 
-  it("changes the opacity from the inline controls", async () => {
-    const onUpdateImagePlacement = vi.fn(
-      async (_id: string, _placement: ImagePlacement) => ({}),
-    );
-    renderWorkspace({
+  it("puts a Bild-Overlay back on the map when saving its placement fails", async () => {
+    const { adapter } = renderWorkspace({
       imageOverlays: [anImageOverlay],
-      onUpdateImagePlacement,
+      onUpdateImagePlacement: vi.fn(async () => ({
+        error: "Bild-Overlay nicht gefunden.",
+      })),
     });
     await openImageEditor();
-    const slider = await screen.findByRole("slider", { name: "Deckkraft" });
-    act(() => slider.focus());
-    await userEvent.keyboard("{ArrowRight}");
-    await waitFor(() => expect(onUpdateImagePlacement).toHaveBeenCalled());
-    const [, placement] = onUpdateImagePlacement.mock.calls.at(-1)!;
-    expect(placement.opacity).toBeGreaterThan(0.8);
-    expect(placement.scaleM).toBe(anImageOverlay.placement.scaleM);
+
+    await scaleOnMap(adapter);
+
+    await waitFor(() =>
+      expect(adapter.restoreImageOverlay).toHaveBeenCalledWith("i1"),
+    );
   });
 
-  it("finishes editing, removing the handles from the map", async () => {
-    const { adapter } = renderWorkspace({ imageOverlays: [anImageOverlay] });
+  it("closes the Bild-Overlays notification when editing is finished in the band", async () => {
+    const { adapter } = renderWorkspace({
+      imageOverlays: [anImageOverlay],
+      onUpdateImagePlacement: vi.fn(async () => ({
+        error: "Bild-Overlay nicht gefunden.",
+      })),
+    });
     await openImageEditor();
-    await waitFor(() =>
-      expect(adapter.startImageOverlayEdit).toHaveBeenCalled(),
+    await scaleOnMap(adapter);
+    const notification = await screen.findByRole("alert");
+    expect(notification).toHaveTextContent("Bild-Overlays");
+
+    await userEvent.click(
+      within(modeBand("Bild-Overlay bearbeiten")).getByText("Fertig"),
     );
-    await userEvent.click(within(mapPanel("Ebenen")).getByText("Fertig"));
-    await waitFor(() =>
-      expect(adapter.stopImageOverlayEdit).toHaveBeenCalled(),
-    );
+
+    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
   });
 
   it("shows the Bild-Overlay band while editing and finishes editing from it", async () => {
@@ -200,110 +173,33 @@ describe("SituationWorkspace", () => {
   });
 
   describe("when saving an edited image overlay does not come back with a result", () => {
-    const changeOpacity = async () => {
-      const slider = await screen.findByRole("slider", { name: "Deckkraft" });
-      act(() => slider.focus());
-      await userEvent.keyboard("{ArrowRight}");
-    };
     const replace = () =>
       userEvent.upload(
         screen.getByLabelText("Datei ersetzen"),
         new File(["%PDF-1.4"], "neu.pdf", { type: "application/pdf" }),
       );
 
-    const offline = async () => {
-      throw new Error("offline");
-    };
-    type UserAction = [
-      string,
-      () => Partial<SituationWorkspaceProps>,
-      (adapter: ReturnType<typeof renderWorkspace>["adapter"]) => Promise<void>,
-    ];
-    const editorActions: UserAction[] = [
-      [
-        "changing the opacity",
-        () => ({ onUpdateImagePlacement: vi.fn(offline) }),
-        changeOpacity,
-      ],
-      [
-        "replacing the file",
-        () => {
-          vi.stubGlobal("fetch", vi.fn(offline));
-          return {};
-        },
-        replace,
-      ],
-    ];
+    it("shows the failure in the editor when replacing the file throws and leaves it usable", async () => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async () => {
+          throw new Error("offline");
+        }),
+      );
+      renderWorkspace({ imageOverlays: [anImageOverlay] });
+      await openImageEditor();
 
-    it.each(editorActions)(
-      "shows the failure in the editor when %s throws and leaves it usable",
-      async (_, failing, perform) => {
-        const { adapter } = renderWorkspace({
-          imageOverlays: [anImageOverlay],
-          ...failing(),
-        });
-        await openImageEditor();
+      await replace();
 
-        await perform(adapter);
-
-        const panel = within(mapPanel("Ebenen"));
-        expect(await panel.findByRole("alert")).toHaveTextContent(
-          "Das hat nicht geklappt. Bitte erneut versuchen.",
-        );
-        expect(
-          panel.getByRole("button", { name: "Datei ersetzen" }),
-        ).toBeEnabled();
-        expect(modeBand("Bild-Overlay bearbeiten")).toBeInTheDocument();
-      },
-    );
-
-    it.each([
-      ["the band", () => modeBand("Bild-Overlay bearbeiten")],
-      ["the Ebenen panel", () => mapPanel("Ebenen")],
-    ])(
-      "forgets the failure once editing is finished from %s",
-      async (_, finishFrom) => {
-        renderWorkspace({
-          imageOverlays: [anImageOverlay],
-          onUpdateImagePlacement: vi.fn(async () => {
-            throw new Error("offline");
-          }),
-        });
-        await openImageEditor();
-        await changeOpacity();
-        expect(
-          await within(mapPanel("Ebenen")).findByRole("alert"),
-        ).toBeInTheDocument();
-
-        await userEvent.click(within(finishFrom()).getByText("Fertig"));
-        await openPanel("Ebenen"); // schließt das noch offene Panel
-        await openImageEditor();
-
-        expect(within(mapPanel("Ebenen")).queryByRole("alert")).toBeNull();
-      },
-    );
-
-    it.each([
-      ["scaling it on the map", scaleOnMap],
-      ["changing the opacity", changeOpacity],
-    ])(
-      "shows no failure when %s redirects to the login",
-      async (_, perform) => {
-        const action = vi.fn(async () => {
-          throw redirectError();
-        });
-        const { adapter } = renderWorkspace({
-          imageOverlays: [anImageOverlay],
-          onUpdateImagePlacement: action,
-        });
-        await openImageEditor();
-
-        await perform(adapter);
-
-        await waitFor(() => expect(action).toHaveBeenCalled());
-        expect(screen.queryByRole("alert")).toBeNull();
-      },
-    );
+      const panel = within(mapPanel("Ebenen"));
+      expect(await panel.findByRole("alert")).toHaveTextContent(
+        "Das hat nicht geklappt. Bitte erneut versuchen.",
+      );
+      expect(
+        panel.getByRole("button", { name: "Datei ersetzen" }),
+      ).toBeEnabled();
+      expect(modeBand("Bild-Overlay bearbeiten")).toBeInTheDocument();
+    });
 
     it("goes to the login without a failure when replacing the file meets no session", async () => {
       const assign = vi.fn();
@@ -349,42 +245,6 @@ describe("SituationWorkspace", () => {
       expect(adapter.stopImageOverlayEdit).toHaveBeenCalled();
       expect(screen.queryByRole("slider", { name: "Deckkraft" })).toBeNull();
     });
-
-    it.each([
-      [
-        "a returned error",
-        async () => ({ error: "Bild-Overlay nicht gefunden." }),
-        "Bild-Overlay nicht gefunden.",
-      ],
-      [
-        "a thrown failure",
-        async (): Promise<ActionResult> => {
-          throw new Error("offline");
-        },
-        "Das hat nicht geklappt. Bitte erneut versuchen.",
-      ],
-    ])(
-      "shows %s in the open confirmation and keeps editing the Bild-Overlay",
-      async (_, onDeleteImage, message) => {
-        const { adapter } = renderWorkspace({
-          imageOverlays: [anImageOverlay],
-          onDeleteImage,
-        });
-        await openImageEditor();
-        const dialog = await askToDeleteImage();
-
-        await userEvent.click(
-          within(dialog).getByRole("button", { name: "Endgültig löschen" }),
-        );
-
-        expect(screen.getAllByRole("alert")).toEqual([
-          within(dialog).getByRole("alert"),
-        ]);
-        expect(within(dialog).getByRole("alert")).toHaveTextContent(message);
-        expect(modeBand("Bild-Overlay bearbeiten")).toBeInTheDocument();
-        expect(adapter.stopImageOverlayEdit).not.toHaveBeenCalled();
-      },
-    );
 
     it("removes a KML-Overlay only once confirmed", async () => {
       const onRemoveKml = vi.fn(async () => ({}));

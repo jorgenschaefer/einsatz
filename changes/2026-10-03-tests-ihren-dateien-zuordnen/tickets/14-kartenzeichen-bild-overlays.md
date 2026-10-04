@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:
 advances:  AC-1, AC-3, AC-11
 after:     13-bereiche-zeichnen, 11-kartenpanels
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -133,3 +133,81 @@ described under Context.
   own.
 
 ## Left standing
+- **Review findings not fixed.** One review round. It found no blockers,
+  no should-fix and three nits. I fixed all three, so there was no
+  second round:
+  - The one-row `it.each` in `SituationWorkspace.layers.test.tsx` is now a
+    plain `it` with the same name.
+  - The map-gesture test there no longer checks that editing stays
+    active. That is the hook's, so the test is renamed "saves the
+    placement from a map gesture".
+  - `LayersPanel.test.tsx` builds both `imageEditing` fakes from one
+    helper.
+- **Checks not run.** None skipped. After the last edit, `npm run check`
+  is green (211 files, 2740 tests, 44 s). `npm run test:coverage` and then
+  `compare-coverage.mjs` exit 0. The script names only new files as "new,
+  compared with nothing", the same list as ticket 13 (the `src/test/`
+  helpers, `leaflet-map.fixtures.ts`, `map-hooks.fixtures.tsx`). No file
+  needed a new test file for coverage.
+- **Advanced without an automated test.**
+  - AC-11: the commit's `Removed tests:` section comes from
+    `removed-tests.mjs` and names all 42 removed tests. For each test
+    dropped as a duplicate, I broke the behaviour by hand and saw the
+    named test fail, then restored the code. For the moved tests, I broke
+    each branch of the two hooks by hand and saw the new tests fail:
+    - `useSymbolPlacement`: reset after the `onPlace` await, closing the
+      sheet on disarm, the Erweitert form left open, the copy keeping its
+      Bezeichnung or arming a Schnellauswahl entry, the copy not closing
+      the sheet, placing without the runner.
+    - `useImageOverlayEditing`: no error reset on start or on save,
+      restoring always or never, `busy` without the placement save,
+      dropping each `closeImageOverlaysError`, delete always or never
+      ending the mode, opacity without the rest of the placement.
+    - `LayersPanel`: each prop it passes on, the delete id, and the
+      section order.
+  - AC-3: I added `useSymbolPlacement.test.ts`,
+    `useImageOverlayEditing.test.ts` and `LayersPanel.test.tsx` to
+    `ac3-reviewed.txt` because this ticket created them. The
+    `SituationWorkspace.*` files I only edited are not listed.
+- **Departures from the plan and Context.**
+  - Everything is in one commit. No hook changed, so there was no
+    restructuring commit to keep apart.
+  - Thirteen workspace tests that Context listed as duplicates (or as
+    moving) stay, because each is the only test of a piece of
+    `SituationMapView` wiring. I replaced each pass-through with a no-op
+    by hand. With the tests dropped, the whole `src/map` suite still
+    passed; with them kept, each fails. **Ticket 15 must take them**:
+    - `symbols.test`: the copy test ("places the composition without its
+      Bezeichnung …", for `onCopy`, and the only check that
+      `MapModeBands` shows the placing band), "deletes a Kartenzeichen
+      from its detail", "generates a device link …", "removes a device
+      link …" (`onDelete`, `onGenerateDeviceLink`, `onRemoveDeviceLink`
+      handed to `SymbolDetailModal`).
+    - `layers.test`: "renders each visible KML overlay …" and "renders
+      each visible image overlay …" (overlays handed to `SituationMap`),
+      the two "toggles … visibility" tests and "removes a KML-Overlay
+      only once confirmed" (handlers handed to `LayersPanel`), "saves the
+      placement from a map gesture" (`onEditImagePlacement`), "deletes a
+      Bild-Overlay only once confirmed …" (`imageEditing` handed to
+      `LayersPanel`).
+    - Two are new, cut from the deleted `image-placement` file down to
+      the wiring: "puts a Bild-Overlay back on the map when saving its
+      placement fails" (`restoreImagePlacement` reaching the map), and
+      "closes the Bild-Overlays notification when editing is finished in
+      the band" (`onEndMode` is `finishEdit` while an image is edited,
+      not `mode.reset`).
+  - In layers L238, the opacity row moved to the hook. The replace row
+    stays for ticket 16 as a plain `it` with its old name. Context named
+    the whole describe as moving and L238 as staying; only the replace
+    row goes through the workspace's upload.
+  - The redirect and "closed with ×" cases for placing are dropped as
+    duplicates, as Context says. Unlike ticket 13's `useAreaFlows` table,
+    `useSymbolPlacement.test.ts` has no redirect row.
+  - `LayersPanel.test.tsx` tests more than the section order. It tests
+    each handler it passes to `KmlPanel`, `ImageOverlayPanel` and the
+    editor. Without that, dropping the KML and image workspace tests would
+    have left the pass-throughs inside `LayersPanel` unpinned.
+- **Departures from a nudge.** None. `browserTestsInTs` already matches
+  `src/map/use*.test.ts`. There is one more jsdom file than before (two
+  deleted, three added), and `npm test` took 44 s, as before.
+

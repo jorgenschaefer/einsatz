@@ -3,140 +3,15 @@ import { describe, expect, it, vi } from "vitest";
 import { act, render, screen, waitFor, within } from "@/test/render";
 import type { MarkerSpec } from "./adapter";
 import { SYMBOL } from "./map-objects.fixtures";
-import { QUICK_SELECT } from "./quick-select";
-import {
-  SituationWorkspace,
-  type SituationWorkspaceProps,
-} from "./SituationWorkspace";
+import { SituationWorkspace } from "./SituationWorkspace";
 import {
   buildProps,
-  mapPanel,
   openPanel,
   renderWorkspace,
 } from "./SituationWorkspace.fixtures";
 import { aSymbol } from "./symbol.fixtures";
 
 describe("SituationWorkspace", () => {
-  it("places the armed Schnellauswahl composition where the map is clicked", async () => {
-    const onPlace = vi.fn(async () => ({}));
-    const { captured } = renderWorkspace({ onPlace });
-    await openPanel("Kartenzeichen");
-    await userEvent.click(screen.getByText(/KTW/));
-    await waitFor(() => expect(captured.options?.onMapClick).toBeDefined());
-    await act(async () => {
-      captured.options!.onMapClick!({ lat: 50, lng: 8 });
-    });
-
-    const ktw = QUICK_SELECT.find((i) => i.label === "KTW")!;
-    expect(onPlace).toHaveBeenCalledWith(ktw.composition, 50, 8);
-  });
-
-  it("places a Notunterkunft from the Schnellauswahl", async () => {
-    const onPlace = vi.fn(async () => ({}));
-    const { captured } = renderWorkspace({ onPlace });
-    await openPanel("Kartenzeichen");
-    await userEvent.click(
-      screen.getByRole("button", { name: "Notunterkunft" }),
-    );
-    await waitFor(() => expect(captured.options?.onMapClick).toBeDefined());
-    await act(async () => {
-      captured.options!.onMapClick!({ lat: 50, lng: 8 });
-    });
-
-    expect(onPlace).toHaveBeenCalledWith(
-      {
-        grundzeichen: "ortsfeste-stelle",
-        fachaufgabe: "unterbringung",
-        organisation: "hilfsorganisation",
-      },
-      50,
-      8,
-    );
-  });
-
-  it("surfaces a returned {error} from placing a Kartenzeichen", async () => {
-    const onPlace = vi.fn(async () => ({
-      error: "Ungültige Zeichen-Komposition.",
-    }));
-    const { captured } = renderWorkspace({ onPlace });
-    await openPanel("Kartenzeichen");
-    await userEvent.click(screen.getByText(/KTW/));
-    await waitFor(() => expect(captured.options?.onMapClick).toBeDefined());
-    await act(async () => {
-      captured.options!.onMapClick!({ lat: 50, lng: 8 });
-    });
-    expect(
-      await screen.findByText("Ungültige Zeichen-Komposition."),
-    ).toBeInTheDocument();
-  });
-
-  it("clears a placement error on the next successful placement", async () => {
-    const onPlace = vi
-      .fn<SituationWorkspaceProps["onPlace"]>()
-      .mockResolvedValueOnce({ error: "Ungültige Zeichen-Komposition." })
-      .mockResolvedValueOnce({});
-    const { captured } = renderWorkspace({ onPlace });
-    await openPanel("Kartenzeichen");
-    await userEvent.click(screen.getByText(/KTW/));
-    await waitFor(() => expect(captured.options?.onMapClick).toBeDefined());
-    await act(async () => {
-      captured.options!.onMapClick!({ lat: 50, lng: 8 });
-    });
-    expect(await screen.findByRole("alert")).toBeInTheDocument();
-    // Erneut scharfstellen und platzieren – der alte Fehler verschwindet.
-    await openPanel("Kartenzeichen");
-    await userEvent.click(screen.getByText(/KTW/));
-    await waitFor(() => expect(captured.options?.onMapClick).toBeDefined());
-    await act(async () => {
-      captured.options!.onMapClick!({ lat: 51, lng: 9 });
-    });
-    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
-  });
-
-  it("ends the placing mode after one Kartenzeichen, even while onPlace is still in flight", async () => {
-    // onPlace bleibt hängen (Server-Roundtrip): der Modus muss trotzdem sofort
-    // enden, sonst platziert ein zweiter Tap während des Roundtrips ein zweites Zeichen.
-    let resolvePlace: () => void = () => {};
-    const onPlace = vi.fn(
-      () =>
-        new Promise<{ error?: string }>((r) => {
-          resolvePlace = () => r({});
-        }),
-    );
-    const { captured } = renderWorkspace({ onPlace });
-    await openPanel("Kartenzeichen");
-    await userEvent.click(screen.getByText(/KTW/));
-    await waitFor(() => expect(captured.options?.onMapClick).toBeDefined());
-    await act(async () => {
-      captured.options!.onMapClick!({ lat: 50, lng: 8 });
-    });
-    captured.options!.onMapClick!({ lat: 51, lng: 9 });
-
-    expect(onPlace).toHaveBeenCalledTimes(1);
-    await act(async () => resolvePlace());
-  });
-
-  it("places a composition built in the Erweitert form where the map is clicked", async () => {
-    const onPlace = vi.fn(async () => ({}));
-    const { captured } = renderWorkspace({ onPlace });
-    await openPanel("Kartenzeichen");
-    await userEvent.click(screen.getByText(/Erweitert/));
-    await userEvent.click(await screen.findByText("Platzieren"));
-    await waitFor(() => expect(captured.options?.onMapClick).toBeDefined());
-    await act(async () => {
-      captured.options!.onMapClick!({ lat: 51, lng: 7 });
-    });
-
-    expect(onPlace).toHaveBeenCalledWith(
-      expect.objectContaining({
-        organisation: "hilfsorganisation",
-        grundzeichen: "taktische-formation",
-      }),
-      51,
-      7,
-    );
-  });
-
   describe("copying a Kartenzeichen from its list row", () => {
     const LIVE_BUS = aSymbol({
       positionSource: "device",
@@ -189,149 +64,6 @@ describe("SituationWorkspace", () => {
       expect(onMove).not.toHaveBeenCalled();
       expect(onDelete).not.toHaveBeenCalled();
     });
-
-    it("leaves the Schnellauswahl at its fixed entries after a copy is placed", async () => {
-      const { adapter, captured, props } = buildProps({ symbols: [LIVE_BUS] });
-      const { rerender } = render(<SituationWorkspace {...props} />);
-      await openPanel("Kartenzeichen");
-      await userEvent.click(
-        screen.getByRole("button", { name: "Bus 1 kopieren" }),
-      );
-      await waitFor(() => expect(captured.options?.onMapClick).toBeDefined());
-      await act(async () => {
-        captured.options!.onMapClick!({ lat: 50, lng: 8 });
-      });
-      rerender(
-        <SituationWorkspace
-          {...props}
-          symbols={[
-            LIVE_BUS,
-            aSymbol({ id: "copy", composition: COPIED_COMPOSITION }),
-          ]}
-        />,
-      );
-      await waitFor(() =>
-        expect(adapter.setMarker).toHaveBeenCalledWith(
-          "copy",
-          expect.anything(),
-        ),
-      );
-      await openPanel("Kartenzeichen");
-
-      const schnellauswahl = within(mapPanel("Kartenzeichen"))
-        .getAllByRole("button", { pressed: false })
-        .map((b) => b.textContent);
-      expect(schnellauswahl).toEqual(QUICK_SELECT.map((i) => i.label));
-    });
-
-    it("places nothing after Abbrechen", async () => {
-      const onPlace = vi.fn(async () => ({}));
-      const { captured } = renderWorkspace({ symbols: [LIVE_BUS], onPlace });
-      await openPanel("Kartenzeichen");
-      await userEvent.click(
-        screen.getByRole("button", { name: "Bus 1 kopieren" }),
-      );
-      await userEvent.click(await screen.findByText("Abbrechen"));
-      await act(async () => {
-        captured.options?.onMapClick?.({ lat: 50, lng: 8 });
-      });
-
-      expect(onPlace).not.toHaveBeenCalled();
-    });
-  });
-
-  it("centers the map on a Kartenzeichen when its list row is clicked, without opening the detail", async () => {
-    const { adapter } = renderWorkspace({
-      symbols: [
-        aSymbol({
-          composition: {
-            grundzeichen: "taktische-formation",
-            organisation: "hilfsorganisation",
-            text: "Rotkreuz 83/1",
-          },
-        }),
-      ],
-    });
-    await openPanel("Kartenzeichen");
-    await userEvent.click(await screen.findByText("Rotkreuz 83/1"));
-    await waitFor(() =>
-      expect(adapter.setView).toHaveBeenCalledWith({
-        lat: 53.5,
-        lng: 9.9,
-        zoom: 16,
-      }),
-    );
-    expect(screen.queryByLabelText("Bezeichnung")).toBeNull();
-  });
-
-  it("opens the detail via the row edit button", async () => {
-    renderWorkspace({
-      symbols: [
-        aSymbol({
-          composition: {
-            grundzeichen: "taktische-formation",
-            organisation: "hilfsorganisation",
-            text: "Rotkreuz 83/1",
-          },
-        }),
-      ],
-    });
-    await openPanel("Kartenzeichen");
-    await userEvent.click(
-      await screen.findByLabelText(/Rotkreuz 83\/1 bearbeiten/, {
-        selector: "button",
-      }),
-    );
-    expect(await screen.findByLabelText("Bezeichnung")).toHaveValue(
-      "Rotkreuz 83/1",
-    );
-  });
-
-  it("renders a marker for each provided Kartenzeichen", async () => {
-    const { adapter } = renderWorkspace({
-      symbols: [aSymbol()],
-    });
-    await waitFor(() =>
-      expect(adapter.setMarker).toHaveBeenCalledWith(
-        "s1",
-        expect.objectContaining({
-          lat: 53.5,
-          lng: 9.9,
-          iconUrl: expect.stringMatching(/^data:image\/svg/),
-        }),
-      ),
-    );
-  });
-
-  it("opens the detail panel for a selected Kartenzeichen and saves an edit", async () => {
-    const onUpdate = vi.fn();
-    const { adapter } = renderWorkspace({
-      symbols: [
-        aSymbol({
-          lat: 1,
-          lng: 2,
-          composition: {
-            grundzeichen: "ortsfeste-stelle",
-            organisation: "hilfsorganisation",
-            text: "RK 1",
-          },
-        }),
-      ],
-      onUpdate,
-    });
-    await waitFor(() => expect(adapter.setMarker).toHaveBeenCalled());
-    const spec = adapter.setMarker.mock.calls.at(-1)![1] as MarkerSpec;
-    act(() => spec.onClick!());
-
-    expect(await screen.findByLabelText("Bezeichnung")).toHaveValue("RK 1");
-    await userEvent.click(screen.getByText("Speichern"));
-    expect(onUpdate).toHaveBeenCalledWith(
-      "s1",
-      expect.objectContaining({
-        grundzeichen: "ortsfeste-stelle",
-        text: "RK 1",
-      }),
-    );
   });
 
   it("deletes a Kartenzeichen from its detail once confirmed", async () => {
@@ -391,6 +123,53 @@ describe("SituationWorkspace", () => {
     expect(onRemoveDeviceLink).toHaveBeenCalledWith("s1");
   });
 
+  it("centers the map on a Kartenzeichen when its list row is clicked, without opening the detail", async () => {
+    const { adapter } = renderWorkspace({
+      symbols: [
+        aSymbol({
+          composition: {
+            grundzeichen: "taktische-formation",
+            organisation: "hilfsorganisation",
+            text: "Rotkreuz 83/1",
+          },
+        }),
+      ],
+    });
+    await openPanel("Kartenzeichen");
+    await userEvent.click(await screen.findByText("Rotkreuz 83/1"));
+    await waitFor(() =>
+      expect(adapter.setView).toHaveBeenCalledWith({
+        lat: 53.5,
+        lng: 9.9,
+        zoom: 16,
+      }),
+    );
+    expect(screen.queryByLabelText("Bezeichnung")).toBeNull();
+  });
+
+  it("opens the detail via the row edit button", async () => {
+    renderWorkspace({
+      symbols: [
+        aSymbol({
+          composition: {
+            grundzeichen: "taktische-formation",
+            organisation: "hilfsorganisation",
+            text: "Rotkreuz 83/1",
+          },
+        }),
+      ],
+    });
+    await openPanel("Kartenzeichen");
+    await userEvent.click(
+      await screen.findByLabelText(/Rotkreuz 83\/1 bearbeiten/, {
+        selector: "button",
+      }),
+    );
+    expect(await screen.findByLabelText("Bezeichnung")).toHaveValue(
+      "Rotkreuz 83/1",
+    );
+  });
+
   it("does not show an earlier Kartenzeichen's save error after it vanished", async () => {
     const { adapter, props } = buildProps({
       symbols: [aSymbol({ id: "s1" }), aSymbol({ id: "s2" })],
@@ -426,27 +205,6 @@ describe("SituationWorkspace", () => {
     expect(
       screen.queryByText("Ungültige Zeichen-Komposition."),
     ).not.toBeInTheDocument();
-  });
-
-  it("grays out a device symbol whose last report is stale, but never a manual one", async () => {
-    const stale = new Date(Date.now() - 4 * 60 * 1000); // > 3 min
-    const { adapter } = renderWorkspace({
-      symbols: [
-        aSymbol({ id: "dev", positionSource: "device", reportedAt: stale }),
-        aSymbol({ id: "man", positionSource: "manual", reportedAt: stale }),
-      ],
-    });
-    await waitFor(() =>
-      expect(adapter.setMarker).toHaveBeenCalledWith("dev", expect.anything()),
-    );
-    const devSpec = adapter.setMarker.mock.calls
-      .filter((c) => c[0] === "dev")
-      .at(-1)![1] as MarkerSpec;
-    const manSpec = adapter.setMarker.mock.calls
-      .filter((c) => c[0] === "man")
-      .at(-1)![1] as MarkerSpec;
-    expect(devSpec.opacity).toBeLessThan(1);
-    expect(manSpec.opacity ?? 1).toBe(1);
   });
 
   it("grays a device symbol that goes stale while the view stays open", async () => {
