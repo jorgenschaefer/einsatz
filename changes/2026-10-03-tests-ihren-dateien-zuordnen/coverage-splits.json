@@ -13,5 +13,9 @@
   "src/map/SituationWorkspace.tsx": [
     "src/map/SituationWorkspace.tsx",
     "src/map/useUploads.ts"
+  ],
+  "src/journal/JournalPanel.tsx": [
+    "src/journal/JournalPanel.tsx",
+    "src/journal/useScrollToEnd.ts"
   ]
 }

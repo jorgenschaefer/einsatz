@@ -12,7 +12,7 @@ import {
   Text,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { type Ref, useEffect, useRef, useState } from "react";
+import { type Ref, useEffect, useState } from "react";
 import type { ActionResult } from "@/app/action-result";
 import { ConfirmationModal } from "@/app/ConfirmationModal";
 import { EntryForm } from "@/journal/EntryForm";
@@ -30,10 +30,10 @@ import {
   type JournalEntryType,
 } from "@/journal/entry-type";
 import { useEntryRouteMemory } from "@/journal/useEntryRouteMemory";
+import { SHOW_END, useScrollToEnd } from "@/journal/useScrollToEnd";
 import type { JournalEntryState } from "@/server/journal/journal";
 
 const SAVE_ERROR = "Speichern fehlgeschlagen. Bitte erneut versuchen.";
-const SHOW_END: ScrollIntoViewOptions = { block: "end" };
 
 interface JournalRevisionView extends EntryRoute {
   text: string;
@@ -321,55 +321,4 @@ export function JournalPanel({
       )}
     </Stack>
   );
-}
-
-/**
- * Hält das ETB am letzten Eintrag wie einen Chat: beim Sichtbarwerden, nach
- * `scrollToEnd` und bei einem neuen Eintrag, solange das Listenende zu sehen
- * war. Wer hochgescrollt hat, bleibt, wo er ist.
- */
-function useScrollToEnd(visible: boolean, lastEntryId: string | undefined) {
-  const endRef = useRef<HTMLDivElement>(null);
-  const newEntryRef = useRef<HTMLDivElement>(null);
-  const endInView = useRef(false);
-
-  useEffect(() => {
-    if (!endRef.current) return;
-    // Mehrere Beobachtungen seit dem letzten Aufruf: Es zählt die neueste.
-    const observer = new IntersectionObserver((observations) => {
-      endInView.current = observations.at(-1)?.isIntersecting ?? false;
-    });
-    observer.observe(endRef.current);
-    return () => observer.disconnect();
-  }, []);
-
-  useEffect(() => {
-    if (visible) scrollToEnd(endRef.current, newEntryRef.current);
-  }, [visible]);
-
-  useEffect(() => {
-    if (lastEntryId !== undefined && endInView.current) {
-      scrollToEnd(endRef.current, newEntryRef.current);
-    }
-  }, [lastEntryId]);
-
-  return {
-    endRef,
-    newEntryRef,
-    // Das eigene Scrollen gilt sofort als „am Ende": Der IntersectionObserver
-    // meldet es erst nach dem nächsten Frame, der neue Eintrag kommt oft vorher.
-    scrollToEnd: () => {
-      endInView.current = true;
-      scrollToEnd(endRef.current, newEntryRef.current);
-    },
-  };
-}
-
-/**
- * Am Desktop scrollt nur die Liste ans Ende; am Handy scrollt das ganze ETB,
- * dort gehört Neuer Eintrag unter dem letzten Eintrag mit ins Bild.
- */
-function scrollToEnd(listEnd: Element | null, newEntry: Element | null) {
-  listEnd?.scrollIntoView(SHOW_END);
-  newEntry?.scrollIntoView(SHOW_END);
 }
