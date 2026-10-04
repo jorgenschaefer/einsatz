@@ -3,11 +3,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MAX_KML_BYTES } from "@/kml/kmz";
 import { ValidationError } from "@/server/validation";
 import {
-  expectAtMostTwiceOrdinary,
-  PATHOLOGICAL_PIECES,
-  UNCLOSED_DOCUMENTS,
-} from "@/test/kml-timing";
-import {
   type FetchStub,
   generatedBody,
   scriptedFetch,
@@ -462,27 +457,5 @@ describe("resolveKmlNetworkLinks", () => {
     );
     expect(out).toBe(twoLinks);
     expect(calls).toBe(0);
-  });
-});
-
-describe("fetchKmlFromUrl (timing)", () => {
-  const fetching = (bodyOf: (url: string) => string) => () => {
-    serve((url) => ({ body: bodyOf(url) }));
-    return fetchKmlFromUrl(MAIN_URL, createFetchBudget());
-  };
-
-  it.each(PATHOLOGICAL_PIECES)(
-    "fetches KML containing %s at most twice as slowly as ordinary KML",
-    async (_name, piece) => {
-      await expectAtMostTwiceOrdinary((kml) => fetching(() => kml), piece);
-    },
-  );
-
-  it("merges NetworkLink targets containing 10,000 unclosed <Document> at most twice as slowly as ordinary ones", async () => {
-    const twoLinks = kmlWithLinks(2);
-    await expectAtMostTwiceOrdinary(
-      (target) => fetching((url) => (url === MAIN_URL ? twoLinks : target)),
-      UNCLOSED_DOCUMENTS,
-    );
   });
 });

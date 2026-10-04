@@ -2,7 +2,8 @@ import { strToU8, zipSync } from "fflate";
 import { describe, expect, it } from "vitest";
 import { ValidationError } from "@/server/validation";
 import {
-  expectAtMostTwiceOrdinary,
+  expectLinearTime,
+  kmlEndingWith,
   PATHOLOGICAL_PIECES,
   UNCLOSED_DOCUMENTS,
 } from "@/test/kml-timing";
@@ -283,11 +284,9 @@ describe("mergeKmlDocuments", () => {
     expect(mergeKmlDocuments([doc])).toBe(doc);
   });
 
-  it("merges KML containing 10,000 unclosed <Document> at most twice as slowly as ordinary KML", async () => {
-    await expectAtMostTwiceOrdinary(
-      (kml) => () => mergeKmlDocuments([kml, kml]),
-      UNCLOSED_DOCUMENTS,
-    );
+  it("merges KML containing 50,000 unclosed <Document> in linear time", () => {
+    const kml = kmlEndingWith(UNCLOSED_DOCUMENTS);
+    expectLinearTime(() => mergeKmlDocuments([kml, kml]));
   });
 
   it("combines the bodies of several documents into one", () => {
@@ -418,10 +417,7 @@ describe.each(PATHOLOGICAL_PIECES)("KML containing %s", (_name, piece) => {
         return () => extractKml(kmz);
       },
     ],
-  ])(
-    "is read by %s at most twice as slowly as ordinary KML",
-    async (_function, prepare) => {
-      await expectAtMostTwiceOrdinary(prepare, piece);
-    },
-  );
+  ])("is read by %s in linear time", (_function, prepare) => {
+    expectLinearTime(prepare(kmlEndingWith(piece)));
+  });
 });
