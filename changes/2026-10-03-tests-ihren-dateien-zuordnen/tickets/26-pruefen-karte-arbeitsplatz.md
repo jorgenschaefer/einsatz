@@ -3,7 +3,7 @@ criteria:  CRITERIA.md
 closes:    
 advances:  AC-3, AC-11, AC-12
 after:     16-arbeitsplatz-main-view, 23-pruefungen, 32-read-only-situation-map
-status:    halted
+status:    ready
 attempts:  1
 ---
 
@@ -57,20 +57,37 @@ leaves the app behaving as before.
   belongs to one ticket, so no test file is read twice.
 - Decided here, reused by tickets 27-31: the selection is a script,
   `select-tests.mjs` in this change's directory (beside
-  `compare-coverage.mjs`, deleted with the change). It takes include and
+  `compare-coverage.mjs`, deleted with the change), built by the first
+  attempt of this ticket (`e18375d`). It takes include and
   exclude glob patterns over the tracked test files (`git ls-files`),
   leaves out the paths in `ac3-reviewed.txt`, and prints the test files the
   rule selects. It follows `import`/`export ... from` and dynamic
   `import()` over several lines, resolves `@/` and relative paths, ignores
   `import type`, looks one level into imported fixtures and `src/test/`
   files, and treats `readFile`/`readFileSync` of a project path and `?raw`
-  imports as reaching that file.
+  imports as reaching that file. `src/test/render.tsx` is a harness: it
+  only wraps a component in the app's providers, so what it imports is no
+  reason.
 - In `src/map/` - the components (`.tsx`) and hooks (`use*.ts`), except `SituationMap.tsx` and `ReadOnlySituationMap.tsx`, for orientation:
   `SituationWorkspace`, `SituationMapView`, `LageansichtShell`, the map
   panels and modals, `DeviceView`, `ViewLinkView`, the `use*` hooks
   (`useMapSearch.test.ts` → `search`), and leaf components such as
   `ModeBand`, `MapPanelSwitch`, `PanelRow`, `QuickSelectToolbar` whose tests
   might still render through a workspace fixture.
+- Known from the first attempt (see "Halt, first attempt"):
+  - `ReadOnlySituationMap`'s tests in `ViewLinkView.test.tsx` and
+    `DeviceView.test.tsx` were moved or dropped by ticket 32; read what
+    is left of both files as for any other.
+  - `useClipboardCopy.ts` (43, no test) gets `useClipboardCopy.test.ts`
+    here, from the two `DeviceLinkPanel.test.tsx` tests of its behaviour:
+    "resets the copy button label back to 'kopieren' after a delay" and
+    "does not confirm 'kopiert' and hints instead in the panel when the
+    clipboard API is unavailable". Keep in `DeviceLinkPanel.test.tsx` only
+    what the panel does with the hook's state.
+  - `MapModeBands.tsx` and `MapPanelSheet.tsx` have no test file; their
+    behaviour is tested in `SituationMapView.test.tsx` (the band tests,
+    "closes with Schließen on a phone, and offers none on the desktop"),
+    which ticket 15 judged. Nothing to do here.
 - A test belongs to its own file when the behaviour is that file's: what
   it decides, shows, calls or passes down, and how it combines other files
   (wiring). Other files running in the test is fine - the file's real
@@ -102,12 +119,11 @@ leaves the app behaving as before.
   leaving them in place.
 
 ## Plan
-1. Write the selection script as under Context and run it for `src/map/` - the components (`.tsx`) and hooks (`use*.ts`), except `SituationMap.tsx` and `ReadOnlySituationMap.tsx`.
-   Proof: on hand-made files it selects a test whose fixture imports
-   another module and a test that reads another file at run time, skips a
-   test whose only import is a fixture that imports nothing else, and
-   skips a test listed in `ac3-reviewed.txt`; then the list in Left
-   standing.
+1. Run the selection script (built by the first attempt) for `src/map/` -
+   the components (`.tsx`) and hooks (`use*.ts`), except
+   `SituationMap.tsx` and `ReadOnlySituationMap.tsx`:
+   `node changes/2026-10-03-tests-ihren-dateien-zuordnen/select-tests.mjs 'src/map/*.test.tsx' 'src/map/use*.test.ts' --exclude src/map/SituationMap.test.tsx src/map/ReadOnlySituationMap.test.tsx`.
+   Proof: the list in Left standing.
 2. For each, hold every test against its own file. Proof: the verdict per
    file in Left standing ("all its own", or the tests that moved).
 3. Move each misplaced test to the file whose behaviour it checks (or drop
@@ -124,7 +140,13 @@ leaves the app behaving as before.
 
 ## Left standing
 
-## Halt
+## Halt, first attempt
+Resolved by the re-plan: ticket 32 gives `ReadOnlySituationMap` its own
+test file, ticket 33 does the same for `image-overlay-uploads.ts` (the
+same gap, found while re-planning), and the selection script treats
+`src/test/render.tsx` as a harness, which narrows this area to 16 files.
+Kept for the record.
+
 **Kind: blocked.** Under Context, more than a handful of tests to move out
 of one test file means a slice was missed, and the ticket must halt. That
 is the case for two files here. They have the same cause:
