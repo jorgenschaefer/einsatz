@@ -44,12 +44,12 @@ import {
   tooLong,
 } from "@/test/bad-calls/bad-call";
 import { freshDb } from "@/test/db";
+import { liveEventsFor } from "@/test/live-events";
 import {
   aJournalAndStrength,
+  type Fixture,
   type JournalAndStrength,
-} from "@/test/journal-and-strength";
-import { liveEventsFor } from "@/test/live-events";
-import type { Fixture } from "@/test/operation-fixture";
+} from "@/test/operation-fixture";
 import { signIn, signInAs } from "@/test/sign-in";
 import * as actions from "./strength-actions";
 

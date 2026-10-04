@@ -12,15 +12,14 @@ import {
 } from "@/server/mapsymbols/map-symbols";
 import { insertOperation } from "@/server/operations/operations";
 import { createStation } from "@/server/strength/stations";
-import { recordStrengthReport } from "@/server/strength/strength-reports";
+import {
+  listStrengthReports,
+  recordStrengthReport,
+} from "@/server/strength/strength-reports";
 import { createViewLink } from "@/server/viewlinks/view-links";
 
 /** Je ein Objekt jeder Art in einem Einsatz, dazu ein weiteres Konto. */
-export interface Fixture extends MapObjects {
-  operationId: string;
-  entryId: string;
-  stationId: string;
-  reportId: string;
+export interface Fixture extends MapObjects, JournalAndStrength {
   userId: string;
 }
 
@@ -38,7 +37,7 @@ export const ENTRY = {
   recipient: null,
   channel: null,
 };
-export const VALUES = {
+const VALUES = {
   leaders: 1,
   subLeaders: 2,
   crew: 6,
@@ -49,8 +48,8 @@ export const VALUES = {
 export const PASSWORD = "a-very-good-password";
 
 /**
- * Je ein Objekt jeder Art in einem neuen Einsatz ({@link oneOfEachIn}, dazu
- * ein ETB-Eintrag und eine Stelle mit Stärkemeldung) und ein weiteres Konto.
+ * Je ein Objekt jeder Art in einem neuen Einsatz ({@link oneOfEachIn} und
+ * {@link journalAndStrengthIn}) und ein weiteres Konto.
  */
 export async function oneOfEach(db: Db): Promise<Fixture> {
   const { id: operationId } = await insertOperation(db, {
@@ -58,6 +57,40 @@ export async function oneOfEach(db: Db): Promise<Fixture> {
     description: null,
   });
   const mapObjects = await oneOfEachIn(db, operationId);
+  const journalAndStrength = await journalAndStrengthIn(db, operationId);
+  const user = await insertUser(db, {
+    username: "berta",
+    passwordHash: await hashPassword(PASSWORD),
+    role: "user",
+  });
+  return { ...mapObjects, ...journalAndStrength, userId: user.id };
+}
+
+/** Ein Einsatz mit den Objekten, die {@link journalAndStrengthIn} anlegt. */
+export interface JournalAndStrength {
+  operationId: string;
+  entryId: string;
+  stationId: string;
+  reportId: string;
+}
+
+/** Ein neuer Einsatz mit {@link journalAndStrengthIn}, ohne Lagekarte. */
+export async function aJournalAndStrength(db: Db): Promise<JournalAndStrength> {
+  const { id: operationId } = await insertOperation(db, {
+    name: "Lage",
+    description: null,
+  });
+  return journalAndStrengthIn(db, operationId);
+}
+
+/**
+ * Im Einsatz `operationId` ein manueller ETB-Eintrag ({@link ENTRY}) und eine
+ * Stelle mit einer Stärkemeldung ({@link VALUES}).
+ */
+export async function journalAndStrengthIn(
+  db: Db,
+  operationId: string,
+): Promise<JournalAndStrength> {
   const entry = await db.transaction((tx) =>
     appendEntry(tx, {
       operationId,
@@ -79,21 +112,12 @@ export async function oneOfEach(db: Db): Promise<Fixture> {
       author: "anna",
     }),
   );
-  const { rows } = await db.query<{ id: string }>(
-    "SELECT id FROM strength_reports",
-  );
-  const user = await insertUser(db, {
-    username: "berta",
-    passwordHash: await hashPassword(PASSWORD),
-    role: "user",
-  });
+  const [report] = await listStrengthReports(db, operationId);
   return {
     operationId,
-    ...mapObjects,
     entryId: entry.id,
     stationId: station.id,
-    reportId: rows[0].id,
-    userId: user.id,
+    reportId: report.id,
   };
 }
 
