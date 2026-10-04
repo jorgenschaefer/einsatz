@@ -5,7 +5,8 @@
 // project module other than its own file, or reads one at run time
 // (`readFile`, `readFileSync`, `?raw`). An imported fixture (`*.fixtures.*`)
 // or `src/test/` file is no reason by itself; what it imports is, one level
-// deep.
+// deep. `src/test/render.tsx` only wraps a component in the app's providers -
+// a harness (AC-3) - so what it imports is no reason either.
 //
 //   node changes/2026-10-03-tests-ihren-dateien-zuordnen/select-tests.mjs \
 //     'src/map/*.test.tsx' 'src/map/use*.test.ts' \
@@ -20,6 +21,7 @@ const changeDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(changeDir, "../..");
 const usage = `usage: node ${path.relative(process.cwd(), fileURLToPath(import.meta.url))} <include-glob>... [--exclude <glob>...]`;
 const extensions = [".ts", ".tsx", ".mjs", ".js"];
+const harnesses = new Set(["src/test/render.tsx"]);
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   main(process.argv.slice(2));
@@ -82,9 +84,10 @@ function reachesAnotherFile(testFile, read) {
     .some(
       (file) =>
         !isHelper(file) ||
-        filesReachedBy(file, read).some(
-          (inner) => isOther(inner) && !isHelper(inner),
-        ),
+        (!harnesses.has(file) &&
+          filesReachedBy(file, read).some(
+            (inner) => isOther(inner) && !isHelper(inner),
+          )),
     );
 }
 

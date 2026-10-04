@@ -112,12 +112,24 @@ test("a fixture that imports another module selects the test", () => {
 
 test("a src/test file that imports another module selects the test", () => {
   const files = {
+    "src/a/Foo.ts": "",
+    "src/server/db/migrate.ts": "",
+    "src/test/db.ts": 'import { migrate } from "@/server/db/migrate";\n',
+    "src/a/Foo.test.ts": 'import { freshDb } from "@/test/db";\n',
+  };
+  assert.deepEqual(select(files), ["src/a/Foo.test.ts"]);
+});
+
+test("the providers src/test/render.tsx wraps a component in are no reason", () => {
+  const files = {
     "src/a/Foo.tsx": "",
     "src/app/theme.ts": "",
-    "src/test/render.tsx": 'import { theme } from "@/app/theme";\n',
+    "src/app/ActionNotifications.tsx": "",
+    "src/test/render.tsx":
+      'import { ActionNotifications } from "@/app/ActionNotifications";\nimport { theme } from "@/app/theme";\n',
     "src/a/Foo.test.tsx": 'import { render } from "@/test/render";\n',
   };
-  assert.deepEqual(select(files), ["src/a/Foo.test.tsx"]);
+  assert.deepEqual(select(files), []);
 });
 
 test("the look into fixtures goes one level deep", () => {
