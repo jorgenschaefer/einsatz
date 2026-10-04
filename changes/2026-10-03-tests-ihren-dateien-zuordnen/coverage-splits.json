@@ -28,5 +28,9 @@
     "src/server/journal/journal.ts",
     "src/server/journal/correspondents.ts",
     "src/server/journal/journal-history.ts"
+  ],
+  "src/strength/strength.ts": [
+    "src/strength/strength.ts",
+    "src/strength/strength-total.ts"
   ]
 }

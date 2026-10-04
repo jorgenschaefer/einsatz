@@ -1,17 +1,19 @@
 import { describe, expect, it } from "vitest";
 import {
-  berlinTimeOfDay,
   formatStrength,
+  latestValidReport,
+  stationHistory,
+  totalPersonsOf,
+} from "./strength";
+import {
+  berlinTimeOfDay,
   formatTotalStrengthText,
   isReportStale,
   isTotalStale,
-  latestValidReport,
   type ReportedStrength,
-  stationHistory,
   totalHistory,
   totalOf,
-  totalPersonsOf,
-} from "./strength";
+} from "./strength-total";
 
 // Cyclassics: 4 Stellen report once an hour from 08:00 to 20:00 (CEST), one
 // after the other within the same minute. The first Stelle never adds a note.

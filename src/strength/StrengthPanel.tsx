@@ -12,11 +12,11 @@ import { runAction } from "./run-action";
 import { StationCard, TotalCard } from "./StrengthCards";
 import { StationHistory, TotalHistory } from "./StrengthHistories";
 import {
-  berlinTimeOfDay,
   latestValidReport,
   type StrengthValues,
   stationHistory,
 } from "./strength";
+import { berlinTimeOfDay } from "./strength-total";
 
 export interface StrengthReportView extends StrengthValues {
   id: string;

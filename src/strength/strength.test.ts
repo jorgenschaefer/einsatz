@@ -2,18 +2,20 @@ import { describe, expect, it } from "vitest";
 import {
   formatStrength,
   formatStrengthReportText,
-  formatTotalStrengthText,
-  isReportStale,
-  isTotalStale,
   latestValidReport,
-  type ReportedStrength,
   type StrengthValues,
   stationHistory,
   sumOf,
-  totalHistory,
-  totalOf,
   totalPersonsOf,
 } from "./strength";
+import {
+  formatTotalStrengthText,
+  isReportStale,
+  isTotalStale,
+  type ReportedStrength,
+  totalHistory,
+  totalOf,
+} from "./strength-total";
 
 const values = (over: Partial<StrengthValues> = {}): StrengthValues => ({
   leaders: 0,
