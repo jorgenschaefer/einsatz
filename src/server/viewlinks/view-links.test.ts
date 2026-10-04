@@ -11,6 +11,7 @@ import { ValidationError } from "@/server/validation";
 import { freshDb } from "@/test/db";
 import {
   createViewLink,
+  deleteAllViewLinks,
   deleteViewLink,
   listViewLinks,
   resolveViewAccess,
@@ -114,20 +115,6 @@ describe("view links repository", () => {
     });
   });
 
-  it("gives an old link no access after closing and reopening", async () => {
-    const db = await freshDb();
-    const op = await anOperation(db);
-    const link = await createViewLink(db, {
-      operationId: op.id,
-      label: "Leitstelle",
-    });
-
-    await closeOperation(db, op.id);
-    await reopenOperation(db, op.id);
-
-    expect(await resolveViewAccess(db, link.token)).toBeNull();
-  });
-
   it("allows a blank label and lists it", async () => {
     const db = await freshDb();
     const op = await anOperation(db);
@@ -153,5 +140,23 @@ describe("view links repository", () => {
     await deleteOperationRow(db, op.id);
 
     expect(await resolveViewAccess(db, link.token)).toBeNull();
+  });
+});
+
+describe("deleteAllViewLinks", () => {
+  it("leaves another Einsatz's Ansichtslinks alone", async () => {
+    const db = await freshDb();
+    const op = await anOperation(db);
+    const other = await anOperation(db);
+    await createViewLink(db, { operationId: op.id, label: "Leitstelle" });
+    const otherLink = await createViewLink(db, {
+      operationId: other.id,
+      label: "Stab",
+    });
+
+    await deleteAllViewLinks(db, op.id);
+
+    expect(await listViewLinks(db, op.id)).toEqual([]);
+    expect(await listViewLinks(db, other.id)).toEqual([otherLink]);
   });
 });

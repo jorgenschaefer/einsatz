@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { listEntries } from "@/server/journal/journal";
-import { annulEntry } from "@/server/journal/journal-history";
 import { closeOperation } from "@/server/operations/operation-lifecycle";
 import { insertOperation } from "@/server/operations/operations";
 import { ValidationError } from "@/server/validation";
@@ -120,19 +119,6 @@ describe("reportTotalStrength", () => {
     await reportTotalStrength(db, { operationId: op.id, author: "clara" });
 
     expect((await lastEntry(db, op.id))?.type).toBe("gesamtstärke-gemeldet");
-  });
-
-  it("can be annulled", async () => {
-    const db = await freshDb();
-    const op = await anOperation(db);
-    const nord = await aStation(db, op.id, "UHSt Nord");
-    await report(db, nord.id, counts(0, 1, 6, 2));
-    await reportTotalStrength(db, { operationId: op.id, author: "clara" });
-    const entry = await lastEntry(db, op.id);
-
-    await annulEntry(db, entry?.id ?? "");
-
-    expect((await lastEntry(db, op.id))?.state).toBe("annulliert");
   });
 
   it("includes a report numbered before it that it had to wait for", async () => {

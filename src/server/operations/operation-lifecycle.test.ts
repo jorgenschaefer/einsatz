@@ -6,7 +6,6 @@ import {
   createMapSymbol,
   generateDeviceLink,
   listMapSymbols,
-  reportPosition,
   resolveDeviceAccess,
 } from "@/server/mapsymbols/map-symbols";
 import { ValidationError } from "@/server/validation";
@@ -127,33 +126,6 @@ describe("closing an operation deletes its Gerätelinks and Ansichtslinks", () =
 
     expect(await deviceTokens(db, op.id)).toEqual([null, null]);
     expect(await listViewLinks(db, op.id)).toEqual([]);
-  });
-
-  it("makes Kartenzeichen whose device had reported manually placed again", async () => {
-    const db = await freshDb();
-    const op = await operationWithLinks(db);
-    for (const token of await deviceTokens(db, op.id)) {
-      await reportPosition(db, token as string, 53.6, 10.1);
-    }
-
-    await closeOperation(db, op.id);
-
-    expect(
-      (await listMapSymbols(db, op.id)).map((s) => s.positionSource),
-    ).toEqual(["manual", "manual"]);
-  });
-
-  it("leaves another operation's links alone", async () => {
-    const db = await freshDb();
-    const op = await operationWithLinks(db);
-    const other = await operationWithLinks(db);
-    const otherTokens = await deviceTokens(db, other.id);
-    const otherViewLinks = await listViewLinks(db, other.id);
-
-    await closeOperation(db, op.id);
-
-    expect(await deviceTokens(db, other.id)).toEqual(otherTokens);
-    expect(await listViewLinks(db, other.id)).toEqual(otherViewLinks);
   });
 
   it("changes nothing when the operation is already closed", async () => {

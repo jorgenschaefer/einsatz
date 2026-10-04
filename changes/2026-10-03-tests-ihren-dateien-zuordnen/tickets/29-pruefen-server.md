@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:    
 advances:  AC-3, AC-11, AC-12
 after:     23-pruefungen, 26-pruefen-karte-arbeitsplatz, 33-image-overlay-uploads
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -143,3 +143,79 @@ leaves the app behaving as before.
   code does.
 
 ## Left standing
+- **Selection (Plan 1).**
+  `node changes/2026-10-03-tests-ihren-dateien-zuordnen/select-tests.mjs 'src/server/**/*.test.*'`
+  selected 27 files at the start: `areas`, `auth/rate-limit`, `auth/seed`,
+  `auth/sessions`, `auth/users`, `db/migrations`, `events/sse`,
+  `geocoder/geocode-service`, `image-overlays/image-overlays`,
+  `image-overlays/image-upload`, `image-overlays/overlay-response`,
+  `journal/correspondents`, `journal/journal-history`, `journal/journal`,
+  `kml/fetch-budget`, `kml/kml-fetch`, `kml/kml-overlays`,
+  `kml/pinned-fetch`, `kml/public-address`, `operations/create-operation`,
+  `operations/delete-operation`, `operations/operation-lifecycle`,
+  `strength/stations`, `strength/total-strength`, `validation` and
+  `viewlinks/view-links` (`.test.ts`, under `src/server/`). After the
+  change, `sse.test.ts` no longer reaches another file, and
+  `operations.test.ts` now does, because tests moved into it. I read
+  that file too, and all of its tests are its own.
+- **Verdict per file (Plan 2).** Six files were not all their own:
+  - `rate-limit.test.ts`: six `limiterAddress` rows tested `parseIpv6`.
+    They were leading zeros, the zone, and the four invalid literals. They
+    moved to the new `src/server/http/ip-address.test.ts`, which is now in
+    `ac3-reviewed.txt`. The rest of the table stays: the /64 key,
+    IPv4-mapped addresses and the pass-through of anything that is not
+    IPv6.
+  - `operation-lifecycle.test.ts`: "makes Kartenzeichen … manually placed
+    again" moved to `map-symbols.test.ts › removeAllDeviceLinks`. "leaves
+    another operation's links alone" was split between
+    `removeAllDeviceLinks` (map-symbols) and `deleteAllViewLinks`
+    (view-links). Until now neither function was tested in its own file.
+    "leaves a closed operation fully editable (no write-lock)" stays: not
+    locking is the lifecycle module's own choice.
+  - `delete-operation.test.ts`: the two cascade tests moved to
+    `operations.test.ts › deleteOperationRow`.
+  - `view-links.test.ts`: "gives an old link no access after closing and
+    reopening" was dropped. It duplicated the lifecycle's own "keeps old
+    links dead after reopening".
+  - `total-strength.test.ts`: "can be annulled" was dropped. It duplicated
+    `journal-history.test.ts › a gesamtstärke-gemeldet entry › can be
+    annulled`. So `entry-type.ts` still needs no test file of its own.
+  - `sse.test.ts`: the burst test checked the bus's coalescing, which
+    `operation-events.test.ts` pins. It was replaced by "sends „changed“
+    each time the bus notifies", which tests what `sse.ts` itself does.
+
+  The other 21 files are "all their own".
+- **Tests added beyond the moves:**
+  - `ip-address.test.ts` has rows of its own besides the moved ones, plus
+    an `ipv4Groups` test.
+  - `operations.test.ts › deleteOperationRow › deletes a closed operation
+    only, reporting whether it did` was the reviewer's nit. The rule
+    before was pinned only through `delete-operation.test.ts`.
+
+  Each one fails when its behaviour is broken by hand. The moved zone row
+  now uses `fe80::%eth0` rather than `fe80::1%eth0`. Node's `isIPv6`
+  accepts zones, and `parseInt` drops the `%eth0` after a digit. So the
+  old input passed even with the zone stripping removed, and the new one
+  fails.
+- **More than a handful?** Six rows left `rate-limit.test.ts`. All six
+  are one `it.each` table that the ticket itself named, and they went to
+  the file the ticket said was missing. I did not take that as a missed
+  slice, so I did not halt.
+- **Review nit left standing:** cascade tests now follow two layouts. The
+  journal, Kartenzeichen and Stellen/Stärkemeldungen cascades sit under
+  `operations.test.ts › deleteOperationRow`, because its doc comment
+  promises them. The Bild-Overlay and Ansichtslink cascades stay in their
+  own repositories' test files, which judged them as their own. Both are
+  defensible, because the cascades live in the migrations' foreign keys.
+  Moving those two as well would have touched tests that are not
+  misplaced.
+- **Coverage comparison.** It names no file with a drop and exits 0.
+  It still prints the twelve "new, compared with nothing" notes that
+  earlier tickets left behind.
+- **AC-12.** No production code changed and nothing was restructured.
+- **Review.** One round: no blockers, no should-fix, two nits. One nit
+  was taken, and the other is described above.
+- **Checks.** `npm run check` is green: 197 files, 2695 tests. I ran
+  `test:coverage` and `compare-coverage.mjs` after the last code edit.
+  No checks were skipped.
+- **Departures.** None from the plan or the nudges.

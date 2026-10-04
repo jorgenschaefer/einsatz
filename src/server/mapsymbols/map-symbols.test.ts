@@ -17,6 +17,7 @@ import {
   generateDeviceLink,
   listMapSymbols,
   moveMapSymbol,
+  removeAllDeviceLinks,
   removeDeviceLink,
   reportPosition,
   resolveDeviceAccess,
@@ -418,5 +419,32 @@ describe.each(changes)("$name", ({ change }) => {
     await expect(change(db, operationId, symbolId)).rejects.toThrow(
       new ValidationError("Kartenzeichen nicht gefunden."),
     );
+  });
+});
+
+describe("removeAllDeviceLinks", () => {
+  it("makes Kartenzeichen whose device had reported manually placed again", async () => {
+    const db = await freshDb();
+    const { op, symbol } = await aSymbolIn(db);
+    const token = await generateDeviceLink(db, op.id, symbol.id);
+    await reportPosition(db, token, 53.6, 10.1);
+
+    await removeAllDeviceLinks(db, op.id);
+
+    expect((await listMapSymbols(db, op.id))[0]).toMatchObject({
+      deviceLinkToken: null,
+      positionSource: "manual",
+    });
+  });
+
+  it("leaves another Einsatz's Gerätelinks alone", async () => {
+    const db = await freshDb();
+    const { operationId } = await aLinkedSymbolIn(db);
+    const other = await aLinkedSymbolIn(db);
+    const otherBefore = await listMapSymbols(db, other.operationId);
+
+    await removeAllDeviceLinks(db, operationId);
+
+    expect(await listMapSymbols(db, other.operationId)).toEqual(otherBefore);
   });
 });
