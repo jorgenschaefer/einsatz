@@ -1,22 +1,27 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-// The browser's request headers and session cookie, set per request.
+// The browser's request headers and cookies, set per request.
 const state = vi.hoisted(() => ({
   db: undefined as unknown,
-  token: undefined as string | undefined,
+  cookieJar: new Map<string, { value: string; options?: CookieOptions }>(),
   headers: {} as Record<string, string>,
 }));
+
+type CookieOptions = Record<string, unknown>;
 
 vi.mock("@/server/db/pg", () => ({ getDb: () => state.db }));
 vi.mock("next/headers", () => ({
   headers: async () => new Headers(state.headers),
   cookies: async () => ({
-    get: () => (state.token ? { value: state.token } : undefined),
+    get: (name: string) => state.cookieJar.get(name),
+    set: (name: string, value: string, options?: CookieOptions) => {
+      state.cookieJar.set(name, { value, options });
+    },
   }),
 }));
 
 import { freshDb } from "@/test/db";
-import { getCurrentUser } from "./current-user";
+import { getCurrentUser, setSessionCookie } from "./current-user";
 import { insertSession } from "./sessions";
 import { insertUser } from "./users";
 
@@ -33,9 +38,10 @@ beforeEach(async () => {
     passwordHash: "h",
     role: "user",
   });
-  state.token = "tok";
+  state.cookieJar.clear();
+  state.cookieJar.set("einsatz_session", { value: "tok" });
   await insertSession(db, {
-    token: state.token,
+    token: "tok",
     userId: user.id,
     expiresAt: new Date(LOGIN + 30 * 24 * HOUR),
   });
@@ -43,6 +49,7 @@ beforeEach(async () => {
 
 afterEach(() => {
   vi.useRealTimers();
+  vi.unstubAllEnvs();
 });
 
 describe("getCurrentUser", () => {
@@ -84,6 +91,35 @@ describe("getCurrentUser", () => {
     expect(await signedInAt(23 * HOUR, headers)).toBe(true);
 
     expect(await signedInAt(25 * HOUR)).toBe(false);
+  });
+});
+
+describe("setSessionCookie", () => {
+  const expiresAt = new Date(LOGIN + 30 * 24 * HOUR);
+
+  it("names the cookie __Host-einsatz_session in production", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    state.cookieJar.clear();
+
+    await setSessionCookie("tok", expiresAt);
+
+    expect([...state.cookieJar.keys()]).toEqual(["__Host-einsatz_session"]);
+    const { options } = state.cookieJar.get("__Host-einsatz_session") ?? {};
+    expect(options).toMatchObject({ secure: true, path: "/" });
+    expect(options).not.toHaveProperty("domain");
+    expect(await getCurrentUser()).toMatchObject({ username: "anna" });
+  });
+
+  it("keeps the name einsatz_session, without Secure, outside production", async () => {
+    state.cookieJar.clear();
+
+    await setSessionCookie("tok", expiresAt);
+
+    expect([...state.cookieJar.keys()]).toEqual(["einsatz_session"]);
+    expect(state.cookieJar.get("einsatz_session")?.options).toMatchObject({
+      secure: false,
+      path: "/",
+    });
   });
 });
 

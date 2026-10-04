@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { LoginRateLimiter, limiterAddress } from "./rate-limit";
 
 function reserveTimes(
@@ -25,6 +25,23 @@ describe("LoginRateLimiter – pair counter (ip:username)", () => {
     reserveTimes(limiter, "ip-a", "anna", 2, 0);
     expect(limiter.tryReserve("ip-a", "anna", 999)).toBeNull();
     expect(limiter.tryReserve("ip-a", "anna", 1000)).not.toBeNull();
+  });
+
+  it("checks again once the 5-minute window has passed, by default", () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      const limiter = new LoginRateLimiter();
+      vi.setSystemTime(new Date("2026-10-03T10:00:00Z"));
+      for (let i = 0; i < 5; i++) {
+        expect(limiter.tryReserve("ip-a", "anna")).not.toBeNull();
+      }
+      vi.setSystemTime(new Date("2026-10-03T10:04:59Z"));
+      expect(limiter.tryReserve("ip-a", "anna")).toBeNull();
+      vi.setSystemTime(new Date("2026-10-03T10:05:01Z"));
+      expect(limiter.tryReserve("ip-a", "anna")).not.toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("tracks (ip, username) pairs independently", () => {

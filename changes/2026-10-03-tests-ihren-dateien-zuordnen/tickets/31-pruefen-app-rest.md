@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:    AC-3
 advances:  AC-11, AC-12
 after:     23-pruefungen, 27-pruefen-karte-leaflet, 28-pruefen-etb-staerke-kml, 29-pruefen-server, 30-pruefen-einsatz-actions-routen
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -127,3 +127,106 @@ leaves the app behaving as before.
   code does.
 
 ## Left standing
+- **Selection (Plan 1).**
+  `node changes/2026-10-03-tests-ihren-dateien-zuordnen/select-tests.mjs 'src/app/**/*.test.*' --exclude 'src/app/operations/**'`
+  selected 18 files (under `src/app/`): `ActionNotifications`,
+  `ConfirmationModal`, `account/LogoutOtherSessions`, `account/actions`,
+  `account/page`, `admin/users/UserAdminPanel`, `admin/users/actions`,
+  `datenschutz/page`, `device/[token]/position/route`, `impressum/page`,
+  `layout`, `login/actions`, `login/page`, `manifest`,
+  `read-only-situation-map`, `useActionRunner`, `useNotifyingActionRunner`
+  and `view/[token]/page`.
+- **Verdict per file (Plan 2).** Twelve are "all their own":
+  `ActionNotifications`, `ConfirmationModal`, `account/LogoutOtherSessions`,
+  `account/page`, `datenschutz/page`, `impressum/page`, `layout`,
+  `login/page`, `manifest`, `read-only-situation-map`, `useActionRunner`
+  and `view/[token]/page`. Six were not:
+  - `useNotifyingActionRunner`: four tests of how a notification looks and
+    behaves moved to the new `action-notification.test.tsx`. They cover
+    staying open, being replaced, another source's notification standing,
+    and the close button.
+  - `UserAdminPanel`: four tests were dropped as duplicates of
+    `ConfirmationModal.test.tsx`: cancelling (three rows), staying locked,
+    confirming again after a failure, and a thrown failure. The returned
+    error staying in the dialog and out of the list is the panel's own
+    decision (`onConfirm={… onDelete …}` bypasses its `run`), so it stays.
+  - `login/actions`: three tests were dropped as duplicates of
+    `rate-limit.test.ts` and `login.test.ts`: /64, IPv4-mapped, and refusing
+    the correct password. The default window moved to `rate-limit.test.ts`,
+    using the real clock through `tryReserve`'s default `now`. The session
+    storage test moved to `sessions.test.ts`, folding in its weaker
+    hash-only test. The two cookie-name tests moved to
+    `current-user.test.ts › setSessionCookie`.
+  - `account/actions`: the changePassword rate-limit branch, the release on
+    success and the password policy moved to
+    `account-admin.test.ts › changePassword`.
+  - `admin/users/actions`: trimming and 200 characters, case-insensitive
+    uniqueness (one test and one concurrent test) and the policy for
+    creating and resetting moved to `account-admin.test.ts`. Its exact
+    duplicate "rejects a duplicate username" was folded into the case test.
+    "accepts exactly 72 bytes" and "accepts 12 characters" were dropped as
+    duplicates of `password.test.ts`.
+  - `device/[token]/position/route`: the two "within 5 s" denials were
+    dropped. Closing an Einsatz ends its Gerätelinks, so neither can be
+    told apart from an unknown token, which `map-symbols.test.ts` and the
+    route's own 403 test pin.
+- **Judgement call: what an action takes from the request stays with it.**
+  These stay in their action test files: the concurrent login tests (5 per
+  username, 20 per IP), "shares the counter with failed logins" (two
+  tests), `logoutAction` and `logoutOtherSessionsAction`. Each depends on
+  which address the action reads, which shared limiter it passes on, or
+  which token it keeps. The device route keeps its two bounded-read tests:
+  reading through `readBody` with 1 KB is the route's own choice (review
+  round 1).
+- **New test files.** `src/app/action-failure.test.ts` and
+  `src/app/action-notification.test.tsx` are new, and both are in
+  `ac3-reviewed.txt`. The runners each keep their thrown-failure test:
+  feeding a throw through `settleAction` into their state is their own
+  wiring (review round 1).
+- **New tests beyond the moves.** These failed with their behaviour
+  broken by hand:
+  - `action-failure.test.ts`: all of it.
+  - `action-notification.test.tsx`: `closeActionError`, `beginAction`'s
+    show function, and the four `dismissActionErrors` tests.
+  - `admin/users/actions › createAccountAction › creates a Nutzer / an
+    Administrator as asked`: the action's own `admin` → role mapping,
+    unpinned before.
+  - `LogoutOtherSessions › does not say so when ending the other sessions
+    fails` (review round 1 nit).
+- **More than a handful?** More than a handful of tests left
+  `login/actions`, `admin/users/actions` and `UserAdminPanel`. I did not
+  halt, following ticket 30's reading. No slice was missing: every target
+  test file already existed and already tested that file
+  (`account-admin`, `rate-limit`, `sessions`, `current-user`,
+  `ConfirmationModal`, `password`). The only files without a test file
+  were the two this ticket named.
+- **Edits outside this area.** These are moves into files of done
+  tickets' areas: `src/server/auth/` `account-admin`, `current-user`,
+  `rate-limit` and `sessions` tests. `account-admin.test.ts` now has a
+  `passwordIs` helper and its message constants at the top.
+- **Review findings left standing.**
+  - Round 2, nit: four older tests in `account-admin.test.ts` still check
+    the password by hand instead of through `passwordIs`. Left because
+    they are tests this ticket did not move, and the change would be
+    cosmetic.
+  - Round 2, nit: "move the closed-Einsatz-within-5 s test to
+    `reportPosition`". I wrote it and broke `reportPosition` the way the
+    reviewer described, and it did not fail, because closing ends the
+    Gerätelink. It was a duplicate, so I took it out again.
+  - Round 1, nit: `datenschutz/page.test.tsx` has German test names. Left
+    because renaming is not AC-3 work and would put 18 renames into the
+    record.
+- **AC-11.** No automated test proves this. The commit message carries
+  the record. For each dropped test I broke its behaviour by hand, saw the
+  named test fail, and restored the code.
+- **AC-12.** No production code changed, and nothing was restructured.
+- **Coverage comparison.** It names no file with a drop and exits 0. It
+  still prints the twelve "new, compared with nothing" notes from earlier
+  tickets.
+- **Review.** Two rounds. Round 1 had three should-fix and four nits; the
+  should-fix and nits 1–3 were fixed. Round 2 had three nits; one was
+  fixed and two are above.
+- **Checks.** `npm run check` is green: 199 files, 2689 tests. I ran
+  `test:coverage`, `compare-coverage.mjs` and `removed-tests.mjs` after
+  the last edit. No checks were skipped.
+- **Departures.** None from the plan or the nudges.

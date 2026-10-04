@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { attemptLogin, authenticate, createSession } from "@/server/auth/login";
-import { hashPassword, verifyPassword } from "@/server/auth/password";
+import { hashPassword } from "@/server/auth/password";
 import { loginRateLimiter } from "@/server/auth/rate-limit-instance";
 import { findUserBySessionToken } from "@/server/auth/sessions";
-import { findUserById, insertUser, type User } from "@/server/auth/users";
+import { insertUser, type User } from "@/server/auth/users";
 import type { Db } from "@/server/db/db";
 import {
   type ActAs,
@@ -23,7 +23,6 @@ import {
   type Fixture,
 } from "@/test/bad-calls/fixture";
 import { freshDb } from "@/test/db";
-import { POLICY_USERNAME, REFUSED_PASSWORDS } from "@/test/refused-passwords";
 import { signIn } from "@/test/sign-in";
 
 // The limiter is process-wide and never reset: each test uses its own address.
@@ -65,7 +64,6 @@ const { changePasswordAction, logoutAction, logoutOtherSessionsAction } =
 
 const PASSWORD = "a-good-password";
 const NEW_PASSWORD = "brand-new-password";
-const WRONG_CURRENT = "Das aktuelle Passwort ist nicht korrekt.";
 const RATE_LIMITED =
   "Zu viele Fehlversuche. Bitte einen Moment warten und erneut versuchen.";
 const SESSION_COOKIE = "einsatz_session";
@@ -182,27 +180,6 @@ describe("changePasswordAction", () => {
 });
 
 describe("changePasswordAction rate limit", () => {
-  it("refuses the 6th check of the current password, even the right one", async () => {
-    for (let i = 0; i < 5; i++) {
-      expect(await changePassword("198.51.100.10", "wrong-password!")).toBe(
-        WRONG_CURRENT,
-      );
-    }
-    expect(await changePassword("198.51.100.10", PASSWORD)).toBe(RATE_LIMITED);
-    expect(await passwordIs(PASSWORD)).toBe(true);
-  });
-
-  it("does not count a successful change as a failure", async () => {
-    for (let i = 0; i < 4; i++) {
-      await changePassword("198.51.100.11", "wrong-password!");
-    }
-    expect(await changePassword("198.51.100.11", PASSWORD)).toBe("changed");
-    expect(await changePassword("198.51.100.11", "wrong-password!")).toBe(
-      WRONG_CURRENT,
-    );
-    expect(await changePassword("198.51.100.11", NEW_PASSWORD)).toBe("changed");
-  });
-
   it("shares the counter with failed logins: the next login is refused", async () => {
     for (let i = 0; i < 3; i++) {
       expect(await failLogin("198.51.100.12")).toBe("invalid");
@@ -223,27 +200,6 @@ describe("changePasswordAction rate limit", () => {
     expect(await changePassword("198.51.100.13", PASSWORD)).toBe(RATE_LIMITED);
     expect(await passwordIs(PASSWORD)).toBe(true);
   });
-});
-
-describe("changePasswordAction password policy", () => {
-  it.each(REFUSED_PASSWORDS)(
-    "refuses a new password $rule and keeps the old one",
-    async ({ password, message }) => {
-      const user = await insertUser(db, {
-        username: POLICY_USERNAME,
-        passwordHash: await hashPassword(PASSWORD),
-        role: "user",
-      });
-      state.cookieJar.set(SESSION_COOKIE, {
-        value: (await createSession(db, user.id)).token,
-      });
-      expect(await changePassword("198.51.100.20", PASSWORD, password)).toBe(
-        message,
-      );
-      const stored = await findUserById(db, user.id);
-      expect(await verifyPassword(PASSWORD, stored!.passwordHash)).toBe(true);
-    },
-  );
 });
 
 describe("logoutAction", () => {

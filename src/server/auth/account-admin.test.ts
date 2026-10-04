@@ -5,6 +5,7 @@ import { appendEntry, listEntries } from "@/server/journal/journal";
 import { insertOperation } from "@/server/operations/operations";
 import { ValidationError } from "@/server/validation";
 import { freshDb } from "@/test/db";
+import { POLICY_USERNAME, REFUSED_PASSWORDS } from "@/test/refused-passwords";
 import {
   changePassword,
   createAccount,
@@ -13,7 +14,7 @@ import {
   setRole,
 } from "./account-admin";
 import { hashPassword, verifyPassword } from "./password";
-import { LoginRateLimiter } from "./rate-limit";
+import { LoginRateLimiter, RATE_LIMITED_MESSAGE } from "./rate-limit";
 import { findUserBySessionToken, insertSession } from "./sessions";
 import {
   countAdmins,
@@ -28,6 +29,9 @@ import {
 type Bad = any;
 
 const inAnHour = () => new Date(Date.now() + 60 * 60_000);
+
+const TAKEN = "Dieser Nutzername ist bereits vergeben.";
+const WRONG_CURRENT = "Das aktuelle Passwort ist nicht korrekt.";
 
 async function seedAdmin(
   db: Awaited<ReturnType<typeof freshDb>>,
@@ -55,21 +59,68 @@ describe("createAccount", () => {
     );
   });
 
-  it("rejects a duplicate username", async () => {
+  it("stores a Nutzername of 200 characters, trimmed", async () => {
     const db = await freshDb();
+    const username = "x".repeat(200);
+
     await createAccount(db, {
-      username: "anna",
+      username: ` ${username} `,
       password: "a-good-password",
       role: "user",
     });
+
+    expect(await findUserByUsername(db, username)).toMatchObject({ username });
+  });
+
+  it("refuses a username that differs from an existing one only in case", async () => {
+    const db = await freshDb();
+    await seedAdmin(db, "anna");
+
     await expect(
       createAccount(db, {
-        username: "anna",
-        password: "another-pass1",
+        username: "Anna",
+        password: "a-good-password",
         role: "user",
       }),
-    ).rejects.toBeInstanceOf(ValidationError);
+    ).rejects.toThrow(new ValidationError(TAKEN));
+    expect(await findUserByUsername(db, "Anna")).toBeNull();
   });
+
+  it("creates exactly one account for two concurrent requests differing in case", async () => {
+    const db = await freshDb();
+    const create = (username: string) =>
+      createAccount(db, {
+        username,
+        password: "a-good-password",
+        role: "user",
+      });
+
+    const results = await Promise.allSettled([create("bob"), create("Bob")]);
+
+    expect(results.filter((r) => r.status === "rejected")).toEqual([
+      { status: "rejected", reason: new ValidationError(TAKEN) },
+    ]);
+    const bobs = (await listUsers(db)).filter(
+      (u) => u.username.toLowerCase() === "bob",
+    );
+    expect(bobs).toHaveLength(1);
+  });
+
+  it.each(REFUSED_PASSWORDS)(
+    "refuses a password $rule and creates nothing",
+    async ({ password, message }) => {
+      const db = await freshDb();
+
+      await expect(
+        createAccount(db, {
+          username: POLICY_USERNAME,
+          password,
+          role: "user",
+        }),
+      ).rejects.toThrow(new ValidationError(message));
+      expect(await findUserByUsername(db, POLICY_USERNAME)).toBeNull();
+    },
+  );
 
   it("rejects a too-short password and creates nothing", async () => {
     const db = await freshDb();
@@ -197,6 +248,19 @@ describe("resetPassword", () => {
     );
   });
 
+  it.each(REFUSED_PASSWORDS)(
+    "refuses a password $rule and keeps the old one",
+    async ({ password, message }) => {
+      const db = await freshDb();
+      const user = await seedAdmin(db, POLICY_USERNAME);
+
+      await expect(resetPassword(db, user.id, password)).rejects.toThrow(
+        new ValidationError(message),
+      );
+      expect(await passwordIs(db, user.id, "admin-secret-1")).toBe(true);
+    },
+  );
+
   it("revokes the user's open sessions", async () => {
     const db = await freshDb();
     const anna = await createAccount(db, {
@@ -272,6 +336,66 @@ describe("changePassword (self-service)", () => {
     expect(await verifyPassword("a-good-password", stored)).toBe(true);
     expect(await findUserBySessionToken(db, "anna-session")).not.toBeNull();
   });
+
+  it("refuses the 6th check of the current password, even the right one", async () => {
+    const db = await freshDb();
+    const { id } = await seedAdmin(db, "anna");
+    const limiter = new LoginRateLimiter();
+    const change = (current: string) =>
+      changePassword(db, limiter, "10.0.0.1", id, current, "brand-new-pass");
+
+    for (let i = 0; i < 5; i++) {
+      await expect(change("wrong-password")).rejects.toThrow(
+        new ValidationError(WRONG_CURRENT),
+      );
+    }
+
+    await expect(change("admin-secret-1")).rejects.toThrow(
+      new ValidationError(RATE_LIMITED_MESSAGE),
+    );
+    expect(await passwordIs(db, id, "admin-secret-1")).toBe(true);
+  });
+
+  it("does not count a successful change as a failure", async () => {
+    const db = await freshDb();
+    const { id } = await seedAdmin(db, "anna");
+    const limiter = new LoginRateLimiter();
+    const change = (current: string, next: string) =>
+      changePassword(db, limiter, "10.0.0.1", id, current, next);
+    for (let i = 0; i < 4; i++) {
+      await expect(change("wrong-password", "brand-new-pass")).rejects.toThrow(
+        new ValidationError(WRONG_CURRENT),
+      );
+    }
+
+    await change("admin-secret-1", "brand-new-pass");
+    await expect(change("wrong-password", "brand-new-pass")).rejects.toThrow(
+      new ValidationError(WRONG_CURRENT),
+    );
+    await change("brand-new-pass", "third-password");
+
+    expect(await passwordIs(db, id, "third-password")).toBe(true);
+  });
+
+  it.each(REFUSED_PASSWORDS)(
+    "refuses a new password $rule and keeps the old one",
+    async ({ password, message }) => {
+      const db = await freshDb();
+      const { id } = await seedAdmin(db, POLICY_USERNAME);
+
+      await expect(
+        changePassword(
+          db,
+          new LoginRateLimiter(),
+          "10.0.0.1",
+          id,
+          "admin-secret-1",
+          password,
+        ),
+      ).rejects.toThrow(new ValidationError(message));
+      expect(await passwordIs(db, id, "admin-secret-1")).toBe(true);
+    },
+  );
 });
 
 describe("deleteAccount (last-admin protection)", () => {
@@ -340,3 +464,8 @@ describe("refusing a Nutzer-ID that is not a UUID", () => {
     );
   });
 });
+
+async function passwordIs(db: Db, id: string, password: string) {
+  const user = await findUserById(db, id);
+  return user !== null && (await verifyPassword(password, user.passwordHash));
+}

@@ -32,6 +32,20 @@ describe("LogoutOtherSessions", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 
+  it("does not say so when ending the other sessions fails", async () => {
+    render(<LogoutOtherSessions action={async () => ({ error: "Kaputt." })} />);
+
+    const dialog = await askToLogOutEverywhere();
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Sitzungen beenden" }),
+    );
+
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+      "Kaputt.",
+    );
+    expect(screen.queryByText(DONE)).toBeNull();
+  });
+
   it("ends nothing when the question is cancelled", async () => {
     const action = vi.fn(async (): Promise<ActionResult> => ({}));
     render(<LogoutOtherSessions action={action} />);

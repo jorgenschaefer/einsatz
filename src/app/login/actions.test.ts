@@ -1,5 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { getCurrentUser } from "@/server/auth/current-user";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { hashPassword } from "@/server/auth/password";
 import { loginRateLimiter } from "@/server/auth/rate-limit-instance";
 import { findUserBySessionToken, insertSession } from "@/server/auth/sessions";
@@ -94,11 +93,6 @@ beforeEach(async () => {
   }));
 });
 
-afterEach(() => {
-  vi.useRealTimers();
-  vi.unstubAllEnvs();
-});
-
 expectEveryActionRequiresLogin(actions, { public: ["loginAction"], actAs });
 
 expectBadCallsRejected(
@@ -127,12 +121,6 @@ async function login(ip: string, username: string, password: string) {
   } catch (error) {
     if ((error as { redirectTo?: string }).redirectTo) return "redirected";
     throw error;
-  }
-}
-
-async function failTimes(ip: string, count: number, username = "anna") {
-  for (let i = 0; i < count; i++) {
-    expect(await login(ip, username, "wrong-password!")).toBe(INVALID);
   }
 }
 
@@ -176,47 +164,6 @@ describe("loginAction rate limit", () => {
     expect(countOf(results, INVALID)).toBe(20);
     expect(countOf(results, RATE_LIMITED)).toBe(10);
   });
-
-  it("refuses even the correct password after 5 failures", async () => {
-    await failTimes("198.51.100.3", 5);
-    expect(await login("198.51.100.3", "anna", PASSWORD)).toBe(RATE_LIMITED);
-  });
-
-  it("counts all addresses of an IPv6 /64 together", async () => {
-    const sameSlash64 = [
-      "2001:db8:1:2::a",
-      "2001:db8:1:2:ffff::b",
-      "2001:0db8:0001:0002:0000:0000:0000:000c",
-      "2001:DB8:1:2:1:2:3:4",
-      "2001:db8:1:2::",
-    ];
-    for (const ip of sameSlash64) {
-      expect(await login(ip, "anna", "wrong-password!")).toBe(INVALID);
-    }
-    expect(await login("2001:db8:1:2::f", "anna", "wrong-password!")).toBe(
-      RATE_LIMITED,
-    );
-    expect(await login("2001:db8:1:3::a", "anna", "wrong-password!")).toBe(
-      INVALID,
-    );
-  });
-
-  it("counts an IPv4-mapped address as its IPv4 address", async () => {
-    await failTimes("::ffff:203.0.113.7", 5);
-    expect(await login("203.0.113.7", "anna", "wrong-password!")).toBe(
-      RATE_LIMITED,
-    );
-  });
-
-  it("checks again once the 5-minute window has passed", async () => {
-    vi.useFakeTimers({ toFake: ["Date"] });
-    vi.setSystemTime(new Date("2026-10-03T10:00:00Z"));
-    await failTimes("198.51.100.4", 5);
-    vi.setSystemTime(new Date("2026-10-03T10:04:59Z"));
-    expect(await login("198.51.100.4", "anna", PASSWORD)).toBe(RATE_LIMITED);
-    vi.setSystemTime(new Date("2026-10-03T10:05:01Z"));
-    expect(await login("198.51.100.4", "anna", PASSWORD)).toBe("redirected");
-  });
 });
 
 describe("loginAction session", () => {
@@ -251,45 +198,6 @@ describe("loginAction session", () => {
     );
 
     expect(await findUserBySessionToken(db(), token)).not.toBeNull();
-  });
-
-  it("stores nothing from which a valid session can be taken", async () => {
-    expect(await login("198.51.100.12", "anna", PASSWORD)).toBe("redirected");
-    const token = sessionCookie();
-    expect(await getCurrentUser()).not.toBeNull();
-
-    const { rows } = await db().query<{ row: Record<string, unknown> }>(
-      "SELECT row_to_json(s) AS row FROM sessions s",
-    );
-    const stored = rows.flatMap(({ row }) => Object.values(row).map(String));
-    expect(stored.length).toBeGreaterThan(0);
-    expect(stored).not.toContain(token);
-    for (const value of stored) {
-      state.cookieJar.set("einsatz_session", { value });
-      expect(await getCurrentUser()).toBeNull();
-    }
-  });
-
-  it("names the cookie __Host-einsatz_session in production", async () => {
-    vi.stubEnv("NODE_ENV", "production");
-
-    expect(await login("198.51.100.13", "anna", PASSWORD)).toBe("redirected");
-
-    expect([...state.cookieJar.keys()]).toEqual(["__Host-einsatz_session"]);
-    const { options } = state.cookieJar.get("__Host-einsatz_session") ?? {};
-    expect(options).toMatchObject({ secure: true, path: "/" });
-    expect(options).not.toHaveProperty("domain");
-    expect(await getCurrentUser()).toMatchObject({ username: "anna" });
-  });
-
-  it("keeps the name einsatz_session, without Secure, outside production", async () => {
-    expect(await login("198.51.100.14", "anna", PASSWORD)).toBe("redirected");
-
-    expect([...state.cookieJar.keys()]).toEqual(["einsatz_session"]);
-    expect(state.cookieJar.get("einsatz_session")?.options).toMatchObject({
-      secure: false,
-      path: "/",
-    });
   });
 });
 

@@ -59,7 +59,7 @@ describe("sessions repository", () => {
     expect(found).not.toHaveProperty("passwordHash");
   });
 
-  it("stores only a hash of the token, which is not itself a token", async () => {
+  it("stores nothing from which a valid session can be taken", async () => {
     const db = await freshDb();
     const user = await seedUser(db);
     await insertSession(db, {
@@ -67,12 +67,16 @@ describe("sessions repository", () => {
       userId: user.id,
       expiresAt: inAnHour(),
     });
+    expect(await findUserBySessionToken(db, "tok")).not.toBeNull();
 
-    const { rows } = await db.query<{ token_hash: string }>(
-      "SELECT token_hash FROM sessions",
+    const { rows } = await db.query<{ row: Record<string, unknown> }>(
+      "SELECT row_to_json(s) AS row FROM sessions s",
     );
-    expect(rows[0].token_hash).toMatch(/^[0-9a-f]{64}$/);
-    expect(await findUserBySessionToken(db, rows[0].token_hash)).toBeNull();
+    const stored = rows.flatMap(({ row }) => Object.values(row).map(String));
+    expect(rows[0].row.token_hash).toMatch(/^[0-9a-f]{64}$/);
+    for (const value of stored) {
+      expect(await findUserBySessionToken(db, value)).toBeNull();
+    }
   });
 
   it("returns null for an expired token", async () => {

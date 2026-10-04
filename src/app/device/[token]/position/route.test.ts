@@ -14,7 +14,6 @@ import {
   generateDeviceLink,
   listMapSymbols,
 } from "@/server/mapsymbols/map-symbols";
-import { closeOperation } from "@/server/operations/operation-lifecycle";
 import { insertOperation } from "@/server/operations/operations";
 import { freshDb } from "@/test/db";
 import { expectRouteRequiresToken } from "@/test/route-checks";
@@ -232,30 +231,6 @@ describe("device position route", () => {
       expect(symbol).toMatchObject({ lat: 52, lng: 6 });
       expect(symbol.reportedAt?.toISOString()).toBe(later(5_000).toISOString());
       expect(publishOperationChanged).toHaveBeenCalledTimes(2);
-    });
-
-    it("still denies a closed Einsatz within 5 s of a stored report", async () => {
-      const { db, op, token } = await aDeviceLink();
-      await postAt(first, token, { lat: 50, lng: 8 });
-      await closeOperation(db, op.id);
-
-      const res = await postAt(later(1_000), token, { lat: 51, lng: 7 });
-
-      expect(res.status).toBe(403);
-      expect(publishOperationChanged).toHaveBeenCalledTimes(1);
-    });
-
-    it("still denies an unknown token within 5 s of a stored report", async () => {
-      const { token } = await aDeviceLink();
-      await postAt(first, token, { lat: 50, lng: 8 });
-
-      const res = await postAt(later(1_000), "never-issued", {
-        lat: 51,
-        lng: 7,
-      });
-
-      expect(res.status).toBe(403);
-      expect(publishOperationChanged).toHaveBeenCalledTimes(1);
     });
   });
 });

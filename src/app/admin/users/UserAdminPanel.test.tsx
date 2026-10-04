@@ -2,9 +2,7 @@ import { MantineProvider } from "@mantine/core";
 import { render as rtlRender } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import type { ActionResult } from "@/app/action-result";
 import { buttonColor } from "@/test/button-color";
-import { clickModalOverlay } from "@/test/modal-overlay";
 import {
   fireEvent,
   notificationArea,
@@ -118,28 +116,6 @@ describe("UserAdminPanel", () => {
       expect(screen.queryByRole("alert")).toBeNull();
     });
 
-    it.each([
-      [
-        "with Abbrechen",
-        (dialog: HTMLElement) =>
-          userEvent.click(
-            within(dialog).getByRole("button", { name: "Abbrechen" }),
-          ),
-      ],
-      ["on Escape", () => userEvent.keyboard("{Escape}")],
-      ["on a click beside the confirmation", () => clickModalOverlay()],
-    ])("does not delete when cancelled %s", async (_, cancel) => {
-      const onDelete = vi.fn(async () => ({}));
-      setup({ onDelete });
-      const dialog = await askToDelete("anna");
-
-      await cancel(dialog);
-
-      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-      expect(onDelete).not.toHaveBeenCalled();
-      expect(rowOf("anna")).toBeInTheDocument();
-    });
-
     it("keeps the account name while the cancelled confirmation fades out", async () => {
       // Without env="test", so the modal keeps its exit transition.
       rtlRender(
@@ -180,75 +156,21 @@ describe("UserAdminPanel", () => {
       expect(screen.queryByRole("alert")).toBeNull();
     });
 
-    it("stays locked while deleting", async () => {
-      const onDelete = vi.fn(() => new Promise<ActionResult>(() => {}));
-      setup({ onDelete });
-      const dialog = await askToDelete("anna");
+    it("shows a returned error in the open confirmation, not above the account list", async () => {
+      const message =
+        "Der letzte verbleibende Admin kann nicht gelöscht werden.";
+      setup({ onDelete: async () => ({ error: message }) });
+      const dialog = await askToDelete("chef");
 
       await userEvent.click(confirmButton(dialog));
-      await userEvent.keyboard("{Escape}");
-      await clickModalOverlay();
-      await userEvent.click(confirmButton(dialog), { pointerEventsCheck: 0 });
 
-      expect(confirmButton(dialog)).toHaveAttribute("data-loading", "true");
-      expect(
-        within(dialog).getByRole("button", { name: "Abbrechen" }),
-      ).toBeDisabled();
+      expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+        message,
+      );
+      expect(screen.getAllByRole("alert")).toHaveLength(1);
       expect(screen.getByRole("dialog")).toBe(dialog);
-      expect(onDelete).toHaveBeenCalledTimes(1);
+      expect(rowOf("chef")).toBeInTheDocument();
     });
-
-    it("deletes on a second confirmation after a failure", async () => {
-      const onDelete = vi
-        .fn<(id: string) => Promise<ActionResult>>()
-        .mockResolvedValueOnce({ error: "Konto nicht gefunden." })
-        .mockResolvedValueOnce({});
-      setup({ onDelete });
-      const dialog = await askToDelete("anna");
-
-      await userEvent.click(confirmButton(dialog));
-      await within(dialog).findByRole("alert");
-      await userEvent.click(confirmButton(dialog));
-
-      expect(onDelete).toHaveBeenCalledTimes(2);
-      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    });
-
-    it.each([
-      [
-        "a returned error",
-        async () => ({
-          error: "Der letzte verbleibende Admin kann nicht gelöscht werden.",
-        }),
-        "Der letzte verbleibende Admin kann nicht gelöscht werden.",
-      ],
-      [
-        "a thrown failure",
-        async (): Promise<ActionResult> => {
-          throw new Error("offline");
-        },
-        "Das hat nicht geklappt. Bitte erneut versuchen.",
-      ],
-    ])(
-      "shows %s in the open confirmation, not above the account list",
-      async (_, onDelete, message) => {
-        setup({ onDelete });
-        const dialog = await askToDelete("chef");
-
-        await userEvent.click(confirmButton(dialog));
-
-        expect(await within(dialog).findByRole("alert")).toHaveTextContent(
-          message,
-        );
-        expect(screen.getAllByRole("alert")).toHaveLength(1);
-        expect(screen.getByRole("dialog")).toBe(dialog);
-        expect(rowOf("chef")).toBeInTheDocument();
-        expect(confirmButton(dialog)).toBeEnabled();
-        expect(
-          within(dialog).getByRole("button", { name: "Abbrechen" }),
-        ).toBeEnabled();
-      },
-    );
   });
 
   it("disables the create button while creation is in flight", async () => {
