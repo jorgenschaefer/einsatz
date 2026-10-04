@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:
 advances:  AC-3, AC-10, AC-11, AC-12
 after:     23-pruefungen
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -155,3 +155,23 @@ Toward AC-12: `ReadOnlySituationMap.tsx`, `ViewLinkView.tsx` and
 - No change of behaviour.
 
 ## Left standing
+- **Departure from a nudge (Context).** DeviceView's "renders the
+  operation symbols read-only, without editing controls" is dropped
+  whole; its "without editing controls" part is not kept in
+  `DeviceView.test.tsx`. Its `/bearbeiten/` query could never fail: only
+  workspace components (`PanelRow`, `MapModeBands`) render such buttons,
+  and nothing under `DeviceView` does. The review rated keeping it
+  should-fix (it checks only other files' behaviour). What read-only
+  means on this map - markers not draggable - is now pinned in
+  `ReadOnlySituationMap.test.tsx` "renders the operation symbols
+  read-only", which gained a `draggable: false` assertion; removing
+  `readOnly` from `ReadOnlySituationMap` by hand made it fail.
+- **Coverage comparison.** It names no file with a drop and exits 0. It
+  still prints the informational "new, compared with nothing" notes for
+  the twelve helper and fixture files earlier tickets added; none was
+  touched here.
+- **Flaky test, not fixed.** One `npm run test:coverage` run failed
+  `src/map/useMapSearch.test.ts` "geocodes the address query after a
+  debounce and exposes the hits" (geocoder called before the 300 ms
+  debounce under load). The file is untouched here; `npm run check`, the
+  rerun of the coverage run and three isolated runs passed.

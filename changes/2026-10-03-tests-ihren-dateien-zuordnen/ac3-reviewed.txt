@@ -66,3 +66,4 @@ src/test/render.test.tsx
 next.config.test.ts
 src/strength/strength.test.ts
 src/strength/strength-total.test.ts
+src/map/ReadOnlySituationMap.test.tsx

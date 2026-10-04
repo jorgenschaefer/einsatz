@@ -2,8 +2,7 @@ import { fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useEffect } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { act, render, routerRefresh, screen, waitFor } from "@/test/render";
-import type { MarkerSpec } from "./adapter";
+import { render, screen, waitFor } from "@/test/render";
 import { fakeMapAdapterFactory } from "./adapter.fixtures";
 import { DeviceView, type DeviceViewProps } from "./DeviceView";
 import { aStatefulSymbol } from "./symbol.fixtures";
@@ -30,19 +29,6 @@ function renderDevice(over: Partial<DeviceViewProps> = {}) {
 }
 
 describe("DeviceView", () => {
-  it("renders the operation symbols read-only, without editing controls", async () => {
-    const { adapter } = renderDevice({
-      symbols: [aStatefulSymbol()],
-    });
-    await waitFor(() =>
-      expect(adapter.setMarker).toHaveBeenCalledWith(
-        "s1",
-        expect.objectContaining({ lat: 53.5, lng: 9.9 }),
-      ),
-    );
-    expect(screen.queryByRole("button", { name: /bearbeiten/ })).toBeNull();
-  });
-
   it("shows the location status indicator", () => {
     renderDevice();
     // ohne Geolocation (jsdom) startet der Status pausiert
@@ -89,113 +75,6 @@ describe("DeviceView", () => {
     };
     renderDevice({ locationHook: lostHook, eventsHook });
     expect(closed).toHaveBeenCalled();
-  });
-
-  it("grays a device symbol that goes stale while the device view stays open", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    try {
-      const justNow = new Date(Date.now() - 10 * 1000); // frisch gemeldet
-      const { adapter } = renderDevice({
-        eventsHook: () => ({ connected: true }),
-        symbols: [
-          aStatefulSymbol({ positionSource: "device", reportedAt: justNow }),
-        ],
-      });
-      await vi.waitFor(() =>
-        expect(adapter.setMarker).toHaveBeenCalledWith("s1", expect.anything()),
-      );
-      const fresh = adapter.setMarker.mock.calls
-        .filter((c) => c[0] === "s1")
-        .at(-1)![1] as MarkerSpec;
-      expect(fresh.opacity ?? 1).toBe(1);
-
-      await act(async () => {
-        await vi.advanceTimersByTimeAsync(4 * 60 * 1000); // > 3 min ohne Meldung
-      });
-      const stale = adapter.setMarker.mock.calls
-        .filter((c) => c[0] === "s1")
-        .at(-1)![1] as MarkerSpec;
-      expect(stale.opacity).toBeLessThan(1);
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it("searches placed objects and jumps to a chosen Kartenzeichen", async () => {
-    const { adapter } = renderDevice({
-      symbols: [
-        aStatefulSymbol({
-          composition: {
-            grundzeichen: "ortsfeste-stelle",
-            organisation: "hilfsorganisation",
-            text: "Rotkreuz 83/1",
-          },
-        }),
-      ],
-    });
-    fireEvent.change(screen.getByLabelText("Suche"), {
-      target: { value: "rotkreuz" },
-    });
-    await userEvent.click(
-      await screen.findByRole("button", { name: /Rotkreuz 83\/1/ }),
-    );
-    expect(adapter.setView).toHaveBeenCalledWith({
-      lat: 53.5,
-      lng: 9.9,
-      zoom: 16,
-    });
-  });
-
-  it("marks a chosen address on the map", async () => {
-    const { drawn } = renderDevice({
-      onGeocode: vi.fn(async () => [
-        { label: "Rathaus, Hamburg", lat: 53.55, lng: 9.99 },
-      ]),
-    });
-    fireEvent.change(screen.getByLabelText("Suche"), {
-      target: { value: "hamburg" },
-    });
-    await userEvent.click(
-      await screen.findByRole("button", { name: /Rathaus, Hamburg/ }),
-    );
-    expect(drawn.searchHit).toEqual({ lat: 53.55, lng: 9.99 });
-  });
-
-  it("searches addresses through the injected geocoder and jumps to a hit", async () => {
-    const onGeocode = vi.fn(async () => [
-      { label: "Rathaus, Hamburg", lat: 53.55, lng: 9.99 },
-    ]);
-    const { adapter } = renderDevice({ onGeocode });
-    fireEvent.change(screen.getByLabelText("Suche"), {
-      target: { value: "hamburg" },
-    });
-    await userEvent.click(
-      await screen.findByRole("button", { name: /Rathaus, Hamburg/ }),
-    );
-    expect(onGeocode).toHaveBeenCalledWith("hamburg");
-    expect(adapter.setView).toHaveBeenCalledWith({
-      lat: 53.55,
-      lng: 9.99,
-      zoom: 16,
-    });
-  });
-
-  it("shows a connection-lost hint when the live stream is disconnected", () => {
-    renderDevice({ eventsHook: () => ({ connected: false }) });
-    expect(screen.getByText(/Verbindung getrennt/i)).toBeInTheDocument();
-  });
-
-  it("reloads the full state when a live event arrives", () => {
-    routerRefresh.mockClear();
-    let fire: () => void = () => {};
-    renderDevice({
-      eventsHook: (_url, onChanged) => {
-        fire = onChanged;
-        return { connected: true };
-      },
-    });
-    fire();
-    expect(routerRefresh).toHaveBeenCalled();
   });
 
   it("listens to the live stream of its token route", () => {
@@ -247,30 +126,6 @@ describe("DeviceView", () => {
       zoom: 16,
     });
   });
-
-  it.each([
-    { current: 10, expected: 16 },
-    { current: 18, expected: 18 },
-  ])(
-    "centers on the own position at zoom $expected from zoom $current",
-    async ({ current, expected }) => {
-      const { adapter } = renderDevice({
-        locationHook: () => ({
-          status: "active",
-          position: { lat: 52.1, lng: 8.7 },
-        }),
-      });
-      adapter.getView = () => ({ lat: 0, lng: 0, zoom: current });
-      await userEvent.click(
-        screen.getByRole("button", { name: /meinen Standort/i }),
-      );
-      expect(adapter.setView).toHaveBeenCalledWith({
-        lat: 52.1,
-        lng: 8.7,
-        zoom: expected,
-      });
-    },
-  );
 
   it("disables the locate button while no own position is known", () => {
     renderDevice({
@@ -324,12 +179,5 @@ describe("DeviceView", () => {
         zoom: 12,
       }),
     );
-  });
-
-  it("disables the return-to-default button when no default view is set", () => {
-    renderDevice({ operationDefaultView: null });
-    expect(
-      screen.getByRole("button", { name: "Zum Standard-Ausschnitt zurück" }),
-    ).toBeDisabled();
   });
 });

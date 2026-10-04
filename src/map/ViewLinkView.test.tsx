@@ -1,14 +1,6 @@
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import {
-  act,
-  fireEvent,
-  render,
-  routerRefresh,
-  screen,
-  waitFor,
-} from "@/test/render";
-import type { MarkerSpec } from "./adapter";
+import { act, fireEvent, render, screen, waitFor } from "@/test/render";
 import { fakeMapAdapterFactory } from "./adapter.fixtures";
 import { aStatefulSymbol } from "./symbol.fixtures";
 import { ViewLinkView, type ViewLinkViewProps } from "./ViewLinkView";
@@ -43,16 +35,6 @@ const aSymbol = aStatefulSymbol({
 });
 
 describe("ViewLinkView", () => {
-  it("renders the operation symbols read-only", async () => {
-    const { adapter } = renderView({ symbols: [aSymbol] });
-    await waitFor(() =>
-      expect(adapter.setMarker).toHaveBeenCalledWith(
-        "s1",
-        expect.objectContaining({ lat: 53.5, lng: 9.9 }),
-      ),
-    );
-  });
-
   it("omits location, wipe-lock and locate controls (no device)", () => {
     renderView();
     expect(screen.queryByText(/Standort/i)).toBeNull();
@@ -81,113 +63,6 @@ describe("ViewLinkView", () => {
       }),
     );
     open.mockRestore();
-  });
-
-  it.each([
-    { current: 10, expected: 16 },
-    { current: 18, expected: 18 },
-  ])(
-    "centers on a tapped symbol at zoom $expected from zoom $current",
-    async ({ current, expected }) => {
-      const { adapter } = renderView({ symbols: [aSymbol] });
-      adapter.getView = () => ({ lat: 0, lng: 0, zoom: current });
-      await waitFor(() =>
-        expect(adapter.setMarker).toHaveBeenCalledWith("s1", expect.anything()),
-      );
-      const spec = adapter.setMarker.mock.calls
-        .filter((c) => c[0] === "s1")
-        .at(-1)![1] as { onClick?: () => void };
-      await act(async () => spec.onClick!());
-      await waitFor(() =>
-        expect(adapter.setView).toHaveBeenCalledWith({
-          lat: 53.5,
-          lng: 9.9,
-          zoom: expected,
-        }),
-      );
-    },
-  );
-
-  it("marks a chosen address on the map", async () => {
-    const { drawn } = renderView({
-      onGeocode: vi.fn(async () => [
-        { label: "Rathaus, Hamburg", lat: 53.55, lng: 9.99 },
-      ]),
-    });
-    fireEvent.change(screen.getByLabelText("Suche"), {
-      target: { value: "hamburg" },
-    });
-    await userEvent.click(
-      await screen.findByRole("button", { name: /Rathaus, Hamburg/ }),
-    );
-    expect(drawn.searchHit).toEqual({ lat: 53.55, lng: 9.99 });
-  });
-
-  it("searches placed objects and jumps to a chosen Kartenzeichen", async () => {
-    const { adapter } = renderView({ symbols: [aSymbol] });
-    fireEvent.change(screen.getByLabelText("Suche"), {
-      target: { value: "rotkreuz" },
-    });
-    await userEvent.click(
-      await screen.findByRole("button", { name: /Rotkreuz 83\/1/ }),
-    );
-    expect(adapter.setView).toHaveBeenCalledWith({
-      lat: 53.5,
-      lng: 9.9,
-      zoom: 16,
-    });
-  });
-
-  it("grays a device symbol that goes stale while the view stays open", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    try {
-      const justNow = new Date(Date.now() - 10 * 1000); // frisch gemeldet
-      const { adapter } = renderView({
-        eventsHook: () => ({ connected: true }),
-        symbols: [
-          {
-            ...aSymbol,
-            positionSource: "device",
-            reportedAt: justNow,
-          },
-        ],
-      });
-      await vi.waitFor(() =>
-        expect(adapter.setMarker).toHaveBeenCalledWith("s1", expect.anything()),
-      );
-      const fresh = adapter.setMarker.mock.calls
-        .filter((c) => c[0] === "s1")
-        .at(-1)![1] as MarkerSpec;
-      expect(fresh.opacity ?? 1).toBe(1);
-
-      await act(async () => {
-        await vi.advanceTimersByTimeAsync(4 * 60 * 1000); // > 3 min ohne Meldung
-      });
-      const stale = adapter.setMarker.mock.calls
-        .filter((c) => c[0] === "s1")
-        .at(-1)![1] as MarkerSpec;
-      expect(stale.opacity).toBeLessThan(1);
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it("shows a connection-lost hint when the live stream is disconnected", () => {
-    renderView({ eventsHook: () => ({ connected: false }) });
-    expect(screen.getByText(/Verbindung getrennt/i)).toBeInTheDocument();
-  });
-
-  it("reloads the full state when a live event arrives", () => {
-    routerRefresh.mockClear();
-    let fire: () => void = () => {};
-    renderView({
-      eventsHook: (_url, onChanged) => {
-        fire = onChanged;
-        return { connected: true };
-      },
-    });
-    fire();
-    expect(routerRefresh).toHaveBeenCalled();
   });
 
   it("listens to the live stream of its token route", () => {
@@ -237,12 +112,5 @@ describe("ViewLinkView", () => {
         zoom: 12,
       }),
     );
-  });
-
-  it("disables the return-to-default button when no default view is set", () => {
-    renderView({ operationDefaultView: null });
-    expect(
-      screen.getByRole("button", { name: "Zum Standard-Ausschnitt zurück" }),
-    ).toBeDisabled();
   });
 });
