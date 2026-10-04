@@ -59,18 +59,18 @@ Toward AC-12: `ReadOnlySituationMap.tsx`, `ViewLinkView.tsx` and
   `focus` from `useMapFocus` in a small harness component (or a fake with
   `vi.fn` for `jumpTo` and `returnToDefaultView`), and `onSelect` a
   `vi.fn`.
-- What it holds (the moved tests, plus what no test pins yet):
-  - the symbols drawn, and a device symbol going stale
-    (`useStalenessClock`, `toPlacedSymbols`);
-  - the events URL `${basePath}/${token}/events`, `router.refresh` on an
-    event, the "Verbindung getrennt" badge;
-  - search of placed objects (a hit calls `focus.jumpTo`) and addresses
-    (the injected `onGeocode`; without it `tokenGeocode(basePath, …)`),
-    and the address marker;
-  - a tap on a symbol calls `onSelect` with the placed symbol;
-  - the home button calls `focus.returnToDefaultView` and is disabled
-    without a default view;
-  - `children` are rendered.
+- What it holds: the moved tests below - the symbols drawn and a device
+  symbol going stale (`useStalenessClock`, `toPlacedSymbols`),
+  `router.refresh` on a live event, the "Verbindung getrennt" badge,
+  search of placed objects, an address searched through the injected
+  `onGeocode` and marked, the home button disabled without a default
+  view - and one new test, that `children` are rendered (no test pins
+  it). The events URL built from `basePath`, the `tokenGeocode`
+  fallback without `onGeocode`, and a tap reaching `onSelect` are pinned
+  by parent tests that stay ("listens to the live stream of its token
+  route", "searches addresses through its token route", the tap tests).
+  Each parent chooses the base path and the tap handler, so these tests
+  are its own. Write no second test for them here.
 - What moves, from `src/map/ViewLinkView.test.tsx` → `ReadOnlySituationMap.test.tsx`:
   - ViewLinkView › renders the operation symbols read-only
   - ViewLinkView › marks a chosen address on the map
@@ -79,6 +79,13 @@ Toward AC-12: `ReadOnlySituationMap.tsx`, `ViewLinkView.tsx` and
   - ViewLinkView › shows a connection-lost hint when the live stream is disconnected
   - ViewLinkView › reloads the full state when a live event arrives
   - ViewLinkView › disables the return-to-default button when no default view is set
+- What moves, from `src/map/DeviceView.test.tsx` → `ReadOnlySituationMap.test.tsx`:
+  - DeviceView › searches addresses through the injected geocoder and
+    jumps to a hit. It is the only test that checks the injected
+    `onGeocode` is called with the query (`ReadOnlySituationMap`'s
+    choice between `onGeocode` and `tokenGeocode`) and that the map jumps
+    to the address. "marks a chosen address on the map" checks only the
+    marker.
 - What goes as duplicates (break the behaviour by hand, see the test that
   fails, restore):
   - ViewLinkView › centers on a tapped symbol at zoom $expected from zoom
@@ -90,8 +97,7 @@ Toward AC-12: `ReadOnlySituationMap.tsx`, `ViewLinkView.tsx` and
     "renders the operation symbols read-only, without editing controls",
     "grays a device symbol that goes stale while the device view stays
     open", "searches placed objects and jumps to a chosen Kartenzeichen",
-    "marks a chosen address on the map", "searches addresses through the
-    injected geocoder and jumps to a hit", "shows a connection-lost hint
+    "marks a chosen address on the map", "shows a connection-lost hint
     when the live stream is disconnected", "reloads the full state when a
     live event arrives", "disables the return-to-default button when no
     default view is set", and "centers on the own position at zoom
@@ -135,8 +141,8 @@ Toward AC-12: `ReadOnlySituationMap.tsx`, `ViewLinkView.tsx` and
 
 ## Plan
 1. `src/map/ReadOnlySituationMap.test.tsx` (new) with the moved tests and
-   the cases no test pins yet; delete the moved tests from
-   `ViewLinkView.test.tsx`. Proof: green; remove the `!connected` badge and
+   the `children` test; delete the moved tests from
+   `ViewLinkView.test.tsx` and `DeviceView.test.tsx`. Proof: green; remove the `!connected` badge and
    the `router.refresh()` call by hand and see the new tests fail; restore.
 2. Drop the zoom rows and the `DeviceView` duplicates, each with the
    by-hand check. Proof: green.
