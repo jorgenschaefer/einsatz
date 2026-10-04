@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ActionResult } from "@/app/action-result";
-import { act, screen, waitFor, within } from "@/test/render";
+import { act, screen, waitFor } from "@/test/render";
 import type { SymbolComposition } from "./composition";
-import { renderMapHook } from "./map-hooks.fixtures";
+import { karteNotification, renderMapHook } from "./map-hooks.fixtures";
 import { QUICK_SELECT } from "./quick-select";
 import { useSymbolPlacement } from "./useSymbolPlacement";
 
@@ -48,12 +48,6 @@ const placeArmed = (hook: SymbolPlacement, lat = 50, lng = 8) =>
     if (composition)
       await hook.placement().placeSymbolAt(composition, lat, lng);
   });
-
-const karteNotification = async (text: string) => {
-  const notification = await screen.findByRole("alert");
-  expect(within(notification).getByText("Karte")).toBeInTheDocument();
-  expect(notification).toHaveTextContent(text);
-};
 
 describe("useSymbolPlacement", () => {
   describe("from the Schnellauswahl", () => {

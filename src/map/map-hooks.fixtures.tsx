@@ -1,16 +1,16 @@
-import { vi } from "vitest";
+import { expect, vi } from "vitest";
 import {
   type RunNotifyingAction,
   useNotifyingActionRunner,
 } from "@/app/useNotifyingActionRunner";
-import { Providers, renderHook } from "@/test/render";
+import { Providers, renderHook, screen, within } from "@/test/render";
 import { SITUATION_MAP } from "./notification-sources";
 import type { SituationMapHandle } from "./SituationMap";
 import { type MapModeControls, useMapMode } from "./useMapMode";
 import type { MapView } from "./view";
 
 /** What `SituationMapView` hands each of its map hooks. */
-export interface MapHookContext {
+interface MapHookContext {
   mode: MapModeControls;
   runMapAction: RunNotifyingAction;
   closeSheetOnPhone: () => void;
@@ -51,3 +51,10 @@ export function aMapRef(view: MapView | null) {
   };
   return { current: map };
 }
+
+/** Expects the Karte notification, showing `text`. */
+export const karteNotification = async (text: string) => {
+  const notification = await screen.findByRole("alert");
+  expect(within(notification).getByText("Karte")).toBeInTheDocument();
+  expect(notification).toHaveTextContent(text);
+};

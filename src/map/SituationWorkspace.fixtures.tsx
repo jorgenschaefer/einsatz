@@ -4,6 +4,7 @@ import { entry } from "@/journal/JournalPanel.fixtures";
 import { report } from "@/strength/StrengthPanel.fixtures";
 import { render, screen, within } from "@/test/render";
 import { fakeMapAdapterFactory } from "./adapter.fixtures";
+import { succeed } from "./SituationMapView.fixtures";
 import {
   SituationWorkspace,
   type SituationWorkspaceProps,
@@ -223,6 +224,3 @@ const confirm = async (button: string, dialog?: string) =>
       { name: button },
     ),
   );
-
-/** A server action that succeeds. */
-const succeed = async () => ({});

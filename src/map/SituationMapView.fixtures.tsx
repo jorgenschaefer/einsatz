@@ -8,7 +8,6 @@ import type { ImagePlacement } from "./image-overlay";
 import { AREA, anImageOverlay } from "./map-objects.fixtures";
 import type { SituationMapHandle } from "./SituationMap";
 import { SituationMapView } from "./SituationMapView";
-import { aSymbol } from "./symbol.fixtures";
 
 export type MapViewProps = ComponentProps<typeof SituationMapView>;
 
@@ -79,7 +78,7 @@ export function renderMapView(over: Partial<MapViewProps> = {}) {
 export type RenderedMapView = ReturnType<typeof renderMapView>;
 
 /** A server action that succeeds. */
-const succeed = async () => ({});
+export const succeed = async () => ({});
 
 /** Taps the map at 50° N, 8° E once it has loaded. */
 export async function tapMap({ captured }: RenderedMapView) {
@@ -135,23 +134,6 @@ export const noModeBand = () =>
   expect(screen.queryByRole("toolbar")).toBeNull();
 
 export const INVALID = "Ungültige Zeichen-Komposition.";
-
-export const PUMPE = aSymbol({
-  lat: 53.4,
-  lng: 9.8,
-  composition: {
-    grundzeichen: "taktische-formation",
-    organisation: "hilfsorganisation",
-    text: "Pumpe 1",
-  },
-});
-export const KML = {
-  id: "k1",
-  name: "Zonen",
-  sourceType: "url" as const,
-  visible: true,
-  content: "<kml/>",
-};
 
 export const button = (name: string | RegExp, container = document.body) =>
   within(container).getByRole("button", { name });

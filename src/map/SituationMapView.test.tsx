@@ -1,7 +1,12 @@
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { act, fireEvent, screen, waitFor } from "@/test/render";
-import { AREA, anImageOverlay } from "./map-objects.fixtures";
+import {
+  AREA,
+  aKmlUrlOverlay,
+  anImageOverlay,
+  SYMBOL,
+} from "./map-objects.fixtures";
 import { MAP_LOADING } from "./SituationMapView";
 import {
   armKtw,
@@ -15,14 +20,12 @@ import {
   hideAndShowMap,
   INVALID,
   jumpsTo,
-  KML,
   type MapViewProps,
   modeBand,
   moveImageOnMap,
   noModeBand,
   openAreaEditor,
   openSymbolDetail,
-  PUMPE,
   type RenderedMapView,
   renderMapView,
   startDrawing,
@@ -35,7 +38,7 @@ import {
 import { aSymbol } from "./symbol.fixtures";
 
 describe("SituationMapView", () => {
-  const { text: _, ...COPIED } = PUMPE.composition;
+  const { text: _, ...COPIED } = SYMBOL.composition;
   it.each([
     [
       "an Erweitert composition",
@@ -49,7 +52,7 @@ describe("SituationMapView", () => {
   ])(
     "shows the band while placing %s, and places it once",
     async (_, arm, composition) => {
-      const view = renderMapView({ symbols: [PUMPE], shownPanel: "symbols" });
+      const view = renderMapView({ symbols: [SYMBOL], shownPanel: "symbols" });
       await arm();
       expect(modeBand("Kartenzeichen platzieren")).toBeInTheDocument();
 
@@ -180,7 +183,7 @@ describe("SituationMapView", () => {
     }
 
     it("geocodes an address, marks the chosen one and jumps there, and an Einsatzobjekt chosen next removes the mark", async () => {
-      const view = await chooseRathaus({ symbols: [PUMPE] });
+      const view = await chooseRathaus({ symbols: [SYMBOL] });
       expect(view.props.onGeocode).toHaveBeenCalledWith("Hamburg");
       await jumpsTo(view, { ...MARKED, zoom: 16 });
 
@@ -252,7 +255,7 @@ describe("SituationMapView", () => {
       "jumps from a row in %s, closing the sheet on a phone, without opening a detail",
       async (_, panel, row, position) => {
         const view = renderMapView({
-          symbols: [PUMPE],
+          symbols: [SYMBOL],
           areas: [AREA],
           shownPanel: panel,
         });
@@ -306,7 +309,7 @@ describe("SituationMapView", () => {
   >([
     [
       "deletes a Kartenzeichen from its detail, opened from its row, once confirmed",
-      { symbols: [PUMPE], shownPanel: "symbols" },
+      { symbols: [SYMBOL], shownPanel: "symbols" },
       async () => {
         await click("Pumpe 1 bearbeiten");
         await screen.findByDisplayValue("Pumpe 1");
@@ -314,28 +317,28 @@ describe("SituationMapView", () => {
         await confirm("Endgültig löschen");
       },
       "onDelete",
-      [PUMPE.id],
+      [SYMBOL.id],
     ],
     [
       "generates a device link from the Kartenzeichen detail",
-      { symbols: [PUMPE] },
+      { symbols: [SYMBOL] },
       async (view) => {
-        await openSymbolDetail(view, PUMPE.id);
+        await openSymbolDetail(view, SYMBOL.id);
         await click(/Gerätelink erzeugen/);
       },
       "onGenerateDeviceLink",
-      [PUMPE.id],
+      [SYMBOL.id],
     ],
     [
       "removes a device link from the Kartenzeichen detail once confirmed",
-      { symbols: [{ ...PUMPE, deviceLinkToken: "token-1" }] },
+      { symbols: [{ ...SYMBOL, deviceLinkToken: "token-1" }] },
       async (view) => {
-        await openSymbolDetail(view, PUMPE.id);
+        await openSymbolDetail(view, SYMBOL.id);
         await click("Gerätelink entfernen");
         await confirm("Entfernen");
       },
       "onRemoveDeviceLink",
-      [PUMPE.id],
+      [SYMBOL.id],
     ],
     [
       "deletes a Bereich from its editor once confirmed",
@@ -351,10 +354,11 @@ describe("SituationMapView", () => {
     ],
     [
       "shows or hides a KML-Overlay",
-      { kmlOverlays: [KML], shownPanel: "layers" },
-      () => userEvent.click(screen.getByRole("switch", { name: /Zonen/ })),
+      { kmlOverlays: [aKmlUrlOverlay], shownPanel: "layers" },
+      () =>
+        userEvent.click(screen.getByRole("switch", { name: /Laufstrecke/ })),
       "onSetKmlVisibility",
-      [KML.id, false],
+      [aKmlUrlOverlay.id, false],
     ],
     [
       "shows or hides a Bild-Overlay",
@@ -365,20 +369,20 @@ describe("SituationMapView", () => {
     ],
     [
       "reloads a KML-URL",
-      { kmlOverlays: [KML], shownPanel: "layers" },
+      { kmlOverlays: [aKmlUrlOverlay], shownPanel: "layers" },
       () => click("Neu laden"),
       "onReloadKml",
-      [KML.id],
+      [aKmlUrlOverlay.id],
     ],
     [
       "removes a KML-Overlay once confirmed",
-      { kmlOverlays: [KML], shownPanel: "layers" },
+      { kmlOverlays: [aKmlUrlOverlay], shownPanel: "layers" },
       async () => {
         await click("Entfernen");
         await confirm("Entfernen");
       },
       "onRemoveKml",
-      [KML.id],
+      [aKmlUrlOverlay.id],
     ],
     [
       "adds a Bild-Overlay where the map shows",
@@ -433,7 +437,7 @@ describe("SituationMapView", () => {
 
   it("shows the KML and Bild-Overlays on the map", async () => {
     const view = renderMapView({
-      kmlOverlays: [KML],
+      kmlOverlays: [aKmlUrlOverlay],
       imageOverlays: [anImageOverlay],
     });
     await waitFor(() =>

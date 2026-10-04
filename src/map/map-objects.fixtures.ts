@@ -1,6 +1,9 @@
 import { aSymbol } from "./symbol.fixtures";
 
+/** Away from {@link AREA}, so a jump to the one is not a jump to the other. */
 export const SYMBOL = aSymbol({
+  lat: 53.4,
+  lng: 9.8,
   composition: {
     grundzeichen: "taktische-formation",
     organisation: "hilfsorganisation",

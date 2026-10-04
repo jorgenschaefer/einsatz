@@ -1,9 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ActionResult } from "@/app/action-result";
 import { redirectError } from "@/test/redirect-error";
-import { act, screen, waitFor, within } from "@/test/render";
+import { act, screen, waitFor } from "@/test/render";
 import type { AreaGeometry } from "./area";
-import { aMapRef, renderMapHook } from "./map-hooks.fixtures";
+import {
+  aMapRef,
+  karteNotification,
+  renderMapHook,
+} from "./map-hooks.fixtures";
 import { AREA } from "./map-objects.fixtures";
 import type { RenderedArea } from "./SituationMap";
 import { useAreaFlows } from "./useAreaFlows";
@@ -82,12 +86,6 @@ const startMoving = (hook: AreaFlows) =>
 
 const setCircleHere = (hook: AreaFlows) =>
   act(() => hook.flows().setCircleHere());
-
-const karteNotification = async (text: string) => {
-  const notification = await screen.findByRole("alert");
-  expect(within(notification).getByText("Karte")).toBeInTheDocument();
-  expect(notification).toHaveTextContent(text);
-};
 
 const pending = () => {
   let finish: (result: ActionResult & { id?: string }) => void = () => {};
