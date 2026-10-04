@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:
 advances:  AC-1, AC-2, AC-3, AC-9, AC-11, AC-12
 after:     01-coverage-ausgangswert
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -138,3 +138,91 @@ behaves as before; only file boundaries move.
 - No change of behaviour.
 
 ## Left standing
+- **Review findings not fixed.** There were two review rounds.
+  - Round 1 ended on an interim report, and I could not resume that
+    reviewer for a rated final one. I treated its three findings as
+    should-fix and fixed them all: `run-action.ts` had no test file; four
+    hand-offs of an action's result (create, rename, annul, Gesamtstärke)
+    could be swallowed without a test failing; and the focus test
+    checked `CorrectionForm`'s `autoFocus` from the panel.
+  - Round 1's app run (unrated) found behaviour that predates this
+    change, and I left it, because this ticket must not change behaviour:
+    - Escape does not close the name form.
+    - After a rejected save, the focus is not put back in the name
+      field.
+    - While a save is pending, the previous error stays visible.
+    - At 360 px with five or more Stellen, "+ Stelle" sits half behind
+      the bottom tab bar until you scroll.
+  - Round 2 had two blockers, which I fixed: a successful annulment
+    closing the confirmation, and choosing Korrigieren not handing the
+    focus back to ⋯ (`returnFocus={false}`). The old focus test caught
+    the second only by timing, because Mantine returns the focus after
+    10 ms. In my runs it passed with the break. The new test in
+    `StrengthHistories.test.tsx` waits past that and fails reliably.
+  - Round 2 also noted an older gap, outside its review, and I left it:
+    removing `key={correctingReport.id}` (`StrengthPanel.tsx`) fails no
+    test, old or new. Its test would push `StrengthPanel.test.tsx` back
+    over 500 lines; it belongs to a later shortening of that file.
+- **Older gaps found by breaking code, left.** Showing a stale time in
+  bold and red (`ReportTime`'s `fw` and `c`) is pinned only through
+  `data-stale`. The old suite did not pin it either.
+- **Checks.** `npm run check` passes (204 files, 2674 tests), as do
+  `npm run test:coverage` and `compare-coverage.mjs` (exit 0). The
+  comparison still names nine files as new, and all of them come from
+  earlier tickets (`src/test/*-checks.ts`, `live-*.ts`, `uploads-dir.ts`,
+  the map fixtures). No file's coverage dropped. `removed-tests.mjs` ran
+  before each commit.
+- **Advanced without an automated test.**
+  - AC-12 (the `NameForm` split changes no behaviour): I ran the
+    pre-change Stärke and `SituationWorkspace` tests (154) against the
+    split sources in a separate worktree, and the whole `npm run check`
+    there; both were green. Round 1 drove creating and renaming a Stelle,
+    including the duplicate-name error, at 360 px and 1920 px.
+  - AC-1, AC-2 and AC-9: I counted the files in `src/strength/`, each
+    with at most one test file. I measured every test file this ticket
+    wrote under 500 lines (the longest is `StrengthPanel.test.tsx` at
+    495).
+  - AC-11: the commit's `Removed tests:` section. Each "gone" entry
+    names the break I made by hand in `ConfirmationModal.tsx` and the
+    `ConfirmationModal.test.tsx` test that then failed.
+  - AC-3: I broke each decision in `StrengthPanel.tsx`, `NameForm.tsx`,
+    `run-action.ts`, `ReportForms.tsx`, `StrengthCards.tsx` and
+    `StrengthHistories.tsx` by hand, one at a time, and ran only that
+    file's own test file; a test failed each time. That is why all six
+    test files went into `ac3-reviewed.txt`: five are new, and I rewrote
+    `StrengthPanel.test.tsx` whole and checked every test in it this
+    way.
+- **Departures from the plan.**
+  - Step 4's condition held: still 539 lines after shortening, so
+    `NameForm` was split off in a commit of its own. `runAction`, which
+    both the form and the panel use, went to `run-action.ts`, so neither
+    file imports the other. It got its own `run-action.test.ts` (Node,
+    not jsdom). `coverage-splits.json` lists both files as parts of
+    `StrengthPanel.tsx`.
+  - Some tests went somewhere other than Context's list, where their
+    assertions check another file:
+    - "two reports of the same minute" went to `StrengthHistories`,
+      because the label is built in `StationHistory`.
+    - The correction's focus went to `ReportForms` (`autoFocus`) and
+      `StrengthHistories` (`returnFocus`).
+    - "cannot be opened without a valid report" (Summenverlauf) went to
+      `TotalCard`, which disables the button.
+    - The Summe's "not shown while a form is open" joined the panel's
+      open-the-form test.
+  - Besides the listed duplicates, I also dropped both "cancelled
+    confirmation" tests, because `ConfirmationModal` › "closes on cancel
+    without running the action" pins them. The returned-error tests of
+    the Summe and the annulment were not dropped. They became checks
+    that `TotalCard` and the panel pass the action's result on.
+  - New tests for gaps the breaks turned up, all of them unpinned in the
+    old suite:
+    - the busy lock of `ReportForm`, `CorrectionForm` and `NameForm`
+    - the error cleared on Zurück, on opening a correction and on its
+      Abbrechen
+    - a late rename leaving another rename open
+    - the panel handing on `now` and `onReportTotalStrength`
+    - prefilled Führer
+- **Nudges.** I shortened the panel test (helpers, merged cases) before
+  splitting. `npm test` takes 40.9 s, against 41.3 s before this
+  change. The Stärke tests went from six jsdom files to five jsdom
+  files and one Node file.

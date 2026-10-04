@@ -1,5 +1,6 @@
 import userEvent from "@testing-library/user-event";
 import { vi } from "vitest";
+import type { ActionResult } from "@/app/action-result";
 import { render, screen, within } from "@/test/render";
 import {
   StrengthPanel,
@@ -7,32 +8,28 @@ import {
   type StrengthReportView,
 } from "./StrengthPanel";
 
+const succeed = async (): Promise<ActionResult> => ({});
+
 export function setup(over: Partial<StrengthPanelProps> = {}) {
-  const props = setupProps(over);
+  const props: StrengthPanelProps = {
+    stations: [
+      { id: "s1", name: "UHSt 3", reports: [] },
+      { id: "s2", name: "Ziel", reports: [] },
+    ],
+    onCreateStation: vi.fn(succeed),
+    onRenameStation: vi.fn(succeed),
+    onRecordStrengthReport: vi.fn(succeed),
+    onReportTotalStrength: vi.fn(succeed),
+    onCorrectStrengthReport: vi.fn(succeed),
+    onAnnulStrengthReport: vi.fn(succeed),
+    now: minutesAfterReport(5),
+    ...over,
+  };
   const { rerender } = render(<StrengthPanel {...props} />);
   return {
     ...props,
     rerender: (next: Partial<StrengthPanelProps>) =>
       rerender(<StrengthPanel {...props} {...next} />),
-  };
-}
-
-export function setupProps(
-  over: Partial<StrengthPanelProps>,
-): StrengthPanelProps {
-  return {
-    stations: [
-      { id: "s1", name: "UHSt 3", reports: [] },
-      { id: "s2", name: "Ziel", reports: [] },
-    ],
-    onCreateStation: vi.fn(async () => ({})),
-    onRenameStation: vi.fn(async () => ({})),
-    onRecordStrengthReport: vi.fn(async () => ({})),
-    onReportTotalStrength: vi.fn(async () => ({})),
-    onCorrectStrengthReport: vi.fn(async () => ({})),
-    onAnnulStrengthReport: vi.fn(async () => ({})),
-    now: minutesAfterReport(5),
-    ...over,
   };
 }
 

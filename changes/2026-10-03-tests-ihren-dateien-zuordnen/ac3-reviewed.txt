@@ -47,3 +47,9 @@ src/journal/EntryRouteHeader.test.tsx
 src/journal/useEntryRouteMemory.test.ts
 src/journal/EntryForm.test.tsx
 src/journal/JournalPanel.test.tsx
+src/strength/StrengthHistories.test.tsx
+src/strength/StrengthCards.test.tsx
+src/strength/ReportForms.test.tsx
+src/strength/NameForm.test.tsx
+src/strength/run-action.test.ts
+src/strength/StrengthPanel.test.tsx
