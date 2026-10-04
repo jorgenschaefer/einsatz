@@ -16,9 +16,9 @@ import {
   generateDeviceLink,
 } from "@/server/mapsymbols/map-symbols";
 import { insertOperation } from "@/server/operations/operations";
-import { PLACEMENT } from "@/test/bad-calls/fixture";
 import { freshDb } from "@/test/db";
 import { snapshotDb } from "@/test/db-snapshot";
+import { PLACEMENT } from "@/test/operation-fixture";
 import {
   expectNonUuidObjectIdRefused,
   expectRouteRequiresToken,

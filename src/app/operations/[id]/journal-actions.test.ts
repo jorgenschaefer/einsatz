@@ -42,13 +42,13 @@ import {
   text,
   tooLong,
 } from "@/test/bad-calls/bad-call";
-import { ENTRY, type Fixture } from "@/test/bad-calls/fixture";
 import { freshDb } from "@/test/db";
 import {
   aJournalAndStrength,
   type JournalAndStrength,
 } from "@/test/journal-and-strength";
 import { liveEventsFor } from "@/test/live-events";
+import { ENTRY, type Fixture } from "@/test/operation-fixture";
 import { signIn, signInAs } from "@/test/sign-in";
 import * as actions from "./journal-actions";
 

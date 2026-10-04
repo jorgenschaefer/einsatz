@@ -5,13 +5,8 @@ import type { Role } from "@/server/auth/users";
 import type { Db } from "@/server/db/db";
 import { insertOperation } from "@/server/operations/operations";
 import type { BadCalls } from "./bad-calls/bad-call";
-import {
-  everythingIn,
-  type MapObjects,
-  oneOfEach,
-  oneOfEachIn,
-} from "./bad-calls/fixture";
 import { snapshotDbAndUploads } from "./db-snapshot";
+import { type MapObjects, oneOfEach, oneOfEachIn } from "./operation-fixture";
 import { uploadsDirPerTest } from "./uploads-dir";
 
 /** A `"use server"` module, imported whole: `import * as actions from "./actions"`. */
@@ -132,7 +127,7 @@ export function expectBadCallsRejected(
       if (calls === "takes no input") continue;
       for (const { what, answer, call } of calls) {
         it(`rejects ${name} with ${what} and stores nothing`, async () => {
-          const fixture = await oneOfEach(db(), uploadsDir());
+          const fixture = await oneOfEach(db());
           const before = await snapshotDbAndUploads(db(), uploadsDir());
 
           expect(await call(fixture)).toMatchObject(answer as object);
@@ -162,10 +157,10 @@ export type ForeignCalls = Record<
  * Registers tests that `table` names exactly the exports of `module`, and that
  * each of its calls, made by a signed-in user with the objects of one Einsatz
  * ({@link oneOfEachIn}) and the Einsatz-ID of another, gets its error and
- * changes nothing in the first Einsatz - neither its objects nor any uploaded
- * file - while the same call under the first Einsatz's own ID is accepted, so
- * a call that names the wrong kind of object cannot pass. `nothingElseHappened`
- * adds a check of the test file's own, run after each rejected call.
+ * changes no row and no uploaded file, while the same call under the first
+ * Einsatz's own ID is accepted, so a call that names the wrong kind of object
+ * cannot pass. `nothingElseHappened` adds a check of the test file's own, run
+ * after each rejected call.
  */
 export function expectForeignObjectsRejected(
   module: ActionModule,
@@ -201,11 +196,11 @@ export function expectForeignObjectsRejected(
         const a = await insertOperation(db(), { name: "A", description: null });
         const b = await insertOperation(db(), { name: "B", description: null });
         const objects = await oneOfEachIn(db(), a.id);
-        const before = await everythingIn(db(), a.id, uploadsDir());
+        const before = await snapshotDbAndUploads(db(), uploadsDir());
 
         expect(await entry.call(objects, b.id)).toEqual({ error: entry.error });
 
-        expect(await everythingIn(db(), a.id, uploadsDir())).toEqual(before);
+        expect(await snapshotDbAndUploads(db(), uploadsDir())).toEqual(before);
         await nothingElseHappened?.();
         expect(await entry.call(objects, a.id)).not.toHaveProperty("error");
       });

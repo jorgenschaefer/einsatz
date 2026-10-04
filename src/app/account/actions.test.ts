@@ -18,11 +18,11 @@ import {
   INVALID_FORM_DATA,
   rejects,
 } from "@/test/bad-calls/bad-call";
+import { freshDb } from "@/test/db";
 import {
   PASSWORD as FIXTURE_PASSWORD,
   type Fixture,
-} from "@/test/bad-calls/fixture";
-import { freshDb } from "@/test/db";
+} from "@/test/operation-fixture";
 import { signIn } from "@/test/sign-in";
 
 // The limiter is process-wide and never reset: each test uses its own address.

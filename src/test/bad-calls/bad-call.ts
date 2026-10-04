@@ -1,4 +1,4 @@
-import type { Fixture } from "./fixture";
+import type { Fixture } from "../operation-fixture";
 
 // Server Actions nehmen, was der Client schickt – die Typen hier lügen absichtlich.
 // biome-ignore lint/suspicious/noExplicitAny: bewusst falsch getypte Eingaben

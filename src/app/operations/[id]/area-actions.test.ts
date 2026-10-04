@@ -41,8 +41,8 @@ import {
   text,
   tooLong,
 } from "@/test/bad-calls/bad-call";
-import { STYLE } from "@/test/bad-calls/fixture";
 import { freshDb } from "@/test/db";
+import { STYLE } from "@/test/operation-fixture";
 import { signIn } from "@/test/sign-in";
 import * as actions from "./area-actions";
 

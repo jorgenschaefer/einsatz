@@ -14,8 +14,8 @@ import {
   generateDeviceLink,
 } from "@/server/mapsymbols/map-symbols";
 import { insertOperation } from "@/server/operations/operations";
-import { PLACEMENT } from "@/test/bad-calls/fixture";
 import { freshDb } from "@/test/db";
+import { PLACEMENT } from "@/test/operation-fixture";
 import { expectPageRequiresToken } from "@/test/page-checks";
 import DevicePage from "./page";
 

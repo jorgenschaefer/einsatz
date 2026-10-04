@@ -3,6 +3,7 @@
   "src/test/bad-calls/map.ts": [],
   "src/test/bad-calls/operations-accounts.ts": [],
   "src/test/kml-upload.ts": [],
+  "src/test/bad-calls/fixture.ts": ["src/test/operation-fixture.ts"],
   "src/map/SituationWorkspace.fixtures.tsx": [
     "src/map/SituationWorkspace.fixtures.tsx",
     "src/map/map-objects.fixtures.ts"

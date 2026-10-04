@@ -11,8 +11,8 @@ import { ViewLinkView } from "@/map/ViewLinkView";
 import { createImageOverlay } from "@/server/image-overlays/image-overlays";
 import { insertOperation } from "@/server/operations/operations";
 import { createViewLink } from "@/server/viewlinks/view-links";
-import { PLACEMENT } from "@/test/bad-calls/fixture";
 import { freshDb } from "@/test/db";
+import { PLACEMENT } from "@/test/operation-fixture";
 import { expectPageRequiresToken } from "@/test/page-checks";
 import ViewPage from "./page";
 

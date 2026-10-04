@@ -6,8 +6,8 @@ import {
 } from "@/server/image-overlays/image-overlays";
 import { createKmlOverlay, setKmlVisibility } from "@/server/kml/kml-overlays";
 import { insertOperation } from "@/server/operations/operations";
-import { PLACEMENT } from "@/test/bad-calls/fixture";
 import { freshDb } from "@/test/db";
+import { PLACEMENT } from "@/test/operation-fixture";
 
 vi.mock("pdf-to-png-converter", () => ({ pdfToPng: vi.fn() }));
 

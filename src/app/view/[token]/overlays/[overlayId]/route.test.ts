@@ -13,9 +13,9 @@ import {
 import { storeOverlayImage } from "@/server/image-overlays/image-storage";
 import { insertOperation } from "@/server/operations/operations";
 import { createViewLink } from "@/server/viewlinks/view-links";
-import { PLACEMENT } from "@/test/bad-calls/fixture";
 import { freshDb } from "@/test/db";
 import { snapshotDb } from "@/test/db-snapshot";
+import { PLACEMENT } from "@/test/operation-fixture";
 import {
   expectNonUuidObjectIdRefused,
   expectRouteRequiresToken,

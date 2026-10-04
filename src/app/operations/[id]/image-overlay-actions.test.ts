@@ -45,8 +45,8 @@ import {
   expectForeignObjectsRejected,
 } from "@/test/action-checks";
 import { type Bad, idCalls, rejects } from "@/test/bad-calls/bad-call";
-import { PLACEMENT } from "@/test/bad-calls/fixture";
 import { freshDb } from "@/test/db";
+import { PLACEMENT } from "@/test/operation-fixture";
 import { signIn } from "@/test/sign-in";
 import { uploadsDirPerTest } from "@/test/uploads-dir";
 import * as actions from "./image-overlay-actions";
