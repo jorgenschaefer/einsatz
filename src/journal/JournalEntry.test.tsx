@@ -5,7 +5,7 @@ import { NO_ROUTE } from "@/journal/entry-route";
 import type { JournalEntryType } from "@/journal/entry-type";
 import { render, screen } from "@/test/render";
 import { JournalEntry, type JournalEntryView } from "./JournalEntry";
-import { entry } from "./JournalPanel.fixtures";
+import { entry } from "./JournalEntry.fixtures";
 
 function setup(
   over: Partial<JournalEntryView> = {},

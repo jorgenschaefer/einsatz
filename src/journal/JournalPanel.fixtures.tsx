@@ -1,25 +1,8 @@
 import userEvent from "@testing-library/user-event";
 import { vi } from "vitest";
-import { NO_ROUTE } from "@/journal/entry-route";
 import { render, screen } from "@/test/render";
-import type { JournalEntryView } from "./JournalEntry";
+import { entry } from "./JournalEntry.fixtures";
 import { JournalPanel, type JournalPanelProps } from "./JournalPanel";
-
-export function entry(over: Partial<JournalEntryView> = {}): JournalEntryView {
-  return {
-    id: "e1",
-    number: 1,
-    createdAt: "2026-07-03T08:00:00.000Z",
-    text: "Deich hält",
-    type: "manuell",
-    state: "gueltig",
-    author: "anna",
-    editedAt: null,
-    ...NO_ROUTE,
-    revisions: [],
-    ...over,
-  };
-}
 
 export function panelProps(
   over: Partial<JournalPanelProps> = {},

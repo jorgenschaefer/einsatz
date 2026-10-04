@@ -5,6 +5,10 @@
   "src/test/kml-upload.ts": [],
   "src/test/bad-calls/fixture.ts": ["src/test/operation-fixture.ts"],
   "src/test/journal-and-strength.ts": [],
+  "src/journal/JournalPanel.fixtures.tsx": [
+    "src/journal/JournalPanel.fixtures.tsx",
+    "src/journal/JournalEntry.fixtures.ts"
+  ],
   "src/map/SituationWorkspace.fixtures.tsx": [
     "src/map/SituationWorkspace.fixtures.tsx",
     "src/map/map-objects.fixtures.ts"

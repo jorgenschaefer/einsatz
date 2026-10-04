@@ -1,7 +1,7 @@
 import userEvent from "@testing-library/user-event";
 import { renderToString } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { entry } from "@/journal/JournalPanel.fixtures";
+import { entry } from "@/journal/JournalEntry.fixtures";
 import { report } from "@/strength/StrengthPanel.fixtures";
 import { stubMatchMedia } from "@/test/match-media";
 import {

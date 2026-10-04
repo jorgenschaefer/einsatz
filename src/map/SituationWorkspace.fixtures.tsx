@@ -1,6 +1,6 @@
 import userEvent from "@testing-library/user-event";
 import { vi } from "vitest";
-import { entry } from "@/journal/JournalPanel.fixtures";
+import { entry } from "@/journal/JournalEntry.fixtures";
 import { report } from "@/strength/StrengthPanel.fixtures";
 import { render, screen, within } from "@/test/render";
 import { fakeMapAdapterFactory } from "./adapter.fixtures";

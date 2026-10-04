@@ -12,13 +12,13 @@ import {
 import { buttonColor } from "@/test/button-color";
 import { act, cleanup, render, screen, within } from "@/test/render";
 import type { JournalEntryType } from "./entry-type";
+import { entry } from "./JournalEntry.fixtures";
 import { JournalPanel, type JournalPanelProps } from "./JournalPanel";
 import {
   addButton,
   chooseAction,
   correctionField,
   correctionForm,
-  entry,
   newEntry,
   newEntryField,
   panelProps,
