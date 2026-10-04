@@ -88,17 +88,6 @@ describe("SituationWorkspace", () => {
       expect(panelSwitch()).toBeNull();
     });
 
-    // Daran endet das Blatt an der Reihe oder reicht ohne sie bis ganz unten.
-    it("marks the Lagekarte only while the panel switch is shown on a phone", async () => {
-      stubMatchMedia(false);
-      const openKeyboard = await renderLagekarteWithKeyboard();
-      const map = document.querySelector('[data-view="map"]');
-      expect(map).toHaveAttribute("data-panel-switch");
-
-      openKeyboard();
-      expect(map).not.toHaveAttribute("data-panel-switch");
-    });
-
     it("keeps the panel switch on the desktop", async () => {
       stubMatchMedia(true);
       const openKeyboard = await renderLagekarteWithKeyboard();
@@ -352,16 +341,6 @@ describe("SituationWorkspace", () => {
     );
     expect(anyMapPanel()).toBeNull();
     expect(pressedEntries()).toEqual([]);
-  });
-
-  it("marks the Lagekarte while a map panel is open", async () => {
-    renderWorkspace();
-    await selectMainView("Lagekarte");
-    const map = document.querySelector('[data-view="map"]');
-    expect(map).not.toHaveAttribute("data-panel-open");
-
-    await openPanel("Ebenen");
-    expect(map).toHaveAttribute("data-panel-open");
   });
 
   it.each(["ETB", "Stärke"] as const)(

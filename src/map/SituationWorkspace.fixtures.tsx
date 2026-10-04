@@ -1,11 +1,9 @@
 import userEvent from "@testing-library/user-event";
-import { expect, vi } from "vitest";
+import { vi } from "vitest";
 import { NO_ROUTE } from "@/journal/entry-route";
 import type { JournalEntryView } from "@/journal/JournalPanel";
-import { act, render, screen, waitFor, within } from "@/test/render";
+import { render, screen } from "@/test/render";
 import { fakeMapAdapterFactory } from "./adapter.fixtures";
-import type { ImagePlacement } from "./image-overlay";
-import { anImageOverlay } from "./map-objects.fixtures";
 import {
   SituationWorkspace,
   type SituationWorkspaceProps,
@@ -118,19 +116,10 @@ export const journalEntry = (
   revisions: [],
 });
 
-/**
- * Der Knopf mit diesem Text, für Prüfungen am Knopf selbst (Name, disabled,
- * aria-pressed); `getByText` liefert nur das Textelement darin.
- */
-export const buttonWithText = (
-  text: string | RegExp,
-  container = document.body,
-) => within(container).getByText(text).closest("button") as HTMLElement;
-
 export const modeBand = (label: string) =>
   screen.getByRole("toolbar", { name: label });
 
-export const startEditingImage = async () => {
+const startEditingImage = async () => {
   await openPanel("Ebenen");
   await userEvent.click(await screen.findByText("Bearbeiten"));
 };
@@ -140,15 +129,4 @@ export const startEditingImage = async () => {
 export const openImageEditor = async () => {
   await startEditingImage();
   await openPanel("Ebenen");
-};
-
-/** Ends a gesture on the map that scales the edited Bild-Overlay. */
-export const scaleOnMap = async (
-  adapter: ReturnType<typeof renderWorkspace>["adapter"],
-) => {
-  await waitFor(() => expect(adapter.startImageOverlayEdit).toHaveBeenCalled());
-  const onChange = adapter.startImageOverlayEdit.mock.calls.at(-1)?.[1] as (
-    placement: ImagePlacement,
-  ) => void;
-  await act(async () => onChange({ ...anImageOverlay.placement, scaleM: 800 }));
 };

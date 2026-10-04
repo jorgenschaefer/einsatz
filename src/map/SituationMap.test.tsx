@@ -163,6 +163,26 @@ describe("SituationMap", () => {
     );
   });
 
+  it.each([
+    { current: 10, expected: 16 },
+    { current: 18, expected: 18 },
+  ])(
+    "zooms in to a zoom-in-only focus target, but not out, from zoom $current",
+    async ({ current, expected }) => {
+      const { adapter, update, ready } = renderMap({ focusTarget: null });
+      await ready();
+      adapter.getView = () => ({ lat: 0, lng: 0, zoom: current });
+      update({ focusTarget: { lat: 50, lng: 8, zoom: 16, zoomInOnly: true } });
+      await waitFor(() =>
+        expect(adapter.setView).toHaveBeenCalledWith({
+          lat: 50,
+          lng: 8,
+          zoom: expected,
+        }),
+      );
+    },
+  );
+
   it("reconciles areas: sets each without a click handler and removes when gone", async () => {
     const area = {
       id: "a1",

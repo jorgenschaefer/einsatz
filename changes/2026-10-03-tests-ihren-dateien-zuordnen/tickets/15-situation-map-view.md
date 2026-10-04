@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:
 advances:  AC-1, AC-3, AC-9, AC-11, AC-12
 after:     14-kartenzeichen-bild-overlays
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -156,3 +156,124 @@ Lageansicht behaves as before; only the file boundaries move.
 - No change of behaviour.
 
 ## Left standing
+- **Review findings not fixed.** There were two review rounds. Round 1
+  found two should-fix and two nits; round 2 found seven nits. I fixed
+  both should-fix and all nits but two:
+  - Not fixed (round 2 nit): "offers no Schließen on the panel" stays in
+    `SituationWorkspace.panels.test.tsx`, although `SituationMapView.test.tsx`
+    pins the Schließen decision too. I disagree with removing it: it is the
+    only test of the workspace handing `isDesktop` to `SituationMapView`.
+    When the workspace passed `isDesktop={false}`, the whole suite passed
+    without it. Ticket 16 can replace it with a test of that wiring.
+  - Not fixed (round 2 nit): some `SituationMapView.test.tsx` tests still
+    check two related things under one name, joined by "and". Examples:
+    "closes with Schließen on a phone, and offers none on the desktop" and
+    "shows the panel switch only while asked to, marks the map with it, and
+    reports the chosen panel". The file has 498 lines. Splitting further
+    would push it over 500, and then a second part of `SituationMapView.tsx`
+    would have to move out. The plan names only `useEndModeWhenHidden`.
+  - Round 1 nit (handled in the commit record): the phone sheet actually
+    closing after a jump or when editing a Bild-Overlay starts is
+    `useMainView`'s. Only the layers and uploads workspace tests hold it
+    now, and only incidentally, because `openImageEditor` opens Ebenen a
+    second time. Ticket 16's `useMainView` tests should pin it directly.
+- **Checks not run.** None skipped. After the last edit, `npm run check` is
+  green (212 files, 2703 tests). `npm run test:coverage` and then
+  `compare-coverage.mjs` exit 0 with no drop. The only new file it names
+  from this ticket is `SituationMapView.fixtures.tsx`, which is new harness
+  code and not split from a baseline file. `useEndModeWhenHidden.ts` is
+  listed in `coverage-splits.json` as a part of `SituationMapView.tsx`. No
+  file needed a new test file for coverage. Neither I nor the reviewers
+  drove the app: the only production change moves a hook unchanged, and
+  nothing on screen changed.
+- **Advanced without an automated test.**
+  - AC-9: checked with `wc -l`. `SituationMapView.test.tsx` has 498 lines,
+    `SituationMapView.fixtures.tsx` 221, `SituationMapView.tsx` 375 and
+    `useEndModeWhenHidden.ts` 14.
+  - AC-12: `useEndModeWhenHidden` moved word for word, apart from `export`.
+    I compared the two versions with `diff`. The call stays at the same
+    place in `SituationMapView`, so the order of hooks is unchanged. Both
+    reviews confirmed this.
+  - AC-11: the commit's `Removed tests:` section comes from
+    `removed-tests.mjs` and names all 87 removed tests. For each test
+    marked "gone" there, I broke its behaviour by hand and saw the named
+    test fail, then restored the code. For the moved tests, I replaced each
+    of the 58 props and handlers that `SituationMapView` passes on with a
+    no-op, one at a time. Every one made a test in `SituationMapView.test.tsx`
+    fail. The first sweep found one exception: passing `movingCircleId` to
+    the map. The moving test now checks the circle preview.
+  - AC-3: `SituationMapView.test.tsx`, `useMapFocus.test.ts` and
+    `useEndModeWhenHidden.test.ts` are added to `ac3-reviewed.txt` because
+    this ticket created them. The test files I only edited are not listed:
+    the `SituationWorkspace.*` files, `SituationMap.test.tsx`,
+    `useAreaFlows.test.ts`, `useSymbolPlacement.test.ts` and
+    `useMapSearch.test.ts`.
+- **Departures from the plan and Context.**
+  - There are two commits. The first moves `useEndModeWhenHidden` into its
+    own file, with its test, the `coverage-splits.json` entry and its
+    `ac3-reviewed.txt` line. The second moves the tests and carries the
+    ticket file. The nudge asks for restructuring in a commit of its own,
+    and the run asks for the code and the ticket in one commit. The ticket
+    file goes with the commit that finishes the ticket.
+  - The split alone was not enough for AC-9. A first full version of the
+    test file had 794 lines. It got under 500 by these changes:
+    - shared helpers and constants moved into the fixtures;
+    - a single table holds every handler `SituationMapView` passes on;
+    - the four "hidden map ends the mode" cases became one row, because the
+      hook test now holds the rest;
+    - related checks were merged into one test.
+  - Context listed some tests as duplicates that were not fully held
+    elsewhere. Breaking the behaviour by hand showed it, and I added a test
+    before dropping each one:
+    - The rule that a jump only zooms in (`Math.max` in `SituationMap`) had
+      no test of its own. The "at zoom 18" workspace rows were the only
+      ones holding it. `SituationMap.test.tsx` now has
+      "zooms in to a zoom-in-only focus target, but not out".
+    - modes L206 (no placing while a Bild-Overlay is edited): the named
+      tests passed when `useSymbolPlacement` armed a composition during
+      image editing. `useSymbolPlacement.test.ts` now has "arms nothing
+      while another map mode is on".
+    - Nothing held the geocoding debounce. The old workspace test did not
+      either. `useMapSearch.test.ts` now checks that nothing is geocoded at
+      299 ms.
+    - map-view L240 (Zurück disabled without a default view) is not only
+      `MapControls`': `SituationMapView` decides `canReturnToDefault`. The
+      return test in `SituationMapView.test.tsx` checks it.
+  - "A circle deleted elsewhere" went into the existing
+    `useAreaFlows.test.ts` test, now named "ends moving when the circle
+    disappears, keeping the notification of a failed save". It failed when
+    the hook ended moving with `mode.reset`.
+  - "Keeps the Karte notification standing through an action in the KML
+    panel" is gone with a reason, not a holder. Nothing in
+    `SituationMapView` connects KML actions to the Karte notification, so
+    the test pinned an absence. Closing per source is held by the mirror
+    test in `SituationWorkspace.notifications.test.tsx`.
+  - The keep cases of the desktop describe and areas L173 ("switching to
+    the ETB keeps moving beside the sidebar") went the same way. They are
+    held by `useEndModeWhenHidden.test.ts` together with the panels test
+    "keeps the Lagekarte visible beside the ETB and Stärke". Breaking
+    `useMainView` to hide the map on the desktop made 8 workspace tests
+    fail. Context named only one side of L173.
+  - The 15 workspace tests that tickets 13 and 14 left for this ticket all
+    moved here:
+    - the draw hand-off and the busy band;
+    - copying;
+    - delete, generate and remove device link from the detail;
+    - the KML and Bild-Overlays on the map;
+    - both visibility toggles;
+    - removing a KML-Overlay;
+    - a map gesture;
+    - deleting a Bild-Overlay;
+    - putting a Bild-Overlay back after a failed save;
+    - Fertig closing the Bild-Overlays notification.
+  - Three wiring tests are new: reloading a KML-URL, adding a Bild-Overlay
+    with the map's extent, and `MAP_LOADING` before the map has loaded.
+    `SituationWorkspace.uploads.test.tsx` "asks to try again and uploads
+    nothing before the map has loaded" still checks `MAP_LOADING` through
+    the workspace. That file is ticket 16's.
+  - symbols "grays a device symbol that goes stale while the view stays
+    open" stays in the workspace, as Context left it. It is now the only
+    test that `SituationMapView` recomputes the markers when `now` changes.
+- **Departures from a nudge.** None. `browserTestsInTs` already matches
+  `src/map/use*.test.ts`. On balance there is one more jsdom file (two
+  deleted, three added), and `npm test` took 43 s, the same as before.

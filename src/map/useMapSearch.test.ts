@@ -42,7 +42,11 @@ describe("useMapSearch", () => {
       );
       act(() => result.current.setQuery("Hamburg"));
       await act(async () => {
-        await vi.advanceTimersByTimeAsync(300);
+        await vi.advanceTimersByTimeAsync(299);
+      });
+      expect(geocode).not.toHaveBeenCalled();
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1);
       });
       expect(geocode).toHaveBeenCalledWith("Hamburg");
       await waitFor(() =>

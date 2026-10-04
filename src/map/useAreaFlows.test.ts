@@ -284,13 +284,22 @@ describe("useAreaFlows", () => {
       expect(hook.mode().movingCircleId).toBe("a1");
     });
 
-    it("ends moving when the circle disappears", () => {
-      const hook = renderAreaFlows({ areas: [AREA] });
+    it("ends moving when the circle disappears, keeping the notification of a failed save", async () => {
+      const hook = renderAreaFlows({
+        areas: [AREA],
+        onUpdateAreaGeometry: vi.fn<Saving>(async () => ({
+          error: "Einsatz ist geschlossen.",
+        })),
+      });
       startMoving(hook);
+      await setCircleHere(hook);
+      await karteNotification("Einsatz ist geschlossen.");
 
       hook.arrive([]);
 
       expect(hook.mode().movingCircleId).toBeNull();
+      await act(async () => {});
+      await karteNotification("Einsatz ist geschlossen.");
     });
   });
 

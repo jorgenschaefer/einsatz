@@ -198,4 +198,12 @@ describe("useSymbolPlacement", () => {
       expect(hook.onPlace).not.toHaveBeenCalled();
     });
   });
+
+  it("arms nothing while another map mode is on", () => {
+    const hook = renderSymbolPlacement();
+
+    act(() => hook.mode().armImageEdit("i1"));
+
+    expect(hook.placement().armedComposition).toBeNull();
+  });
 });
