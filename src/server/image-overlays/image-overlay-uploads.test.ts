@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, mkdtemp, readdir, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readdir } from "node:fs/promises";
 import { dirname, join, relative, sep } from "node:path";
 import sharp from "sharp";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -13,6 +12,7 @@ import { ValidationError } from "@/server/validation";
 import { freshDb } from "@/test/db";
 import { snapshotDbAndUploads } from "@/test/db-snapshot";
 import { minimalPdf } from "@/test/minimal-pdf";
+import { uploadsDirPerTest } from "@/test/uploads-dir";
 import {
   addImageOverlay,
   replaceImageOverlayImage,
@@ -39,24 +39,15 @@ const A_PLACEMENT = {
 const NAME_TOO_LONG = "Der Dateiname darf höchstens 200 Zeichen lang sein.";
 
 let db: Db;
-let dir: string;
+const uploadsDir = uploadsDirPerTest();
 let operationId: string;
-const originalUploadsDir = process.env.UPLOADS_DIR;
 
 beforeEach(async () => {
   db = await freshDb();
   operationId = (await anOperation("Lage")).id;
-  // Eigenes Elternverzeichnis, damit „nichts daneben angelegt" prüfbar ist.
-  const parent = await mkdtemp(join(tmpdir(), "einsatz-image-uploads-"));
-  dir = join(parent, "uploads");
-  await mkdir(dir);
-  process.env.UPLOADS_DIR = dir;
 });
 
 afterEach(async () => {
-  if (originalUploadsDir === undefined) delete process.env.UPLOADS_DIR;
-  else process.env.UPLOADS_DIR = originalUploadsDir;
-  await rm(dirname(dir), { recursive: true, force: true });
   vi.restoreAllMocks();
 });
 
@@ -104,13 +95,13 @@ describe("addImageOverlay", () => {
     ["a longitude beyond the date line", { ...A_VIEW, lng: -180.1 }],
     ["a width given as text", { ...A_VIEW, widthM: "4000" }],
   ])("rejects %s and stores nothing", async (_, view) => {
-    const before = await snapshotDbAndUploads(db, dir);
+    const before = await snapshotDbAndUploads(db, uploadsDir());
 
     await expect(add(await pngFile(600, 300), view)).rejects.toThrow(
       new ValidationError("Der Kartenausschnitt ist ungültig."),
     );
 
-    expect(await snapshotDbAndUploads(db, dir)).toEqual(before);
+    expect(await snapshotDbAndUploads(db, uploadsDir())).toEqual(before);
   });
 
   it("accepts a view centred on the date line", async () => {
@@ -120,43 +111,43 @@ describe("addImageOverlay", () => {
   });
 
   it("refuses a file name of 201 characters and stores nothing", async () => {
-    const before = await snapshotDbAndUploads(db, dir);
+    const before = await snapshotDbAndUploads(db, uploadsDir());
 
     await expect(
       add(await pngFile(600, 300, `${"x".repeat(197)}.png`), A_VIEW),
     ).rejects.toThrow(new ValidationError(NAME_TOO_LONG));
 
-    expect(await snapshotDbAndUploads(db, dir)).toEqual(before);
+    expect(await snapshotDbAndUploads(db, uploadsDir())).toEqual(before);
   });
 
   it("stores no file and no row for an image that cannot be prepared", async () => {
-    const before = await snapshotDbAndUploads(db, dir);
+    const before = await snapshotDbAndUploads(db, uploadsDir());
 
     await expect(add(aBrokenPng(), A_VIEW)).rejects.toThrow(
       new ValidationError("Das Bild konnte nicht verarbeitet werden."),
     );
 
-    expect(await snapshotDbAndUploads(db, dir)).toEqual(before);
+    expect(await snapshotDbAndUploads(db, uploadsDir())).toEqual(before);
   });
 
   it("refuses an Einsatz-ID that is not a UUID and stores nothing", async () => {
-    const before = await snapshotDbAndUploads(db, dir);
+    const before = await snapshotDbAndUploads(db, uploadsDir());
 
     await expect(add(await pngFile(600, 300), A_VIEW, "op-1")).rejects.toThrow(
       new ValidationError("Ungültige ID."),
     );
 
-    expect(await snapshotDbAndUploads(db, dir)).toEqual(before);
+    expect(await snapshotDbAndUploads(db, uploadsDir())).toEqual(before);
   });
 
   it("stores nothing for an Einsatz that no longer exists", async () => {
-    const before = await snapshotDbAndUploads(db, dir);
+    const before = await snapshotDbAndUploads(db, uploadsDir());
 
     await expect(
       add(await pngFile(600, 300), A_VIEW, randomUUID()),
     ).rejects.toThrow(new ValidationError("Der Einsatz existiert nicht mehr."));
 
-    expect(await snapshotDbAndUploads(db, dir)).toEqual(before);
+    expect(await snapshotDbAndUploads(db, uploadsDir())).toEqual(before);
   });
 
   it("leaves no file behind when the database insert fails", async () => {
@@ -221,34 +212,34 @@ describe("replaceImageOverlayImage", () => {
   });
 
   it("refuses a file name of 201 characters and changes nothing", async () => {
-    const before = await snapshotDbAndUploads(db, dir);
+    const before = await snapshotDbAndUploads(db, uploadsDir());
 
     await expect(
       replace(await pngFile(600, 300, `${"x".repeat(197)}.png`)),
     ).rejects.toThrow(new ValidationError(NAME_TOO_LONG));
 
-    expect(await snapshotDbAndUploads(db, dir)).toEqual(before);
+    expect(await snapshotDbAndUploads(db, uploadsDir())).toEqual(before);
   });
 
   it("refuses a Bild-Overlay of another Einsatz before preparing the file and changes nothing", async () => {
     const other = await anOperation("B");
-    const before = await snapshotDbAndUploads(db, dir);
+    const before = await snapshotDbAndUploads(db, uploadsDir());
 
     await expect(replace(aBrokenPng(), other.id)).rejects.toThrow(
       new ValidationError("Bild-Overlay nicht gefunden."),
     );
 
-    expect(await snapshotDbAndUploads(db, dir)).toEqual(before);
+    expect(await snapshotDbAndUploads(db, uploadsDir())).toEqual(before);
   });
 
   it("creates nothing outside the uploads directory for an Einsatz-ID like ../escape", async () => {
-    const before = await readdir(dirname(dir));
+    const before = await readdir(dirname(uploadsDir()));
 
     await expect(replace(await pngFile(600, 300), "../escape")).rejects.toThrow(
       new ValidationError("Ungültige ID."),
     );
 
-    expect(await readdir(dirname(dir))).toEqual(before);
+    expect(await readdir(dirname(uploadsDir()))).toEqual(before);
     const files = await filesUnderUploads();
     expect(files.every((file) => file.startsWith(`${operationId}${sep}`))).toBe(
       true,
@@ -283,8 +274,11 @@ function aBrokenPng(): File {
 
 /** Alle Dateien unter dem Upload-Verzeichnis, relativ dazu. */
 async function filesUnderUploads(): Promise<string[]> {
-  const entries = await readdir(dir, { recursive: true, withFileTypes: true });
+  const entries = await readdir(uploadsDir(), {
+    recursive: true,
+    withFileTypes: true,
+  });
   return entries
     .filter((entry) => entry.isFile())
-    .map((entry) => relative(dir, join(entry.parentPath, entry.name)));
+    .map((entry) => relative(uploadsDir(), join(entry.parentPath, entry.name)));
 }

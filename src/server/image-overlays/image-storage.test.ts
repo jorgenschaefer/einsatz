@@ -1,12 +1,12 @@
-import { access, mkdir, mkdtemp, readdir, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { access, readdir } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { crc32, deflateSync } from "node:zlib";
 import { pdfToPng } from "pdf-to-png-converter";
 import sharp from "sharp";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { ValidationError } from "@/server/validation";
 import { minimalPdf } from "@/test/minimal-pdf";
+import { uploadsDirPerTest } from "@/test/uploads-dir";
 
 // Der echte PDF→PNG-Renderer, damit die Kantenlängen real sind; nur ein Test
 // ersetzt ihn, um einen unerwarteten Fehler des Renderers zu erzeugen.
@@ -241,21 +241,7 @@ describe("overlayCacheToken", () => {
 });
 
 describe("overlay file storage", () => {
-  let dir: string;
-  const originalUploadsDir = process.env.UPLOADS_DIR;
-
-  beforeEach(async () => {
-    const parent = await mkdtemp(join(tmpdir(), "einsatz-uploads-"));
-    dir = join(parent, "uploads");
-    await mkdir(dir);
-    process.env.UPLOADS_DIR = dir;
-  });
-
-  afterEach(async () => {
-    if (originalUploadsDir === undefined) delete process.env.UPLOADS_DIR;
-    else process.env.UPLOADS_DIR = originalUploadsDir;
-    await rm(dirname(dir), { recursive: true, force: true });
-  });
+  const uploadsDir = uploadsDirPerTest();
 
   it("stores an image under a per-Einsatz .webp path and reads the bytes back", async () => {
     const bytes = Buffer.from("webp-bytes");
@@ -277,7 +263,7 @@ describe("overlay file storage", () => {
     const relPath = await storeOverlayImage(OPERATION_ID, Buffer.from("x"));
     await deleteOperationUploads(OPERATION_ID);
     await expect(readOverlayFile(relPath)).rejects.toThrow();
-    await expect(access(join(dir, OPERATION_ID))).rejects.toThrow();
+    await expect(access(join(uploadsDir(), OPERATION_ID))).rejects.toThrow();
   });
 
   it("tolerates an Einsatz that never had an upload directory", async () => {
@@ -297,19 +283,21 @@ describe("overlay file storage", () => {
   it("keeps the Einsatz's upload directory when its only overlay file is deleted", async () => {
     const relPath = await storeOverlayImage(OPERATION_ID, Buffer.from("x"));
     await deleteOverlayFiles([relPath]);
-    await expect(access(join(dir, OPERATION_ID))).resolves.toBeUndefined();
+    await expect(
+      access(join(uploadsDir(), OPERATION_ID)),
+    ).resolves.toBeUndefined();
   });
 
   it.each(["..", "../x", ""])(
     "refuses to store an image for the non-UUID id %j, creating nothing",
     async (operationId) => {
-      const parent = dirname(dir);
+      const parent = dirname(uploadsDir());
       const before = await readdir(parent);
       await expect(
         storeOverlayImage(operationId, Buffer.from("x")),
       ).rejects.toThrow(`not a UUID: ${JSON.stringify(operationId)}`);
       expect(await readdir(parent)).toEqual(before);
-      expect(await readdir(dir)).toEqual([]);
+      expect(await readdir(uploadsDir())).toEqual([]);
     },
   );
 

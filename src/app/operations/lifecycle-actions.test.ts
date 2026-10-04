@@ -1,7 +1,6 @@
-import { access, mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { access } from "node:fs/promises";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Db } from "@/server/db/db";
 
 const state = vi.hoisted(() => ({
@@ -47,6 +46,7 @@ import {
 } from "@/test/bad-calls/bad-call";
 import { freshDb } from "@/test/db";
 import { signIn } from "@/test/sign-in";
+import { uploadsDirPerTest } from "@/test/uploads-dir";
 import * as actions from "./lifecycle-actions";
 
 const { closeOperationAction, deleteOperationAction, reopenOperationAction } =
@@ -105,24 +105,15 @@ async function expectUntouched(operationId: string) {
   const db = state.db as Db;
   expect(await getOperation(db, operationId)).not.toBeNull();
   expect(await listEntries(db, operationId)).not.toHaveLength(0);
-  await access(join(uploadsDir, operationId));
+  await access(join(uploadsDir(), operationId));
 }
 
-let uploadsDir: string;
-const originalUploadsDir = process.env.UPLOADS_DIR;
+const uploadsDir = uploadsDirPerTest();
 
 beforeEach(async () => {
   state.db = await freshDb();
   state.token = undefined;
   state.revalidatedPaths = [];
-  uploadsDir = await mkdtemp(join(tmpdir(), "einsatz-uploads-"));
-  process.env.UPLOADS_DIR = uploadsDir;
-});
-
-afterEach(async () => {
-  if (originalUploadsDir === undefined) delete process.env.UPLOADS_DIR;
-  else process.env.UPLOADS_DIR = originalUploadsDir;
-  await rm(uploadsDir, { recursive: true, force: true });
 });
 
 describe("deleteOperationAction", () => {
@@ -155,7 +146,7 @@ describe("deleteOperationAction", () => {
     });
 
     expect(await getOperation(state.db as Db, op.id)).toBeNull();
-    await expect(access(join(uploadsDir, op.id))).rejects.toThrow();
+    await expect(access(join(uploadsDir(), op.id))).rejects.toThrow();
   });
 });
 

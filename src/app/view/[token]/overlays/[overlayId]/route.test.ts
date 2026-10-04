@@ -21,7 +21,7 @@ import {
   expectRouteRequiresToken,
 } from "@/test/route-checks";
 import { routeParams } from "@/test/upload-request";
-import { useUploadsDir } from "@/test/uploads-dir";
+import { uploadsDirPerTest } from "@/test/uploads-dir";
 import * as route from "./route";
 import { GET } from "./route";
 
@@ -55,7 +55,7 @@ expectNonUuidObjectIdRefused(route, {
 });
 
 describe("view overlay route", () => {
-  useUploadsDir();
+  uploadsDirPerTest();
 
   it("serves a visible overlay's image, and answers 404 once it is hidden", async () => {
     const overlay = await anImageOverlay(

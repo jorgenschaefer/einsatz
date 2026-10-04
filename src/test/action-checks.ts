@@ -12,7 +12,7 @@ import {
   oneOfEachIn,
 } from "./bad-calls/fixture";
 import { snapshotDbAndUploads } from "./db-snapshot";
-import { useUploadsDir } from "./uploads-dir";
+import { uploadsDirPerTest } from "./uploads-dir";
 
 /** A `"use server"` module, imported whole: `import * as actions from "./actions"`. */
 export type ActionModule = Record<string, unknown>;
@@ -125,7 +125,7 @@ export function expectBadCallsRejected(
   });
 
   describe("bad calls", () => {
-    const uploadsDir = useUploadsDir();
+    const uploadsDir = uploadsDirPerTest();
     beforeEach(() => actAs("admin"));
 
     for (const [name, calls] of Object.entries(table)) {
@@ -193,7 +193,7 @@ export function expectForeignObjectsRejected(
   if (calls.length === 0) return;
 
   describe("calls with another Einsatz's object", () => {
-    const uploadsDir = useUploadsDir();
+    const uploadsDir = uploadsDirPerTest();
     beforeEach(() => actAs("user"));
 
     for (const [name, entry] of calls) {

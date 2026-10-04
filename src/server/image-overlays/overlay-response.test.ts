@@ -1,9 +1,7 @@
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { insertOperation } from "@/server/operations/operations";
 import { freshDb } from "@/test/db";
+import { uploadsDirPerTest } from "@/test/uploads-dir";
 
 vi.mock("pdf-to-png-converter", () => ({ pdfToPng: vi.fn() }));
 
@@ -22,19 +20,7 @@ const A_PLACEMENT = {
   opacity: 1,
 };
 
-let dir: string;
-const originalUploadsDir = process.env.UPLOADS_DIR;
-
-beforeEach(async () => {
-  dir = await mkdtemp(join(tmpdir(), "einsatz-uploads-"));
-  process.env.UPLOADS_DIR = dir;
-});
-
-afterEach(async () => {
-  if (originalUploadsDir === undefined) delete process.env.UPLOADS_DIR;
-  else process.env.UPLOADS_DIR = originalUploadsDir;
-  await rm(dir, { recursive: true, force: true });
-});
+uploadsDirPerTest();
 
 async function anOverlay() {
   const db = await freshDb();

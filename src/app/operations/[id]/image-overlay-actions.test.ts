@@ -1,6 +1,3 @@
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Db } from "@/server/db/db";
 
@@ -51,6 +48,7 @@ import { type Bad, idCalls, rejects } from "@/test/bad-calls/bad-call";
 import { PLACEMENT } from "@/test/bad-calls/fixture";
 import { freshDb } from "@/test/db";
 import { signIn } from "@/test/sign-in";
+import { uploadsDirPerTest } from "@/test/uploads-dir";
 import * as actions from "./image-overlay-actions";
 
 const {
@@ -77,22 +75,16 @@ const actAs: ActAs = async (caller) => {
 };
 const db = () => state.db as Db;
 
-let dir: string;
-const originalUploadsDir = process.env.UPLOADS_DIR;
+uploadsDirPerTest();
 
 beforeEach(async () => {
   state.db = await freshDb();
   state.token = undefined;
   state.revalidatePath.mockReset();
   state.publishOperationChanged.mockReset();
-  dir = await mkdtemp(join(tmpdir(), "einsatz-replace-"));
-  process.env.UPLOADS_DIR = dir;
 });
 
 afterEach(async () => {
-  if (originalUploadsDir === undefined) delete process.env.UPLOADS_DIR;
-  else process.env.UPLOADS_DIR = originalUploadsDir;
-  await rm(dir, { recursive: true, force: true });
   vi.restoreAllMocks();
 });
 

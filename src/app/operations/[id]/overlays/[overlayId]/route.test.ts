@@ -1,6 +1,3 @@
-import { mkdir, mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
 import sharp from "sharp";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ActionResult } from "@/app/action-result";
@@ -52,6 +49,7 @@ import {
 } from "@/test/route-checks";
 import { signIn } from "@/test/sign-in";
 import { multipartRequest, routeParams } from "@/test/upload-request";
+import { uploadsDirPerTest } from "@/test/uploads-dir";
 import * as route from "./route";
 import { GET, PUT } from "./route";
 
@@ -68,19 +66,14 @@ const A_PLACEMENT = {
 
 const db = () => state.db as Db;
 
-let dir: string;
+const uploadsDir = uploadsDirPerTest();
 let operationId: string;
 let overlay: ImageOverlay;
-const originalUploadsDir = process.env.UPLOADS_DIR;
 
 beforeEach(async () => {
   state.db = await freshDb();
   state.token = await signIn(db());
   state.revalidatedPaths = [];
-  const parent = await mkdtemp(join(tmpdir(), "einsatz-replace-"));
-  dir = join(parent, "uploads");
-  await mkdir(dir);
-  process.env.UPLOADS_DIR = dir;
   operationId = (await anOperation("Lage")).id;
   overlay = await createImageOverlay(db(), {
     operationId,
@@ -93,9 +86,6 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
-  if (originalUploadsDir === undefined) delete process.env.UPLOADS_DIR;
-  else process.env.UPLOADS_DIR = originalUploadsDir;
-  await rm(dirname(dir), { recursive: true, force: true });
   vi.restoreAllMocks();
 });
 
@@ -135,12 +125,12 @@ expectNonUuidObjectIdRefused(route, {
   GET: {
     send: () => get({ overlayId: NOT_A_UUID }),
     answer: { status: 404 },
-    stored: () => snapshotDbAndUploads(db(), dir),
+    stored: () => snapshotDbAndUploads(db(), uploadsDir()),
   },
   PUT: {
     send: () => putPng({ overlayId: NOT_A_UUID }),
     answer: { status: 400, error: "Ungültige ID." },
-    stored: () => snapshotDbAndUploads(db(), dir),
+    stored: () => snapshotDbAndUploads(db(), uploadsDir()),
   },
 });
 
@@ -150,7 +140,7 @@ expectUploadRules(
     PUT: {
       send: (request) => put(request),
       tooLarge: "Die Datei ist größer als 20 MB.",
-      stored: () => snapshotDbAndUploads(db(), dir),
+      stored: () => snapshotDbAndUploads(db(), uploadsDir()),
     },
   },
   { sendAs },
@@ -208,20 +198,20 @@ describe("PUT /operations/[id]/overlays/[overlayId]", () => {
   });
 
   it("answers 400 for an Einsatz-ID that is not a UUID and changes nothing", async () => {
-    const before = await snapshotDbAndUploads(db(), dir);
+    const before = await snapshotDbAndUploads(db(), uploadsDir());
 
     const response = await putPng({ id: "op-1" });
 
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({ error: "Ungültige ID." });
-    expect(await snapshotDbAndUploads(db(), dir)).toEqual(before);
+    expect(await snapshotDbAndUploads(db(), uploadsDir())).toEqual(before);
   });
 });
 
 describe("PUT /operations/[id]/overlays/[overlayId] under another Einsatz", () => {
   it("refuses a file for a Bild-Overlay of another Einsatz before processing it and changes nothing", async () => {
     const other = await anOperation("B");
-    const before = await snapshotDbAndUploads(db(), dir);
+    const before = await snapshotDbAndUploads(db(), uploadsDir());
 
     const response = await put(
       await multipartRequest("PUT", fileForm(aBrokenPng())),
@@ -231,7 +221,7 @@ describe("PUT /operations/[id]/overlays/[overlayId] under another Einsatz", () =
     expect(await response.json()).toEqual({
       error: "Bild-Overlay nicht gefunden.",
     });
-    expect(await snapshotDbAndUploads(db(), dir)).toEqual(before);
+    expect(await snapshotDbAndUploads(db(), uploadsDir())).toEqual(before);
   });
 
   it("refreshes no Einsatz", async () => {

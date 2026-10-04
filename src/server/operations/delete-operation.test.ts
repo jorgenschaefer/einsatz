@@ -1,12 +1,12 @@
-import { access, mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { access } from "node:fs/promises";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import type { Db } from "@/server/db/db";
 import { createImageOverlay } from "@/server/image-overlays/image-overlays";
 import { storeOverlayImage } from "@/server/image-overlays/image-storage";
 import { ValidationError } from "@/server/validation";
 import { freshDb } from "@/test/db";
+import { uploadsDirPerTest } from "@/test/uploads-dir";
 import { createOperation } from "./create-operation";
 import { deleteOperation } from "./delete-operation";
 import { closeOperation } from "./operation-lifecycle";
@@ -20,19 +20,7 @@ const A_PLACEMENT = {
   opacity: 1,
 };
 
-let uploadsDir: string;
-const originalUploadsDir = process.env.UPLOADS_DIR;
-
-beforeEach(async () => {
-  uploadsDir = await mkdtemp(join(tmpdir(), "einsatz-uploads-"));
-  process.env.UPLOADS_DIR = uploadsDir;
-});
-
-afterEach(async () => {
-  if (originalUploadsDir === undefined) delete process.env.UPLOADS_DIR;
-  else process.env.UPLOADS_DIR = originalUploadsDir;
-  await rm(uploadsDir, { recursive: true, force: true });
-});
+const uploadsDir = uploadsDirPerTest();
 
 async function closedOperation(db: Db, name: string) {
   const op = await createOperation(db, { name });
@@ -49,7 +37,7 @@ describe("deleteOperation (domain)", () => {
     expect(await deleteOperation(db, op.id)).toBe(false);
 
     expect(await getOperation(db, op.id)).not.toBeNull();
-    await access(join(uploadsDir, op.id));
+    await access(join(uploadsDir(), op.id));
   });
 
   it("reports that a closed operation was deleted", async () => {
@@ -74,7 +62,7 @@ describe("deleteOperation (domain)", () => {
     await deleteOperation(db, op.id);
 
     expect(await getOperation(db, op.id)).toBeNull();
-    await expect(access(join(uploadsDir, op.id))).rejects.toThrow();
+    await expect(access(join(uploadsDir(), op.id))).rejects.toThrow();
   });
 
   it("deletes an operation that never had an upload directory", async () => {

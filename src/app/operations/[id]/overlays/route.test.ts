@@ -1,6 +1,4 @@
-import { mkdir, mkdtemp, readdir, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { readdir } from "node:fs/promises";
 import sharp from "sharp";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ActionResult } from "@/app/action-result";
@@ -40,6 +38,7 @@ import {
 } from "@/test/route-checks";
 import { signIn } from "@/test/sign-in";
 import { multipartRequest, routeParams } from "@/test/upload-request";
+import { uploadsDirPerTest } from "@/test/uploads-dir";
 import * as route from "./route";
 import { POST } from "./route";
 
@@ -88,9 +87,8 @@ function pngFile(width: number, height: number): Promise<File> {
     );
 }
 
-let dir: string;
+const uploadsDir = uploadsDirPerTest();
 let operationId: string;
-const originalUploadsDir = process.env.UPLOADS_DIR;
 
 beforeEach(async () => {
   state.db = await freshDb();
@@ -100,16 +98,9 @@ beforeEach(async () => {
   ).id;
   state.revalidatePath.mockReset();
   state.publishOperationChanged.mockReset();
-  const parent = await mkdtemp(join(tmpdir(), "einsatz-add-image-"));
-  dir = join(parent, "uploads");
-  await mkdir(dir);
-  process.env.UPLOADS_DIR = dir;
 });
 
 afterEach(async () => {
-  if (originalUploadsDir === undefined) delete process.env.UPLOADS_DIR;
-  else process.env.UPLOADS_DIR = originalUploadsDir;
-  await rm(dirname(dir), { recursive: true, force: true });
   vi.restoreAllMocks();
 });
 
@@ -137,7 +128,7 @@ expectUploadRules(
     POST: {
       send,
       tooLarge: "Die Datei ist größer als 20 MB.",
-      stored: () => snapshotDbAndUploads(db(), dir),
+      stored: () => snapshotDbAndUploads(db(), uploadsDir()),
     },
   },
   { sendAs },
@@ -189,7 +180,7 @@ describe("POST /operations/[id]/overlays", () => {
 
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({ error: "Ungültige ID." });
-    expect(await readdir(dir)).toEqual([]);
+    expect(await readdir(uploadsDir())).toEqual([]);
   });
 
   it("asks for a file and creates nothing when none was sent", async () => {
