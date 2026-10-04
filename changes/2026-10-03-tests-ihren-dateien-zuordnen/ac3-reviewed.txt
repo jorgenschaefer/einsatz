@@ -38,3 +38,4 @@ src/map/LayersPanel.test.tsx
 src/map/useEndModeWhenHidden.test.ts
 src/map/SituationMapView.test.tsx
 src/map/useMapFocus.test.ts
+src/map/useUploads.test.ts

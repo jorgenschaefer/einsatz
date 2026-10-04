@@ -20,14 +20,10 @@ import {
   SituationMapView,
   type SituationMapViewProps,
 } from "./SituationMapView";
-import {
-  uploadImageOverlay,
-  uploadKmlFile,
-  uploadReplacementImage,
-} from "./uploads";
 import { useMainView } from "./useMainView";
 import { type LiveConnection, useOperationEvents } from "./useOperationEvents";
 import { useStalenessClock } from "./useStalenessClock";
+import { useUploads } from "./useUploads";
 import type { ViewLinkItem } from "./ViewLinkPanel";
 import type { MapView } from "./view";
 
@@ -100,15 +96,7 @@ export function SituationWorkspace({
     router.refresh(),
   );
   useEffect(() => closeLageansichtNotifications, []);
-  // Anders als eine Server Action aktualisiert ein Route Handler die Seite des
-  // Hochladenden nicht von selbst.
-  const refreshingAfter = async (
-    upload: Promise<ActionResult>,
-  ): Promise<ActionResult> => {
-    const result = await upload;
-    if (!result.error) router.refresh();
-    return result;
-  };
+  const uploads = useUploads(operationId);
   const {
     isDesktop,
     mainView,
@@ -156,16 +144,8 @@ export function SituationWorkspace({
       >
         <SituationMapView
           {...mapProps}
+          {...uploads}
           operationId={operationId}
-          onAddKmlFile={(name, content) =>
-            refreshingAfter(uploadKmlFile(operationId, name, content))
-          }
-          onAddImage={(file, view) =>
-            refreshingAfter(uploadImageOverlay(operationId, file, view))
-          }
-          onReplaceImage={(id, file) =>
-            refreshingAfter(uploadReplacementImage(operationId, id, file))
-          }
           mapRef={mapRef}
           isDesktop={isDesktop}
           mapShown={mapShown}

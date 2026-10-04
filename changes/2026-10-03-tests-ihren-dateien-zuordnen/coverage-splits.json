@@ -9,5 +9,9 @@
   "src/map/SituationMapView.tsx": [
     "src/map/SituationMapView.tsx",
     "src/map/useEndModeWhenHidden.ts"
+  ],
+  "src/map/SituationWorkspace.tsx": [
+    "src/map/SituationWorkspace.tsx",
+    "src/map/useUploads.ts"
   ]
 }
