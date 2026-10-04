@@ -1,20 +1,14 @@
 "use client";
 
-import {
-  Box,
-  Button,
-  Group,
-  Paper,
-  Stack,
-  Text,
-  TextInput,
-} from "@mantine/core";
+import { Box, Button, Paper, Stack, Text } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { type Dispatch, type SetStateAction, useState } from "react";
 import type { ActionResult } from "@/app/action-result";
 import { ConfirmationModal } from "@/app/ConfirmationModal";
 import { ErrorAlert } from "@/app/ErrorAlert";
+import { NameForm } from "./NameForm";
 import { CorrectionForm, ReportForm, valuesOf } from "./ReportForms";
+import { runAction } from "./run-action";
 import { StationCard, TotalCard } from "./StrengthCards";
 import { StationHistory, TotalHistory } from "./StrengthHistories";
 import {
@@ -23,8 +17,6 @@ import {
   type StrengthValues,
   stationHistory,
 } from "./strength";
-
-const SAVE_ERROR = "Speichern fehlgeschlagen. Bitte erneut versuchen.";
 
 export interface StrengthReportView extends StrengthValues {
   id: string;
@@ -267,21 +259,6 @@ export function StrengthPanel({
   );
 }
 
-/** Führt die Action aus und zeigt ihren Fehler; nur bei Erfolg wird `done` aufgerufen. */
-async function runAction(
-  action: () => Promise<ActionResult>,
-  setError: (error: string | null) => void,
-  done: () => void,
-) {
-  try {
-    const { error } = await action();
-    setError(error ?? null);
-    if (!error) done();
-  } catch {
-    setError(SAVE_ERROR);
-  }
-}
-
 /** Ändert sich, sobald eine andere Meldung oder andere Werte als letzte gültige gelten. */
 function prefillKey(latest: StrengthReportView | undefined) {
   return latest ? JSON.stringify([latest.id, valuesOf(latest)]) : "";
@@ -293,58 +270,4 @@ function closeIfStillOpen(
   id: string,
 ) {
   setOpenId((openId) => (openId === id ? null : openId));
-}
-
-function NameForm({
-  label,
-  initial,
-  submitLabel,
-  onSubmit,
-  onSaved,
-  onCancel,
-}: {
-  label: string;
-  initial: string;
-  submitLabel: string;
-  onSubmit: (name: string) => Promise<ActionResult>;
-  onSaved: () => void;
-  onCancel: () => void;
-}) {
-  const [name, setName] = useState(initial);
-  const [busy, setBusy] = useState(false);
-  // Am Feld statt oben im Bereich: auf dem Smartphone steht das Formular oft weit unten.
-  const [error, setError] = useState<string | null>(null);
-
-  return (
-    <form
-      onSubmit={async (e) => {
-        e.preventDefault();
-        setBusy(true);
-        try {
-          await runAction(() => onSubmit(name), setError, onSaved);
-        } finally {
-          setBusy(false);
-        }
-      }}
-    >
-      <Stack gap="xs">
-        <TextInput
-          label={label}
-          value={name}
-          onChange={(e) => setName(e.currentTarget.value)}
-          error={error}
-          errorProps={{ role: "alert" }}
-          autoFocus
-        />
-        <Group gap="xs">
-          <Button type="submit" size="xs" loading={busy}>
-            {submitLabel}
-          </Button>
-          <Button size="xs" variant="subtle" onClick={onCancel}>
-            Abbrechen
-          </Button>
-        </Group>
-      </Stack>
-    </form>
-  );
 }

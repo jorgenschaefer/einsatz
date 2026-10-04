@@ -18,5 +18,10 @@
     "src/journal/JournalPanel.tsx",
     "src/journal/useScrollToEnd.ts",
     "src/journal/JournalEntry.tsx"
+  ],
+  "src/strength/StrengthPanel.tsx": [
+    "src/strength/StrengthPanel.tsx",
+    "src/strength/NameForm.tsx",
+    "src/strength/run-action.ts"
   ]
 }
