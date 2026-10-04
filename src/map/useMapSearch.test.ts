@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, renderHook, waitFor } from "@/test/render";
+import { act, cleanup, renderHook } from "@/test/render";
 import type { SearchableSymbol } from "./search";
 import { useMapSearch } from "./useMapSearch";
 
@@ -32,7 +32,7 @@ describe("useMapSearch", () => {
   });
 
   it("geocodes the address query after a debounce and exposes the hits", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.useFakeTimers();
     try {
       const geocode = vi.fn(async () => [
         { label: "Hamburg", lat: 53.55, lng: 9.99 },
@@ -49,16 +49,14 @@ describe("useMapSearch", () => {
         await vi.advanceTimersByTimeAsync(1);
       });
       expect(geocode).toHaveBeenCalledWith("Hamburg");
-      await waitFor(() =>
-        expect(result.current.addressResults).toHaveLength(1),
-      );
+      expect(result.current.addressResults).toHaveLength(1);
     } finally {
       vi.useRealTimers();
     }
   });
 
   it("lists an address the geocoder returns twice only once", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.useFakeTimers();
     try {
       const rathaus = { label: "Rathaus, Hamburg", lat: 53.55, lng: 9.99 };
       const hafen = { label: "Hafen, Hamburg", lat: 53.54, lng: 9.97 };
@@ -70,9 +68,7 @@ describe("useMapSearch", () => {
       await act(async () => {
         await vi.advanceTimersByTimeAsync(300);
       });
-      await waitFor(() =>
-        expect(result.current.addressResults).toEqual([rathaus, hafen]),
-      );
+      expect(result.current.addressResults).toEqual([rathaus, hafen]);
     } finally {
       vi.useRealTimers();
     }
