@@ -23,8 +23,8 @@ function setup(over: Partial<ViewLinkPanelProps> = {}) {
     onDelete: vi.fn(async () => ({})),
     ...over,
   };
-  render(<ViewLinkPanel {...props} />);
-  return props;
+  const { rerender } = render(<ViewLinkPanel {...props} />);
+  return { ...props, removePanel: () => rerender(<p>Lagekarte</p>) };
 }
 
 const createButton = () =>
@@ -147,6 +147,21 @@ describe("ViewLinkPanel", () => {
         await askToDelete();
 
         expect(screen.queryByRole("alert")).toBeNull();
+      });
+
+      it("stays when the panel goes away", async () => {
+        const { removePanel } = setup({
+          onCreate: vi.fn(async () => ({ error: "Bezeichnung zu lang." })),
+        });
+        await createLeitstelle();
+        await screen.findByRole("alert");
+
+        removePanel();
+        await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
+
+        expect(screen.getByRole("alert")).toHaveTextContent(
+          "Bezeichnung zu lang.",
+        );
       });
 
       it("stays while typing a Bezeichnung", async () => {

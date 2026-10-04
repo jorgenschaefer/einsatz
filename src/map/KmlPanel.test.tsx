@@ -27,8 +27,8 @@ function renderPanel(over: Partial<KmlPanelProps> = {}) {
     onRemove: vi.fn(async () => ({})),
     ...over,
   };
-  render(<KmlPanel {...props} />);
-  return props;
+  const { rerender } = render(<KmlPanel {...props} />);
+  return { ...props, removePanel: () => rerender(<p>Bereiche</p>) };
 }
 
 const urlOverlay: KmlOverlayView = {
@@ -384,6 +384,20 @@ describe("KmlPanel", () => {
         ),
       );
       expect(screen.getAllByRole("alert")).toHaveLength(1);
+    });
+
+    it("stays when the panel goes away", async () => {
+      const { removePanel } = renderPanel({
+        overlays: [urlOverlay],
+        onReload: vi.fn(async () => ({ error: NOT_FOUND })),
+      });
+      await reload();
+      expect(await screen.findByRole("alert")).toHaveTextContent(NOT_FOUND);
+
+      removePanel();
+      await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
+
+      expect(screen.getByRole("alert")).toHaveTextContent(NOT_FOUND);
     });
 
     it("stays while typing a name and a URL", async () => {

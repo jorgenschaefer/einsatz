@@ -93,14 +93,34 @@ describe("useImageOverlayEditing", () => {
     expect(hook.mode().editingImageId).toBe("i1");
   });
 
-  it("replaces the file of the Bild-Overlay being edited", async () => {
+  it("replaces the file of the Bild-Overlay being edited, and keeps editing", async () => {
     const hook = renderImageEditing();
     const file = new File(["%PDF-1.4"], "neu.pdf", { type: "application/pdf" });
 
     await act(async () => hook.editing().replaceImage(file));
 
     expect(hook.onReplaceImage).toHaveBeenCalledWith("i1", file);
+    expect(hook.mode().editingImageId).toBe("i1");
   });
+
+  it.each([
+    ["returns an error", async () => ({ error: NOT_FOUND }), NOT_FOUND],
+    ["throws", offline, FAILURE],
+  ])(
+    "shows in the editor, without a notification, when replacing the file %s, and keeps editing",
+    async (_, onReplaceImage, message) => {
+      const hook = renderImageEditing({
+        onReplaceImage: vi.fn(onReplaceImage),
+      });
+
+      await act(async () => hook.editing().replaceImage(new File([""], "x")));
+
+      await waitFor(() => expect(hook.editing().error).toBe(message));
+      expect(hook.editing().busy).toBe(false);
+      expect(screen.queryByRole("alert")).toBeNull();
+      expect(hook.mode().editingImageId).toBe("i1");
+    },
+  );
 
   it("finishes editing", () => {
     const hook = renderImageEditing();

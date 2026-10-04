@@ -1,7 +1,8 @@
 import userEvent from "@testing-library/user-event";
 import { renderToString } from "react-dom/server";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { NO_ROUTE } from "@/journal/entry-route";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { entry } from "@/journal/JournalPanel.fixtures";
+import { report } from "@/strength/StrengthPanel.fixtures";
 import { stubMatchMedia } from "@/test/match-media";
 import {
   act,
@@ -10,560 +11,489 @@ import {
   render,
   routerRefresh,
   screen,
+  waitFor,
   within,
 } from "@/test/render";
-import { stubVisualViewport } from "@/test/visual-viewport";
-import { SituationWorkspace } from "./SituationWorkspace";
+import type { MarkerSpec } from "./adapter";
+import { aKmlUrlOverlay, anImageOverlay, SYMBOL } from "./map-objects.fixtures";
 import {
+  SituationWorkspace,
+  type SituationWorkspaceProps,
+} from "./SituationWorkspace";
+import {
+  addJournalEntry,
+  annulJournalEntry,
+  annulStrengthReport,
+  anyMapPanel,
   buildProps,
-  footerOffsetReleased,
-  journalEntry,
+  chooseMenuItem,
+  correctJournalEntry,
+  correctStrengthReport,
+  createStation,
+  createViewLink,
+  defaultViewMenuItem,
+  deleteViewLink,
+  headerMenu,
+  mapPanel,
+  openPanel,
+  PANEL_CONTENT,
+  pane,
+  recordStrengthReport,
+  renameStation,
   renderWorkspace,
+  reportTotalStrength,
+  returnButton,
   selectMainView,
+  setDefaultView,
 } from "./SituationWorkspace.fixtures";
+import { aSymbol } from "./symbol.fixtures";
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe("SituationWorkspace", () => {
-  it("renders the operation name in the header", () => {
-    renderWorkspace({ operationName: "Cyclassics 2026" });
+  it("hands the shell the operation, its view links and the live connection", async () => {
+    let fire: () => void = () => {};
+    const eventsHook = vi.fn((_url: string, onChanged: () => void) => {
+      fire = onChanged;
+      return { connected: false };
+    });
+    renderWorkspace({
+      operationName: "Cyclassics 2026",
+      status: "closed",
+      viewLinks: PANEL_CONTENT.viewLinks,
+      eventsHook,
+    });
+
+    const header = within(screen.getByTestId("desktop-header"));
     expect(
-      within(screen.getByTestId("desktop-header")).getByRole("heading", {
-        name: "Cyclassics 2026",
-      }),
+      header.getByRole("heading", { name: "Cyclassics 2026" }),
     ).toBeInTheDocument();
+    expect(header.getByText("abgeschlossen")).toBeInTheDocument();
+    expect(
+      header.getByLabelText(
+        "Verbindung getrennt – wird automatisch wiederhergestellt",
+        { selector: "button" },
+      ),
+    ).toBeInTheDocument();
+    await headerMenu("desktop-header");
+    await chooseMenuItem("Teilen");
+    expect(await screen.findByText("Leitstelle")).toBeInTheDocument();
+
+    expect(eventsHook).toHaveBeenCalledWith(
+      "/operations/op-x/events",
+      expect.any(Function),
+    );
+    routerRefresh.mockClear();
+    fire();
+    expect(routerRefresh).toHaveBeenCalled();
   });
 
-  describe.each([
-    ["on a phone", false],
-    ["on the desktop", true],
-  ])("counting new ETB entries %s", (_, desktop) => {
-    beforeEach(() => {
-      stubMatchMedia(desktop);
-    });
-    afterEach(() => {
-      vi.unstubAllGlobals();
-    });
+  describe("its notifications when the Lageansicht is left", () => {
+    const failing = (onReloadKml: SituationWorkspaceProps["onReloadKml"]) =>
+      buildProps({
+        kmlOverlays: [aKmlUrlOverlay],
+        onReloadKml,
+      }).props;
+    const reloadKml = async () => {
+      await openPanel("Ebenen");
+      await userEvent.click(
+        within(mapPanel("Ebenen")).getByRole("button", { name: "Neu laden" }),
+      );
+    };
 
-    /** Der ETB-Punkt der sichtbaren Leiste; sein Name trägt die Zahl neuer Einträge. */
-    const etbItem = () =>
-      within(screen.getByRole(desktop ? "main" : "contentinfo"))
-        .getByText("ETB")
-        .closest("button");
-
-    it("counts a new entry from another author while the Lagekarte is shown", async () => {
-      const { props } = buildProps({ journalEntries: [journalEntry(1, null)] });
+    it("are closed", async () => {
+      const props = failing(vi.fn(async () => ({ error: "404" })));
       const { rerender } = render(<SituationWorkspace {...props} />);
+      await reloadKml();
+      expect(await screen.findByRole("alert")).toHaveTextContent("404");
+
+      rerender(<p>Einsätze</p>);
+
+      await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+    });
+
+    it("are not shown for an action that fails afterwards", async () => {
+      let fail = (_result: { error: string }) => {};
+      const props = failing(
+        vi.fn(() => new Promise<{ error: string }>((r) => (fail = r))),
+      );
+      const { rerender } = render(<SituationWorkspace {...props} />);
+      await reloadKml();
+
+      rerender(<p>Einsätze</p>);
+      fail({ error: "404" });
+
+      await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
+      expect(screen.queryByRole("alert")).toBeNull();
+    });
+  });
+
+  describe("the main views", () => {
+    it("shows only the pane of the chosen main view, starting on the ETB", async () => {
+      renderWorkspace();
+      expect(pane("etb").style.display).toBe("");
+      expect(pane("strength").style.display).toBe("none");
+
+      await selectMainView("Stärke");
+
+      expect(pane("strength").style.display).toBe("");
+      expect(pane("etb").style.display).toBe("none");
+      expect(pane("map").style.display).toBe("none");
+    });
+
+    it("shows the ETB and leaves the Lagekarte to CSS in the server-rendered markup", () => {
+      const container = document.createElement("div");
+      container.innerHTML = renderToString(
+        <Providers>
+          <SituationWorkspace {...buildProps().props} />
+        </Providers>,
+      );
+      const serverPane = (view: string) =>
+        container.querySelector(`[data-view="${view}"]`) as HTMLElement;
+      expect(serverPane("etb").style.display).toBe("");
+      expect(serverPane("map").style.display).toBe("");
+      expect(serverPane("strength").style.display).toBe("none");
+      // Hides the map on a phone until the width is known (situation-workspace.css).
+      expect(
+        serverPane("map").closest('[data-layout="unknown"]'),
+      ).not.toBeNull();
+    });
+
+    it("keeps a started ETB entry and a half-filled Stärkemeldung across the Lagekarte", async () => {
+      renderWorkspace({
+        stations: [{ id: "st1", name: "UHSt 3", reports: [] }],
+      });
+      fireEvent.change(screen.getByLabelText("Neuer Eintrag"), {
+        target: { value: "Deich gesichert" },
+      });
+      await selectMainView("Stärke");
+      await userEvent.click(screen.getByRole("button", { name: "UHSt 3" }));
+      await userEvent.type(screen.getByRole("textbox", { name: "EK" }), "6");
+
       await selectMainView("Lagekarte");
+      await selectMainView("Stärke");
+      expect(screen.getByRole("textbox", { name: "EK" })).toHaveValue("6");
+      await selectMainView("ETB");
+      expect(screen.getByLabelText("Neuer Eintrag")).toHaveValue(
+        "Deich gesichert",
+      );
+    });
+
+    it("does not recreate the map when switching views or crossing 768 px", async () => {
+      const { fireChange } = stubMatchMedia(true);
+      const { factory, adapter } = renderWorkspace();
+
+      await selectMainView("Lagekarte");
+      await selectMainView("ETB");
+      act(() => fireChange(false));
+      act(() => fireChange(true));
+
+      expect(factory.create).toHaveBeenCalledTimes(1);
+      expect(adapter.destroy).not.toHaveBeenCalled();
+    });
+
+    it("switches from the phone bar and the sidebar, each counting new ETB entries", async () => {
+      const { props } = buildProps({ journalEntries: [entry()] });
+      const { rerender } = render(<SituationWorkspace {...props} />);
+      const phoneBar = within(screen.getByRole("contentinfo"));
+      const sidebarBar = within(screen.getByRole("main"));
+
+      await userEvent.click(phoneBar.getByRole("button", { name: "Stärke" }));
+      expect(
+        sidebarBar.getByRole("button", { name: "Stärke" }),
+      ).toHaveAttribute("aria-current", "page");
+      await userEvent.click(
+        sidebarBar.getByRole("button", { name: "Lagekarte" }),
+      );
+      expect(
+        phoneBar.getByRole("button", { name: "Lagekarte" }),
+      ).toHaveAttribute("aria-current", "page");
 
       rerender(
         <SituationWorkspace
           {...props}
           journalEntries={[
-            journalEntry(1, null),
-            journalEntry(2, "ben"),
-            journalEntry(3, null),
+            entry(),
+            entry({ id: "e2", number: 2, author: "ben" }),
+            entry({ id: "e3", number: 3, author: "anna" }),
           ]}
         />,
       );
-
-      expect(etbItem()).toHaveAccessibleName("ETB 2 neue Einträge");
-    });
-
-    it("counts a new entry from another author while Stärke is shown", async () => {
-      const { props } = buildProps({ journalEntries: [journalEntry(1, null)] });
-      const { rerender } = render(<SituationWorkspace {...props} />);
-      await selectMainView("Stärke");
-
-      rerender(
-        <SituationWorkspace
-          {...props}
-          journalEntries={[journalEntry(1, null), journalEntry(2, "ben")]}
-        />,
-      );
-
-      expect(etbItem()).toHaveAccessibleName("ETB 1 neuer Eintrag");
-    });
-
-    it.each([
-      ["Lagekarte", "Stärke"],
-      ["Stärke", "Lagekarte"],
-    ] as const)(
-      "keeps the count when switching from %s to %s",
-      async (from, to) => {
-        const { props } = buildProps({
-          journalEntries: [journalEntry(1, null)],
-        });
-        const { rerender } = render(<SituationWorkspace {...props} />);
-        await selectMainView(from);
-        rerender(
-          <SituationWorkspace
-            {...props}
-            journalEntries={[journalEntry(1, null), journalEntry(2, "ben")]}
-          />,
+      for (const bar of [phoneBar, sidebarBar]) {
+        expect(bar.getByText("ETB").closest("button")).toHaveAccessibleName(
+          "ETB 1 neuer Eintrag",
         );
-
-        await selectMainView(to);
-
-        expect(etbItem()).toHaveAccessibleName("ETB 1 neuer Eintrag");
-      },
-    );
-
-    it("does not count own entries", async () => {
-      const { props } = buildProps({ journalEntries: [journalEntry(1, null)] });
-      const { rerender } = render(<SituationWorkspace {...props} />);
-      await selectMainView("Lagekarte");
-
-      rerender(
-        <SituationWorkspace
-          {...props}
-          journalEntries={[journalEntry(1, null), journalEntry(2, "anna")]}
-        />,
-      );
-
-      expect(etbItem()).toHaveAccessibleName("ETB");
+      }
     });
 
-    it("resets when switching to the ETB", async () => {
-      const { props } = buildProps({ journalEntries: [journalEntry(1, null)] });
-      const { rerender } = render(<SituationWorkspace {...props} />);
+    it("puts the cursor into Neuer Eintrag when ETB is chosen on the desktop", async () => {
+      stubMatchMedia(true);
+      renderWorkspace();
       await selectMainView("Lagekarte");
-      rerender(
-        <SituationWorkspace
-          {...props}
-          journalEntries={[journalEntry(1, null), journalEntry(2, "ben")]}
-        />,
-      );
 
       await selectMainView("ETB");
-      expect(etbItem()).toHaveAccessibleName("ETB");
 
-      await selectMainView("Lagekarte");
-      expect(etbItem()).toHaveAccessibleName("ETB");
+      expect(screen.getByLabelText("Neuer Eintrag")).toHaveFocus();
     });
 
-    it("treats entries arriving while the ETB is shown as seen", async () => {
-      const { props } = buildProps({ journalEntries: [journalEntry(1, null)] });
-      const { rerender } = render(<SituationWorkspace {...props} />);
-      rerender(
-        <SituationWorkspace
-          {...props}
-          journalEntries={[journalEntry(1, null), journalEntry(2, "ben")]}
-        />,
-      );
-      expect(etbItem()).toHaveAccessibleName("ETB");
+    it("shows the latest ETB entry when the ETB is chosen", async () => {
+      const scrollIntoView = vi.spyOn(Element.prototype, "scrollIntoView");
+      try {
+        renderWorkspace();
+        await selectMainView("Lagekarte");
+        scrollIntoView.mockClear();
 
-      await selectMainView("Lagekarte");
-      expect(etbItem()).toHaveAccessibleName("ETB");
+        await selectMainView("ETB");
+
+        expect(scrollIntoView).toHaveBeenCalledWith({ block: "end" });
+      } finally {
+        scrollIntoView.mockRestore();
+      }
     });
   });
 
-  describe("the main view Stärke", () => {
-    const pane = (view: string) =>
-      document.querySelector(`[data-view="${view}"]`) as HTMLElement;
-
-    it("is hidden until selected", () => {
+  describe("the Lagekarte", () => {
+    it("is shown on a phone only under Lagekarte, as is the Standard-Ausschnitt festlegen", async () => {
+      stubMatchMedia(false);
       renderWorkspace();
-      expect(pane("strength").style.display).toBe("none");
+      expect(returnButton()).not.toBeVisible();
+      expect(
+        screen.queryByRole("group", { name: "Kartenpanels", hidden: true }),
+      ).toBeNull();
+      expect(await defaultViewMenuItem()).toBeDisabled();
+      await userEvent.keyboard("{Escape}");
+
+      await selectMainView("Lagekarte");
+
+      expect(returnButton()).toBeVisible();
+      expect(await defaultViewMenuItem()).toBeEnabled();
     });
 
-    it("shows only the Stärke pane once selected", async () => {
+    it("opens, switches and closes map sheets on a phone", async () => {
+      stubMatchMedia(false);
       renderWorkspace();
-      await selectMainView("Stärke");
+      await selectMainView("Lagekarte");
+      expect(anyMapPanel()).toBeNull();
 
-      expect(pane("strength").style.display).toBe("");
-      expect(pane("map").style.display).toBe("none");
-      expect(pane("etb").style.display).toBe("none");
+      await openPanel("Bereiche");
+      expect(mapPanel("Bereiche")).toBeVisible();
+      await userEvent.click(
+        within(mapPanel("Bereiche")).getByLabelText("Schließen", {
+          selector: "button",
+        }),
+      );
+
+      expect(anyMapPanel()).toBeNull();
     });
 
-    it("lists the Stellen and creates one", async () => {
-      const { props } = renderWorkspace({
-        stations: [{ id: "st1", name: "UHSt 3", reports: [] }],
-      });
-      await selectMainView("Stärke");
+    it("shows Kartenzeichen in the sidebar on the desktop, without Schließen", async () => {
+      stubMatchMedia(true);
+      renderWorkspace();
+      await selectMainView("Lagekarte");
+
+      expect(mapPanel("Kartenzeichen")).toBeVisible();
+      expect(
+        within(mapPanel("Kartenzeichen")).queryByLabelText("Schließen", {
+          selector: "button",
+        }),
+      ).toBeNull();
+    });
+
+    it.each([
+      ["closes the sheet on a phone", false],
+      ["keeps the panel in the sidebar on the desktop", true],
+    ])("%s when editing a Bild-Overlay starts", async (_, desktop) => {
+      stubMatchMedia(desktop);
+      renderWorkspace({ imageOverlays: [anImageOverlay] });
+      await openPanel("Ebenen");
+
+      await userEvent.click(await screen.findByText("Bearbeiten"));
 
       expect(
-        within(pane("strength")).getByRole("heading", { name: "UHSt 3" }),
+        screen.getByRole("toolbar", { name: "Bild-Overlay bearbeiten" }),
       ).toBeInTheDocument();
-      await userEvent.click(screen.getByRole("button", { name: "+ Stelle" }));
-      await userEvent.type(
-        screen.getByRole("textbox", { name: "Name der Stelle" }),
-        "Ziel{Enter}",
+      expect(screen.queryByRole("region", { name: "Ebenen" }) !== null).toBe(
+        desktop,
       );
-      expect(props.onCreateStation).toHaveBeenCalledWith("Ziel");
     });
+  });
 
-    it("renames a Stelle", async () => {
-      const { props } = renderWorkspace({
-        stations: [{ id: "st1", name: "UHSt 3", reports: [] }],
-      });
-      await selectMainView("Stärke");
+  describe("Standard-Ausschnitt festlegen", () => {
+    it("saves the current map view as the default", async () => {
+      const onSetDefaultView = vi.fn(async () => ({}));
+      const { adapter, captured } = renderWorkspace({ onSetDefaultView });
+      await selectMainView("Lagekarte");
+      await waitFor(() => expect(captured.options).toBeDefined());
+      adapter.getView = () => ({ lat: 53.5, lng: 9.9, zoom: 14 });
 
-      await userEvent.click(
-        screen.getByRole("button", { name: "UHSt 3 umbenennen" }),
-      );
-      await userEvent.type(
-        screen.getByRole("textbox", { name: "Neuer Name" }),
-        " Nord{Enter}",
-      );
-      expect(props.onRenameStation).toHaveBeenCalledWith("st1", "UHSt 3 Nord");
-    });
+      await setDefaultView();
 
-    it("records a Stärkemeldung of a Stelle", async () => {
-      const { props } = renderWorkspace({
-        stations: [{ id: "st1", name: "UHSt 3", reports: [] }],
-      });
-      await selectMainView("Stärke");
-
-      await userEvent.click(screen.getByRole("button", { name: "UHSt 3" }));
-      await userEvent.type(screen.getByRole("textbox", { name: "EK" }), "6");
-      await userEvent.click(screen.getByRole("button", { name: "Melden" }));
-
-      expect(props.onRecordStrengthReport).toHaveBeenCalledWith("st1", {
-        leaders: 0,
-        subLeaders: 0,
-        crew: 6,
-        additionalPersonnel: 0,
-        note: null,
+      expect(onSetDefaultView).toHaveBeenCalledWith({
+        lat: 53.5,
+        lng: 9.9,
+        zoom: 14,
       });
     });
 
-    it("reports the Gesamtstärke and marks a report older than 60 minutes", async () => {
-      const { props } = renderWorkspace({
+    it("saves nothing and asks to try again before the map has loaded", async () => {
+      // Der echte Leaflet-Adapter wird dynamisch geladen; hängt das Laden, gibt es
+      // noch keine Karte und damit keinen Ausschnitt.
+      vi.doMock("./leaflet-adapter", () => new Promise(() => {}));
+      try {
+        const onSetDefaultView = vi.fn(async () => ({}));
+        renderWorkspace({ onSetDefaultView, factory: undefined });
+        await selectMainView("Lagekarte");
+
+        const dialog = await setDefaultView();
+
+        expect(within(dialog).getByRole("alert")).toHaveTextContent(
+          "Die Karte lädt noch. Bitte erneut versuchen.",
+        );
+        expect(onSetDefaultView).not.toHaveBeenCalled();
+      } finally {
+        vi.doUnmock("./leaflet-adapter");
+      }
+    });
+  });
+
+  it("hands the map its uploads to the Einsatz's routes", async () => {
+    const fetchMock = vi.fn<typeof fetch>(async () => Response.json({}));
+    vi.stubGlobal("fetch", fetchMock);
+    renderWorkspace();
+    await openPanel("Ebenen");
+
+    await userEvent.upload(
+      screen.getByLabelText("KML-/KMZ-Datei einbinden"),
+      new File(["<kml/>"], "abschnitte.kml"),
+    );
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/operations/op-x/kml",
+        expect.objectContaining({ method: "POST" }),
+      ),
+    );
+  });
+
+  it.each<[keyof SituationWorkspaceProps, () => Promise<void>, unknown[]]>([
+    [
+      "onAddJournalEntry",
+      addJournalEntry,
+      [expect.objectContaining({ text: "Deich", sender: "EAL" })],
+    ],
+    [
+      "onCorrectJournalEntry",
+      correctJournalEntry,
+      ["e1", expect.objectContaining({ text: "Deich hält" })],
+    ],
+    ["onAnnulJournalEntry", annulJournalEntry, ["e1"]],
+    ["onCreateStation", createStation, ["Ziel"]],
+    ["onRenameStation", renameStation, ["st1", "UHSt 3 Nord"]],
+    [
+      "onRecordStrengthReport",
+      recordStrengthReport,
+      ["st1", expect.objectContaining({ crew: 6 })],
+    ],
+    ["onReportTotalStrength", reportTotalStrength, []],
+    [
+      "onCorrectStrengthReport",
+      correctStrengthReport,
+      ["r1", "st1", expect.objectContaining({ crew: 6 })],
+    ],
+    ["onAnnulStrengthReport", annulStrengthReport, ["r1"]],
+    ["onCreateViewLink", createViewLink, ["Lagezentrum"]],
+    ["onDeleteViewLink", deleteViewLink, ["1"]],
+  ])("passes %s on to its panel", async (handler, perform, args) => {
+    const spy = vi.fn(async () => ({}));
+    renderWorkspace({ ...PANEL_CONTENT, [handler]: spy });
+
+    await perform();
+
+    await waitFor(() => expect(spy).toHaveBeenCalledWith(...args));
+  });
+
+  it("grays a device symbol and marks a Stärkemeldung going stale while the view stays open", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const minutesAgo = (minutes: number) =>
+        new Date(Date.now() - minutes * 60_000);
+      const { adapter } = renderWorkspace({
+        symbols: [
+          aSymbol({
+            id: "dev",
+            positionSource: "device",
+            reportedAt: minutesAgo(1),
+          }),
+        ],
         stations: [
           {
             id: "st1",
             name: "UHSt 3",
-            reports: [
-              {
-                id: "r1",
-                leaders: 0,
-                subLeaders: 1,
-                crew: 6,
-                additionalPersonnel: 2,
-                note: null,
-                reportedAt: new Date(Date.now() - 61 * 60_000).toISOString(),
-                state: "gueltig",
-                number: 1,
-              },
-            ],
+            reports: [report({ reportedAt: minutesAgo(58).toISOString() })],
           },
         ],
       });
       await selectMainView("Stärke");
+      const lastMarker = () =>
+        adapter.setMarker.mock.calls
+          .filter((call) => call[0] === "dev")
+          .at(-1)?.[1] as MarkerSpec | undefined;
+      await vi.waitFor(() => expect(lastMarker()).toBeDefined());
+      expect(lastMarker()?.opacity ?? 1).toBe(1);
+      const oldest = () => screen.getByText(/^älteste Meldung/);
+      expect(oldest()).not.toHaveAttribute("data-stale");
 
-      expect(screen.getByText(/^älteste Meldung/)).toHaveAttribute(
-        "data-stale",
-      );
-      await userEvent.click(
-        screen.getByRole("button", { name: "Gesamtstärke melden" }),
-      );
-      await userEvent.click(
-        within(await screen.findByRole("dialog")).getByRole("button", {
-          name: "Melden",
-        }),
-      );
-      expect(props.onReportTotalStrength).toHaveBeenCalledTimes(1);
-    });
+      await act(() => vi.advanceTimersByTimeAsync(4 * 60_000));
 
-    it("shows a Stelle and a Stärkemeldung arriving live while Stärke is shown", async () => {
-      const { props } = buildProps({
-        stations: [{ id: "st1", name: "UHSt 3", reports: [] }],
-      });
-      const { rerender } = render(<SituationWorkspace {...props} />);
-      await selectMainView("Stärke");
-
-      rerender(
-        <SituationWorkspace
-          {...props}
-          stations={[
-            {
-              id: "st1",
-              name: "UHSt 3",
-              reports: [
-                {
-                  id: "r1",
-                  leaders: 0,
-                  subLeaders: 1,
-                  crew: 6,
-                  additionalPersonnel: 2,
-                  note: null,
-                  reportedAt: new Date().toISOString(),
-                  state: "gueltig",
-                  number: 1,
-                },
-              ],
-            },
-            { id: "st2", name: "Ziel", reports: [] },
-          ]}
-        />,
-      );
-
-      const strength = within(pane("strength"));
-      const stationCard = strength
-        .getByRole("heading", { name: "UHSt 3" })
-        .closest("[data-station]") as HTMLElement;
-      expect(stationCard).toHaveTextContent("0/1/6/7");
-      expect(strength.getByRole("region", { name: "Summe" })).toHaveTextContent(
-        "0/1/6/7",
-      );
-      expect(
-        strength.getByRole("heading", { name: "Ziel" }),
-      ).toBeInTheDocument();
-    });
-
-    it("keeps a half-filled Stärkemeldung when switching to the Lagekarte and back", async () => {
-      renderWorkspace({
-        stations: [{ id: "st1", name: "UHSt 3", reports: [] }],
-      });
-      await selectMainView("Stärke");
-      await userEvent.click(screen.getByRole("button", { name: "UHSt 3" }));
-      await userEvent.type(screen.getByRole("textbox", { name: "EK" }), "6");
-
-      await selectMainView("Lagekarte");
-      await selectMainView("Stärke");
-
-      expect(screen.getByRole("textbox", { name: "EK" })).toHaveValue("6");
-    });
-
-    it("keeps a started Stelle name when switching to the ETB and back", async () => {
-      renderWorkspace();
-      await selectMainView("Stärke");
-      await userEvent.click(screen.getByRole("button", { name: "+ Stelle" }));
-      await userEvent.type(
-        screen.getByRole("textbox", { name: "Name der Stelle" }),
-        "Ziel",
-      );
-
-      await selectMainView("ETB");
-      await selectMainView("Stärke");
-
-      expect(
-        screen.getByRole("textbox", { name: "Name der Stelle" }),
-      ).toHaveValue("Ziel");
-    });
-  });
-
-  it("keeps a started ETB entry when switching to the Lagekarte and back", async () => {
-    renderWorkspace();
-    fireEvent.change(screen.getByLabelText("Neuer Eintrag"), {
-      target: { value: "Deich gesichert" },
-    });
-    await selectMainView("Lagekarte");
-    await selectMainView("ETB");
-    expect(screen.getByLabelText("Neuer Eintrag")).toHaveValue(
-      "Deich gesichert",
-    );
-  });
-
-  it("does not recreate the map when switching views", async () => {
-    const { factory, adapter } = renderWorkspace();
-    await selectMainView("Lagekarte");
-    await selectMainView("ETB");
-    expect(factory.create).toHaveBeenCalledTimes(1);
-    expect(adapter.destroy).not.toHaveBeenCalled();
-  });
-
-  it("starts on the ETB on a phone", () => {
-    stubMatchMedia(false);
-    try {
-      renderWorkspace();
-      expect(screen.getByLabelText("Neuer Eintrag")).toBeVisible();
-      expect(
-        screen.getByLabelText("Zum Standard-Ausschnitt zurück", {
-          selector: "button",
-        }),
-      ).not.toBeVisible();
+      expect(lastMarker()?.opacity).toBeLessThan(1);
+      expect(oldest()).toHaveAttribute("data-stale");
     } finally {
-      vi.unstubAllGlobals();
+      vi.useRealTimers();
     }
   });
 
-  it("starts on the ETB on the desktop, next to the Lagekarte", () => {
-    stubMatchMedia(true);
-    try {
-      renderWorkspace();
-      expect(screen.getByLabelText("Neuer Eintrag")).toBeVisible();
-      expect(
-        screen.getByLabelText("Zum Standard-Ausschnitt zurück", {
-          selector: "button",
-        }),
-      ).toBeVisible();
-    } finally {
-      vi.unstubAllGlobals();
-    }
-  });
-
-  it("keeps the main view when the width crosses 768 px", () => {
-    const { fireChange } = stubMatchMedia(false);
-    try {
-      renderWorkspace();
-      expect(screen.getByLabelText("Neuer Eintrag")).toBeVisible();
-
-      // Die Breite überschreitet 768 px (Tablet drehen); die gewählte
-      // Hauptansicht bleibt.
-      act(() => {
-        fireChange(true);
-      });
-
-      expect(screen.getByLabelText("Neuer Eintrag")).toBeVisible();
-    } finally {
-      vi.unstubAllGlobals();
-    }
-  });
-
-  it("shows the ETB and leaves the Lagekarte to CSS in the server-rendered markup", () => {
-    const { props } = buildProps();
-    const container = document.createElement("div");
-    container.innerHTML = renderToString(
-      <Providers>
-        <SituationWorkspace {...props} />
-      </Providers>,
-    );
-    const pane = (view: string) =>
-      container.querySelector(`[data-view="${view}"]`) as HTMLElement;
-    expect(pane("etb").style.display).toBe("");
-    expect(pane("map").style.display).toBe("");
-    expect(pane("strength").style.display).toBe("none");
-    // Hides the map on a phone until the width is known (situation-workspace.css).
-    expect(pane("map").closest('[data-layout="unknown"]')).not.toBeNull();
-  });
-
-  it("hides the phone bar while the on-screen keyboard is open, even with the field still focused", () => {
-    const viewport = stubVisualViewport(window.innerHeight);
-    try {
-      renderWorkspace();
-      const phoneBar = () => screen.queryByRole("contentinfo");
-      expect(
-        within(phoneBar() as HTMLElement).getByText("Lagekarte"),
-      ).toBeInTheDocument();
-
-      screen.getByLabelText("Neuer Eintrag").focus();
-      act(() => viewport.resizeTo(window.innerHeight - 300));
-      expect(phoneBar()).toBeNull();
-      expect(footerOffsetReleased()).toBe(true);
-
-      act(() => viewport.resizeTo(window.innerHeight));
-      expect(screen.getByLabelText("Neuer Eintrag")).toHaveFocus();
-      expect(phoneBar()).toBeInTheDocument();
-      expect(footerOffsetReleased()).toBe(false);
-    } finally {
-      vi.unstubAllGlobals();
-    }
-  });
-
-  describe("the cursor in the ETB on the desktop", () => {
-    beforeEach(() => {
-      stubMatchMedia(true);
-    });
-    afterEach(() => {
-      vi.unstubAllGlobals();
-    });
-
-    const selectInSidebar = (name: "Lagekarte" | "ETB" | "Stärke") =>
-      userEvent.click(within(screen.getByRole("main")).getByText(name));
-
-    it("puts the cursor into Neuer Eintrag when ETB is chosen from the Lagekarte", async () => {
-      renderWorkspace();
-      await selectInSidebar("Lagekarte");
-      await selectInSidebar("ETB");
-      expect(screen.getByLabelText("Neuer Eintrag")).toHaveFocus();
-    });
-
-    it("puts the cursor into Neuer Eintrag when ETB is chosen from the Stärke", async () => {
-      renderWorkspace();
-      await selectInSidebar("Stärke");
-      await selectInSidebar("ETB");
-      expect(screen.getByLabelText("Neuer Eintrag")).toHaveFocus();
-    });
-
-    it("puts the cursor back into Neuer Eintrag when ETB is chosen while the ETB is shown", async () => {
-      renderWorkspace();
-      await selectInSidebar("ETB");
-      act(() => screen.getByLabelText("Neuer Eintrag").blur());
-
-      await selectInSidebar("ETB");
-      expect(screen.getByLabelText("Neuer Eintrag")).toHaveFocus();
-    });
-  });
-
-  it("leaves the cursor where it is when ETB is chosen on a phone", async () => {
-    stubMatchMedia(false);
-    try {
-      renderWorkspace();
-      await selectMainView("Lagekarte");
-      await selectMainView("ETB");
-      expect(screen.getByLabelText("Neuer Eintrag")).not.toHaveFocus();
-    } finally {
-      vi.unstubAllGlobals();
-    }
-  });
-
-  it("shows the latest ETB entry when the ETB is chosen", async () => {
-    const scrollIntoView = vi.spyOn(Element.prototype, "scrollIntoView");
-    try {
-      renderWorkspace();
-      await selectMainView("Lagekarte");
-      scrollIntoView.mockClear();
-
-      await selectMainView("ETB");
-
-      expect(scrollIntoView).toHaveBeenCalledWith({ block: "end" });
-    } finally {
-      scrollIntoView.mockRestore();
-    }
-  });
-
-  it("shows the ETB as the default main view on a phone and adds an entry", async () => {
-    const onAddJournalEntry = vi.fn(async () => ({}));
-    renderWorkspace({
-      onAddJournalEntry,
-      journalEntries: [
-        {
-          id: "e1",
-          number: 1,
-          createdAt: "2026-07-03T08:00:00.000Z",
-          text: "Einsatz eröffnet",
-          type: "einsatz-eröffnet",
-          state: "gueltig",
-          author: null,
-          editedAt: null,
-          ...NO_ROUTE,
-          revisions: [],
+  describe("working beside the Lagekarte on the desktop", () => {
+    it.each([
+      [
+        "adds an ETB entry",
+        async () => {
+          await userEvent.type(screen.getByLabelText("Neuer Eintrag"), "Deich");
+          await userEvent.keyboard("{Control>}{Enter}{/Control}");
+          expect(screen.getByLabelText("Neuer Eintrag")).toBeVisible();
         },
       ],
-    });
-    expect(screen.getByText("Einsatz eröffnet")).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText("Neuer Eintrag"), {
-      target: { value: "Deich gesichert" },
-    });
-    await userEvent.click(screen.getByText("Eintrag hinzufügen"));
-    expect(onAddJournalEntry).toHaveBeenCalledWith(
-      expect.objectContaining({ text: "Deich gesichert" }),
-    );
-  });
+      [
+        "records a Stärkemeldung and returns to the Stellen",
+        async () => {
+          await selectMainView("Stärke");
+          await userEvent.click(screen.getByRole("button", { name: "UHSt 3" }));
+          await userEvent.click(screen.getByRole("button", { name: "Melden" }));
+          expect(
+            await screen.findByRole("button", { name: "UHSt 3" }),
+          ).toBeVisible();
+        },
+      ],
+    ])("%s and keeps the map untouched and clickable", async (_, work) => {
+      stubMatchMedia(true);
+      const { adapter } = renderWorkspace({
+        symbols: [SYMBOL],
+        stations: [{ id: "st1", name: "UHSt 3", reports: [report()] }],
+      });
+      await waitFor(() => expect(adapter.setMarker).toHaveBeenCalled());
+      adapter.setView.mockClear();
 
-  it("shows a connection-lost symbol on both header sizes when the live stream is disconnected, without a banner above the work area", () => {
-    renderWorkspace({ eventsHook: () => ({ connected: false }) });
-    for (const testId of ["desktop-header", "mobile-header"]) {
+      await work();
+
+      expect(returnButton()).toBeVisible();
+      expect(adapter.setView).not.toHaveBeenCalled();
+      expect(screen.queryByRole("toolbar")).toBeNull();
+      const spec = adapter.setMarker.mock.calls.at(-1)?.[1] as MarkerSpec;
+      act(() => spec.onClick?.());
       expect(
-        within(screen.getByTestId(testId)).getByLabelText(
-          "Verbindung getrennt – wird automatisch wiederhergestellt",
-          { selector: "button" },
-        ),
+        await screen.findByRole("dialog", { name: "Kartenzeichen" }),
       ).toBeInTheDocument();
-    }
-    expect(screen.queryByRole("status")).toBeNull();
-  });
-
-  it("reloads the full state when a live event arrives", () => {
-    routerRefresh.mockClear();
-    let fire: () => void = () => {};
-    renderWorkspace({
-      eventsHook: (_url, onChanged) => {
-        fire = onChanged;
-        return { connected: true };
-      },
     });
-    fire();
-    expect(routerRefresh).toHaveBeenCalled();
   });
 });

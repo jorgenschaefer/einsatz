@@ -88,6 +88,28 @@ describe("useNotifyingActionRunner", () => {
     expect(runner.result.current.busy).toBe(true);
   });
 
+  it("leaves another source's notification standing when its action starts", async () => {
+    const runners = renderHook(
+      () => ({
+        other: useNotifyingActionRunner({ id: "other", title: "Andere" }),
+        own: useNotifyingActionRunner(SOURCE),
+      }),
+      { wrapper: Providers },
+    );
+    await act(async () => {
+      await runners.result.current.other.run(async () => ({
+        error: "Kaputt.",
+      }));
+    });
+
+    await act(async () => {
+      await runners.result.current.own.run(async () => ({}));
+    });
+    await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Andere");
+  });
+
   it("shows nothing and hands back a success", async () => {
     const runner = renderRunner();
     let returned: ActionResult | null = null;

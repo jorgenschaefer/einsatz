@@ -126,8 +126,13 @@ describe.each(uploads)("$name", ({ call, fallback }) => {
   it("goes to the login page without a session", async () => {
     answer(401, "");
 
-    void call();
+    let settled = false;
+    void call().finally(() => {
+      settled = true;
+    });
 
     await vi.waitFor(() => expect(assign).toHaveBeenCalledWith("/login"));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(settled).toBe(false);
   });
 });

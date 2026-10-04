@@ -1,26 +1,13 @@
 import userEvent from "@testing-library/user-event";
 import { vi } from "vitest";
-import { NO_ROUTE } from "@/journal/entry-route";
-import type { JournalEntryView } from "@/journal/JournalPanel";
-import { render, screen } from "@/test/render";
+import { entry } from "@/journal/JournalPanel.fixtures";
+import { report } from "@/strength/StrengthPanel.fixtures";
+import { render, screen, within } from "@/test/render";
 import { fakeMapAdapterFactory } from "./adapter.fixtures";
 import {
   SituationWorkspace,
   type SituationWorkspaceProps,
 } from "./SituationWorkspace";
-
-export const selectMainView = (name: "Lagekarte" | "ETB" | "Stärke") =>
-  userEvent.click(screen.getAllByText(name)[0]);
-
-/**
- * Gibt Mantines AppShell die Höhe der Leiste an die Hauptansicht zurück?
- * jsdom rechnet kein Layout; sichtbar ist das nur an der CSS-Variable, die
- * AppShell in ihr Inline-Stylesheet schreibt.
- */
-export const footerOffsetReleased = () =>
-  [...document.querySelectorAll("style")].some((style) =>
-    style.textContent?.includes("--app-shell-footer-offset:0px !important"),
-  );
 
 export function buildProps(over: Partial<SituationWorkspaceProps> = {}) {
   const fake = fakeMapAdapterFactory();
@@ -77,16 +64,60 @@ export function buildProps(over: Partial<SituationWorkspaceProps> = {}) {
   return { ...fake, props };
 }
 
-/** A server action that succeeds. */
-const succeed = async () => ({});
-
 export function renderWorkspace(over: Partial<SituationWorkspaceProps> = {}) {
   const built = buildProps(over);
   render(<SituationWorkspace {...built.props} />);
   return built;
 }
 
-export type PanelName = "Kartenzeichen" | "Bereiche" | "Ebenen";
+/** Was die Abläufe unten in den Panels vorfinden. */
+export const PANEL_CONTENT = {
+  journalEntries: [entry({ author: null })],
+  correspondents: ["EAL"],
+  stations: [{ id: "st1", name: "UHSt 3", reports: [report({ number: 3 })] }],
+  viewLinks: [{ id: "1", label: "Leitstelle", token: "tok-a" }],
+} satisfies Partial<SituationWorkspaceProps>;
+
+export const selectMainView = (name: "Lagekarte" | "ETB" | "Stärke") =>
+  userEvent.click(screen.getAllByText(name)[0]);
+
+export const pane = (view: "etb" | "map" | "strength") =>
+  document.querySelector(`[data-view="${view}"]`) as HTMLElement;
+
+export const returnButton = () =>
+  screen.getByLabelText("Zum Standard-Ausschnitt zurück", {
+    selector: "button",
+  });
+
+export const headerMenu = (header: "desktop-header" | "mobile-header") =>
+  userEvent.click(
+    within(screen.getByTestId(header)).getByRole("button", { name: "Menü" }),
+  );
+
+export const chooseMenuItem = async (name: string) =>
+  userEvent.click(await screen.findByRole("menuitem", { name }));
+
+/** Öffnet das ⋮ Menü der Handy-Kopfzeile und gibt „Standard-Ausschnitt festlegen". */
+export async function defaultViewMenuItem() {
+  await headerMenu("mobile-header");
+  return screen.findByRole("menuitem", {
+    name: "Standard-Ausschnitt festlegen",
+  });
+}
+
+/** Legt über das ⋮ Menü den Standard-Ausschnitt fest; gibt den Dialog. */
+export async function setDefaultView() {
+  await userEvent.click(await defaultViewMenuItem());
+  const dialog = await screen.findByRole("dialog", {
+    name: "Standard-Ausschnitt festlegen",
+  });
+  await userEvent.click(
+    within(dialog).getByRole("button", { name: "Festlegen" }),
+  );
+  return dialog;
+}
+
+type PanelName = "Kartenzeichen" | "Bereiche" | "Ebenen";
 
 // Die Kartenpanels leben nur in der Lagekarten-Hauptansicht; erst hinschalten,
 // dann den Eintrag in der Reihe der Kartenpanels tippen.
@@ -100,33 +131,98 @@ export const mapPanel = (name: PanelName) =>
 export const anyMapPanel = () =>
   screen.queryByRole("region", { name: /^(Kartenzeichen|Bereiche|Ebenen)$/ });
 
-export const journalEntry = (
-  number: number,
-  author: string | null,
-): JournalEntryView => ({
-  id: `e${number}`,
-  number,
-  createdAt: "2026-07-03T08:00:00.000Z",
-  text: `Eintrag ${number}`,
-  type: "manuell",
-  state: "gueltig",
-  author,
-  editedAt: null,
-  ...NO_ROUTE,
-  revisions: [],
-});
+const ENTRY_MENU = "Aktionen für Eintrag #1";
+const REPORT_MENU = "Aktionen für Meldung 11:01 (#3)";
 
-export const modeBand = (label: string) =>
-  screen.getByRole("toolbar", { name: label });
+export async function addJournalEntry() {
+  // Die Chips „EAL" stehen unter Von, dann unter An.
+  await userEvent.click(screen.getAllByRole("checkbox", { name: "EAL" })[0]);
+  await typeInto("Neuer Eintrag", "Deich");
+  await click("Eintrag hinzufügen");
+}
 
-const startEditingImage = async () => {
-  await openPanel("Ebenen");
-  await userEvent.click(await screen.findByText("Bearbeiten"));
+export async function correctJournalEntry() {
+  await choose(ENTRY_MENU, "Korrigieren");
+  await click("Speichern");
+}
+
+export async function annulJournalEntry() {
+  await choose(ENTRY_MENU, "Annullieren …");
+  await confirm("Annullieren");
+}
+
+export async function createStation() {
+  await selectMainView("Stärke");
+  await click("+ Stelle");
+  await typeInto("Name der Stelle", "Ziel{Enter}");
+}
+
+export async function renameStation() {
+  await selectMainView("Stärke");
+  await click("UHSt 3 umbenennen");
+  await typeInto("Neuer Name", " Nord{Enter}");
+}
+
+export async function recordStrengthReport() {
+  await selectMainView("Stärke");
+  await click("UHSt 3");
+  await click("Melden");
+}
+
+export async function reportTotalStrength() {
+  await selectMainView("Stärke");
+  await click("Gesamtstärke melden");
+  await confirm("Melden");
+}
+
+export async function correctStrengthReport() {
+  await selectMainView("Stärke");
+  await click("UHSt 3");
+  await choose(REPORT_MENU, "Korrigieren");
+  await click("Speichern");
+}
+
+export async function annulStrengthReport() {
+  await selectMainView("Stärke");
+  await click("UHSt 3");
+  await choose(REPORT_MENU, "Annullieren …");
+  await confirm("Annullieren");
+}
+
+export async function createViewLink() {
+  await headerMenu("desktop-header");
+  await chooseMenuItem("Teilen");
+  await typeInto("Bezeichnung", "Lagezentrum");
+  await click("Ansichtslink erzeugen");
+}
+
+export async function deleteViewLink() {
+  await headerMenu("desktop-header");
+  await chooseMenuItem("Teilen");
+  await click("Leitstelle löschen");
+  await confirm("Endgültig löschen", "Ansichtslink „Leitstelle“ löschen");
+}
+
+const click = async (name: string) =>
+  userEvent.click(await screen.findByRole("button", { name }));
+
+const typeInto = (name: string, text: string) =>
+  userEvent.type(screen.getByRole("textbox", { name }), text);
+
+/** Wählt im Menü `menu` (einem Knopf) den Eintrag `action`. */
+const choose = async (menu: string, action: string) => {
+  await click(menu);
+  await chooseMenuItem(action);
 };
 
-// Am Handy schließt das Blatt, sobald das Bearbeiten beginnt; den Editor
-// zeigt das wieder geöffnete Ebenen-Panel.
-export const openImageEditor = async () => {
-  await startEditingImage();
-  await openPanel("Ebenen");
-};
+/** Klickt `button` im Dialog, bei mehreren in dem namens `dialog`. */
+const confirm = async (button: string, dialog?: string) =>
+  userEvent.click(
+    within(await screen.findByRole("dialog", { name: dialog })).getByRole(
+      "button",
+      { name: button },
+    ),
+  );
+
+/** A server action that succeeds. */
+const succeed = async () => ({});

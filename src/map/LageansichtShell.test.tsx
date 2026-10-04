@@ -1,11 +1,12 @@
 import userEvent from "@testing-library/user-event";
 import type { ComponentProps } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ActionResult } from "@/app/action-result";
 import { buttonColor } from "@/test/button-color";
 import { clickModalCloseButton } from "@/test/modal-close-button";
 import { clickModalOverlay } from "@/test/modal-overlay";
-import { render, screen, waitFor, within } from "@/test/render";
+import { act, render, screen, waitFor, within } from "@/test/render";
+import { stubVisualViewport } from "@/test/visual-viewport";
 import { LageansichtShell } from "./LageansichtShell";
 
 const CONNECTION_LOST_LABEL =
@@ -44,6 +45,16 @@ async function chooseFromMenu(entry: string, testId: HeaderTestId) {
   await userEvent.click(await screen.findByRole("menuitem", { name: entry }));
 }
 
+/**
+ * Gibt Mantines AppShell die Höhe der Leiste an die Hauptansicht zurück?
+ * jsdom rechnet kein Layout; sichtbar ist das nur an der CSS-Variable, die
+ * AppShell in ihr Inline-Stylesheet schreibt.
+ */
+const footerOffsetReleased = () =>
+  [...document.querySelectorAll("style")].some((style) =>
+    style.textContent?.includes("--app-shell-footer-offset:0px !important"),
+  );
+
 describe("LageansichtShell", () => {
   it("shows the operation name and the map content", () => {
     renderShell();
@@ -61,6 +72,33 @@ describe("LageansichtShell", () => {
       within(screen.getByRole("contentinfo")).getByText("Leiste"),
     ).toBeInTheDocument();
     expect(screen.getAllByText("Leiste")).toHaveLength(1);
+  });
+
+  describe("while the on-screen keyboard is open", () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    it("hides the phone bar, even with the field still focused", () => {
+      const viewport = stubVisualViewport(window.innerHeight);
+      render(
+        <LageansichtShell {...baseProps} navigation={<div>Leiste</div>}>
+          <textarea aria-label="Neuer Eintrag" />
+        </LageansichtShell>,
+      );
+      const phoneBar = () => screen.queryByRole("contentinfo");
+      expect(phoneBar()).toHaveTextContent("Leiste");
+
+      screen.getByLabelText("Neuer Eintrag").focus();
+      act(() => viewport.resizeTo(window.innerHeight - 300));
+      expect(phoneBar()).toBeNull();
+      expect(footerOffsetReleased()).toBe(true);
+
+      act(() => viewport.resizeTo(window.innerHeight));
+      expect(screen.getByLabelText("Neuer Eintrag")).toHaveFocus();
+      expect(phoneBar()).toHaveTextContent("Leiste");
+      expect(footerOffsetReleased()).toBe(false);
+    });
   });
 
   it("carries no Einsatz lifecycle actions in the header (they live in the overview)", () => {
@@ -367,8 +405,9 @@ describe("LageansichtShell", () => {
     }
   });
 
-  it("shows an orange connection-lost symbol on both header sizes when disconnected, each with a popover explaining it", async () => {
+  it("shows an orange connection-lost symbol on both header sizes when disconnected, each with a popover explaining it, and no banner", async () => {
     renderShell({ connected: false });
+    expect(screen.queryByRole("status")).toBeNull();
     for (const testId of HEADER_TEST_IDS) {
       const button = header(testId).getByRole("button", {
         name: CONNECTION_LOST_LABEL,

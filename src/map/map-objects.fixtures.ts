@@ -34,3 +34,11 @@ export const anImageOverlay = {
   aspect: 1.5,
   visible: true,
 };
+
+export const aKmlUrlOverlay = {
+  id: "k1",
+  name: "Laufstrecke",
+  sourceType: "url" as const,
+  visible: true,
+  content: "<kml/>",
+};
