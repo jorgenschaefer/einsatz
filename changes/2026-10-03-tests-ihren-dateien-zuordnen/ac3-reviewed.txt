@@ -59,3 +59,10 @@ src/server/strength/strength-input.test.ts
 src/server/strength/strength-reports.test.ts
 src/server/image-overlays/image-storage.test.ts
 src/server/mapsymbols/map-symbols.test.ts
+src/server/auth/login.test.ts
+src/server/auth/password.test.ts
+src/server/auth/account-admin.test.ts
+src/test/render.test.tsx
+next.config.test.ts
+src/strength/strength.test.ts
+src/strength/strength-total.test.ts

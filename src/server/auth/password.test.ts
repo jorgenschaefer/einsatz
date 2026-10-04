@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import bcrypt from "bcryptjs";
+import { describe, expect, it, vi } from "vitest";
 import { ValidationError } from "@/server/validation";
 import {
   assertPasswordPolicy,
@@ -7,8 +8,8 @@ import {
   verifyPassword,
 } from "./password";
 
-// Den produktiven Kostenfaktor pinnt `password-cost.test.ts`; hier läuft der
-// schnelle Testmock.
+// Der Testmock (`src/test/fast-bcrypt.ts`) hasht mit Kostenfaktor 4, gleich
+// welchen `password.ts` verlangt; den verlangten Faktor zeigen die Spies.
 describe("password hashing", () => {
   it("verifies a password against its own hash", async () => {
     const hash = await hashPassword("correct horse battery");
@@ -19,6 +20,30 @@ describe("password hashing", () => {
   it("rejects a wrong password", async () => {
     const hash = await hashPassword("correct horse battery");
     expect(await verifyPassword("wrong password!", hash)).toBe(false);
+  });
+
+  it("hashes with cost factor 12", async () => {
+    const hash = vi.spyOn(bcrypt, "hash");
+    await hashPassword("correct horse battery");
+    expect(hash).toHaveBeenCalledWith("correct horse battery", 12);
+    hash.mockRestore();
+  });
+
+  it("uses the same cost factor for the dummy timing-equalizer hash", async () => {
+    vi.resetModules();
+    const { default: freshBcrypt } = await import("bcryptjs");
+    const hashSync = vi.spyOn(freshBcrypt, "hashSync");
+    await import("./password");
+    expect(hashSync).toHaveBeenCalledWith(expect.any(String), 12);
+    hashSync.mockRestore();
+  });
+
+  it("still verifies a legacy cost-10 hash (bcrypt is cost-agnostic)", async () => {
+    const { default: realBcrypt } =
+      await vi.importActual<typeof import("bcryptjs")>("bcryptjs");
+    const legacy = realBcrypt.hashSync("correct horse battery", 10);
+    expect(legacy.split("$")[2]).toBe("10");
+    expect(await verifyPassword("correct horse battery", legacy)).toBe(true);
   });
 });
 

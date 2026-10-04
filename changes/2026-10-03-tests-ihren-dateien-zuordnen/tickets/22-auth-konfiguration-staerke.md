@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:
 advances:  AC-1, AC-2, AC-3, AC-9, AC-11, AC-12
 after:     01-coverage-ausgangswert
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -146,3 +146,58 @@ moves functions between files.
 - No change of behaviour, of the bcrypt cost, or of the security headers.
 
 ## Left standing
+- **Review findings not fixed.** One round. It found no blockers and nothing
+  to fix, and one nit, which I left:
+  - nit: `berlinTimeOfDay` now lives in `strength-total.ts`, so code about
+    a single Stelle (`ReportForms.tsx`, `StrengthPanel.tsx`,
+    `StrengthHistories.tsx`, `strength.test.ts`) imports the totals module
+    to format a clock time. The plan put lines 55-159 (which include it)
+    into `strength-total.ts`. Moving it somewhere else is a separate
+    restructuring.
+- **Checks.** `npm run check` green (195 files, 2677 tests, the same count
+  as before). `npm run test:coverage` plus `compare-coverage.mjs` exit 0.
+  The comparison does not name *no* file, as the ticket asks: it names
+  ten files as "new, compared with nothing". One of them,
+  `src/strength/cyclassics.fixtures.ts`, is from this ticket. It is the
+  Cyclassics data set taken out of a test file, not split from a baseline
+  source file, so it has no `coverage-splits.json` entry. The other nine
+  are the fixtures and `src/test/` helpers from earlier tickets that
+  ticket 21 also left. No file needed a new test file. The split of
+  `strength.ts` has its entry in `coverage-splits.json`.
+- **Advanced without an automated test.**
+  - AC-11: the commit body's `Removed tests:` section lists all 52 names
+    `removed-tests.mjs` reported. Each one points to a test that now holds
+    it, and each removed test maps to exactly one added test. No test is
+    gone. For the password cost tests, which changed how they check, I
+    broke `password.ts` by hand: with `BCRYPT_COST` set to 10, both cost
+    tests failed. With only the `hashSync` call for `DUMMY_PASSWORD_HASH`
+    set to 10, "uses the same cost factor for the dummy timing-equalizer
+    hash" failed. Restored both times.
+  - AC-12: the only production changes are the move of lines 55-159 of
+    `strength.ts` into `strength-total.ts` (verbatim, in their own commit;
+    the reviewer diffed the two) and the import lines of its callers.
+  - `next.config.test.ts` runs in `npm test`: `removed-tests.mjs` (which
+    collects with `vitest list`) lists its five tests as added, and the
+    total test count is unchanged.
+- **AC-3 review list.** This ticket created `strength-total.test.ts` and
+  `next.config.test.ts` (the latter moved from `src/security-headers.test.ts`;
+  every test checks `next.config.ts`). I held every test in
+  `login.test.ts`, `password.test.ts`, `account-admin.test.ts`,
+  `render.test.tsx` and `strength.test.ts` against its own file. All seven
+  are added to `ac3-reviewed.txt`.
+- **Departures from the plan.**
+  - Step 5: the stale-check Cyclassics case in `strength-total.test.ts`
+    still picks each Stelle's latest report with `latestValidReport` from
+    `strength.ts`, as it did before. Its assertions are only on
+    `isReportStale`/`isTotalStale`.
+  - The test merges for steps 1-4 and step 5's test moves are in one
+    commit with the ticket, rather than one commit per step. The split of
+    `strength.ts` has its own commit, as the plan says.
+  - In `account-admin.test.ts`, the moved input checks are spread over the
+    `describe` of the function they call. The three "Nutzer-ID that is not
+    a UUID" cases sit in their own `describe` and are renamed to fit it
+    (for example "refuses setting a role"). They now seed with the file's
+    `seedAdmin` instead of their own `withAnna`.
+- **Departures from a nudge.** None. The nudge to shorten tests first did
+  not apply: no file came near 500 lines (`strength-total.test.ts` 407,
+  `account-admin.test.ts` 342).

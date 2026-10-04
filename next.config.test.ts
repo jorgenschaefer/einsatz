@@ -1,6 +1,6 @@
 import { unstable_getResponseFromNextConfig } from "next/experimental/testing/server";
 import { describe, expect, it } from "vitest";
-import nextConfig from "../next.config";
+import nextConfig from "./next.config";
 
 describe("security headers from next.config.ts", () => {
   it.each([

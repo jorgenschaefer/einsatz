@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { NO_ROUTE } from "@/journal/entry-route";
+import type { Db } from "@/server/db/db";
 import { appendEntry, listEntries } from "@/server/journal/journal";
 import { insertOperation } from "@/server/operations/operations";
 import { ValidationError } from "@/server/validation";
@@ -19,7 +20,12 @@ import {
   findUserById,
   findUserByUsername,
   insertUser,
+  listUsers,
 } from "./users";
+
+// Die Nutzerverwaltung nimmt, was der Client schickt – die Typen hier lügen absichtlich.
+// biome-ignore lint/suspicious/noExplicitAny: bewusst falsch getypte Eingaben
+type Bad = any;
 
 const inAnHour = () => new Date(Date.now() + 60 * 60_000);
 
@@ -72,6 +78,44 @@ describe("createAccount", () => {
     ).rejects.toBeInstanceOf(ValidationError);
     expect(await findUserByUsername(db, "anna")).toBeNull();
   });
+
+  it.each([
+    [
+      "a number as Nutzername",
+      7,
+      "a-good-password",
+      "Der Nutzername muss Text sein.",
+    ],
+    [
+      "a Nutzername of 201 characters",
+      "x".repeat(201),
+      "a-good-password",
+      "Der Nutzername darf höchstens 200 Zeichen lang sein.",
+    ],
+    [
+      "a Nutzername of 201 characters once trimmed",
+      ` ${"x".repeat(201)} `,
+      "a-good-password",
+      "Der Nutzername darf höchstens 200 Zeichen lang sein.",
+    ],
+    ["a number as password", "bert", 7, "Das Passwort muss Text sein."],
+  ])(
+    "refuses a new account with %s",
+    async (_, username, password, message) => {
+      const db = await freshDb();
+      await seedAdmin(db);
+
+      await expect(
+        createAccount(db, {
+          username: username as Bad,
+          password: password as Bad,
+          role: "user",
+        }),
+      ).rejects.toThrow(new ValidationError(message));
+
+      expect(await listUsers(db)).toHaveLength(1);
+    },
+  );
 });
 
 describe("setRole (last-admin protection)", () => {
@@ -104,6 +148,15 @@ describe("setRole (last-admin protection)", () => {
     expect((await findUserById(db, chef.id))?.role).toBe("user");
     expect(await countAdmins(db)).toBe(1);
   });
+
+  it("refuses a role other than admin and user", async () => {
+    const db = await freshDb();
+    const chef = await seedAdmin(db);
+
+    await expect(setRole(db, chef.id, "superadmin" as Bad)).rejects.toThrow(
+      new ValidationError("Unbekannte Rolle."),
+    );
+  });
 });
 
 describe("resetPassword", () => {
@@ -132,6 +185,15 @@ describe("resetPassword", () => {
     });
     await expect(resetPassword(db, anna.id, "short")).rejects.toBeInstanceOf(
       ValidationError,
+    );
+  });
+
+  it("refuses a number as new password", async () => {
+    const db = await freshDb();
+    const chef = await seedAdmin(db);
+
+    await expect(resetPassword(db, chef.id, 7 as Bad)).rejects.toThrow(
+      new ValidationError("Das Passwort muss Text sein."),
     );
   });
 
@@ -258,5 +320,23 @@ describe("deleteAccount (last-admin protection)", () => {
 
     const [entry] = await listEntries(db, op.id);
     expect(entry).toMatchObject({ text: "Lage", author: "anna" });
+  });
+});
+
+describe("refusing a Nutzer-ID that is not a UUID", () => {
+  it.each([
+    ["setting a role", (db: Db) => setRole(db, "user-1", "admin")],
+    [
+      "resetting a password",
+      (db: Db) => resetPassword(db, "user-1", "a-good-password"),
+    ],
+    ["deleting an account", (db: Db) => deleteAccount(db, "user-1")],
+  ])("refuses %s", async (_, call) => {
+    const db = await freshDb();
+    await seedAdmin(db);
+
+    await expect(call(db)).rejects.toThrow(
+      new ValidationError("Ungültige ID."),
+    );
   });
 });
