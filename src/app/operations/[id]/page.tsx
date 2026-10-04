@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import type { JournalEntryView } from "@/journal/JournalPanel";
+import type { JournalEntryView } from "@/journal/JournalEntry";
 import type { RenderedArea } from "@/map/SituationMap";
 import type {
   WorkspaceImageOverlay,

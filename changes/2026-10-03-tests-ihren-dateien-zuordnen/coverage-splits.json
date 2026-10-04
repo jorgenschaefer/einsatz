@@ -16,6 +16,7 @@
   ],
   "src/journal/JournalPanel.tsx": [
     "src/journal/JournalPanel.tsx",
-    "src/journal/useScrollToEnd.ts"
+    "src/journal/useScrollToEnd.ts",
+    "src/journal/JournalEntry.tsx"
   ]
 }

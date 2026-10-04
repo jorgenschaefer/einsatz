@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { JournalEntryView } from "@/journal/JournalPanel";
+import type { JournalEntryView } from "@/journal/JournalEntry";
 import { entry } from "@/journal/JournalPanel.fixtures";
 import { stubMatchMedia } from "@/test/match-media";
 import { act, renderHook } from "@/test/render";

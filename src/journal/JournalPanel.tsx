@@ -1,57 +1,19 @@
 "use client";
 
-import {
-  ActionIcon,
-  Badge,
-  Box,
-  Checkbox,
-  Group,
-  Menu,
-  Paper,
-  Stack,
-  Text,
-} from "@mantine/core";
+import { Checkbox, Stack, Text } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { type Ref, useEffect, useState } from "react";
 import type { ActionResult } from "@/app/action-result";
 import { ConfirmationModal } from "@/app/ConfirmationModal";
 import { EntryForm } from "@/journal/EntryForm";
 import { DEFAULT_CHANNEL } from "@/journal/EntryRouteFields";
-import { EntryRouteHeader } from "@/journal/EntryRouteHeader";
-import {
-  type EntryContent,
-  type EntryRoute,
-  NO_ROUTE,
-} from "@/journal/entry-route";
-import {
-  canAnnulEntry,
-  canCorrectEntry,
-  isAutomaticEntry,
-  type JournalEntryType,
-} from "@/journal/entry-type";
+import { type EntryContent, NO_ROUTE } from "@/journal/entry-route";
+import { isAutomaticEntry } from "@/journal/entry-type";
+import { JournalEntry, type JournalEntryView } from "@/journal/JournalEntry";
 import { useEntryRouteMemory } from "@/journal/useEntryRouteMemory";
 import { SHOW_END, useScrollToEnd } from "@/journal/useScrollToEnd";
-import type { JournalEntryState } from "@/server/journal/journal";
 
 const SAVE_ERROR = "Speichern fehlgeschlagen. Bitte erneut versuchen.";
-
-interface JournalRevisionView extends EntryRoute {
-  text: string;
-  author: string | null;
-  createdAt: string;
-}
-
-export interface JournalEntryView extends EntryRoute {
-  id: string;
-  number: number;
-  createdAt: string;
-  text: string;
-  type: JournalEntryType;
-  state: JournalEntryState;
-  author: string | null;
-  editedAt: string | null;
-  revisions: JournalRevisionView[];
-}
 
 export interface JournalPanelProps {
   operationId: string;
@@ -65,13 +27,6 @@ export interface JournalPanelProps {
   /** Wird das ETB sichtbar, zeigt es den letzten Eintrag. */
   visible: boolean;
 }
-
-const berlinTime = (iso: string) =>
-  new Intl.DateTimeFormat("de-DE", {
-    timeZone: "Europe/Berlin",
-    dateStyle: "short",
-    timeStyle: "short",
-  }).format(new Date(iso));
 
 const NEW_ENTRY: EntryContent = {
   text: "",
@@ -168,118 +123,35 @@ export function JournalPanel({
       />
 
       <Stack gap="sm" className="journal-entries">
-        {shown.map((entry) => {
-          const isAuto = isAutomaticEntry(entry.type);
-          const isValid = entry.state === "gueltig";
-          const canCorrect = isValid && canCorrectEntry(entry.type);
-          const canAnnul = isValid && canAnnulEntry(entry.type);
-          return (
-            <Paper key={entry.id} data-entry withBorder p="sm">
-              <Group justify="space-between" wrap="nowrap">
-                <Group gap="xs">
-                  <Text fw={700}>#{entry.number}</Text>
-                  <Text size="xs" c="dimmed">
-                    {berlinTime(entry.createdAt)}
-                  </Text>
-                  {isAuto && (
-                    <Badge size="xs" variant="light" color="gray">
-                      automatisch
-                    </Badge>
-                  )}
-                </Group>
-                <Group gap="xs" wrap="nowrap">
-                  {entry.author && (
-                    <Text size="xs" c="dimmed">
-                      {entry.author}
-                    </Text>
-                  )}
-                  {canAnnul && editingId !== entry.id && (
-                    <Menu position="bottom-end" withinPortal>
-                      <Menu.Target>
-                        <ActionIcon
-                          variant="subtle"
-                          color="gray"
-                          aria-label={`Aktionen für Eintrag #${entry.number}`}
-                        >
-                          ⋯
-                        </ActionIcon>
-                      </Menu.Target>
-                      <Menu.Dropdown>
-                        {canCorrect && (
-                          <Menu.Item onClick={() => openCorrection(entry.id)}>
-                            Korrigieren
-                          </Menu.Item>
-                        )}
-                        <Menu.Item
-                          color="red"
-                          onClick={() => openAnnulConfirmation(entry)}
-                        >
-                          Annullieren …
-                        </Menu.Item>
-                      </Menu.Dropdown>
-                    </Menu>
-                  )}
-                </Group>
-              </Group>
-
-              {entry.revisions.map((rev, index) => (
-                // Revisionen tragen weder id noch seq und werden nur angehängt
-                // (nie umsortiert/entfernt); der Index innerhalb des Eintrags ist
-                // daher ein stabiler, kollisionsfreier Key – anders als der
-                // Zeitstempel, den zwei Fassungen teilen können.
-                // biome-ignore lint/suspicious/noArrayIndexKey: append-only, stable index
-                <Box key={`${entry.id}-${index}`} c="dimmed">
-                  <EntryRouteHeader route={rev} struck />
-                  <Text size="sm" mt={4}>
-                    <del>{rev.text}</del>
-                    {rev.author &&
-                      ` – ${rev.author}, ${berlinTime(rev.createdAt)}`}
-                  </Text>
-                </Box>
-              ))}
-
-              <EntryRouteHeader
-                route={entry}
-                struck={entry.state === "annulliert"}
-              />
-              {entry.state === "annulliert" ? (
-                <Text mt={4}>
-                  <del>{entry.text}</del>
-                </Text>
-              ) : (
-                <Text mt={4}>{entry.text}</Text>
-              )}
-
-              {entry.state === "gueltig" && entry.editedAt && (
-                <Text size="xs" c="dimmed">
-                  korrigiert {berlinTime(entry.editedAt)}
-                </Text>
-              )}
-
-              {editingId === entry.id && (
-                <Box mt="xs">
-                  <EntryForm
-                    label="Korrektur"
-                    initial={entry}
-                    pinned
-                    compact
-                    correspondents={correspondents}
-                    lastUsed={memory.remembered}
-                    submitLabel="Speichern"
-                    onSubmit={correctEditedEntry}
-                    onCancel={() => setEditingId(null)}
-                    error={
-                      correctionError?.entryId === entry.id
-                        ? correctionError.message
-                        : null
-                    }
-                    onDismissError={() => setCorrectionError(null)}
-                  />
-                </Box>
-              )}
-            </Paper>
-          );
-        })}
+        {shown.map((entry) => (
+          <JournalEntry
+            key={entry.id}
+            entry={entry}
+            onOpenCorrection={() => openCorrection(entry.id)}
+            onOpenAnnulConfirmation={() => openAnnulConfirmation(entry)}
+            correction={
+              editingId === entry.id && (
+                <EntryForm
+                  label="Korrektur"
+                  initial={entry}
+                  pinned
+                  compact
+                  correspondents={correspondents}
+                  lastUsed={memory.remembered}
+                  submitLabel="Speichern"
+                  onSubmit={correctEditedEntry}
+                  onCancel={() => setEditingId(null)}
+                  error={
+                    correctionError?.entryId === entry.id
+                      ? correctionError.message
+                      : null
+                  }
+                  onDismissError={() => setCorrectionError(null)}
+                />
+              )
+            }
+          />
+        ))}
         {/* Deckt die letzten 8 px der Liste ab: Am Ende gescrollt fehlen dem
             Rand sonst Bruchteile eines Pixels, und es gilt nicht als „am Ende".
             Ohne flexShrink schrumpft er in der scrollenden Liste (Desktop) auf 0. */}
