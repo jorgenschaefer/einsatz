@@ -2,7 +2,7 @@
 criteria:  CRITERIA.md
 closes:    
 advances:  AC-3, AC-11, AC-12
-after:     16-arbeitsplatz-main-view, 23-pruefungen
+after:     16-arbeitsplatz-main-view, 23-pruefungen, 32-read-only-situation-map
 status:    halted
 attempts:  1
 ---

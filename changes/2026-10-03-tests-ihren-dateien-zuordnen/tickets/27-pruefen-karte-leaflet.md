@@ -2,7 +2,7 @@
 criteria:  CRITERIA.md
 closes:    
 advances:  AC-3, AC-11, AC-12
-after:     26-pruefen-karte-arbeitsplatz
+after:     26-pruefen-karte-arbeitsplatz, 32-read-only-situation-map
 status:    ready
 attempts:  0
 ---
@@ -62,6 +62,8 @@ leaves the app behaving as before.
   `placed-symbols.test.ts` (→ `staleness`, `tactical-symbol`),
   `leaflet-areas.test.ts` (→ `tooltip-text`), `uploads.test.ts`
   (→ `upload-messages`).
+- `ReadOnlySituationMap.test.tsx` was created by ticket 32 and is listed
+  in `ac3-reviewed.txt`, so the selection skips it; ticket 32 judged it.
 - A test belongs to its own file when the behaviour is that file's: what
   it decides, shows, calls or passes down, and how it combines other files
   (wiring). Other files running in the test is fine - the file's real
