@@ -3,7 +3,7 @@ criteria:  CRITERIA.md
 closes:    AC-1, AC-2, AC-8, AC-9, AC-10, AC-11, AC-12
 advances:
 after:     23-pruefungen, 31-pruefen-app-rest
-status:    halted
+status:    done
 attempts:  1
 ---
 
@@ -106,64 +106,41 @@ behaviour changed. Each gap found is fixed here.
   behaviour.
 
 ## Left standing
-
-## Halt
-**Kind: undecided.** Plan step 4 found a commit whose `Removed tests:`
-record does not name every test that disappeared, and the plan says only
-the user can decide whether branch commits are reworded.
-
-`removed-tests.mjs <c>^ <c>` ran for all 54 commits since the start
-commit. A script checked each removed name against the commit body. Every
-removed name in 53 commits appears as a `- <name>` line followed by a `→`
-line. The exception is **5523958 "Time the KML scanners with one run
-against a limit"**. It removed 22 names:
-
-- Five `src/server/kml/kml-fetch.test.ts › fetchKmlFromUrl (timing) › …`
-  tests. The record covers them, but as two wrapped `%s` templates
-  ("4 cases"), not one line per test.
-- 17 `src/kml/kmz.test.ts` tests, renamed in place and not recorded:
-  - "… at most twice as slowly as ordinary KML" became "… in linear time".
-  - The pieces grew from 20,000 to 100,000 spaces after `<href>`, and
-    from 10,000 to 50,000 unclosed tags.
-
-  The removed names:
-  - `mergeKmlDocuments › merges KML containing 10,000 unclosed <Document> …`
-  - `KML containing <href> followed by 20,000 spaces without </href> › is
-    read by {networkLinkHrefs, iconStyleHrefs, replaceIconStyleHrefs,
-    extractKml from a KMZ} …`
-  - the same four for `the same <href> inside a closed NetworkLink`
-  - the same four for `the same <href> inside a closed IconStyle`
-  - the same four for `10,000 unclosed <NetworkLink>`
-
-  Each pairs one-to-one with an added name in the same file. The commit's
-  prose describes the change, but the record has no line for any of them.
-  The plan counts a renamed test as moved, so each needs a record line.
-
-Fixing this means rewording 5523958 and rebasing the eight commits after
-it, or accepting the record as written. Both are your call.
-
-Already checked in this attempt. A retry only needs step 4 and the commit:
-- AC-1, AC-2: `npm run check` is green: 199 files, 2689 tests, including
-  `test-files.test.ts`.
-- AC-8: every action and route keeps every kind of check it had at the
-  start commit. The comparison was made per entry point, and per action
-  for each distinct expected bad-input answer. There were 42 action
-  exports and 12 route methods, the same at both ends. Some checks were
-  narrowed, but each entry point still has a check of the same kind:
-  - expired session: only `createOperationAction`, now in `sessions.test.ts`
-  - position route: the 5 s denials, now in `map-symbols.test.ts`
-  - the `../escape` Einsatz-ID: now in `image-overlay-uploads.test.ts`
-  - the 201-character name, view-geometry and JSON/HTML-as-KML rows: moved
-    to the server module tests
-  - KML URL bad calls: no longer assert that nothing was fetched
-  - the at-limit KML and own-origin acceptance: now in `upload-route.test.ts`
-- AC-9: no tracked `.ts`, `.tsx` or `.mjs` file is over 500 lines. The
-  largest is 499.
-- AC-10: after `npm run test:coverage`, `compare-coverage.mjs` exits 0
-  and reports no drop. It names only twelve new test helpers and
-  fixtures.
-- AC-12: the production diff since the start commit (`src`, excluding
-  tests, `src/test` and fixtures) only moves code and updates imports.
-  `SESSION_TTL_MS` lost its `export`. One condition in `JournalEntry` was
-  rewritten as `!correction`; `JournalPanel` passes `editingId ===
-  entry.id && <EntryForm/>`, so the condition is equivalent.
+- **AC-11 accepted with one incomplete record (user's decision).** Step 4
+  ran `removed-tests.mjs <c>^ <c>` for all 54 commits since the start
+  commit. In 53, every removed name has a `- <name>` line with a `→` line.
+  5523958 "Time the KML scanners with one run against a limit" does not:
+  its record covers the five `kml-fetch.test.ts` timing tests only as two
+  `%s` templates, and it has no lines for the 17 `kmz.test.ts` tests it
+  renamed in place ("at most twice as slowly as ordinary KML" → "in linear
+  time", with larger inputs). Each renamed test pairs one-to-one with an
+  added test in the same file, and the commit's prose describes the change.
+  The user chose to keep the record as written rather than reword 5523958
+  and rebase the eight commits after it.
+- **Checks run.** `npm run check` is green after the halt (199 files, 2689
+  tests).
+- **Results of the other steps** (from the first attempt, unchanged):
+  - AC-1, AC-2: `npm run check` is green: 199 files, 2689 tests, including
+    `test-files.test.ts`.
+  - AC-8: every action and route keeps every kind of check it had at the
+    start commit. The comparison was made per entry point, and per action
+    for each distinct expected bad-input answer. There were 42 action
+    exports and 12 route methods, the same at both ends. Some checks were
+    narrowed, but each entry point still has a check of the same kind:
+    - expired session: only `createOperationAction`, now in `sessions.test.ts`
+    - position route: the 5 s denials, now in `map-symbols.test.ts`
+    - the `../escape` Einsatz-ID: now in `image-overlay-uploads.test.ts`
+    - the 201-character name, view-geometry and JSON/HTML-as-KML rows: moved
+      to the server module tests
+    - KML URL bad calls: no longer assert that nothing was fetched
+    - the at-limit KML and own-origin acceptance: now in `upload-route.test.ts`
+  - AC-9: no tracked `.ts`, `.tsx` or `.mjs` file is over 500 lines. The
+    largest is 499.
+  - AC-10: after `npm run test:coverage`, `compare-coverage.mjs` exits 0
+    and reports no drop. It names only twelve new test helpers and
+    fixtures.
+  - AC-12: the production diff since the start commit (`src`, excluding
+    tests, `src/test` and fixtures) only moves code and updates imports.
+    `SESSION_TTL_MS` lost its `export`. One condition in `JournalEntry` was
+    rewritten as `!correction`; `JournalPanel` passes `editingId ===
+    entry.id && <EntryForm/>`, so the condition is equivalent.
