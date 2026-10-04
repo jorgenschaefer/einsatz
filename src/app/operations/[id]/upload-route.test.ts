@@ -19,7 +19,7 @@ import { findUserBySessionToken, insertSession } from "@/server/auth/sessions";
 import { insertUser } from "@/server/auth/users";
 import { freshDb } from "@/test/db";
 import { multipartRequest } from "@/test/upload-request";
-import { handleUpload } from "./upload-route";
+import { formJson, handleUpload } from "./upload-route";
 
 const HOUR = 60 * 60_000;
 const LOGIN = Date.parse("2026-10-01T08:00:00Z");
@@ -63,5 +63,18 @@ describe("handleUpload", () => {
         new Date(LOGIN + 25 * HOUR),
       ),
     ).not.toBeNull();
+  });
+});
+
+describe("formJson", () => {
+  it("gives nothing for a field the form does not have", () => {
+    expect(formJson(new FormData(), "view")).toBeUndefined();
+  });
+
+  it("gives nothing for a field that is not JSON", () => {
+    const form = new FormData();
+    form.append("view", "{lat: 53.55");
+
+    expect(formJson(form, "view")).toBeUndefined();
   });
 });

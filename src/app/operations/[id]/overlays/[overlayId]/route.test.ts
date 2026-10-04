@@ -1,6 +1,6 @@
-import { mkdir, mkdtemp, readdir, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join, relative, sep } from "node:path";
+import { dirname, join } from "node:path";
 import sharp from "sharp";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ActionResult } from "@/app/action-result";
@@ -77,7 +77,6 @@ beforeEach(async () => {
   state.db = await freshDb();
   state.token = await signIn(db());
   state.revalidatedPaths = [];
-  // Eigenes Elternverzeichnis, damit „nichts daneben angelegt" prüfbar ist.
   const parent = await mkdtemp(join(tmpdir(), "einsatz-replace-"));
   dir = join(parent, "uploads");
   await mkdir(dir);
@@ -170,54 +169,35 @@ describe("GET /operations/[id]/overlays/[overlayId]", () => {
 });
 
 describe("PUT /operations/[id]/overlays/[overlayId]", () => {
-  it("keeps the placement, updates file+dimensions, and deletes the old file", async () => {
-    const result = await putImageOverlayFile(await pngFile(600, 300));
-    expect(result).toEqual({});
+  it("replaces the file and refreshes the Einsatz", async () => {
+    const notified: string[] = [];
+    const unsubscribe = subscribeOperation(operationId, () =>
+      notified.push("A"),
+    );
 
-    const updated = await getImageOverlay(db(), overlay.id);
-    expect(updated).toMatchObject({
-      placement: A_PLACEMENT,
+    try {
+      const response = await putPng();
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({});
+    } finally {
+      unsubscribe();
+    }
+
+    expect(notified).toEqual(["A"]);
+    expect(await getImageOverlay(db(), overlay.id)).toMatchObject({
       name: "neu.png",
-      widthPx: 600,
-      heightPx: 300,
     });
-    expect(updated?.filePath).not.toBe(overlay.filePath);
-
-    // Alte Datei ist weg, neue liegt im Volume.
-    expect(await filesUnderUploads()).toEqual([updated?.filePath]);
   });
 
-  it("leaves the overlay untouched when the file cannot be processed", async () => {
-    const result = await putImageOverlayFile(aBrokenPng());
-    expect(result.error).toBeTruthy();
-
-    expect(await getImageOverlay(db(), overlay.id)).toEqual(overlay);
-    expect(await filesUnderUploads()).toEqual([overlay.filePath]);
-  });
-
-  it("does not orphan the new file when the database update fails", async () => {
+  it("shows the embed failure message and logs the error when the database update fails", async () => {
     const dbDown = new Error("db down");
     vi.spyOn(repo, "replaceImageOverlayFile").mockRejectedValueOnce(dbDown);
     const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
 
     const result = await putImageOverlayFile(await pngFile(600, 300));
 
-    // Nur die alte Datei bleibt übrig – die neu geschriebene wurde aufgeräumt.
-    expect(await filesUnderUploads()).toEqual([overlay.filePath]);
     expect(result).toEqual({ error: EMBED_FAILED });
     expect(errorLog).toHaveBeenCalledWith(expect.anything(), dbDown);
-  });
-
-  it("refuses a file name of 201 characters and changes nothing", async () => {
-    const file = await pngFile(600, 300, `${"x".repeat(197)}.png`);
-
-    const result = await putImageOverlayFile(file);
-
-    expect(result).toEqual({
-      error: "Der Dateiname darf höchstens 200 Zeichen lang sein.",
-    });
-    expect(await getImageOverlay(db(), overlay.id)).toEqual(overlay);
-    expect(await filesUnderUploads()).toEqual([overlay.filePath]);
   });
 
   it("asks for a file and changes nothing when none was sent", async () => {
@@ -235,18 +215,6 @@ describe("PUT /operations/[id]/overlays/[overlayId]", () => {
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({ error: "Ungültige ID." });
     expect(await snapshotDbAndUploads(db(), dir)).toEqual(before);
-  });
-
-  it("creates nothing outside the uploads directory for an Einsatz-ID like ../escape", async () => {
-    const before = await readdir(dirname(dir));
-
-    await putPng({ id: "../escape" });
-
-    expect(await readdir(dirname(dir))).toEqual(before);
-    const files = await filesUnderUploads();
-    expect(files.every((file) => file.startsWith(`${operationId}${sep}`))).toBe(
-      true,
-    );
   });
 });
 
@@ -303,18 +271,15 @@ function anOperation(name: string) {
   return insertOperation(db(), { name, description: null });
 }
 
-function pngFile(
-  width: number,
-  height: number,
-  name = "neu.png",
-): Promise<File> {
+function pngFile(width: number, height: number): Promise<File> {
   return sharp({
     create: { width, height, channels: 3, background: { r: 1, g: 2, b: 3 } },
   })
     .png()
     .toBuffer()
     .then(
-      (buf) => new File([new Uint8Array(buf)], name, { type: "image/png" }),
+      (buf) =>
+        new File([new Uint8Array(buf)], "neu.png", { type: "image/png" }),
     );
 }
 
@@ -322,12 +287,4 @@ function aBrokenPng(): File {
   return new File([new Uint8Array([1, 2, 3])], "kaputt.png", {
     type: "image/png",
   });
-}
-
-/** Alle Dateien unter dem Upload-Verzeichnis, relativ dazu. */
-async function filesUnderUploads(): Promise<string[]> {
-  const entries = await readdir(dir, { recursive: true, withFileTypes: true });
-  return entries
-    .filter((entry) => entry.isFile())
-    .map((entry) => relative(dir, join(entry.parentPath, entry.name)));
 }

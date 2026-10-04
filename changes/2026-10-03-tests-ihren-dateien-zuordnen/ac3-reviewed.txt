@@ -69,3 +69,4 @@ src/strength/strength-total.test.ts
 src/map/ReadOnlySituationMap.test.tsx
 src/map/useClipboardCopy.test.ts
 src/startup-checks.test.ts
+src/server/image-overlays/image-overlay-uploads.test.ts

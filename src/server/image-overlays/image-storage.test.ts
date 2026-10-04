@@ -1,6 +1,7 @@
 import { access, mkdir, mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { crc32, deflateSync } from "node:zlib";
 import { pdfToPng } from "pdf-to-png-converter";
 import sharp from "sharp";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -35,6 +36,34 @@ function png(width: number, height: number): Promise<Buffer> {
     .toBuffer();
 }
 
+/**
+ * Ein schwarzes 8-Bit-Graustufen-PNG, von Hand gebaut: Die Nullzeilen
+ * komprimieren auf wenige hundert KB, auch bei 100 Megapixeln.
+ */
+function grayPng(width: number, height: number): Buffer {
+  const header = Buffer.alloc(13);
+  header.writeUInt32BE(width, 0);
+  header.writeUInt32BE(height, 4);
+  header.writeUInt8(8, 8); // Bittiefe
+  header.writeUInt8(0, 9); // Graustufen
+  const rows = Buffer.alloc((width + 1) * height); // je Zeile Filterbyte 0
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    pngChunk("IHDR", header),
+    pngChunk("IDAT", deflateSync(rows)),
+    pngChunk("IEND", Buffer.alloc(0)),
+  ]);
+}
+
+function pngChunk(type: string, data: Buffer): Buffer {
+  const length = Buffer.alloc(4);
+  length.writeUInt32BE(data.length);
+  const typeAndData = Buffer.concat([Buffer.from(type, "ascii"), data]);
+  const crc = Buffer.alloc(4);
+  crc.writeUInt32BE(crc32(typeAndData));
+  return Buffer.concat([length, typeAndData, crc]);
+}
+
 /** WebP hat einen RIFF-Container mit "WEBP"-Kennung ab Byte 8. */
 function isWebp(buffer: Buffer): boolean {
   return (
@@ -60,10 +89,29 @@ describe("prepareOverlayImage", () => {
     expect(result).toMatchObject({ width: 400, height: 300 });
   });
 
+  it("prepares a PDF from its first page", async () => {
+    const result = await prepareOverlayImage("pdf", minimalPdf(600, 300));
+    expect(isWebp(result.webp)).toBe(true);
+    expect(result).toMatchObject({ width: 1800, height: 900 });
+  });
+
   it("rejects an unreadable image", async () => {
     await expect(
       prepareOverlayImage("png", Buffer.alloc(24)),
     ).rejects.toBeInstanceOf(ValidationError);
+  });
+
+  it("refuses a PNG over 100 megapixels", async () => {
+    await expect(
+      prepareOverlayImage("png", grayPng(10_001, 10_000)),
+    ).rejects.toThrow(
+      new ValidationError("Das Bild konnte nicht verarbeitet werden."),
+    );
+  });
+
+  it("accepts a PNG of exactly 100 megapixels", async () => {
+    const result = await prepareOverlayImage("png", grayPng(10_000, 10_000));
+    expect(result).toMatchObject({ width: 3000, height: 3000 });
   });
 });
 
@@ -89,6 +137,13 @@ describe("renderPdfFirstPageToPng", () => {
       expect(Math.min(width, height)).toBeGreaterThanOrEqual(1);
     },
   );
+
+  it("keeps the aspect ratio of a page too large to render at scale 1", async () => {
+    const png = await renderPdfFirstPageToPng(minimalPdf(200_000, 100_000));
+
+    const { width = 0, height = 1 } = await sharp(png).metadata();
+    expect(width / height).toBeCloseTo(2, 2);
+  });
 
   it("renders at no more than scale 3, even just below 4000/3 pt", async () => {
     const png = await renderPdfFirstPageToPng(minimalPdf(1333, 500));

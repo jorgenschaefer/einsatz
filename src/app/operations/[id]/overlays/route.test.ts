@@ -1,7 +1,6 @@
 import { mkdir, mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join, relative } from "node:path";
-import { crc32, deflateSync } from "node:zlib";
+import { dirname, join } from "node:path";
 import sharp from "sharp";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ActionResult } from "@/app/action-result";
@@ -31,13 +30,9 @@ vi.mock("next/headers", () => ({
 
 import * as repo from "@/server/image-overlays/image-overlays";
 import { listImageOverlays } from "@/server/image-overlays/image-overlays";
-import {
-  insertOperation,
-  setDefaultView,
-} from "@/server/operations/operations";
+import { insertOperation } from "@/server/operations/operations";
 import { freshDb } from "@/test/db";
 import { snapshotDbAndUploads } from "@/test/db-snapshot";
-import { minimalPdf } from "@/test/minimal-pdf";
 import {
   expectRouteRequiresLogin,
   expectUploadRules,
@@ -81,62 +76,16 @@ const sendAs: SendAs = async (caller) => {
   else state.token = await signIn(db());
 };
 
-function pngFile(
-  width: number,
-  height: number,
-  name = "neu.png",
-): Promise<File> {
+function pngFile(width: number, height: number): Promise<File> {
   return sharp({
     create: { width, height, channels: 3, background: { r: 1, g: 2, b: 3 } },
   })
     .png()
     .toBuffer()
     .then(
-      (buf) => new File([new Uint8Array(buf)], name, { type: "image/png" }),
+      (buf) =>
+        new File([new Uint8Array(buf)], "neu.png", { type: "image/png" }),
     );
-}
-
-function pdfFile(widthPt: number, heightPt: number): File {
-  return new File([new Uint8Array(minimalPdf(widthPt, heightPt))], "plan.pdf", {
-    type: "application/pdf",
-  });
-}
-
-/**
- * Ein schwarzes 8-Bit-Graustufen-PNG, von Hand gebaut: Die Nullzeilen
- * komprimieren auf wenige hundert KB, auch bei 100 Megapixeln.
- */
-function grayPngFile(width: number, height: number): File {
-  const header = Buffer.alloc(13);
-  header.writeUInt32BE(width, 0);
-  header.writeUInt32BE(height, 4);
-  header.writeUInt8(8, 8); // Bittiefe
-  header.writeUInt8(0, 9); // Graustufen
-  const rows = Buffer.alloc((width + 1) * height); // je Zeile Filterbyte 0
-  const png = Buffer.concat([
-    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
-    pngChunk("IHDR", header),
-    pngChunk("IDAT", deflateSync(rows)),
-    pngChunk("IEND", Buffer.alloc(0)),
-  ]);
-  return new File([new Uint8Array(png)], "gross.png", { type: "image/png" });
-}
-
-function pngChunk(type: string, data: Buffer): Buffer {
-  const length = Buffer.alloc(4);
-  length.writeUInt32BE(data.length);
-  const typeAndData = Buffer.concat([Buffer.from(type, "ascii"), data]);
-  const crc = Buffer.alloc(4);
-  crc.writeUInt32BE(crc32(typeAndData));
-  return Buffer.concat([length, typeAndData, crc]);
-}
-
-/** Alle Dateien unter dem Upload-Verzeichnis, relativ dazu. */
-async function filesUnderUploads(): Promise<string[]> {
-  const entries = await readdir(dir, { recursive: true, withFileTypes: true });
-  return entries
-    .filter((entry) => entry.isFile())
-    .map((entry) => relative(dir, join(entry.parentPath, entry.name)));
 }
 
 let dir: string;
@@ -205,54 +154,6 @@ describe("POST /operations/[id]/overlays", () => {
     expect(state.publishOperationChanged).toHaveBeenCalledWith(operationId);
   });
 
-  it("centers a landscape image on the uploader's view at half its width", async () => {
-    await setDefaultView(db(), operationId, { lat: 48, lng: 11, zoom: 9 });
-
-    await postImageOverlay(await pngFile(600, 300), {
-      lat: 53.55,
-      lng: 9.99,
-      widthM: 4000,
-      heightM: 3000,
-    });
-
-    const [overlay] = await listImageOverlays(db(), operationId);
-    expect(overlay.placement).toMatchObject({
-      centerLat: 53.55,
-      centerLng: 9.99,
-      scaleM: 2000,
-    });
-  });
-
-  it("sizes a portrait image to half the height of the uploader's view", async () => {
-    await postImageOverlay(await pngFile(300, 600), {
-      lat: 53.55,
-      lng: 9.99,
-      widthM: 4000,
-      heightM: 1000,
-    });
-
-    const [overlay] = await listImageOverlays(db(), operationId);
-    expect(overlay.placement.scaleM).toBe(250);
-  });
-
-  it.each([
-    ["no view", undefined],
-    ["a view of null", null],
-    ["a width of zero", { ...A_VIEW, widthM: 0 }],
-    ["a negative height", { ...A_VIEW, heightM: -1 }],
-    ["an infinite width", { ...A_VIEW, widthM: Number.POSITIVE_INFINITY }],
-    ["a latitude that is not a number", { ...A_VIEW, lat: Number.NaN }],
-    ["a latitude beyond the pole", { ...A_VIEW, lat: 90.1 }],
-    ["a longitude beyond the date line", { ...A_VIEW, lng: -180.1 }],
-    ["a width given as text", { ...A_VIEW, widthM: "4000" }],
-  ])("rejects %s and creates nothing", async (_, view) => {
-    const result = await postImageOverlay(await pngFile(600, 300), view);
-
-    expect(result).toEqual({ error: "Der Kartenausschnitt ist ungültig." });
-    expect(await listImageOverlays(db(), operationId)).toEqual([]);
-    expect(await readdir(dir)).toEqual([]);
-  });
-
   it("rejects a view that is not JSON and creates nothing", async () => {
     const form = new FormData();
     form.append("file", await pngFile(600, 300));
@@ -267,16 +168,7 @@ describe("POST /operations/[id]/overlays", () => {
     expect(await listImageOverlays(db(), operationId)).toEqual([]);
   });
 
-  it("accepts a view centred on the date line", async () => {
-    const result = await postImageOverlay(await pngFile(600, 300), {
-      ...A_VIEW,
-      lng: 180,
-    });
-
-    expect(result).toEqual({});
-  });
-
-  it("shows the embed failure message, logs the error and leaves no file behind when the database insert fails", async () => {
+  it("shows the embed failure message and logs the error when the database insert fails", async () => {
     const dbDown = new Error("db down");
     vi.spyOn(repo, "createImageOverlay").mockRejectedValueOnce(dbDown);
     const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -285,7 +177,6 @@ describe("POST /operations/[id]/overlays", () => {
 
     expect(result).toEqual({ error: EMBED_FAILED });
     expect(errorLog).toHaveBeenCalledWith(expect.anything(), dbDown);
-    expect(await readdir(join(dir, operationId))).toEqual([]);
     expect(state.revalidatePath).not.toHaveBeenCalled();
   });
 
@@ -301,70 +192,10 @@ describe("POST /operations/[id]/overlays", () => {
     expect(await readdir(dir)).toEqual([]);
   });
 
-  it("refuses a file name of 201 characters and creates nothing", async () => {
-    const file = await pngFile(600, 300, `${"x".repeat(197)}.png`);
-
-    const result = await postImageOverlay(file, A_VIEW);
-
-    expect(result).toEqual({
-      error: "Der Dateiname darf höchstens 200 Zeichen lang sein.",
-    });
-    expect(await listImageOverlays(db(), operationId)).toEqual([]);
-    expect(await readdir(dir)).toEqual([]);
-  });
-
   it("asks for a file and creates nothing when none was sent", async () => {
     const result = await postImageOverlay("keine-datei", A_VIEW);
 
     expect(result).toEqual({ error: "Keine Datei ausgewählt." });
     expect(await listImageOverlays(db(), operationId)).toEqual([]);
-  });
-});
-
-describe("POST /operations/[id]/overlays with a PDF", () => {
-  it("converts a first page too large to render at scale 1, keeping its aspect ratio", async () => {
-    const result = await postImageOverlay(pdfFile(200_000, 100_000), A_VIEW);
-
-    expect(result).toEqual({});
-    const [overlay] = await listImageOverlays(db(), operationId);
-    expect(overlay.widthPx / overlay.heightPx).toBeCloseTo(2, 2);
-  });
-
-  it("converts an elongated first page", async () => {
-    const result = await postImageOverlay(pdfFile(400_000, 300), A_VIEW);
-
-    expect(result).toEqual({});
-    expect(await listImageOverlays(db(), operationId)).toHaveLength(1);
-  });
-
-  it("refuses a first page more than 4000 times longer than wide and stores nothing", async () => {
-    const result = await postImageOverlay(pdfFile(40_000_000, 1), A_VIEW);
-
-    expect(result).toEqual({
-      error: "Die PDF-Datei konnte nicht umgewandelt werden.",
-    });
-    expect(await listImageOverlays(db(), operationId)).toEqual([]);
-    expect(await filesUnderUploads()).toEqual([]);
-  });
-});
-
-describe("POST /operations/[id]/overlays with a very large PNG", () => {
-  it("refuses a PNG over 100 megapixels and stores nothing", async () => {
-    const result = await postImageOverlay(grayPngFile(10_001, 10_000), A_VIEW);
-
-    expect(result).toEqual({
-      error: "Das Bild konnte nicht verarbeitet werden.",
-    });
-    expect(await listImageOverlays(db(), operationId)).toEqual([]);
-    expect(await filesUnderUploads()).toEqual([]);
-  });
-
-  it("accepts a PNG of exactly 100 megapixels", async () => {
-    const result = await postImageOverlay(grayPngFile(10_000, 10_000), A_VIEW);
-
-    expect(result).toEqual({});
-    expect(await listImageOverlays(db(), operationId)).toMatchObject([
-      { widthPx: 3000, heightPx: 3000 },
-    ]);
   });
 });

@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:
 advances:  AC-3, AC-10, AC-11, AC-12
 after:     23-pruefungen
-status:    ready
-attempts:  0
+status:    done
+attempts:  1
 ---
 
 ## Build
@@ -171,3 +171,43 @@ Toward AC-12: production code is unchanged, or only restructured.
 - No change of behaviour.
 
 ## Left standing
+- **Departed from the plan: the PUT success test stays, slimmed, in the
+  route test.** The plan moves "keeps the placement, updates
+  file+dimensions, and deletes the old file" out whole. That was the only
+  successful `PUT`, so the coverage comparison named
+  `overlays/[overlayId]/route.ts` (the `return id` that refreshes the
+  Einsatz went unrun). The route test now has "replaces the file and
+  refreshes the Einsatz" (answer `{}`, the Einsatz notified, the new name
+  stored). With `return overlayId` put in by hand, it failed.
+- **Departed from the plan: tests added outside the moved set, to keep the
+  coverage comparison clean.**
+  - `upload-route.test.ts` › `formJson`: "gives nothing for a field the
+    form does not have" (the "no view" row was the only test that reached
+    that branch) and "gives nothing for a field that is not JSON" (second
+    reviewer's nit). This file is in ticket 30's area and is already on
+    `ac3-reviewed.txt`; both tests test `formJson`, which `upload-route.ts`
+    defines. Each one failed when the branch it covers was broken by hand.
+  - `image-storage.test.ts` › `prepareOverlayImage`: "prepares a PDF from
+    its first page". After the PDF route tests went, no PDF reached
+    `prepareOverlayImage`, which dropped a branch. Forcing the PNG path by
+    hand made it fail.
+  - `image-overlay-uploads.test.ts`: beyond the moved tests and the one
+    new test the plan names, there are three more. "refuses an Einsatz-ID
+    that is not a UUID and stores nothing" and "stores nothing for an
+    Einsatz that no longer exists" pin decisions the Context lists. "stores
+    a PDF upload under the file's name, with its prepared size" was the
+    first reviewer's should-fix: nothing sent a PDF through the module any
+    more. Each one failed when its line was removed or changed by hand.
+- **No new fixture file.** `pngFile` now has a local copy in each of the
+  three test files. A shared file under `src/test/` would have shown up in
+  the coverage comparison as a new file.
+- **Removing `assertUuid(operationId)` in `replaceImageOverlayImage`** is
+  caught only because the "../escape" test now expects the error
+  "Ungültige ID.". Without that check, the other-Einsatz check would
+  refuse the call anyway, with a different message.
+- **Coverage comparison.** It names no file with a drop and exits 0. It
+  still prints the twelve "new, compared with nothing" notes that earlier
+  tickets left behind. None of those files was touched here.
+- **Review.** Two rounds. Every finding was fixed: round 1 had one
+  should-fix and three nits, round 2 had two nits.
+
