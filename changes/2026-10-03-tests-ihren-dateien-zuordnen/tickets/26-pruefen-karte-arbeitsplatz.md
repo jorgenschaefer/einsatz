@@ -3,8 +3,8 @@ criteria:  CRITERIA.md
 closes:    
 advances:  AC-3, AC-11, AC-12
 after:     16-arbeitsplatz-main-view, 23-pruefungen, 32-read-only-situation-map
-status:    ready
-attempts:  1
+status:    done
+attempts:  2
 ---
 
 ## Build
@@ -162,6 +162,51 @@ leaves the app behaving as before.
   code does.
 
 ## Left standing
+- **Selection (Plan 1).** The script selects 16 files, all in `src/map/`:
+  AdvancedSymbolForm, AreaEditor, AreaEditorModal, AreasPanel,
+  DeviceLinkPanel, DeviceView, ImageOverlayEditor, LageansichtShell,
+  MainViewBar, SearchBar, SymbolDetailModal, SymbolsPanel, ViewLinkView
+  (`.test.tsx`), useDeviceLocation, useMapSearch, useStalenessClock
+  (`.test.ts`).
+- **Verdict per file (Plan 2).** Every one is "all its own", except
+  `DeviceLinkPanel.test.tsx`. From that file the 2 s reset and the
+  "failed without the Clipboard API" moved to the new
+  `useClipboardCopy.test.ts`, which is now listed in `ac3-reviewed.txt`.
+  The panel keeps what it does with the hook's state: it copies the device
+  URL, shows "kopiert", and shows the hint in the panel, not as a
+  notification.
+  Judgement calls that kept tests in place:
+  - Tests of a file's own `ConfirmationModal` count as its wiring:
+    cancel ways, locked while running, errors in the dialog. This applies
+    to DeviceLinkPanel, AreaEditor, ImageOverlayEditor and
+    LageansichtShell's Standard-Ausschnitt. It follows how ticket 11
+    judged `ViewLinkPanel` and `KmlPanel`, although
+    `src/app/ConfirmationModal.test.tsx` covers the same mechanics in
+    general.
+  - `SymbolDetailModal` › "confirming" and `LageansichtShell` › "deleting
+    a view link from Teilen" overlap with the children's confirmation
+    tests. What they check is the parent's dialog stack: only the inner
+    dialog closes, focus comes back, unsaved input survives, and both
+    dialogs close after deleting. They stay.
+  - `ViewLinkView` › "omits location, wipe-lock and locate controls"
+    checks only that controls are absent. The first attempt counted it as
+    ViewLinkView's own, and it stays.
+- **No test file still (Context).** `MapModeBands.tsx` and
+  `MapPanelSheet.tsx` are tested in `SituationMapView.test.tsx`, which is
+  judged (ticket 15). Nothing to do here, as the ticket says.
+- **Coverage comparison.** It names no file with a drop and exits 0. It
+  prints the same twelve informational "new, compared with nothing" notes
+  as ticket 32. None of those files was touched here.
+- **AC-12.** No production code changed. Nothing was restructured, so
+  there was nothing to check by hand.
+- **Outside Done when, committed separately (`cc4b31f`).** Ticket 32 left
+  `useMapSearch.test.ts` "geocodes the address query after a debounce…"
+  flaky. Its fake timers also advanced with real time. It now uses plain
+  fake timers. Breaking the debounce delay and the duplicate filter by
+  hand still makes the matching tests fail.
+- **Review.** One round with no blockers. The one should-fix was this
+  section. Both nits were taken: the panel's failure test now removes the
+  clipboard explicitly, and the timer change is in its own commit.
 
 ## Halt, first attempt
 Resolved by the re-plan: ticket 32 gives `ReadOnlySituationMap` its own

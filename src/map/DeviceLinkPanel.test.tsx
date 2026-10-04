@@ -1,10 +1,9 @@
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ActionResult } from "@/app/action-result";
 import { buttonColor } from "@/test/button-color";
 import { clickModalOverlay } from "@/test/modal-overlay";
 import {
-  act,
   notificationArea,
   render,
   screen,
@@ -221,39 +220,46 @@ describe("DeviceLinkPanel", () => {
     });
   });
 
-  it("resets the copy button label back to 'kopieren' after a delay", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    Object.defineProperty(navigator, "clipboard", {
-      configurable: true,
-      value: { writeText: vi.fn().mockResolvedValue(undefined) },
-    });
-    try {
-      setup({ token: "secret-token-123" });
-      await userEvent.click(screen.getByRole("button", { name: "kopieren" }));
-      expect(
-        screen.getByRole("button", { name: "kopiert" }),
-      ).toBeInTheDocument();
-      await act(async () => {
-        await vi.advanceTimersByTimeAsync(2000);
-      });
-      expect(
-        screen.getByRole("button", { name: "kopieren" }),
-      ).toBeInTheDocument();
-    } finally {
-      vi.useRealTimers();
-      delete (navigator as { clipboard?: unknown }).clipboard;
-    }
-  });
+  describe("copying the device link", () => {
+    const writeText = vi.fn();
+    const copy = () =>
+      userEvent.click(screen.getByRole("button", { name: "kopieren" }));
 
-  it("does not confirm 'kopiert' and hints instead in the panel when the clipboard API is unavailable", async () => {
-    // Unsicherer Kontext / In-App-Webview: navigator.clipboard fehlt ganz.
-    delete (navigator as { clipboard?: unknown }).clipboard;
-    setup({ token: "secret-token-123" });
-    await userEvent.click(screen.getByRole("button", { name: "kopieren" }));
-    expect(screen.queryByRole("button", { name: "kopiert" })).toBeNull();
-    const hint = await screen.findByRole("alert");
-    expect(hint).toHaveTextContent(/Kopieren nicht möglich/);
-    expect(notificationArea()).not.toContainElement(hint);
+    afterEach(() => {
+      writeText.mockReset();
+      delete (navigator as { clipboard?: unknown }).clipboard;
+    });
+
+    it("copies the device URL and confirms it with 'kopiert'", async () => {
+      writeText.mockResolvedValue(undefined);
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: { writeText },
+      });
+      setup({ token: "secret-token-123" });
+
+      await copy();
+
+      expect(writeText).toHaveBeenCalledWith(
+        `${window.location.origin}/device/secret-token-123`,
+      );
+      expect(
+        await screen.findByRole("button", { name: "kopiert" }),
+      ).toBeInTheDocument();
+      expect(screen.queryByRole("alert")).toBeNull();
+    });
+
+    it("hints in the panel instead of confirming when copying fails", async () => {
+      delete (navigator as { clipboard?: unknown }).clipboard;
+      setup({ token: "secret-token-123" });
+
+      await copy();
+
+      const hint = await screen.findByRole("alert");
+      expect(hint).toHaveTextContent(/Kopieren nicht möglich/);
+      expect(notificationArea()).not.toContainElement(hint);
+      expect(screen.queryByRole("button", { name: "kopiert" })).toBeNull();
+    });
   });
 
   it("shows the live position source and the last report", () => {
