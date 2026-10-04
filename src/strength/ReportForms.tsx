@@ -15,12 +15,12 @@ import { IconArrowLeft } from "@tabler/icons-react";
 import { useId, useState } from "react";
 import type { StationView, StrengthReportView } from "./StrengthPanel";
 import {
+  berlinTimeOfDay,
   latestValidReport,
   type StrengthValues,
   sumOf,
   totalPersonsOf,
 } from "./strength";
-import { berlinTimeOfDay } from "./strength-total";
 
 /** Neue Meldung einer Stelle, vorbelegt mit ihrer letzten gültigen Meldung. */
 export function ReportForm({

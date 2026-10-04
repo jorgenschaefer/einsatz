@@ -1,4 +1,4 @@
-import type { ReportedStrength } from "./strength-total";
+import type { ReportedStrength } from "./total";
 
 // Cyclassics: 4 Stellen report once an hour from 08:00 to 20:00 (CEST), one
 // after the other within the same minute. The first Stelle never adds a note.

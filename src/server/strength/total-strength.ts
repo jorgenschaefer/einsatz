@@ -3,7 +3,7 @@ import type { Db } from "@/server/db/db";
 import { appendEntry } from "@/server/journal/journal";
 import { lockOperation } from "@/server/operations/operations";
 import { assertUuid, ValidationError } from "@/server/validation";
-import { formatTotalStrengthText, totalOf } from "@/strength/strength-total";
+import { formatTotalStrengthText, totalOf } from "@/strength/total";
 import { listStrengthReports, type StrengthReport } from "./strength-reports";
 
 /** Schreibt die Summe über die Stellen als „Gesamtstärke gemeldet" ins ETB. */

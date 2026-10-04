@@ -1,15 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { cyclassicsReportsByStation } from "./cyclassics.fixtures";
-import { latestValidReport } from "./strength";
+import { berlinTimeOfDay, latestValidReport } from "./strength";
 import {
-  berlinTimeOfDay,
   formatTotalStrengthText,
   isReportStale,
   isTotalStale,
   type ReportedStrength,
   totalHistory,
   totalOf,
-} from "./strength-total";
+} from "./total";
 
 describe("totalOf", () => {
   const report = (

@@ -18,16 +18,12 @@ import { ConfirmationModal } from "@/app/ConfirmationModal";
 import { StrengthFigures } from "./StrengthFigures";
 import type { StationView } from "./StrengthPanel";
 import {
+  berlinTimeOfDay,
   latestValidReport,
   type StrengthCounts,
   totalPersonsOf,
 } from "./strength";
-import {
-  berlinTimeOfDay,
-  isReportStale,
-  isTotalStale,
-  totalOf,
-} from "./strength-total";
+import { isReportStale, isTotalStale, totalOf } from "./total";
 
 export function TotalCard({
   stations,

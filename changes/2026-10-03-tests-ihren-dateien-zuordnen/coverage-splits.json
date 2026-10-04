@@ -32,6 +32,6 @@
   ],
   "src/strength/strength.ts": [
     "src/strength/strength.ts",
-    "src/strength/strength-total.ts"
+    "src/strength/total.ts"
   ]
 }

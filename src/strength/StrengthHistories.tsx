@@ -14,11 +14,12 @@ import { Fragment, useId } from "react";
 import { StrengthFigures } from "./StrengthFigures";
 import type { StationView, StrengthReportView } from "./StrengthPanel";
 import {
+  berlinTimeOfDay,
   type StrengthCounts,
   stationHistory,
   totalPersonsOf,
 } from "./strength";
-import { berlinTimeOfDay, totalHistory } from "./strength-total";
+import { totalHistory } from "./total";
 
 export function StationHistory({
   station,

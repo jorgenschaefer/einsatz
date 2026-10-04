@@ -1,4 +1,5 @@
 import {
+  berlinTimeOfDay,
   formatStrength,
   latestValidReport,
   type StrengthCounts,
@@ -104,11 +105,3 @@ export function formatTotalStrengthText(total: Total): string {
     `+${total.additionalPersonnel} zusätzlich, ${totalPersonsOf(total)} Personen (${stations}${oldest})`
   );
 }
-
-/** Uhrzeit HH:mm in Europe/Berlin, in der Ansicht wie im ETB-Text. */
-export const berlinTimeOfDay = (time: Date | string) =>
-  new Intl.DateTimeFormat("de-DE", {
-    timeZone: "Europe/Berlin",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(time));

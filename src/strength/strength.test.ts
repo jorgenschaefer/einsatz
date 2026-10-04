@@ -4,6 +4,7 @@ import {
   cyclassicsReportsByStation,
 } from "./cyclassics.fixtures";
 import {
+  berlinTimeOfDay,
   formatStrength,
   formatStrengthReportText,
   latestValidReport,
@@ -12,7 +13,6 @@ import {
   sumOf,
   totalPersonsOf,
 } from "./strength";
-import { berlinTimeOfDay } from "./strength-total";
 
 const values = (over: Partial<StrengthValues> = {}): StrengthValues => ({
   leaders: 0,

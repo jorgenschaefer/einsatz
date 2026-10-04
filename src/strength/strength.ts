@@ -50,3 +50,11 @@ export function stationHistory<R extends NumberedReport>(reports: R[]): R[] {
     .filter((report) => report.state === "gueltig")
     .sort((a, b) => b.number - a.number);
 }
+
+/** Uhrzeit HH:mm in Europe/Berlin, in der Ansicht wie im ETB-Text. */
+export const berlinTimeOfDay = (time: Date | string) =>
+  new Intl.DateTimeFormat("de-DE", {
+    timeZone: "Europe/Berlin",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(time));
