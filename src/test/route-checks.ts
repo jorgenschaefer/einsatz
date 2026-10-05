@@ -30,6 +30,12 @@ export type RouteAnswer =
   | { redirectTo: string }
   | { status: number; error?: string };
 
+/**
+ * How a route refuses an anonymous caller: off to `/login`, or 401 where a
+ * redirect would make `fetch` resend the body.
+ */
+export type LoginRefusal = { redirectTo: "/login" } | { status: 401 };
+
 /** How to send a request to one method, and what it answers. */
 export interface RouteCall {
   send: () => Promise<Response>;
@@ -43,7 +49,7 @@ export interface RouteCall {
  */
 export function expectRouteRequiresLogin(
   route: RouteModule,
-  calls: Partial<Record<Method, RouteCall>>,
+  calls: Partial<Record<Method, RouteCall & { answer: LoginRefusal }>>,
   options: { sendAs: SendAs },
 ): void {
   describe("login required", () => {
