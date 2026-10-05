@@ -152,4 +152,29 @@ describe("useDeviceLocation", () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
+
+  it("gives up on a stalled send, so the next position goes out", async () => {
+    vi.useFakeTimers();
+    try {
+      const { cbs } = installGeolocation();
+      const fetchMock = vi.fn(
+        (_url: string, init: RequestInit) =>
+          new Promise<Response>((_, reject) =>
+            init.signal?.addEventListener("abort", () =>
+              reject(init.signal?.reason),
+            ),
+          ),
+      );
+      vi.stubGlobal("fetch", fetchMock);
+      renderHook(() => useDeviceLocation("tok", vi.fn()));
+      act(() => cbs.success?.(fix(1, 2)));
+
+      await act(() => vi.advanceTimersByTimeAsync(15_000));
+      act(() => cbs.success?.(fix(1, 2)));
+
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

@@ -3,6 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { type LastReport, shouldSendPosition } from "./device-location";
 
+/** So lange darf eine Meldung unterwegs sein; danach wird sie abgebrochen. */
+const SEND_TIMEOUT_MS = 10_000;
+
 export type LocationStatus = "active" | "paused";
 
 export interface DeviceLocation {
@@ -67,11 +70,15 @@ export function useDeviceLocation(
     };
 
     const send = async (lat: number, lng: number): Promise<boolean> => {
+      // Ein hängender Request darf die nächsten Meldungen nicht aufhalten.
+      const abort = new AbortController();
+      const timeout = setTimeout(() => abort.abort(), SEND_TIMEOUT_MS);
       const res = await fetch(`/device/${token}/position`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ lat, lng }),
-      });
+        signal: abort.signal,
+      }).finally(() => clearTimeout(timeout));
       if (res.status === 403) {
         stop();
         onAccessLostRef.current();
