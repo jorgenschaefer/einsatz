@@ -37,10 +37,10 @@ export function checkTestFiles(
 export function repositoryFiles(dir: string): string[] {
   return execFileSync(
     "git",
-    ["ls-files", "--cached", "--others", "--exclude-standard"],
+    ["ls-files", "-z", "--cached", "--others", "--exclude-standard"],
     { cwd: dir, encoding: "utf8" },
   )
-    .split("\n")
+    .split("\0")
     .filter((file) => file !== "" && existsSync(join(dir, file)));
 }
 

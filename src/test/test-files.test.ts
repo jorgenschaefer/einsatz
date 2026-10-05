@@ -21,12 +21,18 @@ describe("the repository", () => {
 });
 
 describe("repositoryFiles", () => {
-  it("lists the tracked files and the new ones not yet added, but no ignored or deleted file", () => {
+  it("lists the tracked files and the new ones not yet added, by their real names, but no ignored or deleted file", () => {
     const dir = mkdtempSync(join(tmpdir(), "einsatz-repo-"));
     onTestFinished(() => rmSync(dir, { recursive: true }));
     const git = (...args: string[]) => execFileSync("git", args, { cwd: dir });
     git("init", "--quiet");
-    for (const file of [".gitignore", "tracked.ts", "deleted.ts", "new.ts"]) {
+    for (const file of [
+      ".gitignore",
+      "tracked.ts",
+      "deleted.ts",
+      "new.ts",
+      "übung.ts",
+    ]) {
       writeFileSync(
         join(dir, file),
         file === ".gitignore" ? "ignored.ts\n" : "",
@@ -40,6 +46,7 @@ describe("repositoryFiles", () => {
       ".gitignore",
       "new.ts",
       "tracked.ts",
+      "übung.ts",
     ]);
   });
 });
