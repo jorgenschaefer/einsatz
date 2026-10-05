@@ -77,6 +77,24 @@ describe("operations repository", () => {
     expect(reloaded?.defaultView).toEqual({ lat: 53.55, lng: 9.99, zoom: 13 });
   });
 
+  it("stores only the position and zoom of a default view", async () => {
+    const db = await freshDb();
+    const op = await insertOperation(db, {
+      name: "Hochwasser",
+      description: null,
+    });
+    const view = { lat: 53.55, lng: 9.99, zoom: 13, extra: "x".repeat(1000) };
+
+    await setDefaultView(db, op.id, view);
+
+    const reloaded = await getOperation(db, op.id);
+    expect(reloaded?.defaultView).toStrictEqual({
+      lat: 53.55,
+      lng: 9.99,
+      zoom: 13,
+    });
+  });
+
   it("rejects a default view with invalid coordinates or zoom, writing nothing", async () => {
     const db = await freshDb();
     const op = await insertOperation(db, {

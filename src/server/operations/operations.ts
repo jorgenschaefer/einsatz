@@ -95,9 +95,10 @@ export async function setDefaultView(
 ): Promise<void> {
   assertUuid(id);
   assertMapView(view);
+  const { lat, lng, zoom } = view;
   await db.query("UPDATE operations SET default_view = $2 WHERE id = $1", [
     id,
-    JSON.stringify(view),
+    JSON.stringify({ lat, lng, zoom }),
   ]);
 }
 
