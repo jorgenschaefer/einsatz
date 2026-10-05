@@ -28,6 +28,20 @@ describe("journal", () => {
     expect(await listEntries(db, op.id)).toHaveLength(0);
   });
 
+  it("refuses an entry for an Einsatz that no longer exists", async () => {
+    const db = await freshDb();
+
+    await expect(
+      appendEntry(db, {
+        operationId: randomUUID(),
+        text: "Deich hält",
+        type: "manuell",
+        author: "anna",
+        route: NO_ROUTE,
+      }),
+    ).rejects.toThrow(new ValidationError("Der Einsatz existiert nicht mehr."));
+  });
+
   it("stores the trimmed entry text", async () => {
     const db = await freshDb();
     const op = await anOperation(db);

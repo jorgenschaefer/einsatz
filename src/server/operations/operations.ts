@@ -121,10 +121,14 @@ export async function setDefaultView(
  * Sperrt die Einsatz-Zeile (`FOR UPDATE`) innerhalb einer Transaktion, damit
  * parallele Anhänge bzw. Statusübergänge nicht dieselbe ETB-Nummer oder
  * denselben Meilenstein doppelt vergeben. Nur innerhalb einer Transaktion
- * aufrufen.
+ * aufrufen. Wirft, wenn es den Einsatz nicht mehr gibt.
  */
 export async function lockOperation(tx: Queryable, id: string): Promise<void> {
-  await tx.query("SELECT id FROM operations WHERE id = $1 FOR UPDATE", [id]);
+  const { rows } = await tx.query(
+    "SELECT id FROM operations WHERE id = $1 FOR UPDATE",
+    [id],
+  );
+  if (!rows[0]) throw new ValidationError("Der Einsatz existiert nicht mehr.");
 }
 
 export async function setOperationStatus(

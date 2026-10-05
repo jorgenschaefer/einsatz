@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { listEntries } from "@/server/journal/journal";
 import { closeOperation } from "@/server/operations/operation-lifecycle";
@@ -107,6 +108,14 @@ describe("reportTotalStrength", () => {
       new ValidationError("Es gibt noch keine gültige Stärkemeldung."),
     );
     expect(await listEntries(db, op.id)).toEqual(before);
+  });
+
+  it("says so when the Einsatz no longer exists", async () => {
+    const db = await freshDb();
+
+    await expect(
+      reportTotalStrength(db, { operationId: randomUUID(), author: "anna" }),
+    ).rejects.toThrow(new ValidationError("Der Einsatz existiert nicht mehr."));
   });
 
   it("still reports once the Gesamteinsatz is closed", async () => {
