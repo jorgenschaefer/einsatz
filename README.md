@@ -86,8 +86,10 @@ server. Tests that do not use the database run without the container.
 The [Dockerfile](Dockerfile) builds a production image. On start the container
 runs the migrations, makes sure the first admin exists and then starts the
 server on port 3000. [docker-compose.prod.yml](docker-compose.prod.yml) shows a
-setup with an external database and a volume for uploads; set `UPLOADS_DIR` to
-the mounted path. The container runs as the unprivileged user `node` (uid
+setup with an external database and a volume for uploads, mounted at
+`/data/uploads`, where the image stores them. The container counts as healthy
+once the server answers, so `docker compose up --wait` waits for migrations and
+startup. The container runs as the unprivileged user `node` (uid
 1000), so the uploads volume must belong to uid 1000. A new volume does: the
 image creates `/data/uploads` owned by `node`, and Docker copies that ownership
 into an empty volume on first mount.

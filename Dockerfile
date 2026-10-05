@@ -24,6 +24,10 @@ COPY docker-entrypoint.sh ./docker-entrypoint.sh
 RUN chmod +x docker-entrypoint.sh \
   && mkdir -p /data/uploads && chown node:node /data/uploads
 EXPOSE 3000
-ENV PORT=3000 HOSTNAME=0.0.0.0
+ENV PORT=3000 HOSTNAME=0.0.0.0 UPLOADS_DIR=/data/uploads
+# Gesund erst, wenn nach Migration und Seed der Server antwortet; darauf wartet
+# `docker compose up --wait` in bin/deploy-prod.
+HEALTHCHECK --interval=10s --timeout=5s --start-period=60s --retries=3 \
+  CMD wget -q -O /dev/null http://127.0.0.1:3000/login || exit 1
 USER node
 ENTRYPOINT ["./docker-entrypoint.sh"]
