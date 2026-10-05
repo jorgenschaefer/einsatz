@@ -1,3 +1,7 @@
+/** Halt-am-Leben-Intervall, damit Reverse-Proxies den ruhenden Strom nicht kappen. */
+const HEARTBEAT_MS = 25_000;
+const MAX_STREAM_MS = 60 * 60_000;
+
 /**
  * Baut einen SSE-Response, der bei jedem Bus-Ereignis „changed" sendet.
  * `subscribe` abonniert den Bus und liefert die Abmeldung zurück. Bei jedem
@@ -6,10 +10,6 @@
  * verbindet neu und prüft dabei den Zugang wie beim ersten Öffnen). `onClose`
  * läuft genau einmal, wie auch immer der Strom endet. Dünne Streaming-Grenze.
  */
-/** Halt-am-Leben-Intervall, damit Reverse-Proxies den ruhenden Strom nicht kappen. */
-const HEARTBEAT_MS = 25_000;
-const MAX_STREAM_MS = 60 * 60_000;
-
 export function operationEventStream({
   subscribe,
   stillAllowed,

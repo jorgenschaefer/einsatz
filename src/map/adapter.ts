@@ -17,12 +17,6 @@ export interface MarkerSpec {
   onClick?: () => void;
 }
 
-/**
- * Imperatives Karten-Adapter-Interface. Die App spricht ausschließlich hierüber
- * mit der Karte, nie direkt mit Leaflet – so bleibt ein späterer Anbieterwechsel
- * ein eng umgrenzter Umbau. Marker werden per id gesetzt/entfernt (add/update/
- * remove) passend zum Reconciliation-Muster aus dem geladenen Einsatz-Zustand.
- */
 /** Ein Bereich (Polygon/Linie/Kreis) auf der Karte, per id verwaltet. */
 export interface AreaSpec {
   geometry: AreaGeometry;
@@ -48,6 +42,12 @@ export interface CirclePreviewSpec {
   opacity: number;
 }
 
+/**
+ * Imperatives Karten-Adapter-Interface. Die App spricht ausschließlich hierüber
+ * mit der Karte, nie direkt mit Leaflet – so bleibt ein späterer Anbieterwechsel
+ * ein eng umgrenzter Umbau. Marker werden per id gesetzt/entfernt (add/update/
+ * remove) passend zum Reconciliation-Muster aus dem geladenen Einsatz-Zustand.
+ */
 export interface MapAdapter {
   getView(): MapView;
   /** The whole map area: its centre and its width and height on the ground. */
