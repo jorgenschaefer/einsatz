@@ -97,10 +97,8 @@ describe("SituationMapView", () => {
   });
 
   it("locks the band while Hier setzen is saved, so a second tap does not write again", async () => {
-    let finish: (result: object) => void = () => {};
-    const onUpdateAreaGeometry = vi.fn(
-      () => new Promise<object>((resolve) => (finish = resolve)),
-    );
+    const save = Promise.withResolvers<object>();
+    const onUpdateAreaGeometry = vi.fn(() => save.promise);
     const view = renderMapView({ areas: [AREA], onUpdateAreaGeometry });
     await startMovingCircle(view);
     const band = modeBand("Kreis verschieben");
@@ -111,7 +109,7 @@ describe("SituationMapView", () => {
     fireEvent.click(button("Hier setzen", band));
     expect(onUpdateAreaGeometry).toHaveBeenCalledTimes(1);
 
-    await act(async () => finish({}));
+    await act(async () => save.resolve({}));
     noModeBand();
   });
 
@@ -421,10 +419,7 @@ describe("SituationMapView", () => {
   it("adds no Bild-Overlay before the map has loaded, and asks to try again", async () => {
     vi.doMock("./leaflet-adapter", () => new Promise(() => {}));
     try {
-      const view = renderMapView({
-        shownPanel: "layers",
-        factory: undefined,
-      });
+      const view = renderMapView({ shownPanel: "layers", factory: undefined });
 
       await upload("Bild-Overlay einbinden", "plan.png");
 
