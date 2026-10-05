@@ -5,6 +5,8 @@ import { useDisclosure } from "@mantine/hooks";
 import QRCode from "react-qr-code";
 import type { ActionResult } from "@/app/action-result";
 import { ConfirmationModal } from "@/app/ConfirmationModal";
+import { ErrorAlert } from "@/app/ErrorAlert";
+import { useActionRunner } from "@/app/useActionRunner";
 import type { PositionSource } from "@/server/mapsymbols/map-symbols";
 import { useClipboardCopy } from "./useClipboardCopy";
 
@@ -31,6 +33,7 @@ export function DeviceLinkPanel({
   const { status: copyStatus, copy } = useClipboardCopy();
   const [askingToRegenerate, regenerateConfirmation] = useDisclosure(false);
   const [askingToRemove, removeConfirmation] = useDisclosure(false);
+  const firstLink = useActionRunner();
   const url = token ? deviceUrl(token) : "";
 
   return (
@@ -103,9 +106,19 @@ export function DeviceLinkPanel({
           </ConfirmationModal>
         </>
       ) : (
-        <Button variant="light" onClick={() => onGenerate()}>
-          Gerätelink erzeugen
-        </Button>
+        <>
+          <Button
+            variant="light"
+            loading={firstLink.busy}
+            onClick={() => firstLink.run(onGenerate)}
+          >
+            Gerätelink erzeugen
+          </Button>
+          <ErrorAlert
+            error={firstLink.error}
+            onClose={() => firstLink.setError(null)}
+          />
+        </>
       )}
     </Stack>
   );

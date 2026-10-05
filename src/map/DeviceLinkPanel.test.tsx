@@ -58,6 +58,45 @@ describe("DeviceLinkPanel", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
+  describe("generating the first device link", () => {
+    const generate = () =>
+      userEvent.click(
+        screen.getByRole("button", { name: /Gerätelink erzeugen/ }),
+      );
+
+    it.each([
+      [
+        "a returned error",
+        async () => ({ error: "Kartenzeichen fehlt." }),
+        "Kartenzeichen fehlt.",
+      ],
+      [
+        "a thrown failure",
+        async (): Promise<ActionResult> => {
+          throw new Error("offline");
+        },
+        "Das hat nicht geklappt. Bitte erneut versuchen.",
+      ],
+    ])("shows %s", async (_, onGenerate, message) => {
+      setup({ onGenerate: vi.fn(onGenerate) });
+
+      await generate();
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(message);
+    });
+
+    it("stays locked while generating", async () => {
+      const onGenerate = vi.fn(hanging);
+      setup({ onGenerate });
+
+      await generate();
+
+      expect(
+        screen.getByRole("button", { name: /Gerätelink erzeugen/ }),
+      ).toBeDisabled();
+    });
+  });
+
   it("shows the link and a QR code when a token exists", () => {
     setup({
       token: "secret-token-123",
