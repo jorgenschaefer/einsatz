@@ -17,6 +17,7 @@ import {
   clickInBand,
   clickMarker,
   confirm,
+  dragMarker,
   failPlacingDuring,
   hideAndShowMap,
   INVALID,
@@ -117,6 +118,18 @@ describe("SituationMapView", () => {
 
   describe("the Karte notification", () => {
     const noEntry = async () => {};
+
+    it("shows a move that failed", async () => {
+      const onMove = vi.fn(async () => ({ error: "Nicht gefunden." }));
+      const view = renderMapView({ symbols: [SYMBOL], onMove });
+
+      await dragMarker(view, SYMBOL.id, { lat: 1, lng: 2 });
+
+      expect(onMove).toHaveBeenCalledWith(SYMBOL.id, 1, 2);
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "KarteNicht gefunden.",
+      );
+    });
     it.each([
       ["a Kartenzeichen is armed", noEntry, armKtw],
       ["drawing begins", noEntry, startDrawing],

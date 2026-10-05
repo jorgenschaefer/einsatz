@@ -244,7 +244,9 @@ export function SituationMapView({
             symbols={placed}
             armedComposition={symbolPlacement.armedComposition}
             onPlace={symbolPlacement.placeSymbolAt}
-            onMove={onMove}
+            onMove={(id, lat, lng) =>
+              void runMapAction(() => onMove(id, lat, lng))
+            }
             onSelect={setSelectedId}
             focusTarget={focusTarget}
             areas={areas}

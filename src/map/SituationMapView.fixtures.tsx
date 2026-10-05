@@ -106,13 +106,27 @@ export async function chooseSearchResult(query: string, name: RegExp) {
 }
 
 /** Clicks the marker of the Kartenzeichen `id` on the map. */
-export async function clickMarker({ adapter }: RenderedMapView, id: string) {
+export async function clickMarker(view: RenderedMapView, id: string) {
+  const spec = await markerOf(view, id);
+  act(() => spec.onClick?.());
+}
+
+/** Drags the marker of the Kartenzeichen `id` to `to` on the map. */
+export async function dragMarker(
+  view: RenderedMapView,
+  id: string,
+  to: { lat: number; lng: number },
+) {
+  const spec = await markerOf(view, id);
+  await act(async () => spec.onDragEnd?.(to));
+}
+
+async function markerOf({ adapter }: RenderedMapView, id: string) {
   await waitFor(() =>
     expect(adapter.setMarker).toHaveBeenCalledWith(id, expect.anything()),
   );
   const call = adapter.setMarker.mock.calls.findLast(([m]) => m === id);
-  const spec = call?.[1] as MarkerSpec;
-  act(() => spec.onClick?.());
+  return call?.[1] as MarkerSpec;
 }
 
 /** Opens the detail of the Kartenzeichen `id` from its marker. */
