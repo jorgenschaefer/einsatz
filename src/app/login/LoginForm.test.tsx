@@ -32,6 +32,17 @@ describe("LoginForm", () => {
     expect(notificationArea()).not.toContainElement(alert);
   });
 
+  it("keeps the username after a failed login", async () => {
+    render(<LoginForm action={async () => ({ error: "Fehlgeschlagen." })} />);
+    await userEvent.type(screen.getByLabelText(/Nutzername/), "anna");
+    await userEvent.type(screen.getByLabelText(/Passwort/), "wrong-password");
+
+    await userEvent.click(screen.getByRole("button", { name: "Anmelden" }));
+
+    await screen.findByRole("alert");
+    expect(screen.getByLabelText(/Nutzername/)).toHaveValue("anna");
+  });
+
   it("submits the entered credentials to the action", async () => {
     const action = vi.fn<LoginAction>(async () => ({}));
     render(<LoginForm action={action} />);

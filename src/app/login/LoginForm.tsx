@@ -10,7 +10,7 @@ import {
   TextInput,
   Title,
 } from "@mantine/core";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 
 export interface LoginState {
   error?: string;
@@ -23,6 +23,8 @@ export type LoginAction = (
 
 export function LoginForm({ action }: { action: LoginAction }) {
   const [state, formAction, pending] = useActionState(action, {});
+  // Gesteuert, damit der Nutzername nach einer abgelehnten Anmeldung stehen bleibt.
+  const [username, setUsername] = useState("");
 
   return (
     <Paper
@@ -47,6 +49,8 @@ export function LoginForm({ action }: { action: LoginAction }) {
           label="Nutzername"
           autoComplete="username"
           required
+          value={username}
+          onChange={(event) => setUsername(event.currentTarget.value)}
         />
         <PasswordInput
           name="password"
