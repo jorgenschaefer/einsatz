@@ -48,6 +48,22 @@ describe("correctEntry", () => {
     expect(corrected.number).toBe(entry.number);
   });
 
+  it("writes nothing when the correction changes nothing", async () => {
+    const db = await freshDb();
+    const { op, entry } = await manualEntry(db);
+
+    await correctEntry(
+      db,
+      entry.id,
+      { text: " Deich hält ", ...NO_ROUTE },
+      "bernd",
+    );
+
+    const [reloaded] = await listEntries(db, op.id);
+    expect(reloaded).toMatchObject({ author: "anna", editedAt: null });
+    expect(reloaded.revisions).toEqual([]);
+  });
+
   it("makes a new fassung when only the Weg changes, keeping the prior route in the prior fassung", async () => {
     const db = await freshDb();
     const op = await insertOperation(db, { name: "Deich", description: null });

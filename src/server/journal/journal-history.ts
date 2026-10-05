@@ -43,7 +43,7 @@ export async function correctEntry(
  * samt Route als frühere Fassung mit ihrem Urheber und Zeitstempel. Muss
  * innerhalb einer Transaktion laufen; sperrt die Eintrags-Zeile, damit
  * parallele Korrekturen nacheinander laufen. Annullierte Einträge sind
- * unantastbar.
+ * unantastbar; eine Fassung, die nichts ändert, wird nicht geschrieben.
  */
 export async function reviseEntry(
   tx: Queryable,
@@ -54,6 +54,15 @@ export async function reviseEntry(
   const { text, sender, recipient, channel } = requireEntryContent(content);
   const entry = await loadEntry(tx, entryId, true);
   assertValid(entry);
+  // Ohne Änderung keine neue Fassung: sie trüge nur einen anderen Urheber.
+  if (
+    entry.text === text &&
+    entry.sender === sender &&
+    entry.recipient === recipient &&
+    entry.channel === channel
+  ) {
+    return entry;
+  }
 
   await tx.query(
     `INSERT INTO journal_entry_revisions
