@@ -83,7 +83,7 @@ describe("createAccount", () => {
         role: "user",
       }),
     ).rejects.toThrow(new ValidationError(TAKEN));
-    expect(await findUserByUsername(db, "Anna")).toBeNull();
+    expect((await listUsers(db)).map((u) => u.username)).toEqual(["anna"]);
   });
 
   it("creates exactly one account for two concurrent requests differing in case", async () => {

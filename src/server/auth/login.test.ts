@@ -28,6 +28,14 @@ describe("authenticate", () => {
     });
   });
 
+  it("finds the user whatever the case of the typed username", async () => {
+    const db = await freshDb();
+    const user = await seedAnna(db);
+    expect(await authenticate(db, "ANNA", "a-good-password")).toMatchObject({
+      id: user.id,
+    });
+  });
+
   it("returns null for a wrong password", async () => {
     const db = await freshDb();
     await seedAnna(db);

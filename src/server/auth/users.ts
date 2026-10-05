@@ -59,12 +59,14 @@ export async function insertUser(
   return toUser(rows[0]);
 }
 
+/** Ohne Rücksicht auf Groß- und Kleinschreibung, wie die Eindeutigkeit der Namen. */
 export async function findUserByUsername(
   db: Queryable,
   username: string,
 ): Promise<User | null> {
   const { rows } = await db.query<UserRow>(
-    `SELECT id, username, password_hash, role FROM users WHERE username = $1`,
+    `SELECT id, username, password_hash, role FROM users
+      WHERE lower(username) = lower($1)`,
     [username],
   );
   return rows[0] ? toUser(rows[0]) : null;
