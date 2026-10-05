@@ -80,7 +80,7 @@ export function ImageOverlayPanel({
                       )
                     }
                   />
-                  {!editing && (
+                  {!editing && overlay.visible && (
                     <Button
                       size="xs"
                       variant="light"

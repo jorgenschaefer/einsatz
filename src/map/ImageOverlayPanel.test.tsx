@@ -87,6 +87,12 @@ describe("ImageOverlayPanel", () => {
     expect(onEdit).toHaveBeenCalledWith("i1");
   });
 
+  it("offers no Bearbeiten for a hidden Bild-Overlay, whose handles would not show", () => {
+    renderPanel({ overlays: [{ ...overlay, visible: false }] });
+
+    expect(screen.queryByRole("button", { name: "Bearbeiten" })).toBeNull();
+  });
+
   it("renders the inline editor under the overlay being edited and hides its Bearbeiten button", () => {
     renderPanel({
       overlays: [overlay],
