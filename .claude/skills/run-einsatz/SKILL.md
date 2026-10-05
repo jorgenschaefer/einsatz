@@ -90,7 +90,7 @@ and the background task ends by itself with exit 0. If the driver hangs, stop
 
 In stdin mode the driver reads one command per line. Write the script to a
 file and redirect it in. This verified flow creates an Einsatz, checks the
-Lagekarte and the ETB (desktop and mobile), then deletes it again:
+Lagekarte and the ETB (desktop and mobile), then closes and deletes it again:
 
 ```bash
 cat > "${TMPDIR:-/tmp}/einsatz-cmds.txt" <<'EOF'
@@ -111,6 +111,11 @@ viewport 390x844
 ss etb-mobile
 errors
 viewport 1280x800
+nav /operations
+click '.mantine-Card-root:has-text("Smoke-Test") [aria-label="Einsatz-Aktionen"]'
+click role=menuitem[name="Abschließen"]
+click role=dialog >> role=button[name="Abschließen"]
+wait-fn !document.querySelector('[role=dialog]')
 nav /operations
 click '.mantine-Card-root:has-text("Smoke-Test") [aria-label="Einsatz-Aktionen"]'
 click role=menuitem[name="Einsatz löschen"]
@@ -209,6 +214,9 @@ npm run check                                      # tsc + biome + vitest (~2.5 
 - **Each card on `/operations` has its own `Einsatz-Aktionen` button.** Scope
   it with `.mantine-Card-root:has-text("<name>")`. `text=Einsatz löschen`
   didn't reliably hit the menu item, but `role=menuitem[name=…]` does.
+- **Only a closed Einsatz can be deleted, and only by an Admin.** An active
+  card's menu offers just "Abschließen", so a click on `Einsatz löschen`
+  times out. Close it first, as the script above does.
 - **Screenshots right after a resize can catch the AppShell mid-transition**
   (header and footer animate across the 48 em switch). `viewport` waits 500 ms
   for this.
