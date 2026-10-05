@@ -347,6 +347,16 @@ describe("JournalPanel – Reihenfolge und Weg je Gerät", () => {
     expect(channelSelect()).toHaveDisplayValue("Funk");
   });
 
+  it("opens a correction with the entry's own Weg, not the remembered one", async () => {
+    setup({ entries: [entry({ channel: "Funk" })] });
+    await userEvent.selectOptions(channelSelect(), "Telefon");
+    await add("Pegel steigt");
+
+    await chooseAction(1, "Korrigieren");
+
+    expect(channelSelect(correctionForm())).toHaveDisplayValue("Funk");
+  });
+
   it.each(["Telefon", "ohne"])(
     "presets the Weg %s of the last new entry after reloading",
     async (option) => {
