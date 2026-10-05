@@ -76,3 +76,49 @@ describe("leaflet marker label", () => {
     expectTooltipText(tooltip(), "<b>neu</b>");
   });
 });
+
+describe("leaflet marker drag", () => {
+  const spec = { lat: 53.55, lng: 9.99, iconUrl: "data:image/svg+xml,A" };
+  // Leaflet erkennt die linke Taste an `which`, das jsdom nicht setzt.
+  const mouse = (type: string, target: Element, x: number) => {
+    const event = new MouseEvent(type, { bubbles: true, clientX: x });
+    Object.defineProperty(event, "which", { value: 1 });
+    target.dispatchEvent(event);
+  };
+
+  it("keeps the dragged position when an update arrives mid-drag", () => {
+    const { adapter, container } = mountLeafletMap();
+    const dropped: { lat: number; lng: number }[] = [];
+    const draggable = {
+      ...spec,
+      draggable: true,
+      onDragEnd: (p: { lat: number; lng: number }) => dropped.push(p),
+    };
+    adapter.setMarker("s1", draggable);
+    const icon = container.querySelector<HTMLElement>(".leaflet-marker-icon");
+
+    mouse("mousedown", icon!, 100);
+    mouse("mousemove", icon!, 200);
+    adapter.setMarker("s1", draggable);
+    mouse("mouseup", icon!, 200);
+
+    expect(dropped).toHaveLength(1);
+    expect(dropped[0].lng).toBeGreaterThan(spec.lng);
+  });
+
+  it("follows updates again once the drag has ended", () => {
+    const { adapter, container } = mountLeafletMap();
+    const draggable = { ...spec, draggable: true, onDragEnd: () => {} };
+    adapter.setMarker("s1", draggable);
+    const icon = container.querySelector<HTMLElement>(".leaflet-marker-icon");
+    mouse("mousedown", icon!, 100);
+    mouse("mousemove", icon!, 200);
+    mouse("mouseup", icon!, 200);
+    const left = () => icon!.style.left;
+    const droppedAt = left();
+
+    adapter.setMarker("s1", draggable);
+
+    expect(left()).not.toBe(droppedAt);
+  });
+});

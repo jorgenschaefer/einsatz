@@ -12,12 +12,14 @@ export function createMarkerLayers(map: L.Map) {
   // Zuletzt gerenderte Signatur je id – erlaubt das Überspringen
   // unveränderter Marker bei jedem Reconcile (kein Flackern).
   const markerSigs = new Map<string, string>();
+  // Während des Ziehens gehört die Position der Hand, nicht dem Server.
+  const dragged = new Set<string>();
 
   return {
     set(id: string, spec: MarkerSpec) {
       const existing = markers.get(id);
       if (existing) {
-        existing.setLatLng([spec.lat, spec.lng]); // günstig, immer
+        if (!dragged.has(id)) existing.setLatLng([spec.lat, spec.lng]);
         const sig = markerVisualSignature(spec);
         if (markerSigs.get(id) !== sig) {
           // Nur bei geändertem Icon/Deckkraft/Label neu setzen (setIcon allokiert).
@@ -34,6 +36,8 @@ export function createMarkerLayers(map: L.Map) {
         opacity: spec.opacity ?? 1,
       }).addTo(map);
       applyLabel(marker, spec.label);
+      marker.on("dragstart", () => dragged.add(id));
+      marker.on("dragend", () => dragged.delete(id));
       const { onDragEnd, onClick } = spec;
       if (onDragEnd) {
         marker.on("dragend", () => {
@@ -53,6 +57,7 @@ export function createMarkerLayers(map: L.Map) {
         marker.remove();
         markers.delete(id);
         markerSigs.delete(id);
+        dragged.delete(id);
       }
     },
   };
