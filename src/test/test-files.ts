@@ -1,30 +1,47 @@
+import { execFileSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { isServerActionModule } from "./server-action-modules";
 
 /**
- * The rule of the test layout, checked over `files` (the paths `git ls-files`
- * lists) and `read` (a file's content): every test file has a source file of
- * the same name beside it, and no source file has two; every server action
- * module, route handler and page under `src/app/` has a test file that calls
- * the shared checks its kind requires. Returns one message per violation,
- * each naming the file at fault and the fix.
+ * The rule of the test layout, checked over `files` (the paths
+ * {@link repositoryFiles} lists) and `read` (a file's content): every test
+ * file has a source file of the same name beside it, and no source file has
+ * two; every server action module, route handler and page under `src/app/`
+ * has a test file that calls the shared checks its kind requires. Returns one
+ * message per violation, each naming the file at fault and the fix.
  */
 export function checkTestFiles(
   files: string[],
   read: (file: string) => string,
 ): string[] {
-  const tracked = new Set(files);
+  const listed = new Set(files);
   return [
     ...files
       .filter(isTestFile)
-      .flatMap((test) => testFileWithoutSource(test, tracked)),
+      .flatMap((test) => testFileWithoutSource(test, listed)),
     ...files
       .filter((file) => !isTestFile(file))
-      .flatMap((source) => sourceWithTwoTestFiles(source, tracked)),
+      .flatMap((source) => sourceWithTwoTestFiles(source, listed)),
     ...files
       .filter((file) => !isTestFile(file))
-      .flatMap((source) => entryPointWithoutChecks(source, tracked, read)),
+      .flatMap((source) => entryPointWithoutChecks(source, listed, read)),
   ];
+}
+
+/**
+ * The files of the git repository in `dir`, relative to it: tracked ones and
+ * new ones not yet added, so a file is checked before its first commit;
+ * ignored and deleted ones are left out.
+ */
+export function repositoryFiles(dir: string): string[] {
+  return execFileSync(
+    "git",
+    ["ls-files", "--cached", "--others", "--exclude-standard"],
+    { cwd: dir, encoding: "utf8" },
+  )
+    .split("\n")
+    .filter((file) => file !== "" && existsSync(join(dir, file)));
 }
 
 const TEST_FILE = /^(.*)\.test\.(tsx?|mjs)$/;
@@ -40,24 +57,21 @@ function isTestFile(file: string): boolean {
   return TEST_FILE.test(file);
 }
 
-function testFileWithoutSource(test: string, tracked: Set<string>): string[] {
+function testFileWithoutSource(test: string, listed: Set<string>): string[] {
   const [, stem, extension] = TEST_FILE.exec(test) as RegExpExecArray;
   const extensions = SOURCE_EXTENSIONS[extension];
-  if (extensions.some((source) => tracked.has(`${stem}.${source}`))) return [];
+  if (extensions.some((source) => listed.has(`${stem}.${source}`))) return [];
 
   const missing = extensions
     .map((source) => `${basename(stem)}.${source}`)
     .join(" or ");
   return [
-    `${test}: no source file ${missing} beside it - move each test into the test file of the source file whose behaviour it tests${example(stem, extension, tracked)}`,
+    `${test}: no source file ${missing} beside it - move each test into the test file of the source file whose behaviour it tests${example(stem, extension, listed)}`,
   ];
 }
 
-function sourceWithTwoTestFiles(
-  source: string,
-  tracked: Set<string>,
-): string[] {
-  const tests = testFilesOf(source, tracked);
+function sourceWithTwoTestFiles(source: string, listed: Set<string>): string[] {
+  const tests = testFilesOf(source, listed);
   if (tests.length < 2) return [];
 
   const sameExtension = source.replace(/\.(\w+)$/, ".test.$1");
@@ -68,35 +82,31 @@ function sourceWithTwoTestFiles(
   ];
 }
 
-/** The tracked test files beside `source` that are named after it. */
-function testFilesOf(source: string, tracked: Set<string>): string[] {
+/** The listed test files beside `source` that are named after it. */
+function testFilesOf(source: string, listed: Set<string>): string[] {
   const match = /^(.*)\.(tsx?|mjs)$/.exec(source);
   if (!match) return [];
   const [, stem, extension] = match;
   return SOURCE_EXTENSIONS[extension]
     .map((ext) => `${stem}.test.${ext}`)
-    .filter((test) => tracked.has(test));
+    .filter((test) => listed.has(test));
 }
 
 /**
  * For a topic test file `Foo.bar.test.tsx`, the nearest source of a shorter
  * name (`Foo.tsx`) and the test file its tests would move into.
  */
-function example(
-  stem: string,
-  extension: string,
-  tracked: Set<string>,
-): string {
+function example(stem: string, extension: string, listed: Set<string>): string {
   const dir = dirname(stem);
   const parts = basename(stem).split(".");
   for (let n = parts.length - 1; n > 0; n--) {
     const shorter = join(dir, parts.slice(0, n).join("."));
     const source = SOURCE_EXTENSIONS[extension]
       .map((ext) => `${shorter}.${ext}`)
-      .find((file) => tracked.has(file));
+      .find((file) => listed.has(file));
     if (!source) continue;
     const test =
-      testFilesOf(source, tracked)[0] ?? `${shorter}.test.${extension}`;
+      testFilesOf(source, listed)[0] ?? `${shorter}.test.${extension}`;
     return `, such as ${test} for ${source}`;
   }
   return "";
@@ -112,13 +122,13 @@ interface RequiredChecks {
 
 function entryPointWithoutChecks(
   source: string,
-  tracked: Set<string>,
+  listed: Set<string>,
   read: (file: string) => string,
 ): string[] {
   const required = requiredChecks(source, read);
   if (!required) return [];
 
-  const test = testFilesOf(source, tracked)[0];
+  const test = testFilesOf(source, listed)[0];
   if (!test) {
     const calling = required.helpers.map((h) => h.join(" or ")).join(" and ");
     return [

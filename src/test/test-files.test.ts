@@ -1,22 +1,46 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
-import { checkTestFiles } from "./test-files";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { describe, expect, it, onTestFinished } from "vitest";
+import { checkTestFiles, repositoryFiles } from "./test-files";
 
-/** Checks a tree given as path → content; a file absent from it is not tracked. */
+/** Checks a tree given as path → content; a file absent from it does not exist. */
 function check(tree: Record<string, string>): string[] {
   return checkTestFiles(Object.keys(tree), (file) => tree[file]);
 }
 
 describe("the repository", () => {
   it("keeps the rule: every test file pairs with its source, and every entry point runs its checks", () => {
-    const files = execFileSync("git", ["ls-files"], { encoding: "utf8" })
-      .split("\n")
-      .filter((file) => file !== "" && existsSync(file));
+    const files = repositoryFiles(process.cwd());
 
     expect(checkTestFiles(files, (file) => readFileSync(file, "utf8"))).toEqual(
       [],
     );
+  });
+});
+
+describe("repositoryFiles", () => {
+  it("lists the tracked files and the new ones not yet added, but no ignored or deleted file", () => {
+    const dir = mkdtempSync(join(tmpdir(), "einsatz-repo-"));
+    onTestFinished(() => rmSync(dir, { recursive: true }));
+    const git = (...args: string[]) => execFileSync("git", args, { cwd: dir });
+    git("init", "--quiet");
+    for (const file of [".gitignore", "tracked.ts", "deleted.ts", "new.ts"]) {
+      writeFileSync(
+        join(dir, file),
+        file === ".gitignore" ? "ignored.ts\n" : "",
+      );
+    }
+    writeFileSync(join(dir, "ignored.ts"), "");
+    git("add", ".gitignore", "tracked.ts", "deleted.ts");
+    rmSync(join(dir, "deleted.ts"));
+
+    expect(repositoryFiles(dir).toSorted()).toEqual([
+      ".gitignore",
+      "new.ts",
+      "tracked.ts",
+    ]);
   });
 });
 
