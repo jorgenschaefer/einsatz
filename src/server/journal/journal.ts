@@ -123,7 +123,9 @@ function trimmedRouteValue(value: unknown, field: string): string | null {
  *
  * Die Serialisierung leistet der `FOR UPDATE`-Lock ({@link lockOperation});
  * der `UNIQUE (operation_id, number)`-Constraint ist der Backstop der DB. Beides
- * ist in `journal.test.ts` gepinnt.
+ * ist in `journal.test.ts` gepinnt. Die Uhrzeit wird erst unter dem Lock
+ * genommen (`clock_timestamp()`, nicht der Transaktionsbeginn `now()`), damit
+ * eine höhere Nummer nie eine frühere Uhrzeit trägt.
  */
 export async function appendEntry(
   tx: Queryable,
@@ -149,8 +151,9 @@ export async function appendEntry(
 
   const { rows } = await tx.query<JournalRow>(
     `INSERT INTO journal_entries
-       (id, operation_id, number, text, type, author, sender, recipient, channel)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       (id, operation_id, number, text, type, author, sender, recipient, channel,
+        created_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, clock_timestamp())
      RETURNING ${COLUMNS}`,
     [
       randomUUID(),

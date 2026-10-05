@@ -84,6 +84,37 @@ describe("journal", () => {
     expect(entries.map((e) => e.number).sort()).toEqual([1, 2, 3, 4, 5]);
   });
 
+  it("never gives a higher number an earlier time", async () => {
+    const db = await freshDb();
+    const op = await anOperation(db);
+    const append = (tx: Parameters<typeof appendEntry>[0], text: string) =>
+      appendEntry(tx, {
+        operationId: op.id,
+        text,
+        type: "manuell",
+        author: "anna",
+        route: NO_ROUTE,
+      });
+    const begun = Promise.withResolvers<void>();
+    const otherDone = Promise.withResolvers<void>();
+
+    const late = db.transaction(async (tx) => {
+      await tx.query("SELECT 1");
+      begun.resolve();
+      await otherDone.promise;
+      return append(tx, "begun first, numbered second");
+    });
+    await begun.promise;
+    const early = await db.transaction((tx) => append(tx, "numbered first"));
+    otherDone.resolve();
+    const second = await late;
+
+    expect(second.number).toBe(early.number + 1);
+    expect(second.createdAt.getTime()).toBeGreaterThanOrEqual(
+      early.createdAt.getTime(),
+    );
+  });
+
   it("rejects a duplicate (operation_id, number) via the UNIQUE constraint", async () => {
     // Backstop hinter der Lock-basierten Nummerierung: selbst wenn zwei parallele
     // Anhänge dieselbe Nummer berechnen würden, weist die DB den zweiten ab.
