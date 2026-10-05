@@ -73,7 +73,7 @@ export function ImageOverlayPanel({
                     styles={WRAPPING_SWITCH_LABEL}
                     label={overlay.name}
                     checked={overlay.visible}
-                    disabled={busy}
+                    disabled={busy || editing}
                     onChange={(e) =>
                       run(() =>
                         onToggleVisibility(overlay.id, e.currentTarget.checked),

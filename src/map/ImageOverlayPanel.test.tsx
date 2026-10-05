@@ -106,6 +106,16 @@ describe("ImageOverlayPanel", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("keeps the Bild-Overlay being edited from being hidden, which would hide its handles", () => {
+    renderPanel({
+      overlays: [overlay, { ...overlay, id: "i2", name: "Zweiter" }],
+      editingId: "i1",
+    });
+
+    expect(screen.getByRole("switch", { name: "Lageplan" })).toBeDisabled();
+    expect(screen.getByRole("switch", { name: "Zweiter" })).toBeEnabled();
+  });
+
   describe("when an action does not come back with a result", () => {
     const add = () =>
       userEvent.upload(
