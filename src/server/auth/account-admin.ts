@@ -47,12 +47,14 @@ export async function setRole(db: Db, id: string, role: Role): Promise<void> {
   if (role === "user") {
     await db.transaction(async (tx) => {
       await guardLastAdmin(tx, id, "zum Nutzer degradiert");
-      await updateUserRole(tx, id, role);
+      if (!(await updateUserRole(tx, id, role))) throw userNotFound();
     });
     return;
   }
-  await updateUserRole(db, id, role);
+  if (!(await updateUserRole(db, id, role))) throw userNotFound();
 }
+
+const userNotFound = () => new ValidationError("Nutzer nicht gefunden.");
 
 /**
  * Setzt das Passwort neu und widerruft alle bestehenden Sessions des Nutzers,
@@ -66,7 +68,8 @@ export async function resetPassword(
   assertUuid(id);
   assertPasswordText(newPassword);
   const user = await findUserById(db, id);
-  if (user) assertPasswordPolicy(newPassword, user.username);
+  if (!user) throw userNotFound();
+  assertPasswordPolicy(newPassword, user.username);
   const passwordHash = await hashPassword(newPassword);
   await db.transaction(async (tx) => {
     await updateUserPasswordHash(tx, id, passwordHash);

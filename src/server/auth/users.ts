@@ -91,12 +91,17 @@ export async function listUsers(db: Queryable): Promise<AuthenticatedUser[]> {
   return rows.map(toAuthenticatedUser);
 }
 
+/** Liefert, ob es den Nutzer gab. */
 export async function updateUserRole(
   db: Queryable,
   id: string,
   role: Role,
-): Promise<void> {
-  await db.query("UPDATE users SET role = $2 WHERE id = $1", [id, role]);
+): Promise<boolean> {
+  const { rows } = await db.query(
+    "UPDATE users SET role = $2 WHERE id = $1 RETURNING id",
+    [id, role],
+  );
+  return rows.length > 0;
 }
 
 export async function updateUserPasswordHash(

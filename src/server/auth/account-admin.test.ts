@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { NO_ROUTE } from "@/journal/entry-route";
 import type { Db } from "@/server/db/db";
@@ -461,6 +462,23 @@ describe("refusing a Nutzer-ID that is not a UUID", () => {
 
     await expect(call(db)).rejects.toThrow(
       new ValidationError("Ungültige ID."),
+    );
+  });
+});
+
+describe("refusing a Nutzer that no longer exists", () => {
+  it.each([
+    ["promoting", (db: Db, id: string) => setRole(db, id, "admin")],
+    ["demoting", (db: Db, id: string) => setRole(db, id, "user")],
+    [
+      "resetting a password",
+      (db: Db, id: string) => resetPassword(db, id, "a-good-password"),
+    ],
+  ])("refuses %s", async (_, call) => {
+    const db = await freshDb();
+
+    await expect(call(db, randomUUID())).rejects.toThrow(
+      new ValidationError("Nutzer nicht gefunden."),
     );
   });
 });
