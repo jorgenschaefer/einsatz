@@ -44,6 +44,15 @@ const saveButton = () =>
 const dismissButton = () =>
   screen.getByRole("button", { name: "Meldung schließen" });
 
+async function openAnnulment(number: number) {
+  await chooseAction(number, "Annullieren …");
+  return screen.findByRole("dialog", {
+    name: `Eintrag #${number} annullieren`,
+  });
+}
+const annulButton = (dialog: HTMLElement) =>
+  within(dialog).getByRole("button", { name: "Annullieren" });
+
 async function add(
   text: string,
   { sender, recipient }: { sender?: string; recipient?: string } = {},
@@ -264,15 +273,10 @@ describe("JournalPanel – Korrigieren", () => {
 describe("JournalPanel – Annullieren", () => {
   it("asks for confirmation before annulling and annuls only once confirmed", async () => {
     const props = setup();
-    await chooseAction(1, "Annullieren …");
+    const dialog = await openAnnulment(1);
     expect(props.onAnnul).not.toHaveBeenCalled();
-    const dialog = await screen.findByRole("dialog", {
-      name: "Eintrag #1 annullieren",
-    });
     expect(within(dialog).getByText(/nicht rückgängig/)).toBeInTheDocument();
-    const annullieren = within(dialog).getByRole("button", {
-      name: "Annullieren",
-    });
+    const annullieren = annulButton(dialog);
     expect(buttonColor(annullieren)).toBe("red");
     await userEvent.click(annullieren);
     expect(props.onAnnul).toHaveBeenCalledWith("e1");
@@ -280,7 +284,7 @@ describe("JournalPanel – Annullieren", () => {
 
   it("keeps the entry valid when the confirmation is cancelled", async () => {
     const props = setup();
-    await chooseAction(1, "Annullieren …");
+    await openAnnulment(1);
     await userEvent.click(screen.getByRole("button", { name: "Abbrechen" }));
     expect(props.onAnnul).not.toHaveBeenCalled();
     expect(screen.queryByRole("dialog")).toBeNull();
@@ -288,26 +292,15 @@ describe("JournalPanel – Annullieren", () => {
 
   it("annuls the entry whose menu was used, also one after another", async () => {
     const props = setup({ entries: twoEntries });
-    await chooseAction(2, "Annullieren …");
-    await screen.findByRole("dialog", { name: "Eintrag #2 annullieren" });
-    await userEvent.click(screen.getByRole("button", { name: "Annullieren" }));
-    await chooseAction(1, "Annullieren …");
-    await screen.findByRole("dialog", { name: "Eintrag #1 annullieren" });
-    await userEvent.click(
-      await screen.findByRole("button", { name: "Annullieren" }),
-    );
+    await userEvent.click(annulButton(await openAnnulment(2)));
+    await userEvent.click(annulButton(await openAnnulment(1)));
     expect(vi.mocked(props.onAnnul).mock.calls).toEqual([["e2"], ["e1"]]);
   });
 
   it("shows the reason in the still open confirmation when annulling is rejected", async () => {
     setup({ onAnnul: rejecting("Eintrag nicht gefunden.") });
-    await chooseAction(1, "Annullieren …");
-    const dialog = await screen.findByRole("dialog", {
-      name: "Eintrag #1 annullieren",
-    });
-    await userEvent.click(
-      within(dialog).getByRole("button", { name: "Annullieren" }),
-    );
+    const dialog = await openAnnulment(1);
+    await userEvent.click(annulButton(dialog));
     expect(await within(dialog).findByRole("alert")).toHaveTextContent(
       "Eintrag nicht gefunden.",
     );
@@ -475,21 +468,14 @@ describe("JournalPanel – Meldung, wenn das Speichern scheitert", () => {
     ])(
       "leaves another correction opened meanwhile alone when the save %s",
       async (_, succeeds) => {
-        let settle = (_: boolean) => {};
-        setup({
-          entries: twoEntries,
-          onCorrect: vi.fn(
-            () =>
-              new Promise<object>((resolve, reject) => {
-                settle = (ok) =>
-                  ok ? resolve({}) : reject(new Error("offline"));
-              }),
-          ),
-        });
+        const save = Promise.withResolvers<object>();
+        setup({ entries: twoEntries, onCorrect: vi.fn(() => save.promise) });
 
         await correct("Neuer Text");
         await chooseAction(2, "Korrigieren");
-        await act(async () => settle(succeeds));
+        await act(async () =>
+          succeeds ? save.resolve({}) : save.reject(new Error("offline")),
+        );
 
         expect(correctionField()).toHaveValue("Pegel steigt");
         expect(screen.queryByRole("alert")).toBeNull();
