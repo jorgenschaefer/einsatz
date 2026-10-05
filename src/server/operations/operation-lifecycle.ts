@@ -44,7 +44,7 @@ async function transition(
     // Meilenstein doppelt schreiben (Status prüfen erst nach der Sperre).
     await lockOperation(tx, id);
     const operation = await getOperation(tx, id);
-    if (!operation || operation.status !== change.from) return; // kein No-op-Meilenstein
+    if (operation?.status !== change.from) return; // kein No-op-Meilenstein
     await setOperationStatus(tx, id, change.to);
     if (change.to === "closed") {
       // Alte Links dürfen auch nach „Wieder öffnen" nicht mehr funktionieren.
