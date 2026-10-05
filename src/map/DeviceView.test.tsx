@@ -152,13 +152,18 @@ describe("DeviceView", () => {
     // (nur vom Overlay verdeckt), nicht abgeschaltet.
     expect(locationHook).toHaveBeenCalled();
     expect(screen.getByText(/Standort wird gesendet/)).toBeInTheDocument();
+    expect(screen.getByTestId("wipe-lock-overlay")).toHaveTextContent(
+      "die Ortung läuft weiter",
+    );
   });
 
   it("activates and releases the wipe lock", async () => {
     renderDevice();
     expect(screen.queryByTestId("wipe-lock-overlay")).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: /Sperren/ }));
-    expect(screen.getByTestId("wipe-lock-overlay")).toBeInTheDocument();
+    expect(screen.getByTestId("wipe-lock-overlay")).toHaveTextContent(
+      "die Ortung läuft nicht",
+    );
     fireEvent.change(screen.getByLabelText(/entsperren/i), {
       target: { value: "100" },
     });

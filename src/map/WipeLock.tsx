@@ -6,14 +6,21 @@ import { useState } from "react";
 /**
  * Wisch-Sperre: ein Vollflächen-Overlay, das alle Berührungen abfängt, damit das
  * Handy in der Tasche keine Fehleingaben erzeugt. Ein Wisch-Schalter (bis zum
- * Ende ziehen) hebt die Sperre auf; die Ortung läuft darunter weiter.
+ * Ende ziehen) hebt die Sperre auf. Ob die Ortung darunter weiterläuft, sagt
+ * sie an (`locating`).
  *
  * In einem `Portal` gerendert (oberste Ebene, direkt an `document.body`), damit
  * die Sperre garantiert über allen Bedienelementen der Ansicht liegt – ein
  * bloßer z-Index reicht nicht, solange die Bedienelemente (z. B. die Suchleiste)
  * im selben Stacking-Context stehen.
  */
-export function WipeLock({ onUnlock }: { onUnlock: () => void }) {
+export function WipeLock({
+  locating,
+  onUnlock,
+}: {
+  locating: boolean;
+  onUnlock: () => void;
+}) {
   const [value, setValue] = useState(0);
 
   return (
@@ -31,7 +38,9 @@ export function WipeLock({ onUnlock }: { onUnlock: () => void }) {
       >
         <Stack h="100%" justify="flex-end" align="center" gap="sm" p="xl">
           <Text c="white" ta="center">
-            Gesperrt – die Ortung läuft weiter.
+            {locating
+              ? "Gesperrt – die Ortung läuft weiter."
+              : "Gesperrt – Standort pausiert, die Ortung läuft nicht."}
           </Text>
           <input
             type="range"

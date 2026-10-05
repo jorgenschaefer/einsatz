@@ -90,7 +90,12 @@ export function DeviceView({
       >
         Sperren
       </Button>
-      {locked && <WipeLock onUnlock={() => setLocked(false)} />}
+      {locked && (
+        <WipeLock
+          locating={locationStatus === "active"}
+          onUnlock={() => setLocked(false)}
+        />
+      )}
     </ReadOnlySituationMap>
   );
 }
