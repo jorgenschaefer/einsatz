@@ -109,4 +109,47 @@ describe("useDeviceLocation", () => {
     expect(clearWatch).toHaveBeenCalled();
     await waitFor(() => expect(release).toHaveBeenCalled());
   });
+
+  it("takes the wake lock again when the page is shown again", async () => {
+    installGeolocation();
+    const { request } = installWakeLock();
+    renderHook(() => useDeviceLocation("tok", vi.fn()));
+    await waitFor(() => expect(request).toHaveBeenCalledTimes(1));
+
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      value: "visible",
+    });
+    act(() => {
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+
+    await waitFor(() => expect(request).toHaveBeenCalledTimes(2));
+  });
+
+  it("sends one position at a time", async () => {
+    const { cbs } = installGeolocation();
+    const fetchMock = vi.fn(() => new Promise<Response>(() => {}));
+    vi.stubGlobal("fetch", fetchMock);
+    renderHook(() => useDeviceLocation("tok", vi.fn()));
+
+    act(() => cbs.success?.(fix(1, 2)));
+    act(() => cbs.success?.(fix(3, 4)));
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("sends the next position after a send failed", async () => {
+    const { cbs } = installGeolocation();
+    const fetchMock = vi.fn(async () => {
+      throw new TypeError("Failed to fetch");
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    renderHook(() => useDeviceLocation("tok", vi.fn()));
+
+    await act(async () => cbs.success?.(fix(1, 2)));
+    await act(async () => cbs.success?.(fix(1, 2)));
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
 });

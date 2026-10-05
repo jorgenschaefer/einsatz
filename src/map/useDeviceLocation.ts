@@ -13,10 +13,11 @@ export interface DeviceLocation {
 
 /**
  * Sendet – solange die Seite offen ist – periodisch den Standort an die
- * token-gebundene Route (Drosselung über {@link shouldSendPosition}), fragt die
- * Berechtigung an und hält per Wake Lock den Bildschirm aktiv. Bei „kein Zugang"
- * (403) stoppt es die Ortung und ruft `onAccessLost`. Liefert Status und letzte
- * Position (für „auf meinen Standort"). Dünne Grenze zu
+ * token-gebundene Route (Drosselung über {@link shouldSendPosition}, höchstens
+ * eine Meldung zugleich unterwegs), fragt die Berechtigung an und hält per
+ * Wake Lock den Bildschirm aktiv, auch nach der Rückkehr auf die Seite. Bei
+ * „kein Zugang" (403) stoppt es die Ortung und ruft `onAccessLost`. Liefert
+ * Status und letzte Position (für „auf meinen Standort"). Dünne Grenze zu
  * Geolocation/Wake-Lock/Fetch.
  */
 export function useDeviceLocation(
@@ -31,6 +32,7 @@ export function useDeviceLocation(
   useEffect(() => {
     if (typeof navigator === "undefined" || !navigator.geolocation) return;
     let last: LastReport | null = null;
+    let sending = false;
     let stopped = false;
     let wakeLock: { release: () => Promise<void> } | null = null;
 
@@ -41,18 +43,26 @@ export function useDeviceLocation(
         };
       }
     ).wakeLock;
-    void wakeLockApi
-      ?.request("screen")
-      .then((wl) => {
-        if (stopped) void wl.release().catch(() => {});
-        else wakeLock = wl;
-      })
-      .catch(() => {});
+    const keepScreenOn = () =>
+      void wakeLockApi
+        ?.request("screen")
+        .then((wl) => {
+          if (stopped) void wl.release().catch(() => {});
+          else wakeLock = wl;
+        })
+        .catch(() => {});
+    // Der Browser gibt die Sperre frei, sobald die Seite verborgen ist.
+    const keepScreenOnWhenShown = () => {
+      if (document.visibilityState === "visible") keepScreenOn();
+    };
+    keepScreenOn();
+    document.addEventListener("visibilitychange", keepScreenOnWhenShown);
 
     const stop = () => {
       if (stopped) return;
       stopped = true;
       navigator.geolocation.clearWatch(watchId);
+      document.removeEventListener("visibilitychange", keepScreenOnWhenShown);
       void wakeLock?.release().catch(() => {});
     };
 
@@ -77,10 +87,14 @@ export function useDeviceLocation(
         const { latitude: lat, longitude: lng } = pos.coords;
         setPosition({ lat, lng });
         const now = Date.now();
-        if (!shouldSendPosition(last, { lat, lng }, now)) return;
-        void send(lat, lng).then((ok) => {
-          if (ok && !stopped) last = { lat, lng, at: now };
-        });
+        if (sending || !shouldSendPosition(last, { lat, lng }, now)) return;
+        sending = true;
+        void send(lat, lng)
+          .catch(() => false)
+          .then((ok) => {
+            sending = false;
+            if (ok && !stopped) last = { lat, lng, at: now };
+          });
       },
       () => setStatus("paused"),
       { enableHighAccuracy: true, maximumAge: 0, timeout: 30_000 },
