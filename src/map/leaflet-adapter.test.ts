@@ -19,6 +19,16 @@ it("places the zoom control bottom right on every map", () => {
   expect(zoom?.closest(".leaflet-bottom.leaflet-right")).not.toBeNull();
 });
 
+it("gives its drawing hints in German", () => {
+  const { adapter, container } = mountLeafletMap();
+
+  adapter.startDrawing("polygon", () => {});
+
+  expect(container.textContent).toContain(
+    "Platziere den ersten Marker mit Klick",
+  );
+});
+
 // Auf der Vollbild-Karte wird der globale Footer ausgeblendet; Impressum und
 // Datenschutz müssen daher über die Attributionsleiste erreichbar sein.
 it("links Impressum and Datenschutz in the attribution bar", () => {

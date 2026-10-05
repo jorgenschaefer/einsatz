@@ -25,6 +25,7 @@ export const leafletMapAdapterFactory: MapAdapterFactory = {
     // Zoom unten rechts über der Attribution – oben liegt die schwebende Suche,
     // darüber die Spalte der Kartenknöpfe.
     map.zoomControl.setPosition("bottomright");
+    map.pm.setLang("de");
 
     // Auf der Vollbild-Karte gibt es keinen Footer; Impressum und Datenschutz
     // stehen daher als Präfix in der Attributionsleiste (unten rechts, neben
