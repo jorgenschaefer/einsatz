@@ -12,7 +12,7 @@ import {
 function setup(over: Partial<ImageOverlayEditorProps> = {}) {
   const props: ImageOverlayEditorProps = {
     opacity: 0.8,
-    onOpacityChange: vi.fn(),
+    onOpacityChange: vi.fn(async () => true),
     onReplace: vi.fn(),
     onDelete: vi.fn(async () => ({})),
     onDone: vi.fn(),
@@ -36,7 +36,7 @@ describe("ImageOverlayEditor", () => {
   });
 
   it("adjusts the opacity via the slider", async () => {
-    const onOpacityChange = vi.fn();
+    const onOpacityChange = vi.fn(async (_opacity: number) => true);
     setup({ opacity: 0.8, onOpacityChange });
     const slider = screen.getByRole("slider", { name: "Deckkraft" });
     act(() => slider.focus());
@@ -46,7 +46,7 @@ describe("ImageOverlayEditor", () => {
   });
 
   it("moves the slider before the opacity is saved", async () => {
-    const onOpacityChange = vi.fn();
+    const onOpacityChange = vi.fn(async (_opacity: number) => true);
     setup({ opacity: 0.8, onOpacityChange });
     const slider = screen.getByRole("slider", { name: "Deckkraft" });
     act(() => slider.focus());
@@ -55,6 +55,16 @@ describe("ImageOverlayEditor", () => {
 
     expect(slider).toHaveAttribute("aria-valuenow", "90");
     expect(onOpacityChange.mock.calls.map(([o]) => o)).toEqual([0.85, 0.9]);
+  });
+
+  it("goes back to the saved opacity when saving fails", async () => {
+    setup({ opacity: 0.8, onOpacityChange: vi.fn(async () => false) });
+    const slider = screen.getByRole("slider", { name: "Deckkraft" });
+    act(() => slider.focus());
+
+    await userEvent.keyboard("{ArrowRight}");
+
+    await waitFor(() => expect(slider).toHaveAttribute("aria-valuenow", "80"));
   });
 
   it("follows an opacity that changes elsewhere", () => {

@@ -59,15 +59,17 @@ export function useImageOverlayEditing({
     );
     if (result?.error) restoreImagePlacement(id);
   };
-  const changeImageOpacity = (opacity: number) => {
-    if (!editingImage) return;
+  /** Liefert, ob gespeichert wurde. */
+  const changeImageOpacity = async (opacity: number): Promise<boolean> => {
+    if (!editingImage) return false;
     closeImageOverlaysError();
-    void persistImage(() =>
+    const result = await persistImage(() =>
       onUpdateImagePlacement(editingImage.id, {
         ...editingImage.placement,
         opacity,
       }),
     );
+    return result !== null && !result.error;
   };
   const replaceImage = (file: File) => {
     if (!editingImageId) return;

@@ -8,7 +8,8 @@ import { ConfirmationModal } from "@/app/ConfirmationModal";
 export interface ImageOverlayEditorProps {
   /** Aktuelle Deckkraft (0–1). */
   opacity: number;
-  onOpacityChange: (opacity: number) => void | Promise<void>;
+  /** Liefert, ob gespeichert wurde. */
+  onOpacityChange: (opacity: number) => Promise<boolean>;
   onReplace: (file: File) => void | Promise<void>;
   onDelete: () => Promise<ActionResult>;
   onDone: () => void;
@@ -27,7 +28,8 @@ export function ImageOverlayEditor({
 }: ImageOverlayEditorProps) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [deleteAsked, setDeleteAsked] = useState(false);
-  // Folgt dem Finger, bis die gespeicherte Deckkraft zurückkommt.
+  // Folgt dem Finger, bis die gespeicherte Deckkraft zurückkommt; scheitert das
+  // Speichern, kehrt er zur gespeicherten zurück.
   const [shownPercent, setShownPercent] = useState(Math.round(opacity * 100));
   useEffect(() => setShownPercent(Math.round(opacity * 100)), [opacity]);
 
@@ -55,7 +57,11 @@ export function ImageOverlayEditor({
           value={shownPercent}
           onChange={setShownPercent}
           label={(v) => `${v}%`}
-          onChangeEnd={(v) => onOpacityChange(v / 100)}
+          onChangeEnd={async (v) => {
+            if (!(await onOpacityChange(v / 100))) {
+              setShownPercent(Math.round(opacity * 100));
+            }
+          }}
           disabled={busy}
         />
       </div>

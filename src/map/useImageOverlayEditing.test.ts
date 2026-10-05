@@ -93,6 +93,20 @@ describe("useImageOverlayEditing", () => {
     expect(hook.mode().editingImageId).toBe("i1");
   });
 
+  it.each([
+    ["saved", async () => ({}), true],
+    ["refused", async () => ({ error: "Nicht gefunden." }), false],
+  ])("reports whether the opacity was %s", async (_, save, saved) => {
+    const hook = renderImageEditing({ onUpdateImagePlacement: vi.fn(save) });
+    let result: boolean | undefined;
+
+    await act(async () => {
+      result = await hook.editing().changeImageOpacity(0.9);
+    });
+
+    expect(result).toBe(saved);
+  });
+
   it("replaces the file of the Bild-Overlay being edited, and keeps editing", async () => {
     const hook = renderImageEditing();
     const file = new File(["%PDF-1.4"], "neu.pdf", { type: "application/pdf" });
