@@ -1,6 +1,6 @@
 import type { Db } from "@/server/db/db";
-import { assertPasswordPolicy, hashPassword } from "./password";
-import { countUsers, insertUser } from "./users";
+import { createAccount } from "./account-admin";
+import { countUsers } from "./users";
 
 /**
  * Stellt beim Erststart genau ein Admin-Konto sicher. Idempotent: sobald
@@ -18,7 +18,5 @@ export async function seedAdmin(
       "ADMIN_USERNAME und ADMIN_PASSWORD müssen gesetzt sein, um den Erst-Admin anzulegen.",
     );
   }
-  assertPasswordPolicy(password, username);
-  const passwordHash = await hashPassword(password);
-  await insertUser(db, { username, passwordHash, role: "admin" });
+  await createAccount(db, { username, password, role: "admin" });
 }

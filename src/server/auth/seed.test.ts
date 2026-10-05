@@ -19,6 +19,17 @@ describe("seedAdmin", () => {
     );
   });
 
+  it("creates the first admin by the rules of every account: trimmed, at most 200 characters", async () => {
+    const db = await freshDb();
+    await expect(
+      seedAdmin(db, { username: "x".repeat(201), password: "super-secret-1" }),
+    ).rejects.toThrow("Der Nutzername");
+
+    await seedAdmin(db, { username: " chef ", password: "super-secret-1" });
+
+    expect((await findUserByUsername(db, "chef"))?.role).toBe("admin");
+  });
+
   it("is idempotent: running twice does not create a duplicate", async () => {
     const db = await freshDb();
     await seedAdmin(db, { username: "chef", password: "super-secret-1" });
