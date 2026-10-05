@@ -1,7 +1,7 @@
 import { defaultImagePlacement } from "@/map/image-overlay";
 import type { ViewExtent } from "@/map/view";
 import type { Queryable } from "@/server/db/db";
-import { getOperation } from "@/server/operations/operations";
+import { requireOperation } from "@/server/operations/operations";
 import {
   assertUuid,
   isValidLatLng,
@@ -34,11 +34,8 @@ export async function addImageOverlay(
   assertViewExtent(view);
   const name = trimmedName(file.name, "Der Dateiname");
   const { webp, width, height } = await prepareUpload(file);
-  const operation = await getOperation(db, operationId);
-  if (!operation) {
-    // Vor dem Schreiben ins Volume abbrechen – keine verwaiste Datei/Zeile.
-    throw new ValidationError("Der Einsatz existiert nicht mehr.");
-  }
+  // Vor dem Schreiben ins Volume abbrechen – keine verwaiste Datei/Zeile.
+  await requireOperation(db, operationId);
   const filePath = await storeOverlayImage(operationId, webp);
   try {
     await createImageOverlay(db, {

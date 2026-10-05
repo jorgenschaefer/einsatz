@@ -1,4 +1,5 @@
 import type { Queryable } from "@/server/db/db";
+import { requireOperation } from "@/server/operations/operations";
 import { trimmedName } from "@/server/validation";
 import { createFetchBudget } from "./fetch-budget";
 import {
@@ -19,6 +20,7 @@ export async function addKmlFile(
   const name = trimmedName(input.name, "Der Dateiname");
   enforceKmlSizeLimit(input.content);
   assertKmlDocument(input.content, "Die Datei ist keine KML- oder KMZ-Datei.");
+  await requireOperation(db, input.operationId);
   // KMZ-Dateien aus Google „Meine Karten“ enthalten oft nur einen
   // NetworkLink; dessen Ziel serverseitig auflösen, damit Geometrie erscheint.
   await createKmlOverlay(db, {

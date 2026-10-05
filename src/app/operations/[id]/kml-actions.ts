@@ -8,6 +8,7 @@ import {
   reloadKmlOverlay,
   setKmlVisibility,
 } from "@/server/kml/kml-overlays";
+import { requireOperation } from "@/server/operations/operations";
 import { assertText, ValidationError } from "@/server/validation";
 import { operationAction } from "./operation-action";
 import { KML_LOAD_FAILED } from "./upload-messages";
@@ -23,6 +24,7 @@ export async function addKmlUrlAction(
     assertText(url, "Die KML-URL", MAX_KML_URL_LENGTH);
     const source = url.trim();
     if (!source) throw new ValidationError("Bitte eine KML-URL angeben.");
+    await requireOperation(db, operationId);
     const content = await loadKmlFromUrl(source);
     await createKmlOverlay(db, {
       operationId,

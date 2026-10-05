@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Db } from "@/server/db/db";
 
@@ -196,6 +197,15 @@ describe("addKmlUrlAction", () => {
     expect(await addKmlUrlAction(op.id, "Pegel", url as Bad)).toEqual({
       error,
     });
+
+    expect(state.fetchedUrls).toEqual([]);
+  });
+
+  it.each([
+    ["no longer exists", randomUUID(), "Der Einsatz existiert nicht mehr."],
+    ["is no UUID", NOT_A_UUID, INVALID_ID],
+  ])("refuses an Einsatz that %s before fetching", async (_, id, error) => {
+    expect(await addKmlUrlAction(id, "Pegel", URL)).toEqual({ error });
 
     expect(state.fetchedUrls).toEqual([]);
   });

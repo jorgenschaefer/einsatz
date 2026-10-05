@@ -63,6 +63,21 @@ export async function getOperation(
   return rows[0] ? toOperation(rows[0]) : null;
 }
 
+/**
+ * Prüft, bevor etwas Teures für den Einsatz geschieht (Upload, Abruf), dass es
+ * ihn noch gibt.
+ */
+export async function requireOperation(
+  db: Queryable,
+  id: string,
+): Promise<Operation> {
+  assertUuid(id);
+  const operation = await getOperation(db, id);
+  if (!operation)
+    throw new ValidationError("Der Einsatz existiert nicht mehr.");
+  return operation;
+}
+
 export async function listOperations(db: Queryable): Promise<Operation[]> {
   const { rows } = await db.query<OperationRow>(
     `SELECT ${COLUMNS} FROM operations ORDER BY started_at DESC`,

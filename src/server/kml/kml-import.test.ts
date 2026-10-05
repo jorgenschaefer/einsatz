@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MAX_KML_BYTES } from "@/kml/kmz";
 import { insertOperation } from "@/server/operations/operations";
@@ -167,6 +168,21 @@ describe("resolveKmlFile", () => {
 });
 
 describe("addKmlFile", () => {
+  it("refuses an Einsatz that no longer exists before fetching its links", async () => {
+    const db = await freshDb();
+    serve25Links();
+
+    await expect(
+      addKmlFile(db, {
+        operationId: randomUUID(),
+        name: "Karte",
+        content: kmlWithLinks(1),
+      }),
+    ).rejects.toThrow("Der Einsatz existiert nicht mehr.");
+
+    expect(requested).toEqual([]);
+  });
+
   it("stores the file with its icons embedded as a KML-Ebene of the Einsatz", async () => {
     const db = await freshDb();
     const operation = await insertOperation(db, {
