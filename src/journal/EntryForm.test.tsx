@@ -440,4 +440,35 @@ describe("EntryForm", () => {
       expect(screen.queryByRole("alert")).toBeNull();
     });
   });
+
+  describe("while saving", () => {
+    const savingForever = () => vi.fn(() => new Promise<boolean>(() => {}));
+
+    it("sends a double click only once", async () => {
+      const { props } = setup({ onSubmit: savingForever() });
+      await userEvent.type(textField(), "Deich hält");
+
+      await userEvent.dblClick(submitButton());
+
+      expect(props.onSubmit).toHaveBeenCalledTimes(1);
+    });
+
+    it("sends a repeated Strg+Enter only once", async () => {
+      const { props } = setup({ onSubmit: savingForever() });
+      await userEvent.type(textField(), "Deich hält");
+
+      await userEvent.keyboard("{Control>}{Enter}{Enter}{/Control}");
+
+      expect(props.onSubmit).toHaveBeenCalledTimes(1);
+    });
+
+    it("keeps the text field from taking text the save would wipe", async () => {
+      setup({ onSubmit: savingForever() });
+      await userEvent.type(textField(), "Deich hält");
+
+      await userEvent.click(submitButton());
+
+      expect(textField()).toHaveAttribute("readonly");
+    });
+  });
 });

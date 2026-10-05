@@ -69,6 +69,9 @@ export function EntryForm({
   // Neu gemountet stehen die Chip-Zeilen für den nächsten Eintrag wieder vorne.
   const [chipRowsKey, setChipRowsKey] = useState(0);
   const channelChosen = useRef(false);
+  // Ein Ref, weil ein zweites Abschicken vor dem nächsten Render ankommen kann.
+  const saving = useRef(false);
+  const [busy, setBusy] = useState(false);
   const size = compact ? "xs" : "sm";
 
   useEffect(() => {
@@ -79,8 +82,15 @@ export function EntryForm({
   /** `chosen` ist, was ein Feld beim Abschicken noch übernimmt. */
   const submit = async (chosen: Partial<EntryRoute> = {}) => {
     const trimmed = text.trim();
-    if (!trimmed) return;
-    if (!(await onSubmit({ text: trimmed, ...route, ...chosen }))) return;
+    if (!trimmed || saving.current) return;
+    saving.current = true;
+    setBusy(true);
+    try {
+      if (!(await onSubmit({ text: trimmed, ...route, ...chosen }))) return;
+    } finally {
+      saving.current = false;
+      setBusy(false);
+    }
     setText("");
     setRoute((current) => ({ ...current, sender: null, recipient: null }));
     setOtherOpen(NO_OTHER_OPEN);
@@ -122,6 +132,7 @@ export function EntryForm({
         onChange={(e) => setText(e.currentTarget.value)}
         onKeyDown={submitOnCtrlEnter(submit)}
         placeholder={placeholder}
+        readOnly={busy}
       />
       <ErrorAlert error={error} onClose={onDismissError} />
       {/* gap="sm": Neben dem 150 px breiten Freitext-Weg bleibt „Eintrag
@@ -139,7 +150,7 @@ export function EntryForm({
           onKeyDown={submitOnCtrlEnter(submit)}
         />
         <Group gap="xs" wrap="nowrap">
-          <Button size={size} onClick={() => submit()}>
+          <Button size={size} loading={busy} onClick={() => submit()}>
             {submitLabel}
           </Button>
           {onCancel && (
