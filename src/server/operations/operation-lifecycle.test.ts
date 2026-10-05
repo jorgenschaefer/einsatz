@@ -14,7 +14,7 @@ import {
   listViewLinks,
   resolveViewAccess,
 } from "@/server/viewlinks/view-links";
-import { freshDb } from "@/test/db";
+import { freshDb, raceBehindLock } from "@/test/db";
 import {
   createOperation,
   OPERATION_OPENED_ENTRY_TEXT,
@@ -65,6 +65,22 @@ describe("closeOperation / reopenOperation", () => {
     const op = await createOperation(db, { name: "Hochwasser" });
     await closeOperation(db, op.id);
     await closeOperation(db, op.id);
+
+    expect(
+      (await listEntries(db, op.id)).filter(
+        (e) => e.type === "einsatz-geschlossen",
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("writes one milestone when the operation is closed twice at once", async () => {
+    const db = await freshDb();
+    const op = await createOperation(db, { name: "Hochwasser" });
+
+    await raceBehindLock(db, "SELECT id FROM operations FOR UPDATE", [
+      () => closeOperation(db, op.id),
+      () => closeOperation(db, op.id),
+    ]);
 
     expect(
       (await listEntries(db, op.id)).filter(

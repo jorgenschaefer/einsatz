@@ -5,7 +5,7 @@ import type { Db } from "@/server/db/db";
 import { appendEntry, listEntries } from "@/server/journal/journal";
 import { insertOperation } from "@/server/operations/operations";
 import { ValidationError } from "@/server/validation";
-import { freshDb } from "@/test/db";
+import { freshDb, raceBehindLock } from "@/test/db";
 import { POLICY_USERNAME, REFUSED_PASSWORDS } from "@/test/refused-passwords";
 import {
   changePassword,
@@ -199,6 +199,21 @@ describe("setRole (last-admin protection)", () => {
     await seedAdmin(db, "vize");
     await setRole(db, chef.id, "user");
     expect((await findUserById(db, chef.id))?.role).toBe("user");
+    expect(await countAdmins(db)).toBe(1);
+  });
+
+  it("keeps one admin when the last two are demoted at once", async () => {
+    const db = await freshDb();
+    const chef = await seedAdmin(db, "chef");
+    const vize = await seedAdmin(db, "vize");
+
+    const results = await raceBehindLock(
+      db,
+      "SELECT id FROM users FOR UPDATE",
+      [() => setRole(db, chef.id, "user"), () => setRole(db, vize.id, "user")],
+    );
+
+    expect(results.filter((r) => r.status === "rejected")).toHaveLength(1);
     expect(await countAdmins(db)).toBe(1);
   });
 

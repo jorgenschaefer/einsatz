@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { Pool, type PoolClient } from "pg";
-import { onTestFinished } from "vitest";
+import { expect, onTestFinished } from "vitest";
 import { createPgDb, type Db } from "@/server/db/db";
 import { loadMigrations, migrate } from "@/server/db/migrations";
 
@@ -116,4 +116,42 @@ export async function freshDb(): Promise<Db> {
 /** Frische Datenbank ohne jede Migration. */
 export function emptyDb(): Promise<Db> {
   return createTestDb("");
+}
+
+/**
+ * Startet `contenders`, während eine eigene Transaktion die Zeilensperren aus
+ * `lock` hält, und gibt sie erst frei, wenn jeder auf eine Sperre wartet. So
+ * entscheiden alle aus demselben Stand – das Rennen, das ein Doppelklick oder
+ * zwei Tabs erzeugen, ohne Zufall.
+ */
+export async function raceBehindLock<T>(
+  db: Db,
+  lock: string,
+  contenders: (() => Promise<T>)[],
+): Promise<PromiseSettledResult<T>[]> {
+  const held = Promise.withResolvers<void>();
+  const release = Promise.withResolvers<void>();
+  const holder = db.transaction(async (tx) => {
+    await tx.query(lock);
+    held.resolve();
+    await release.promise;
+  });
+  await held.promise;
+  const results = Promise.allSettled(
+    contenders.map((contender) => contender()),
+  );
+  await expect
+    .poll(() => waitingForLocks(db), { timeout: 5000 })
+    .toBe(contenders.length);
+  release.resolve();
+  await holder;
+  return results;
+}
+
+async function waitingForLocks(db: Db): Promise<number> {
+  const { rows } = await db.query<{ waiting: number }>(
+    `SELECT count(*)::int AS waiting FROM pg_stat_activity
+      WHERE datname = current_database() AND wait_event_type = 'Lock'`,
+  );
+  return rows[0].waiting;
 }
