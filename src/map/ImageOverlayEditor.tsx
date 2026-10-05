@@ -1,7 +1,7 @@
 "use client";
 
 import { Alert, Button, Group, Slider, Stack, Text } from "@mantine/core";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ActionResult } from "@/app/action-result";
 import { ConfirmationModal } from "@/app/ConfirmationModal";
 
@@ -27,6 +27,9 @@ export function ImageOverlayEditor({
 }: ImageOverlayEditorProps) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [deleteAsked, setDeleteAsked] = useState(false);
+  // Folgt dem Finger, bis die gespeicherte Deckkraft zurückkommt.
+  const [shownPercent, setShownPercent] = useState(Math.round(opacity * 100));
+  useEffect(() => setShownPercent(Math.round(opacity * 100)), [opacity]);
 
   return (
     <Stack gap="xs" mt="xs">
@@ -49,7 +52,8 @@ export function ImageOverlayEditor({
           min={0}
           max={100}
           step={5}
-          value={Math.round(opacity * 100)}
+          value={shownPercent}
+          onChange={setShownPercent}
           label={(v) => `${v}%`}
           onChangeEnd={(v) => onOpacityChange(v / 100)}
           disabled={busy}

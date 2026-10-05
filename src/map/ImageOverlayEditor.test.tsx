@@ -18,8 +18,12 @@ function setup(over: Partial<ImageOverlayEditorProps> = {}) {
     onDone: vi.fn(),
     ...over,
   };
-  render(<ImageOverlayEditor {...props} />);
-  return props;
+  const { rerender } = render(<ImageOverlayEditor {...props} />);
+  return {
+    ...props,
+    rerender: (more: Partial<ImageOverlayEditorProps>) =>
+      rerender(<ImageOverlayEditor {...props} {...more} />),
+  };
 }
 
 describe("ImageOverlayEditor", () => {
@@ -39,6 +43,29 @@ describe("ImageOverlayEditor", () => {
     await userEvent.keyboard("{ArrowRight}");
     expect(onOpacityChange).toHaveBeenCalled();
     expect(onOpacityChange.mock.calls.at(-1)![0]).toBeGreaterThan(0.8);
+  });
+
+  it("moves the slider before the opacity is saved", async () => {
+    const onOpacityChange = vi.fn();
+    setup({ opacity: 0.8, onOpacityChange });
+    const slider = screen.getByRole("slider", { name: "Deckkraft" });
+    act(() => slider.focus());
+
+    await userEvent.keyboard("{ArrowRight}{ArrowRight}");
+
+    expect(slider).toHaveAttribute("aria-valuenow", "90");
+    expect(onOpacityChange.mock.calls.map(([o]) => o)).toEqual([0.85, 0.9]);
+  });
+
+  it("follows an opacity that changes elsewhere", () => {
+    const { rerender } = setup({ opacity: 0.8 });
+
+    rerender({ opacity: 0.5 });
+
+    expect(screen.getByRole("slider", { name: "Deckkraft" })).toHaveAttribute(
+      "aria-valuenow",
+      "50",
+    );
   });
 
   it("replaces the file", async () => {
