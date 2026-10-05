@@ -137,9 +137,9 @@ function entryPointWithoutChecks(
   }
 
   const content = withoutComments(read(test));
-  const skipping = /\.(?:skip|skipIf|todo)\b/.test(content)
+  const skipping = /\.(?:skip|skipIf|runIf|only|todo)\b/.test(content)
     ? [
-        `${source}: its test file ${test} skips tests - remove .skip, .skipIf and .todo so its checks run (${required.definedIn})`,
+        `${source}: its test file ${test} skips tests - remove .skip, .skipIf, .runIf, .only and .todo so its checks run (${required.definedIn})`,
       ]
     : [];
   const missing = required.helpers
