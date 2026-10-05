@@ -45,14 +45,19 @@ async function seedAdmin(
   });
 }
 
+/** The user anna, with the password "a-good-password". */
+function createAnna(db: Db) {
+  return createAccount(db, {
+    username: "anna",
+    password: "a-good-password",
+    role: "user",
+  });
+}
+
 describe("createAccount", () => {
   it("creates a user with a hashed password and role", async () => {
     const db = await freshDb();
-    const created = await createAccount(db, {
-      username: "anna",
-      password: "a-good-password",
-      role: "user",
-    });
+    const created = await createAnna(db);
     expect(created.role).toBe("user");
     const found = await findUserByUsername(db, "anna");
     expect(await verifyPassword("a-good-password", found!.passwordHash)).toBe(
@@ -174,11 +179,7 @@ describe("setRole (last-admin protection)", () => {
   it("promotes a user to admin", async () => {
     const db = await freshDb();
     await seedAdmin(db);
-    const anna = await createAccount(db, {
-      username: "anna",
-      password: "a-good-password",
-      role: "user",
-    });
+    const anna = await createAnna(db);
     await setRole(db, anna.id, "admin");
     expect((await findUserById(db, anna.id))?.role).toBe("admin");
   });
@@ -214,11 +215,7 @@ describe("setRole (last-admin protection)", () => {
 describe("resetPassword", () => {
   it("sets a new hashed password", async () => {
     const db = await freshDb();
-    const anna = await createAccount(db, {
-      username: "anna",
-      password: "a-good-password",
-      role: "user",
-    });
+    const anna = await createAnna(db);
     await resetPassword(db, anna.id, "brand-new-pass");
     expect(
       await verifyPassword(
@@ -230,11 +227,7 @@ describe("resetPassword", () => {
 
   it("rejects a too-short new password", async () => {
     const db = await freshDb();
-    const anna = await createAccount(db, {
-      username: "anna",
-      password: "a-good-password",
-      role: "user",
-    });
+    const anna = await createAnna(db);
     await expect(resetPassword(db, anna.id, "short")).rejects.toBeInstanceOf(
       ValidationError,
     );
@@ -264,11 +257,7 @@ describe("resetPassword", () => {
 
   it("revokes the user's open sessions", async () => {
     const db = await freshDb();
-    const anna = await createAccount(db, {
-      username: "anna",
-      password: "a-good-password",
-      role: "user",
-    });
+    const anna = await createAnna(db);
     await insertSession(db, {
       token: "anna-session",
       userId: anna.id,
@@ -284,11 +273,7 @@ describe("resetPassword", () => {
 describe("changePassword (self-service)", () => {
   it("changes the password when the current one is correct and revokes sessions", async () => {
     const db = await freshDb();
-    const anna = await createAccount(db, {
-      username: "anna",
-      password: "a-good-password",
-      role: "user",
-    });
+    const anna = await createAnna(db);
     await insertSession(db, {
       token: "anna-session",
       userId: anna.id,
@@ -311,11 +296,7 @@ describe("changePassword (self-service)", () => {
 
   it("rejects a wrong current password and leaves password and sessions intact", async () => {
     const db = await freshDb();
-    const anna = await createAccount(db, {
-      username: "anna",
-      password: "a-good-password",
-      role: "user",
-    });
+    const anna = await createAnna(db);
     await insertSession(db, {
       token: "anna-session",
       userId: anna.id,
@@ -412,11 +393,7 @@ describe("deleteAccount (last-admin protection)", () => {
   it("deletes a non-last account", async () => {
     const db = await freshDb();
     await seedAdmin(db);
-    const anna = await createAccount(db, {
-      username: "anna",
-      password: "a-good-password",
-      role: "user",
-    });
+    const anna = await createAnna(db);
     await deleteAccount(db, anna.id);
     expect(await findUserById(db, anna.id)).toBeNull();
   });
@@ -424,11 +401,7 @@ describe("deleteAccount (last-admin protection)", () => {
   it("leaves the deleted user's ETB entries readable with their author snapshot", async () => {
     const db = await freshDb();
     await seedAdmin(db);
-    const anna = await createAccount(db, {
-      username: "anna",
-      password: "a-good-password",
-      role: "user",
-    });
+    const anna = await createAnna(db);
     const op = await insertOperation(db, {
       name: "Hochwasser",
       description: null,
