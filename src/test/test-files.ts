@@ -136,7 +136,12 @@ function entryPointWithoutChecks(
     ];
   }
 
-  const content = read(test);
+  const content = withoutComments(read(test));
+  const skipping = /\.(?:skip|skipIf|todo)\b/.test(content)
+    ? [
+        `${source}: its test file ${test} skips tests - remove .skip, .skipIf and .todo so its checks run (${required.definedIn})`,
+      ]
+    : [];
   const missing = required.helpers
     .filter((anyOf) => !anyOf.some((helper) => calls(content, helper)))
     .map(
@@ -144,8 +149,11 @@ function entryPointWithoutChecks(
         `${source}: its test file ${test} does not call ${anyOf.join(" or ")} (${required.definedIn})`,
     );
   const area = required.publicRefusedIn;
-  if (!area || !calls(content, "expectPublicPage")) return missing;
+  if (!area || !calls(content, "expectPublicPage")) {
+    return [...skipping, ...missing];
+  }
   return [
+    ...skipping,
     ...missing,
     `${source}: its test file ${test} declares the page public with expectPublicPage, but a page under ${area} cannot be public - remove that call (${required.definedIn})`,
   ];
@@ -243,4 +251,9 @@ function acceptsUploads(route: string): boolean {
 
 function calls(content: string, helper: string): boolean {
   return new RegExp(`\\b${helper}\\(`).test(content);
+}
+
+/** The file without its comments; a `//` right after `:` is a URL, not a comment. */
+function withoutComments(content: string): string {
+  return content.replace(/\/\*[\s\S]*?\*\/|(?<!:)\/\/[^\n]*/g, "");
 }

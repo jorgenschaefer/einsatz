@@ -274,6 +274,30 @@ describe("checkTestFiles: pages", () => {
     ]);
   });
 
+  it("does not count a check that is commented out", () => {
+    expect(
+      check({
+        "src/app/x/page.tsx": "",
+        "src/app/x/page.test.tsx":
+          "// expectPageRequiresLogin(Page, { actAs });\n/* expectPublicPage(Page); */",
+      }),
+    ).toEqual([
+      `src/app/x/page.tsx: its test file src/app/x/page.test.tsx does not call expectPageRequiresLogin or expectPublicPage (${PAGE_CHECKS})`,
+    ]);
+  });
+
+  it("refuses skipped tests, which would skip the checks", () => {
+    expect(
+      check({
+        "src/app/x/page.tsx": "",
+        "src/app/x/page.test.tsx":
+          "describe.skip('x', () => { expectPageRequiresLogin(Page, { actAs }); });",
+      }),
+    ).toEqual([
+      `src/app/x/page.tsx: its test file src/app/x/page.test.tsx skips tests - remove .skip, .skipIf and .todo so its checks run (${PAGE_CHECKS})`,
+    ]);
+  });
+
   it("requires the token check under device/ and view/", () => {
     expect(
       check({
