@@ -49,7 +49,8 @@ export function useMapSearch(
     }
     let active = true;
     const timer = setTimeout(async () => {
-      const hits = await geocode(q);
+      // Scheitert die Suche, gelten auch die Treffer der vorigen nicht mehr.
+      const hits = await geocode(q).catch(() => []);
       if (active) setAddressResults(withoutDuplicates(hits));
     }, 300);
     return () => {

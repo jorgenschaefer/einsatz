@@ -55,6 +55,29 @@ describe("useMapSearch", () => {
     }
   });
 
+  it("clears the hits of the previous query when the next search fails", async () => {
+    vi.useFakeTimers();
+    try {
+      const geocode = vi
+        .fn()
+        .mockResolvedValueOnce([{ label: "Hauptstr", lat: 1, lng: 2 }])
+        .mockRejectedValueOnce(new TypeError("Failed to fetch"));
+      const { result } = renderHook(() =>
+        useMapSearch(symbols, geocode, vi.fn()),
+      );
+      act(() => result.current.setQuery("Hauptstr"));
+      await act(() => vi.advanceTimersByTimeAsync(300));
+      expect(result.current.addressResults).toHaveLength(1);
+
+      act(() => result.current.setQuery("Bahnhofstr"));
+      await act(() => vi.advanceTimersByTimeAsync(300));
+
+      expect(result.current.addressResults).toEqual([]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("lists an address the geocoder returns twice only once", async () => {
     vi.useFakeTimers();
     try {
