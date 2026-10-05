@@ -13,6 +13,7 @@ import {
   button,
   chooseSearchResult,
   click,
+  clickAndConfirm,
   clickInBand,
   clickMarker,
   confirm,
@@ -34,6 +35,7 @@ import {
   startRedrawing,
   tapMap,
   upload,
+  type WiringCase,
 } from "./SituationMapView.fixtures";
 import { aSymbol } from "./symbol.fixtures";
 
@@ -296,23 +298,14 @@ describe("SituationMapView", () => {
     expect(screen.queryByText(INVALID)).toBeNull();
   });
 
-  it.each<
-    [
-      string,
-      Partial<MapViewProps>,
-      (view: RenderedMapView) => Promise<unknown>,
-      keyof MapViewProps,
-      unknown[],
-    ]
-  >([
+  it.each<WiringCase>([
     [
       "deletes a Kartenzeichen from its detail, opened from its row, once confirmed",
       { symbols: [SYMBOL], shownPanel: "symbols" },
       async () => {
         await click("Pumpe 1 bearbeiten");
         await screen.findByDisplayValue("Pumpe 1");
-        await click("Löschen");
-        await confirm("Endgültig löschen");
+        await clickAndConfirm("Löschen", "Endgültig löschen");
       },
       "onDelete",
       [SYMBOL.id],
@@ -332,8 +325,7 @@ describe("SituationMapView", () => {
       { symbols: [{ ...SYMBOL, deviceLinkToken: "token-1" }] },
       async (view) => {
         await openSymbolDetail(view, SYMBOL.id);
-        await click("Gerätelink entfernen");
-        await confirm("Entfernen");
+        await clickAndConfirm("Gerätelink entfernen", "Entfernen");
       },
       "onRemoveDeviceLink",
       [SYMBOL.id],
@@ -375,10 +367,7 @@ describe("SituationMapView", () => {
     [
       "removes a KML-Overlay once confirmed",
       { kmlOverlays: [aKmlUrlOverlay], shownPanel: "layers" },
-      async () => {
-        await click("Entfernen");
-        await confirm("Entfernen");
-      },
+      () => clickAndConfirm("Entfernen", "Entfernen"),
       "onRemoveKml",
       [aKmlUrlOverlay.id],
     ],
@@ -400,8 +389,7 @@ describe("SituationMapView", () => {
       { imageOverlays: [anImageOverlay] },
       async (view) => {
         await startEditingImage(view);
-        await click("Löschen");
-        await confirm("Endgültig löschen");
+        await clickAndConfirm("Löschen", "Endgültig löschen");
       },
       "onDeleteImage",
       [anImageOverlay.id],

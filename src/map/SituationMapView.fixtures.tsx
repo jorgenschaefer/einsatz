@@ -143,6 +143,20 @@ export const clickInBand = (band: string, name: string) =>
   click(name, modeBand(band));
 export const confirm = async (name: string) =>
   click(name, await screen.findByRole("dialog", { name: /löschen|entfernen/ }));
+/** Clicks `name`, then `confirmation` in the dialog that asks. */
+export const clickAndConfirm = async (name: string, confirmation: string) => {
+  await click(name);
+  await confirm(confirmation);
+};
+
+/** An action in the view, and the prop it has to reach with its arguments. */
+export type WiringCase = [
+  name: string,
+  props: Partial<MapViewProps>,
+  perform: (view: RenderedMapView) => Promise<unknown>,
+  action: keyof MapViewProps,
+  args: unknown[],
+];
 
 export const armKtw = (view: RenderedMapView) => {
   view.rerender({ shownPanel: "symbols" });
