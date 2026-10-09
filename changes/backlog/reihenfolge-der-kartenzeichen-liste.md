@@ -1,6 +1,5 @@
 ---
 effort: M
-complexity: M
 utility: M
 ---
 
