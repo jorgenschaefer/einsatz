@@ -17,8 +17,6 @@ services:
       - ADMIN_USERNAME=$ADMIN_USERNAME
       - ADMIN_PASSWORD=$ADMIN_PASSWORD
       - MAPTILER_API_KEY=$MAPTILER_API_KEY
-    ports:
-      - "127.0.0.1:3008:3000"
     networks:
       database_network:
       service_network:
