@@ -74,7 +74,7 @@ npm run test:watch
 Database tests need a throwaway PostgreSQL that keeps its data in memory:
 
 ```sh
-docker compose -f docker-compose.test.yml up -d    # localhost:5437
+docker compose -f compose.test.yaml up -d    # localhost:5437
 ```
 
 Each test gets its own database cloned from a migrated template, so tests never
@@ -85,7 +85,7 @@ server. Tests that do not use the database run without the container.
 
 The [Dockerfile](Dockerfile) builds a production image. On start the container
 runs the migrations, makes sure the first admin exists and then starts the
-server on port 3000. [docker-compose.prod.yml](docker-compose.prod.yml) shows a
+server on port 3000. [compose.prod.yaml](compose.prod.yaml) shows a
 setup with an external database and a volume for uploads, mounted at
 `/data/uploads`, where the image stores them. The container counts as healthy
 once the server answers, so `docker compose up --wait` waits for migrations and

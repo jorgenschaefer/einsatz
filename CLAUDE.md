@@ -27,7 +27,7 @@ Weitere Kommandos:
 
 - Vitest + Testing Library, Tests liegen neben dem Code (`*.test.ts(x)`).
 - DB-Tests laufen gegen ein Wegwerf-Postgres im Container:
-  `docker compose -f docker-compose.test.yml up -d` (Port 5437, Daten im RAM;
+  `docker compose -f compose.test.yaml up -d` (Port 5437, Daten im RAM;
   abweichender Server per `TEST_DATABASE_URL`). `freshDb()` aus `src/test/db.ts`
   klont je Test eine eigene Datenbank aus einer migrierten Vorlage und löscht
   sie am Testende; die Dev-Datenbank wird **nicht** angefasst. Tests ohne DB

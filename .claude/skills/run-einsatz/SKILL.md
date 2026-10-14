@@ -179,7 +179,7 @@ CSS with `:has-text()`), plus `label=<label substring>` for Mantine form fields.
 ## Test
 
 ```bash
-docker compose -f docker-compose.test.yml up -d   # throwaway Postgres on :5437
+docker compose -f compose.test.yaml up -d          # throwaway Postgres on :5437
 npm run check                                      # tsc + biome + vitest (~2.5 min)
 ```
 

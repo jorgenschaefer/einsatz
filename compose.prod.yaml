@@ -1,8 +1,10 @@
+name: einsatz
+
 services:
   app:
     image: einsatz/app:latest
     pull_policy: never
-    restart: always
+    restart: unless-stopped
     build: .
     init: true
     cap_drop: [ALL]
@@ -18,12 +20,19 @@ services:
     ports:
       - "127.0.0.1:3008:3000"
     networks:
-      - database_network
+      database_network:
+      service_network:
+        aliases:
+          - einsatz
     volumes:
       - uploads:/data/uploads
 
 networks:
   database_network:
+    name: database_network
+    external: true
+  service_network:
+    name: service_network
     external: true
 
 volumes:

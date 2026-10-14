@@ -5,7 +5,7 @@ import { createPgDb, type Db } from "@/server/db/db";
 import { loadMigrations, migrate } from "@/server/db/migrations";
 
 /**
- * Test-Datenbanken liegen im Wegwerf-Postgres aus `docker-compose.test.yml`.
+ * Test-Datenbanken liegen im Wegwerf-Postgres aus `compose.test.yaml`.
  * Jeder Test bekommt eine eigene Datenbank, geklont aus einer migrierten
  * Vorlage – isoliert, parallel lauffähig und ohne Aufräumen zwischen Tests.
  * Alles passiert erst beim ersten Aufruf: Tests ohne DB brauchen keinen Server.
@@ -28,7 +28,7 @@ async function adminClient(): Promise<PoolClient> {
     return await admin.connect();
   } catch (error) {
     throw new Error(
-      `Test-Postgres unter ${ADMIN_URL} nicht erreichbar – starten mit \`docker compose -f docker-compose.test.yml up -d\`.`,
+      `Test-Postgres unter ${ADMIN_URL} nicht erreichbar – starten mit \`docker compose -f compose.test.yaml up -d\`.`,
       { cause: error },
     );
   }

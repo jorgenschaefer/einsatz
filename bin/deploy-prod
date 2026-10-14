@@ -2,14 +2,14 @@
 
 set -euo pipefail
 
-# Directory on the server; also the Compose project name.
+# Directory on the server; the Compose project name is set in compose.prod.yaml.
 remote_dir=einsatz
 host=barmbek@drk-barmbek.de
 
 cd "$(dirname "$0")/.."
 
 compose() {
-  docker compose -f docker-compose.prod.yml "$@"
+  docker compose -f compose.prod.yaml "$@"
 }
 
 # Decrypted up front, so a missing key stops the deploy before the build.
@@ -32,7 +32,7 @@ compose config --images \
 
 echo "==> Copying compose file..."
 ssh "$host" mkdir -p "$remote_dir"
-scp docker-compose.prod.yml "$host:$remote_dir/"
+scp compose.prod.yaml "$host:$remote_dir/compose.yaml"
 
 if [[ -n $secrets ]]; then
   echo "==> Copying secrets..."
@@ -43,7 +43,7 @@ if [[ -n $secrets ]]; then
 fi
 
 echo "==> Starting containers..."
-ssh -t "$host" "cd $remote_dir && docker compose -f docker-compose.prod.yml up -d --remove-orphans --wait --wait-timeout 120"
+ssh -t "$host" "cd $remote_dir && docker compose up -d --remove-orphans --wait --wait-timeout 120"
 
 echo "==> Removing unused images..."
 ssh "$host" docker image prune -f
