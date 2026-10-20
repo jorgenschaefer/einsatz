@@ -42,5 +42,5 @@ Im Code:
 - Die Tests richten mit `uploadsDirPerTest` ein eigenes Verzeichnis ein.
 - Die vorhandenen Dateien müssen einmal in die Datenbank übernommen werden.
 
-Offen: wie groß `einsatz_uploads` heute ist (`docker system df -v` auf dem
-Host); das bestimmt nur, wie lange ein Dump läuft.
+`einsatz_uploads` ist am 2026-10-21 rund 24 kB groß; auf die Dauer eines
+Dumps wirkt sich der Umzug also nicht spürbar aus.
