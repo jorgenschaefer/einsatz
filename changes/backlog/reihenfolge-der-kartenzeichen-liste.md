@@ -1,6 +1,6 @@
 ---
 effort: M
-utility: M
+value: M
 ---
 
 # Reihenfolge der Kartenzeichen-Liste

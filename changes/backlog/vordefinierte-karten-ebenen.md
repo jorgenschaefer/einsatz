@@ -1,6 +1,6 @@
 ---
 effort: L
-utility: L
+value: L
 ---
 
 # Vordefinierte Karten-Ebenen

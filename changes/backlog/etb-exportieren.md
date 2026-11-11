@@ -1,6 +1,6 @@
 ---
 effort: S
-utility: L
+value: L
 ---
 
 # ETB exportieren oder drucken

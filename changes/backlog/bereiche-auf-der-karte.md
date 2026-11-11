@@ -1,6 +1,6 @@
 ---
 effort: XL
-utility: L
+value: L
 ---
 
 # Bereiche auf der Karte

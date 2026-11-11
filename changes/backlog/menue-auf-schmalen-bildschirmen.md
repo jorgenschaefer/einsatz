@@ -1,6 +1,6 @@
 ---
 effort: XS
-utility: S
+value: S
 ---
 
 # ⋮-Menü auf schmalen Bildschirmen
